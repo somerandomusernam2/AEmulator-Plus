@@ -13,6 +13,8 @@ modified by somerandomusernam2 and contributors to AEmulator Sunset. Original co
 license notices, credits and Git history are retained; no upstream authorship
 is claimed for Plus's additions.
 
+Modified as of 4 October 2026.
+
 Source code for AEmulator Plus releases, including the exact tagged revision
 used to build each APK, is published at:
 
