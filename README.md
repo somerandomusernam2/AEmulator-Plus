@@ -2,7 +2,7 @@
 
 <img src="docs/assets/logo.png" width="128" alt="AEmulator Sunset logo"/>
 
-# AEmulator Sunset
+# AEmulator Plus
 
 **Run classic Android firmware — HTC Sense, TouchWiz, MIUI, AOSP — on a modern phone. No root, no PC.**
 
@@ -50,23 +50,24 @@ details and signing. **Inherited engine prebuilts do not yet have verified
 complete source/build provenance**; see [the audit](docs/license-audit.md).
 
 ```bash
-git clone https://github.com/drel4/AEmulator-Sunset.git
+git clone https://github.com/somerandomusernam2/AEmulator-Plus.git
 cd AEmulator-Sunset
 ./gradlew copyReleaseApks
 ```
 
 ## 🙏 Credits
 
-AEmulator Sunset grew out of the HTC Desire HD and HTC One M7 emulators by [the original author](https://t.me/istratiit_ech) — their engine made this project possible.
+AEmulator Plus grew out of the HTC Desire HD and HTC One M7 emulators by [the original author](https://t.me/istratiit_ech) — their engine made this project possible.
 
-This is a modified fork of [uxazu/AEmulator](https://github.com/uxazu/AEmulator). Fork changes are documented in [NOTICE](NOTICE.md).
+This is a modified fork of [drel4/AEmulator-Sunset](https://github.com/drel4/AEmulator-Sunset), which is a modified fork of [uxazu/AEmulator](https://github.com/uxazu/AEmulator).
 
 ## 🔗 Links
 
-- 🧬 Fork: [drel4/AEmulator-Sunset](https://github.com/drel4/AEmulator-Sunset)
-- ↑ Upstream: [uxazu/AEmulator](https://github.com/uxazu/AEmulator)
-- 👤 Author: [drel4](https://github.com/drel4)
-- 🧬 Original author: [t.me/istratiit_ech](https://t.me/istratiit_ech)
+- My fork: [somerandomusernam2/AEmulator-Plus](https://github.com/somerandomusernam2/AEmulator-Plus)
+- Upstream: [drel4/AEmulator-Sunset](https://github.com/drel4/AEmulator-Sunset)
+- Original: [uxazu/AEmulator](https://github.com/uxazu/AEmulator)
+- Author: [somerandomusername2](https://github.com/somerandomusernam2)
+- Original author: [t.me/istratiit_ech](https://t.me/istratiit_ech)
 
 ## 📄 License
 
