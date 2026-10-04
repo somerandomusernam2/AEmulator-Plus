@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!-- создано app/l10n/gen.py, правьте langs/*.py -->
 <resources>
-    <string name="app_name" translatable="false">AEmulator Sunset</string>
+    <string name="app_name" translatable="false">AEmulator Plus</string>
     <string name="channel_vm">Running system</string>
     <string name="vm_running">%1$s is running</string>
     <string name="vm_running_hint">Tap to return to the system screen</string>
@@ -212,7 +212,7 @@
     <string name="catalog_warnings">Invalid or incomplete catalog data on lines: %1$s</string>
     <string name="browser_unavailable">No browser is available to open this link.</string>
     <string name="experimental_activated">Experimental features activated!</string>
-    <string name="experimental_locked">Experimental camera settings are locked. Tap the AEmulator Sunset title 42 times to unlock them.</string>
+    <string name="experimental_locked">Experimental camera settings are locked. Tap the AEmulator Plus title 42 times to unlock them.</string>
     <string name="m_minimize">Minimize</string>
     <string name="open_vm">Open</string>
     <string name="vm_restarting">Restarting virtual machine…</string>

@@ -1,3 +1,4 @@
+/* Modified for AEmulator Plus, 2026-10-04: GitHub link now points to the Plus repository. GPL-3.0; see NOTICE.md. */
 package app.aemu.ui
 
 import androidx.compose.foundation.layout.Column
@@ -279,7 +280,7 @@ fun UpdateDialog(
                     }
                 },
                 dismissButton = {
-                    TextButton(onClick = { onOpenUrl("https://github.com/drel4/AEmulator-Sunset") }) {
+                    TextButton(onClick = { onOpenUrl(Links.GITHUB) }) {
                         Text(stringResource(R.string.update_open_github))
                     }
                 }

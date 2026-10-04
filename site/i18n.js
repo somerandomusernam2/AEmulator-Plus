@@ -138,7 +138,7 @@ window.AEMU_I18N = {
    "fw_legal": "Firmware files belong to their manufacturers. Links point to the manufacturers’ servers or public archives; AEmulator does not ship any firmware.",
    "start_title": "Quick start",
    "steps": [
-    "Download the APK from <a href=\"https://github.com/drel4/AEmulator-Sunset/releases\" target=\"_blank\" rel=\"noopener\">Releases</a> and install it.",
+    "Download the APK from <a href=\"https://github.com/somerandomusernam2/AEmulator-Plus/releases\" target=\"_blank\" rel=\"noopener\">Releases</a> and install it.",
     "Open AEmulator → <b>Add firmware</b> and pick the file. Import takes a few minutes.",
     "Press <b>Start</b>. The first boot is slower: the system optimises its apps.",
     "Use the ⋮ menu for volume, power button and logs; the ⚙️ button opens app settings and language."
@@ -204,7 +204,7 @@ window.AEMU_I18N = {
    "fw_legal": "Файлы прошивок принадлежат производителям. Ссылки ведут на серверы производителей или публичные архивы; AEmulator не содержит прошивок.",
    "start_title": "Быстрый старт",
    "steps": [
-    "Скачайте APK из <a href=\"https://github.com/drel4/AEmulator-Sunset/releases\" target=\"_blank\" rel=\"noopener\">Releases</a> и установите.",
+    "Скачайте APK из <a href=\"https://github.com/somerandomusernam2/AEmulator-Plus/releases\" target=\"_blank\" rel=\"noopener\">Releases</a> и установите.",
     "Откройте AEmulator → <b>Добавить прошивку</b> и выберите файл. Импорт занимает несколько минут.",
     "Нажмите <b>Запустить</b>. Первая загрузка дольше: система оптимизирует приложения.",
     "Меню ⋮ — громкость, кнопка питания и журнал; кнопка ⚙️ — настройки приложения и язык."
@@ -270,7 +270,7 @@ window.AEMU_I18N = {
    "fw_legal": "Файли прошивок належать виробникам. Посилання ведуть на сервери виробників або публічні архіви; AEmulator не містить прошивок.",
    "start_title": "Швидкий старт",
    "steps": [
-    "Завантажте APK з <a href=\"https://github.com/drel4/AEmulator-Sunset/releases\" target=\"_blank\" rel=\"noopener\">Releases</a> і встановіть.",
+    "Завантажте APK з <a href=\"https://github.com/somerandomusernam2/AEmulator-Plus/releases\" target=\"_blank\" rel=\"noopener\">Releases</a> і встановіть.",
     "Відкрийте AEmulator → <b>Додати прошивку</b> й виберіть файл. Імпорт триває кілька хвилин.",
     "Натисніть <b>Запустити</b>. Перше завантаження довше: система оптимізує застосунки.",
     "Меню ⋮ — гучність, кнопка живлення й журнал; кнопка ⚙️ — налаштування й мова."
@@ -336,7 +336,7 @@ window.AEMU_I18N = {
    "fw_legal": "Firmware-Dateien gehören ihren Herstellern. Links führen zu Herstellerservern oder öffentlichen Archiven; AEmulator enthält keine Firmware.",
    "start_title": "Schnellstart",
    "steps": [
-    "APK unter <a href=\"https://github.com/drel4/AEmulator-Sunset/releases\" target=\"_blank\" rel=\"noopener\">Releases</a> herunterladen und installieren.",
+    "APK unter <a href=\"https://github.com/somerandomusernam2/AEmulator-Plus/releases\" target=\"_blank\" rel=\"noopener\">Releases</a> herunterladen und installieren.",
     "AEmulator öffnen → <b>Firmware hinzufügen</b> und die Datei wählen. Der Import dauert einige Minuten.",
     "<b>Starten</b> drücken. Der erste Start dauert länger: Das System optimiert Apps.",
     "Menü ⋮ für Lautstärke, Ein/Aus und Protokoll; ⚙️ öffnet Einstellungen und Sprache."
@@ -402,7 +402,7 @@ window.AEMU_I18N = {
    "fw_legal": "Les ROM appartiennent à leurs constructeurs. Les liens mènent aux serveurs des constructeurs ou à des archives publiques ; AEmulator ne contient aucune ROM.",
    "start_title": "Démarrage rapide",
    "steps": [
-    "Téléchargez l’APK depuis <a href=\"https://github.com/drel4/AEmulator-Sunset/releases\" target=\"_blank\" rel=\"noopener\">Releases</a> et installez-le.",
+    "Téléchargez l’APK depuis <a href=\"https://github.com/somerandomusernam2/AEmulator-Plus/releases\" target=\"_blank\" rel=\"noopener\">Releases</a> et installez-le.",
     "Ouvrez AEmulator → <b>Ajouter une ROM</b> et choisissez le fichier. L’import prend quelques minutes.",
     "Appuyez sur <b>Démarrer</b>. Le premier démarrage est plus long : le système optimise les applis.",
     "Menu ⋮ pour le volume, le bouton marche et le journal ; ⚙️ ouvre les paramètres et la langue."
@@ -468,7 +468,7 @@ window.AEMU_I18N = {
    "fw_legal": "Los archivos de firmware pertenecen a sus fabricantes. Los enlaces llevan a servidores de fabricantes o archivos públicos; AEmulator no incluye firmware.",
    "start_title": "Inicio rápido",
    "steps": [
-    "Descarga el APK desde <a href=\"https://github.com/drel4/AEmulator-Sunset/releases\" target=\"_blank\" rel=\"noopener\">Releases</a> e instálalo.",
+    "Descarga el APK desde <a href=\"https://github.com/somerandomusernam2/AEmulator-Plus/releases\" target=\"_blank\" rel=\"noopener\">Releases</a> e instálalo.",
     "Abre AEmulator → <b>Añadir firmware</b> y elige el archivo. La importación tarda unos minutos.",
     "Pulsa <b>Iniciar</b>. El primer arranque es más lento: el sistema optimiza las apps.",
     "Menú ⋮ para volumen, botón de encendido y registro; ⚙️ abre ajustes e idioma."
@@ -534,7 +534,7 @@ window.AEMU_I18N = {
    "fw_legal": "Os firmwares pertencem às fabricantes. Os links levam aos servidores delas ou a arquivos públicos; o AEmulator não inclui firmwares.",
    "start_title": "Início rápido",
    "steps": [
-    "Baixe o APK em <a href=\"https://github.com/drel4/AEmulator-Sunset/releases\" target=\"_blank\" rel=\"noopener\">Releases</a> e instale.",
+    "Baixe o APK em <a href=\"https://github.com/somerandomusernam2/AEmulator-Plus/releases\" target=\"_blank\" rel=\"noopener\">Releases</a> e instale.",
     "Abra o AEmulator → <b>Adicionar firmware</b> e escolha o arquivo. A importação leva alguns minutos.",
     "Toque em <b>Iniciar</b>. A primeira inicialização é mais lenta: o sistema otimiza os apps.",
     "Menu ⋮ para volume, botão liga/desliga e registro; ⚙️ abre configurações e idioma."
@@ -600,7 +600,7 @@ window.AEMU_I18N = {
    "fw_legal": "I firmware appartengono ai produttori. I link portano ai server dei produttori o ad archivi pubblici; AEmulator non include firmware.",
    "start_title": "Avvio rapido",
    "steps": [
-    "Scarica l’APK da <a href=\"https://github.com/drel4/AEmulator-Sunset/releases\" target=\"_blank\" rel=\"noopener\">Releases</a> e installalo.",
+    "Scarica l’APK da <a href=\"https://github.com/somerandomusernam2/AEmulator-Plus/releases\" target=\"_blank\" rel=\"noopener\">Releases</a> e installalo.",
     "Apri AEmulator → <b>Aggiungi firmware</b> e scegli il file. L’importazione richiede qualche minuto.",
     "Premi <b>Avvia</b>. Il primo avvio è più lento: il sistema ottimizza le app.",
     "Menu ⋮ per volume, tasto di accensione e registro; ⚙️ apre impostazioni e lingua."
@@ -666,7 +666,7 @@ window.AEMU_I18N = {
    "fw_legal": "Pliki firmware należą do producentów. Linki prowadzą do serwerów producentów lub publicznych archiwów; AEmulator nie zawiera firmware.",
    "start_title": "Szybki start",
    "steps": [
-    "Pobierz APK z <a href=\"https://github.com/drel4/AEmulator-Sunset/releases\" target=\"_blank\" rel=\"noopener\">Releases</a> i zainstaluj.",
+    "Pobierz APK z <a href=\"https://github.com/somerandomusernam2/AEmulator-Plus/releases\" target=\"_blank\" rel=\"noopener\">Releases</a> i zainstaluj.",
     "Otwórz AEmulator → <b>Dodaj firmware</b> i wybierz plik. Import trwa kilka minut.",
     "Naciśnij <b>Uruchom</b>. Pierwszy start trwa dłużej: system optymalizuje aplikacje.",
     "Menu ⋮ — głośność, przycisk zasilania i dziennik; ⚙️ — ustawienia i język."
@@ -732,7 +732,7 @@ window.AEMU_I18N = {
    "fw_legal": "Yazılım dosyaları üreticilerine aittir. Bağlantılar üretici sunucularına veya herkese açık arşivlere gider; AEmulator hiçbir yazılım içermez.",
    "start_title": "Hızlı başlangıç",
    "steps": [
-    "APK’yı <a href=\"https://github.com/drel4/AEmulator-Sunset/releases\" target=\"_blank\" rel=\"noopener\">Releases</a> sayfasından indirip kurun.",
+    "APK’yı <a href=\"https://github.com/somerandomusernam2/AEmulator-Plus/releases\" target=\"_blank\" rel=\"noopener\">Releases</a> sayfasından indirip kurun.",
     "AEmulator’ı açın → <b>Yazılım ekle</b> ve dosyayı seçin. İçe aktarma birkaç dakika sürer.",
     "<b>Başlat</b>’a basın. İlk açılış daha uzundur: sistem uygulamaları optimize eder.",
     "⋮ menüsü: ses, güç düğmesi ve günlük; ⚙️ ayarları ve dili açar."
@@ -798,7 +798,7 @@ window.AEMU_I18N = {
    "fw_legal": "ملفات البرامج الثابتة ملك لشركاتها. الروابط تشير إلى خوادم الشركات أو أرشيفات عامة؛ لا يتضمن AEmulator أي برامج ثابتة.",
    "start_title": "البدء السريع",
    "steps": [
-    "نزّل ملف APK من <a href=\"https://github.com/drel4/AEmulator-Sunset/releases\" target=\"_blank\" rel=\"noopener\">Releases</a> وثبّته.",
+    "نزّل ملف APK من <a href=\"https://github.com/somerandomusernam2/AEmulator-Plus/releases\" target=\"_blank\" rel=\"noopener\">Releases</a> وثبّته.",
     "افتح AEmulator ← <b>إضافة برنامج ثابت</b> واختر الملف. يستغرق الاستيراد بضع دقائق.",
     "اضغط <b>تشغيل</b>. الإقلاع الأول أبطأ: النظام يحسّن التطبيقات.",
     "القائمة ⋮ للصوت وزر التشغيل والسجل؛ وزر ⚙️ للإعدادات واللغة."
@@ -864,7 +864,7 @@ window.AEMU_I18N = {
    "fw_legal": "فایل‌های فرم‌ویر متعلق به سازندگان‌اند. پیوندها به سرورهای سازندگان یا بایگانی‌های عمومی می‌روند؛ AEmulator هیچ فرم‌ویری ندارد.",
    "start_title": "شروع سریع",
    "steps": [
-    "فایل APK را از <a href=\"https://github.com/drel4/AEmulator-Sunset/releases\" target=\"_blank\" rel=\"noopener\">Releases</a> دانلود و نصب کنید.",
+    "فایل APK را از <a href=\"https://github.com/somerandomusernam2/AEmulator-Plus/releases\" target=\"_blank\" rel=\"noopener\">Releases</a> دانلود و نصب کنید.",
     "AEmulator را باز کنید ← <b>افزودن فرم‌ویر</b> و فایل را انتخاب کنید. درون‌ریزی چند دقیقه طول می‌کشد.",
     "<b>اجرا</b> را بزنید. بوت اول کندتر است: سیستم برنامه‌ها را بهینه می‌کند.",
     "منوی ⋮ برای صدا، دکمهٔ پاور و گزارش؛ دکمهٔ ⚙️ برای تنظیمات و زبان."
@@ -930,7 +930,7 @@ window.AEMU_I18N = {
    "fw_legal": "फ़र्मवेयर फ़ाइलें उनके निर्माताओं की हैं। लिंक निर्माताओं के सर्वर या सार्वजनिक आर्काइव पर जाते हैं; AEmulator में कोई फ़र्मवेयर नहीं है।",
    "start_title": "जल्दी शुरुआत",
    "steps": [
-    "<a href=\"https://github.com/drel4/AEmulator-Sunset/releases\" target=\"_blank\" rel=\"noopener\">Releases</a> से APK डाउनलोड करके इंस्टॉल करें।",
+    "<a href=\"https://github.com/somerandomusernam2/AEmulator-Plus/releases\" target=\"_blank\" rel=\"noopener\">Releases</a> से APK डाउनलोड करके इंस्टॉल करें।",
     "AEmulator खोलें → <b>फ़र्मवेयर जोड़ें</b> और फ़ाइल चुनें। आयात में कुछ मिनट लगते हैं।",
     "<b>चलाएँ</b> दबाएँ। पहला बूट धीमा होता है: सिस्टम ऐप्स ऑप्टिमाइज़ करता है।",
     "⋮ मेनू में वॉल्यूम, पावर बटन और लॉग; ⚙️ से सेटिंग्स और भाषा।"
@@ -996,7 +996,7 @@ window.AEMU_I18N = {
    "fw_legal": "File firmware milik pabrikannya. Tautan mengarah ke server pabrikan atau arsip publik; AEmulator tidak menyertakan firmware.",
    "start_title": "Mulai cepat",
    "steps": [
-    "Unduh APK dari <a href=\"https://github.com/drel4/AEmulator-Sunset/releases\" target=\"_blank\" rel=\"noopener\">Releases</a> lalu pasang.",
+    "Unduh APK dari <a href=\"https://github.com/somerandomusernam2/AEmulator-Plus/releases\" target=\"_blank\" rel=\"noopener\">Releases</a> lalu pasang.",
     "Buka AEmulator → <b>Tambah firmware</b> lalu pilih file. Impor butuh beberapa menit.",
     "Tekan <b>Mulai</b>. Boot pertama lebih lambat: sistem mengoptimalkan aplikasi.",
     "Menu ⋮ untuk volume, tombol daya, dan log; ⚙️ membuka setelan dan bahasa."
@@ -1062,7 +1062,7 @@ window.AEMU_I18N = {
    "fw_legal": "Tệp firmware thuộc về nhà sản xuất. Liên kết dẫn tới máy chủ của hãng hoặc kho lưu trữ công khai; AEmulator không kèm firmware nào.",
    "start_title": "Bắt đầu nhanh",
    "steps": [
-    "Tải APK từ <a href=\"https://github.com/drel4/AEmulator-Sunset/releases\" target=\"_blank\" rel=\"noopener\">Releases</a> và cài đặt.",
+    "Tải APK từ <a href=\"https://github.com/somerandomusernam2/AEmulator-Plus/releases\" target=\"_blank\" rel=\"noopener\">Releases</a> và cài đặt.",
     "Mở AEmulator → <b>Thêm firmware</b> và chọn tệp. Việc nhập mất vài phút.",
     "Nhấn <b>Chạy</b>. Lần khởi động đầu chậm hơn: hệ thống tối ưu ứng dụng.",
     "Menu ⋮ để chỉnh âm lượng, nút nguồn và nhật ký; ⚙️ mở cài đặt và ngôn ngữ."
@@ -1128,7 +1128,7 @@ window.AEMU_I18N = {
    "fw_legal": "固件归各厂商所有。链接指向厂商服务器或公共存档；AEmulator 不附带任何固件。",
    "start_title": "快速开始",
    "steps": [
-    "从 <a href=\"https://github.com/drel4/AEmulator-Sunset/releases\" target=\"_blank\" rel=\"noopener\">Releases</a> 下载并安装 APK。",
+    "从 <a href=\"https://github.com/somerandomusernam2/AEmulator-Plus/releases\" target=\"_blank\" rel=\"noopener\">Releases</a> 下载并安装 APK。",
     "打开 AEmulator →<b>添加固件</b>并选择文件。导入需要几分钟。",
     "点击<b>启动</b>。首次启动较慢：系统正在优化应用。",
     "⋮ 菜单可调音量、电源键和日志；⚙️ 打开设置与语言。"
@@ -1194,7 +1194,7 @@ window.AEMU_I18N = {
    "fw_legal": "ファームウェアは各メーカーに帰属します。リンク先はメーカーのサーバーまたは公開アーカイブで、AEmulator にファームウェアは含まれません。",
    "start_title": "クイックスタート",
    "steps": [
-    "<a href=\"https://github.com/drel4/AEmulator-Sunset/releases\" target=\"_blank\" rel=\"noopener\">Releases</a> から APK をダウンロードしてインストール。",
+    "<a href=\"https://github.com/somerandomusernam2/AEmulator-Plus/releases\" target=\"_blank\" rel=\"noopener\">Releases</a> から APK をダウンロードしてインストール。",
     "AEmulator を開き →<b>ファームウェアを追加</b>でファイルを選択。インポートには数分かかります。",
     "<b>起動</b>をタップ。初回はアプリ最適化のため時間がかかります。",
     "⋮ メニューで音量・電源ボタン・ログ、⚙️ で設定と言語。"
@@ -1260,7 +1260,7 @@ window.AEMU_I18N = {
    "fw_legal": "펌웨어 파일은 각 제조사의 것입니다. 링크는 제조사 서버나 공개 아카이브로 연결되며 AEmulator에는 펌웨어가 포함되지 않습니다.",
    "start_title": "빠른 시작",
    "steps": [
-    "<a href=\"https://github.com/drel4/AEmulator-Sunset/releases\" target=\"_blank\" rel=\"noopener\">Releases</a>에서 APK를 받아 설치합니다.",
+    "<a href=\"https://github.com/somerandomusernam2/AEmulator-Plus/releases\" target=\"_blank\" rel=\"noopener\">Releases</a>에서 APK를 받아 설치합니다.",
     "AEmulator → <b>펌웨어 추가</b>에서 파일을 고릅니다. 가져오기는 몇 분 걸립니다.",
     "<b>시작</b>을 누릅니다. 첫 부팅은 앱 최적화로 더 오래 걸립니다.",
     "⋮ 메뉴에서 볼륨·전원 버튼·로그, ⚙️에서 설정과 언어."

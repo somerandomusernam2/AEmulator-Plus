@@ -1,7 +1,8 @@
 # Source and licensing audit — 2026-10-02
 
-Scope: the Sunset checkout through sunset.28, its build scripts and release
-packaging. This is a technical inventory, not a legal compliance certification.
+Scope: the AEmulator Plus checkout (derived from Sunset through sunset.30), its
+build scripts and release packaging. Findings inherited from Sunset apply to Plus.
+This is a technical inventory, not a legal compliance certification.
 
 ## Checked and improved
 
@@ -10,7 +11,8 @@ packaging. This is a technical inventory, not a legal compliance certification.
 - New held-key/live-status sources and modified navbar/activity files carry dated notices.
 - APK builds package `LICENSE`, `NOTICE.md`, this audit and build instructions
   under `assets/legal/`; Settings exposes the license and modification notices.
-- Exact application revisions are identified by release tags. Release notes
+- Exact application revisions are identified by release tags in the Plus repository
+  (<https://github.com/somerandomusernam2/AEmulator-Plus>). Release notes
   provide adjacent source links and disclose the limitations below.
 - Sources/build scripts exist for Sunset's preload/trackball/vibration changes,
   DIRECTTRACK audio, host camera/sensor bridges and setup/rotation/Google-app helpers. No vendor ROM APKs
@@ -55,7 +57,7 @@ has been sent as part of this audit. Existing release tags were not rewritten.
 
 ## License scope
 
-Sunset's GPL notice does not assert ownership of upstream work, independently
+The Plus and Sunset GPL notice does not assert ownership of upstream work, independently
 licensed libraries, Android firmware, trademarks or vendor assets. Preserve
 their original notices and verify their distribution terms individually.
 

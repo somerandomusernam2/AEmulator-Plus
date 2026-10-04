@@ -213,7 +213,7 @@
     <string name="catalog_warnings">Некорректные или неполные данные каталога в строках: %1$s</string>
     <string name="browser_unavailable">Нет браузера для открытия этой ссылки.</string>
     <string name="experimental_activated">Экспериментальные функции активированы!</string>
-    <string name="experimental_locked">Экспериментальные настройки камеры скрыты. Нажмите на заголовок AEmulator Sunset 42 раза, чтобы открыть их.</string>
+    <string name="experimental_locked">Экспериментальные настройки камеры скрыты. Нажмите на заголовок AEmulator Plus 42 раза, чтобы открыть их.</string>
     <string name="m_minimize">Свернуть</string>
     <string name="open_vm">Открыть</string>
     <string name="vm_restarting">Перезапуск виртуальной машины…</string>

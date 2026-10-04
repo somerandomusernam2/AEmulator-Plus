@@ -85,10 +85,12 @@ import app.aemu.AppPrefs
 import app.aemu.BuildConfig
 import app.aemu.R
 
-/** Modified for AEmulator Sunset on 2026-09-30: fork links and attribution. */
+/** Modified for AEmulator Sunset on 2026-09-30: fork links and attribution.
+ * Modified for AEmulator Plus on 2026-10-04: Plus links; Sunset and original credited as upstream. */
 object Links {
-    const val GITHUB = "https://github.com/drel4/AEmulator-Sunset"
-    const val AUTHOR = "https://github.com/drel4"
+    const val GITHUB = "https://github.com/somerandomusernam2/AEmulator-Plus"
+    const val AUTHOR = "https://github.com/somerandomusernam2"
+    const val SUNSET = "https://github.com/drel4/AEmulator-Sunset"
     const val UPSTREAM = "https://github.com/uxazu/AEmulator"
     const val ORIGINAL = "https://t.me/istratiit_ech"
 }
@@ -281,10 +283,11 @@ private fun AppSettings(onBack: () -> Unit, onRestyle: () -> Unit) {
 
             item {
                 Section(stringResource(R.string.as_links)) {
-                    Row_(Icons.Rounded.Person, stringResource(R.string.as_author), "drel4") { open(Links.AUTHOR) }
+                    Row_(Icons.Rounded.Person, stringResource(R.string.as_author), "somerandomusername2") { open(Links.AUTHOR) }
                     Row_(Icons.Rounded.History, stringResource(R.string.as_orig), "t.me/istratiit_ech") { open(Links.ORIGINAL) }
-                    Row_(Icons.Rounded.Code, stringResource(R.string.as_github), "github.com/drel4/AEmulator-Sunset") { open(Links.GITHUB) }
-                    Row_(Icons.Rounded.History, "Upstream AEmulator", "github.com/uxazu/AEmulator") { open(Links.UPSTREAM) }
+                    Row_(Icons.Rounded.Code, stringResource(R.string.as_github), "github.com/somerandomusernam2/AEmulator-Plus") { open(Links.GITHUB) }
+                    Row_(Icons.Rounded.History, "Upstream: AEmulator Sunset", "github.com/drel4/AEmulator-Sunset") { open(Links.SUNSET) }
+                    Row_(Icons.Rounded.History, "Original: AEmulator", "github.com/uxazu/AEmulator") { open(Links.UPSTREAM) }
                     Row_(Icons.Rounded.Code, stringResource(R.string.as_license_notices), "GPL-3.0") { legalDialog = true }
                 }
             }

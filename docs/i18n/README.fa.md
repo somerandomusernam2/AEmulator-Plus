@@ -2,13 +2,11 @@
 
 <div align="center">
 
-<img src="../../docs/assets/logo.png" width="128" alt="AEmulator Sunset logo"/>
+<img src="../../docs/assets/logo.png" width="128" alt="AEmulator Plus logo"/>
 
-# AEmulator Sunset
+# AEmulator Plus
 
 **فرم‌ویرهای کلاسیک اندروید — HTC Sense، TouchWiz، MIUI، AOSP — روی گوشی مدرن. بدون روت و بدون رایانه.**
-
-[![Version](https://img.shields.io/badge/version-0.0.0.3--sunset.2-F4511E?style=for-the-badge)](https://github.com/drel4/AEmulator-Sunset/releases) [![License](https://img.shields.io/badge/license-GPL--3.0-F4511E?style=for-the-badge)](../../LICENSE) [![Android](https://img.shields.io/badge/Android-8.0%2B-3DDC84?style=for-the-badge&logo=android&logoColor=white)](https://github.com/drel4/AEmulator-Sunset) [![Fork](https://img.shields.io/badge/fork-drel4%2FAEmulator--Sunset-F4511E?style=for-the-badge&logo=github)](https://github.com/drel4/AEmulator-Sunset)
 
 [🇬🇧 English](../../README.md) · [🇷🇺 Русский](README.ru.md) · [🇺🇦 Українська](README.uk.md) · [🇩🇪 Deutsch](README.de.md) · [🇫🇷 Français](README.fr.md) · [🇪🇸 Español](README.es.md) · [🇧🇷 Português](README.pt-BR.md) · [🇮🇹 Italiano](README.it.md) · [🇵🇱 Polski](README.pl.md) · [🇹🇷 Türkçe](README.tr.md) · [🇸🇦 العربية](README.ar.md) · **🇮🇷 فارسی** · [🇮🇳 हिन्दी](README.hi.md) · [🇮🇩 Indonesia](README.id.md) · [🇻🇳 Tiếng Việt](README.vi.md) · [🇨🇳 简体中文](README.zh-CN.md) · [🇯🇵 日本語](README.ja.md) · [🇰🇷 한국어](README.ko.md)
 
@@ -16,7 +14,7 @@
 
 ---
 
-AEmulator Sunset یک سیستم واقعی اندروید 2.3 تا 7.x را مستقیم از فایل فرم‌ویر بوت می‌کند: ZIP ریکاوری، آرشیو Odin یا ایمیج کارخانهٔ گوگل. کد قدیمی ARM با QEMU اصلاح‌شده ترجمه می‌شود، binder هسته شبیه‌سازی می‌شود، گرافیک با GPU گوشی و صدا با سامانهٔ صوتی اندروید پخش می‌شود — همه درون یک برنامهٔ معمولی.
+AEmulator Plus یک سیستم واقعی اندروید 2.3 تا 7.x را مستقیم از فایل فرم‌ویر بوت می‌کند: ZIP ریکاوری، آرشیو Odin یا ایمیج کارخانهٔ گوگل. کد قدیمی ARM با QEMU اصلاح‌شده ترجمه می‌شود، binder هسته شبیه‌سازی می‌شود، گرافیک با GPU گوشی و صدا با سامانهٔ صوتی اندروید پخش می‌شود — همه درون یک برنامهٔ معمولی.
 
 ## ✨ ویژگی‌ها
 
@@ -29,8 +27,8 @@ AEmulator Sunset یک سیستم واقعی اندروید 2.3 تا 7.x را م�
 
 ## 🚀 شروع سریع
 
-1. فایل APK را از [Releases](https://github.com/drel4/AEmulator-Sunset/releases) دانلود و نصب کنید.
-2. AEmulator Sunset را باز کنید ← **افزودن فرم‌ویر** و فایل را انتخاب کنید. درون‌ریزی چند دقیقه طول می‌کشد.
+1. فایل APK را از [Releases](https://github.com/somerandomusernam2/AEmulator-Plus/releases) دانلود و نصب کنید.
+2. AEmulator Plus را باز کنید ← **افزودن فرم‌ویر** و فایل را انتخاب کنید. درون‌ریزی چند دقیقه طول می‌کشد.
 3. **اجرا** را بزنید. بوت اول کندتر است: سیستم برنامه‌ها را بهینه می‌کند.
 4. منوی ⋮ برای صدا، دکمهٔ پاور و گزارش؛ دکمهٔ ⚙️ برای تنظیمات و زبان.
 
@@ -46,29 +44,32 @@ AEmulator Sunset یک سیستم واقعی اندروید 2.3 تا 7.x را م�
 
 ## 🛠️ ساخت از کد منبع
 
-به JDK 17، Android SDK 36 و NDK r28 نیاز دارید. کتابخانه‌های مهمان با `native/*/build.sh` ساخته می‌شوند.
+ساخت انتشار آزموده‌شدهٔ برنامه از JDK 21 و Android SDK 36 استفاده می‌کند. [راهنمای ساخت و کد منبع](../build-source.md) را ببینید که جزئیات زنجیرهٔ ابزار بومی و امضا را دارد. **برای باینری‌های آمادهٔ موتورِ به‌ارث‌رسیده هنوز منشأ کامل کد منبع و ساخت راستی‌آزمایی نشده است**؛ [ممیزی](../license-audit.md) را ببینید.
 
 ```bash
-git clone https://github.com/drel4/AEmulator-Sunset.git
-cd AEmulator-Sunset
+git clone https://github.com/somerandomusernam2/AEmulator-Plus.git
+cd AEmulator-Plus
 ./gradlew copyReleaseApks
 ```
 
 ## 🙏 سپاس
 
-AEmulator Sunset از شبیه‌سازهای HTC Desire HD و HTC One M7 ‏[سازندهٔ نخست](https://t.me/istratiit_ech) رشد کرد — بدون موتور او این پروژه وجود نداشت.
+AEmulator Plus از شبیه‌سازهای HTC Desire HD و HTC One M7 ‏[سازندهٔ نخست](https://t.me/istratiit_ech) رشد کرد — بدون موتور او این پروژه وجود نداشت.
 
-This is a modified fork of [uxazu/AEmulator](https://github.com/uxazu/AEmulator). Fork changes are documented in [NOTICE](../../NOTICE.md).
+این یک فورک تغییریافته از [drel4/AEmulator-Sunset](https://github.com/drel4/AEmulator-Sunset) است که خود فورک تغییریافته‌ای از [uxazu/AEmulator](https://github.com/uxazu/AEmulator) است.
 
 ## 🔗 پیوندها
 
-- 🧬 Fork: [drel4/AEmulator-Sunset](https://github.com/drel4/AEmulator-Sunset)
-- ↑ Upstream: [uxazu/AEmulator](https://github.com/uxazu/AEmulator)
-- 👤 سازنده: [drel4](https://github.com/drel4)
-- 🧬 سازندهٔ نخست: [t.me/istratiit_ech](https://t.me/istratiit_ech)
+- فورک من: [somerandomusernam2/AEmulator-Plus](https://github.com/somerandomusernam2/AEmulator-Plus)
+- مخزن بالادستی: [drel4/AEmulator-Sunset](https://github.com/drel4/AEmulator-Sunset)
+- اصلی: [uxazu/AEmulator](https://github.com/uxazu/AEmulator)
+- سازنده: [somerandomusername2](https://github.com/somerandomusernam2)
+- سازندهٔ نخست: [t.me/istratiit_ech](https://t.me/istratiit_ech)
 
 ## 📄 مجوز
 
 GPL-3.0. اندروید، نشان‌های تجاری و فرم‌ویرها متعلق به صاحبانشان‌اند.
+
+[اطلاعیه‌های تاریخ‌دار تغییرات](../../NOTICE.md) و [ممیزی ناتمام کد منبع و مجوزها](../license-audit.md) را ببینید. برچسب GPL گواه آن نیست که هر باینری همراه، کد منبع کامل و منطبق دارد.
 
 </div>

@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="docs/assets/logo.png" width="128" alt="AEmulator Sunset logo"/>
+<img src="docs/assets/logo.png" width="128" alt="AEmulator Plus logo"/>
 
 # AEmulator Plus
 
@@ -25,8 +25,8 @@ AEmulator Plus boots a real Android 2.3–7.x system image straight from a firmw
 
 ## 🚀 Quick start
 
-1. Download the APK from [Releases](https://github.com/drel4/AEmulator-Sunset/releases) and install it.
-2. Open AEmulator Sunset → **Add firmware** and pick the file. Import takes a few minutes.
+1. Download the APK from [Releases](https://github.com/somerandomusernam2/AEmulator-Plus/releases) and install it.
+2. Open AEmulator Plus → **Add firmware** and pick the file. Import takes a few minutes.
 3. Press **Start**. The first boot is slower: the system optimises its apps.
 4. Use the ⋮ menu for volume, power button and logs; the ⚙️ button opens app settings and language.
 
@@ -42,14 +42,11 @@ Each guest process runs under a patched user-mode QEMU. A binder daemon replaces
 
 ## 🛠️ Build from source
 
-The tested app release build uses JDK 21 and Android SDK 36. See
-[build/source instructions](docs/build-source.md), including native toolchain
-details and signing. **Inherited engine prebuilts do not yet have verified
-complete source/build provenance**; see [the audit](docs/license-audit.md).
+The tested app release build uses JDK 21 and Android SDK 36. See [build/source instructions](docs/build-source.md), including native toolchain details and signing. **Inherited engine prebuilts do not yet have verified complete source/build provenance**; see [the audit](docs/license-audit.md).
 
 ```bash
 git clone https://github.com/somerandomusernam2/AEmulator-Plus.git
-cd AEmulator-Sunset
+cd AEmulator-Plus
 ./gradlew copyReleaseApks
 ```
 
@@ -71,6 +68,4 @@ This is a modified fork of [drel4/AEmulator-Sunset](https://github.com/drel4/AEm
 
 GPL-3.0. Android, trademarks and firmware belong to their owners.
 
-See [dated modification notices](NOTICE.md) and the
-[outstanding source/licensing audit](docs/license-audit.md). The GPL label is
-not a certification that every bundled prebuilt has complete matching source.
+See [dated modification notices](NOTICE.md) and the [outstanding source/licensing audit](docs/license-audit.md). The GPL label is not a certification that every bundled prebuilt has complete matching source.

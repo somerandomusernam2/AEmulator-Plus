@@ -4,24 +4,25 @@ import org.junit.Assert.*
 import org.junit.Test
 
 class UpdateAssetPolicyTest {
-    private val standard = "AEmulator-Sunset-0.0.0.3-sunset.20-app.aemu.apk"
-    private val clone = "AEmulator-Sunset-0.0.0.3-sunset.20-app.aemu.clone.apk"
+    private val plus = "AEmulator-Plus-0.0.0.2.1-app.aemu.plus.apk"
 
-    @Test fun choosesCloneRegardlessOfAssetOrder() {
-        assertEquals(clone, listOf(standard, clone).firstOrNull { UpdateAssetPolicy.matches(it, "app.aemu.clone") })
-        assertEquals(clone, listOf(clone, standard).firstOrNull { UpdateAssetPolicy.matches(it, "app.aemu.clone") })
+    @Test fun choosesPlusApkRegardlessOfAssetOrder() {
+        assertEquals(plus, listOf(plus, "notes.txt").firstOrNull { UpdateAssetPolicy.matches(it, "app.aemu.plus") })
+        assertEquals(plus, listOf("notes.txt", plus).firstOrNull { UpdateAssetPolicy.matches(it, "app.aemu.plus") })
     }
-    @Test fun choosesStandardAndNeverClone() {
-        assertTrue(UpdateAssetPolicy.matches(standard, "app.aemu"))
-        assertFalse(UpdateAssetPolicy.matches(clone, "app.aemu"))
+    @Test fun neverMatchesOldSunsetOrCloneApks() {
+        assertFalse(UpdateAssetPolicy.matches("AEmulator-Sunset-0.0.0.3-sunset.30-app.aemu.apk", "app.aemu.plus"))
+        assertFalse(UpdateAssetPolicy.matches("AEmulator-Sunset-0.0.0.3-sunset.30-app.aemu.clone.apk", "app.aemu.plus"))
     }
-    @Test fun missingVariantDoesNotFallBackToOtherApks() {
-        assertNull(listOf(standard, "unknown.apk", "$clone.asc").firstOrNull { UpdateAssetPolicy.matches(it, "app.aemu.clone") })
-        assertFalse(UpdateAssetPolicy.matches(clone, "other.app"))
+    @Test fun otherPackagesNeverMatch() {
+        assertFalse(UpdateAssetPolicy.matches(plus, "app.aemu"))
+        assertFalse(UpdateAssetPolicy.matches(plus, "app.aemu.clone"))
+        assertFalse(UpdateAssetPolicy.matches(plus, "other.app"))
     }
     @Test fun matchingIsCaseInsensitiveButRequiresExactPackageSuffix() {
-        assertTrue(UpdateAssetPolicy.matches(clone.uppercase(), "app.aemu.clone"))
-        assertFalse(UpdateAssetPolicy.matches("$clone.zip", "app.aemu.clone"))
-        assertFalse(UpdateAssetPolicy.matches("prefix-app.aemu.clone.fake.apk", "app.aemu.clone"))
+        assertTrue(UpdateAssetPolicy.matches(plus.uppercase(), "app.aemu.plus"))
+        assertFalse(UpdateAssetPolicy.matches("$plus.zip", "app.aemu.plus"))
+        assertFalse(UpdateAssetPolicy.matches("$plus.asc", "app.aemu.plus"))
+        assertFalse(UpdateAssetPolicy.matches("prefix-app.aemu.plus.fake.apk", "app.aemu.plus"))
     }
 }

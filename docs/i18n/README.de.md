@@ -1,12 +1,10 @@
 <div align="center">
 
-<img src="../../docs/assets/logo.png" width="128" alt="AEmulator Sunset logo"/>
+<img src="../../docs/assets/logo.png" width="128" alt="AEmulator Plus logo"/>
 
-# AEmulator Sunset
+# AEmulator Plus
 
 **Klassische Android-Firmware — HTC Sense, TouchWiz, MIUI, AOSP — auf einem modernen Handy. Ohne Root, ohne PC.**
-
-[![Version](https://img.shields.io/badge/version-0.0.0.3--sunset.2-F4511E?style=for-the-badge)](https://github.com/drel4/AEmulator-Sunset/releases) [![License](https://img.shields.io/badge/license-GPL--3.0-F4511E?style=for-the-badge)](../../LICENSE) [![Android](https://img.shields.io/badge/Android-8.0%2B-3DDC84?style=for-the-badge&logo=android&logoColor=white)](https://github.com/drel4/AEmulator-Sunset) [![Fork](https://img.shields.io/badge/fork-drel4%2FAEmulator--Sunset-F4511E?style=for-the-badge&logo=github)](https://github.com/drel4/AEmulator-Sunset)
 
 [🇬🇧 English](../../README.md) · [🇷🇺 Русский](README.ru.md) · [🇺🇦 Українська](README.uk.md) · **🇩🇪 Deutsch** · [🇫🇷 Français](README.fr.md) · [🇪🇸 Español](README.es.md) · [🇧🇷 Português](README.pt-BR.md) · [🇮🇹 Italiano](README.it.md) · [🇵🇱 Polski](README.pl.md) · [🇹🇷 Türkçe](README.tr.md) · [🇸🇦 العربية](README.ar.md) · [🇮🇷 فارسی](README.fa.md) · [🇮🇳 हिन्दी](README.hi.md) · [🇮🇩 Indonesia](README.id.md) · [🇻🇳 Tiếng Việt](README.vi.md) · [🇨🇳 简体中文](README.zh-CN.md) · [🇯🇵 日本語](README.ja.md) · [🇰🇷 한국어](README.ko.md)
 
@@ -14,7 +12,7 @@
 
 ---
 
-AEmulator Sunset startet ein echtes Android-2.3–7.x-System direkt aus einer Firmware-Datei: Recovery-ZIP, Odin-Archiv oder Google-Factory-Image. Der alte ARM-Code läuft über ein angepasstes QEMU, der Binder des Kernels wird emuliert, die Grafik läuft über die GPU des Handys und der Ton über Androids Audiosystem — alles in einer normalen App.
+AEmulator Plus startet ein echtes Android-2.3–7.x-System direkt aus einer Firmware-Datei: Recovery-ZIP, Odin-Archiv oder Google-Factory-Image. Der alte ARM-Code läuft über ein angepasstes QEMU, der Binder des Kernels wird emuliert, die Grafik läuft über die GPU des Handys und der Ton über Androids Audiosystem — alles in einer normalen App.
 
 ## ✨ Funktionen
 
@@ -27,8 +25,8 @@ AEmulator Sunset startet ein echtes Android-2.3–7.x-System direkt aus einer Fi
 
 ## 🚀 Schnellstart
 
-1. APK unter [Releases](https://github.com/drel4/AEmulator-Sunset/releases) herunterladen und installieren.
-2. AEmulator Sunset öffnen → **Firmware hinzufügen** und die Datei wählen. Der Import dauert einige Minuten.
+1. APK unter [Releases](https://github.com/somerandomusernam2/AEmulator-Plus/releases) herunterladen und installieren.
+2. AEmulator Plus öffnen → **Firmware hinzufügen** und die Datei wählen. Der Import dauert einige Minuten.
 3. **Starten** drücken. Der erste Start dauert länger: Das System optimiert Apps.
 4. Menü ⋮ für Lautstärke, Ein/Aus und Protokoll; ⚙️ öffnet Einstellungen und Sprache.
 
@@ -44,27 +42,30 @@ Jeder Gastprozess läuft unter einem angepassten User-Mode-QEMU. Ein Binder-Daem
 
 ## 🛠️ Aus dem Quellcode bauen
 
-Benötigt werden JDK 17, Android SDK 36 und NDK r28. Die Gast-Bibliotheken werden mit `native/*/build.sh` gebaut.
+Der getestete Release-Build der App verwendet JDK 21 und Android SDK 36. Siehe die [Build-/Quellcode-Anleitung](../build-source.md) mit Details zur nativen Toolchain und zum Signieren. **Für die geerbten Engine-Binärdateien ist die vollständige Herkunft von Quellcode und Build noch nicht verifiziert**; siehe [das Audit](../license-audit.md).
 
 ```bash
-git clone https://github.com/drel4/AEmulator-Sunset.git
-cd AEmulator-Sunset
+git clone https://github.com/somerandomusernam2/AEmulator-Plus.git
+cd AEmulator-Plus
 ./gradlew copyReleaseApks
 ```
 
 ## 🙏 Dank
 
-AEmulator Sunset ist aus den Emulatoren für HTC Desire HD und HTC One M7 [des Originalautors](https://t.me/istratiit_ech) hervorgegangen — ohne seine Engine gäbe es dieses Projekt nicht.
+AEmulator Plus ist aus den Emulatoren für HTC Desire HD und HTC One M7 [des Originalautors](https://t.me/istratiit_ech) hervorgegangen — ohne seine Engine gäbe es dieses Projekt nicht.
 
-This is a modified fork of [uxazu/AEmulator](https://github.com/uxazu/AEmulator). Fork changes are documented in [NOTICE](../../NOTICE.md).
+Dies ist ein modifizierter Fork von [drel4/AEmulator-Sunset](https://github.com/drel4/AEmulator-Sunset), das wiederum ein modifizierter Fork von [uxazu/AEmulator](https://github.com/uxazu/AEmulator) ist.
 
 ## 🔗 Links
 
-- 🧬 Fork: [drel4/AEmulator-Sunset](https://github.com/drel4/AEmulator-Sunset)
-- ↑ Upstream: [uxazu/AEmulator](https://github.com/uxazu/AEmulator)
-- 👤 Autor: [drel4](https://github.com/drel4)
-- 🧬 Originalautor: [t.me/istratiit_ech](https://t.me/istratiit_ech)
+- Mein Fork: [somerandomusernam2/AEmulator-Plus](https://github.com/somerandomusernam2/AEmulator-Plus)
+- Upstream: [drel4/AEmulator-Sunset](https://github.com/drel4/AEmulator-Sunset)
+- Original: [uxazu/AEmulator](https://github.com/uxazu/AEmulator)
+- Autor: [somerandomusername2](https://github.com/somerandomusernam2)
+- Originalautor: [t.me/istratiit_ech](https://t.me/istratiit_ech)
 
 ## 📄 Lizenz
 
 GPL-3.0. Android, Marken und Firmware gehören ihren Inhabern.
+
+Siehe die [datierten Änderungshinweise](../../NOTICE.md) und das [offene Quellcode-/Lizenz-Audit](../license-audit.md). Das GPL-Label ist keine Bestätigung, dass für jede mitgelieferte Binärdatei der vollständige passende Quellcode vorliegt.

@@ -8,5 +8,5 @@ cd native/guestshim
 sh build.sh
 "$NDK/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-readelf" -d ../../app/src/main/assets/engines/common/libaemushim.so
 cd ../..
-if [ "$#" -eq 0 ]; then set -- assembleCloneRelease assembleStandardRelease; fi
+if [ "$#" -eq 0 ]; then set -- assembleRelease; fi
 sh gradlew "$@" --console=plain --max-workers=2

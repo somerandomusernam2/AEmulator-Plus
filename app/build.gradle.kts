@@ -27,25 +27,14 @@ android {
     compileSdk = 36
 
     defaultConfig {
+        applicationId = "app.aemu.plus" // Modified for AEmulator Plus, 2026-10-04: single variant, no clone
         minSdk = 26
         // 28: гостевые бинарники запускаются из каталога данных приложения (W^X для targetSdk>=29)
         //noinspection ExpiredTargetSdkVersion
         targetSdk = 28
         versionCode = 32
-        versionName = "0.0.0.3-sunset.30"
+        versionName = "0.0.0.2.1" // <AEmulator base>.<Plus release>
         ndk { abiFilters += listOf("arm64-v8a") }
-    }
-
-    flavorDimensions += "distribution"
-    productFlavors {
-        create("standard") {
-            dimension = "distribution"
-            applicationId = "app.aemu"
-        }
-        create("clone") {
-            dimension = "distribution"
-            applicationId = "app.aemu.clone"
-        }
     }
 
     signingConfigs {
@@ -115,14 +104,10 @@ dependencies {
 tasks.named("preBuild") { dependsOn(copyLegalNotices) }
 
 tasks.register<Copy>("copyReleaseApks") {
-    dependsOn("assembleStandardRelease", "assembleCloneRelease")
-    from(layout.buildDirectory.dir("outputs/apk/standard/release")) {
+    dependsOn("assembleRelease")
+    from(layout.buildDirectory.dir("outputs/apk/release")) {
         include("*.apk")
-        rename { "AEmulator-Sunset-app.aemu.apk" }
-    }
-    from(layout.buildDirectory.dir("outputs/apk/clone/release")) {
-        include("*.apk")
-        rename { "AEmulator-Sunset-app.aemu.clone.apk" }
+        rename { "AEmulator-Plus-app.aemu.plus.apk" }
     }
     into(rootProject.layout.projectDirectory.dir("release-apks"))
 }

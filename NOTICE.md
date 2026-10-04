@@ -8,12 +8,16 @@ The upstream project grew from the HTC Desire HD and HTC One M7 emulators by
 the [original engine author](https://t.me/istratiit_ech). Those credits and the
 upstream Git history are intentionally preserved.
 
+**Modification statement:** AEmulator Plus was derived from AEmulator Sunset
+`0.0.0.3-sunset.30`. Modifications by somerandomusernam2 (GitHub display name
+somerandomusername2) are dated from 2026-10-04; the individual changes are recorded in this
+repository's Git history. Files modified for Plus carry a dated
+"Modified for AEmulator Plus" notice.
+
 This work has been
 modified by somerandomusernam2 and contributors to AEmulator Sunset. Original copyright,
 license notices, credits and Git history are retained; no upstream authorship
 is claimed for Plus's additions.
-
-Modified as of 4 October 2026.
 
 Source code for AEmulator Plus releases, including the exact tagged revision
 used to build each APK, is published at:

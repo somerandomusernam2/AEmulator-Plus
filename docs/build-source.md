@@ -1,6 +1,9 @@
-# Building AEmulator Sunset
+# Building AEmulator Plus
 
-Updated 2026-10-04 for `v0.0.0.3-sunset.30`.
+Updated 2026-10-04. AEmulator Plus is a modified fork of
+[drel4/AEmulator-Sunset](https://github.com/drel4/AEmulator-Sunset) (itself a fork of
+[uxazu/AEmulator](https://github.com/uxazu/AEmulator)); see [NOTICE.md](../NOTICE.md).
+Replace `<tag>` below with the Plus release tag you want to build.
 
 ## Application APKs (uses checked-in engine prebuilts)
 
@@ -14,23 +17,24 @@ bytecode targets Java 17. First-time builds need network access to resolve the
 dependencies pinned in `build.gradle.kts` and `app/build.gradle.kts`.
 
 ```sh
-git clone https://github.com/drel4/AEmulator-Sunset.git
-cd AEmulator-Sunset
-git checkout v0.0.0.3-sunset.30
+git clone https://github.com/somerandomusernam2/AEmulator-Plus.git
+cd AEmulator-Plus
+git checkout <tag>
 export JAVA_HOME=/path/to/jdk-21
 export ANDROID_HOME=/path/to/Android/Sdk
 sh gradlew --no-daemon '-Dorg.gradle.jvmargs=-Xmx1536m -Dfile.encoding=UTF-8' \
   -Pkotlin.compiler.execution.strategy=in-process --max-workers=1 \
-  testCloneReleaseUnitTest assembleCloneRelease assembleStandardRelease
+  testReleaseUnitTest assembleRelease
 ```
 
-Outputs: `app/build/outputs/apk/{standard,clone}/release/`.
-Standard package: `app.aemu`; clone package: `app.aemu.clone`. Both require
-an arm64-v8a Android host, API 26 or newer.
+Output: `app/build/outputs/apk/release/`. The package is `app.aemu.plus` (there is no clone
+variant); it installs next to Sunset (`app.aemu`) and cannot update it. It requires an
+arm64-v8a Android host, API 26 or newer. `./gradlew copyReleaseApks` copies the APK to
+`release-apks/AEmulator-Plus-app.aemu.plus.apk`.
 
 Release signing uses private, untracked `keystore.properties`. Without it,
 release APKs are unsigned. To test/install without the publisher's key, build
-`assembleStandardDebug` / `assembleCloneDebug` using your own debug key, or
+`assembleDebug` using your own debug key, or
 sign an unsigned release APK with your own key using Android `apksigner`.
 Your differently signed APK cannot update the publisher-signed installation.
 No publisher credentials are needed to compile or run your own build.
@@ -64,7 +68,7 @@ sh native/setupctl/build.sh
   `native/glsplit`, `native/gueststubs`. Read their scripts and requirements;
   do not mistake these for a complete engine build.
 
-JVM tests run via `testCloneReleaseUnitTest`. Guest shim/audio/camera smoke
+JVM tests run via `testReleaseUnitTest`. Guest shim/audio/camera smoke
 tests have `tests/run.sh` scripts and require `qemu-arm` plus an ARM cross
 compiler; camera Bionic tests also require a separately supplied stock guest
 fixture and user/PID namespace support (see `native/camerahal/README.md`).

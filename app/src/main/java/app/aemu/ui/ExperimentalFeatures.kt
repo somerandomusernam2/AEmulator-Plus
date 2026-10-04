@@ -1,3 +1,4 @@
+/* Modified for AEmulator Plus, 2026-10-04: app title. GPL-3.0; see NOTICE.md. */
 package app.aemu.ui
 
 import android.content.SharedPreferences
@@ -32,7 +33,7 @@ fun experimentalFeaturesEnabled(): Boolean {
 @Composable
 fun SunsetTitle(style: TextStyle = LocalTextStyle.current, color: Color = Color.Unspecified) {
     val ctx = LocalContext.current
-    Text("AEmulator Sunset", style = style, color = color, modifier = Modifier.clickable {
+    Text("AEmulator Plus", style = style, color = color, modifier = Modifier.clickable {
         if (AppPrefs.registerExperimentalTap(ctx)) {
             Toast.makeText(ctx, R.string.experimental_activated, Toast.LENGTH_LONG).show()
             openBrowser(ctx, ExperimentalUnlock.VIDEO)

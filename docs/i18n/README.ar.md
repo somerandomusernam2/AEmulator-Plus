@@ -2,13 +2,11 @@
 
 <div align="center">
 
-<img src="../../docs/assets/logo.png" width="128" alt="AEmulator Sunset logo"/>
+<img src="../../docs/assets/logo.png" width="128" alt="AEmulator Plus logo"/>
 
-# AEmulator Sunset
+# AEmulator Plus
 
 **شغّل برامج أندرويد الكلاسيكية — HTC Sense وTouchWiz وMIUI وAOSP — على هاتف حديث. بلا روت وبلا حاسوب.**
-
-[![Version](https://img.shields.io/badge/version-0.0.0.3--sunset.2-F4511E?style=for-the-badge)](https://github.com/drel4/AEmulator-Sunset/releases) [![License](https://img.shields.io/badge/license-GPL--3.0-F4511E?style=for-the-badge)](../../LICENSE) [![Android](https://img.shields.io/badge/Android-8.0%2B-3DDC84?style=for-the-badge&logo=android&logoColor=white)](https://github.com/drel4/AEmulator-Sunset) [![Fork](https://img.shields.io/badge/fork-drel4%2FAEmulator--Sunset-F4511E?style=for-the-badge&logo=github)](https://github.com/drel4/AEmulator-Sunset)
 
 [🇬🇧 English](../../README.md) · [🇷🇺 Русский](README.ru.md) · [🇺🇦 Українська](README.uk.md) · [🇩🇪 Deutsch](README.de.md) · [🇫🇷 Français](README.fr.md) · [🇪🇸 Español](README.es.md) · [🇧🇷 Português](README.pt-BR.md) · [🇮🇹 Italiano](README.it.md) · [🇵🇱 Polski](README.pl.md) · [🇹🇷 Türkçe](README.tr.md) · **🇸🇦 العربية** · [🇮🇷 فارسی](README.fa.md) · [🇮🇳 हिन्दी](README.hi.md) · [🇮🇩 Indonesia](README.id.md) · [🇻🇳 Tiếng Việt](README.vi.md) · [🇨🇳 简体中文](README.zh-CN.md) · [🇯🇵 日本語](README.ja.md) · [🇰🇷 한국어](README.ko.md)
 
@@ -16,7 +14,7 @@
 
 ---
 
-يقلع AEmulator Sunset نظام أندرويد 2.3–7.x حقيقيًا مباشرة من ملف البرنامج الثابت: ملف ZIP للريكفري أو أرشيف Odin أو صورة مصنع Google. تُترجم شفرة ARM القديمة عبر QEMU معدّل، ويُحاكى binder النواة، وتُرسم الواجهة بمعالج رسومات الهاتف ويمر الصوت عبر نظام صوت أندرويد — كل ذلك داخل تطبيق عادي.
+يقلع AEmulator Plus نظام أندرويد 2.3–7.x حقيقيًا مباشرة من ملف البرنامج الثابت: ملف ZIP للريكفري أو أرشيف Odin أو صورة مصنع Google. تُترجم شفرة ARM القديمة عبر QEMU معدّل، ويُحاكى binder النواة، وتُرسم الواجهة بمعالج رسومات الهاتف ويمر الصوت عبر نظام صوت أندرويد — كل ذلك داخل تطبيق عادي.
 
 ## ✨ المزايا
 
@@ -29,8 +27,8 @@
 
 ## 🚀 البدء السريع
 
-1. نزّل ملف APK من [Releases](https://github.com/drel4/AEmulator-Sunset/releases) وثبّته.
-2. افتح AEmulator Sunset ← **إضافة برنامج ثابت** واختر الملف. يستغرق الاستيراد بضع دقائق.
+1. نزّل ملف APK من [Releases](https://github.com/somerandomusernam2/AEmulator-Plus/releases) وثبّته.
+2. افتح AEmulator Plus ← **إضافة برنامج ثابت** واختر الملف. يستغرق الاستيراد بضع دقائق.
 3. اضغط **تشغيل**. الإقلاع الأول أبطأ: النظام يحسّن التطبيقات.
 4. القائمة ⋮ للصوت وزر التشغيل والسجل؛ وزر ⚙️ للإعدادات واللغة.
 
@@ -46,29 +44,32 @@
 
 ## 🛠️ البناء من المصدر
 
-تحتاج JDK 17 وAndroid SDK 36 وNDK r28. تُبنى مكتبات الضيف عبر `native/*/build.sh`.
+يستخدم إصدار التطبيق المُختبَر JDK 21 وAndroid SDK 36. راجع [تعليمات البناء والمصدر](../build-source.md) لمعرفة تفاصيل سلسلة الأدوات الأصلية والتوقيع. **الملفات الثنائية الجاهزة للمحرك الموروثة لا تملك بعدُ أصلاً مُتحقَّقاً منه للشيفرة المصدرية وطريقة البناء**؛ راجع [التدقيق](../license-audit.md).
 
 ```bash
-git clone https://github.com/drel4/AEmulator-Sunset.git
-cd AEmulator-Sunset
+git clone https://github.com/somerandomusernam2/AEmulator-Plus.git
+cd AEmulator-Plus
 ./gradlew copyReleaseApks
 ```
 
 ## 🙏 شكر وتقدير
 
-نشأ AEmulator Sunset من محاكيات HTC Desire HD وHTC One M7 التي صنعها [المطوّر الأصلي](https://t.me/istratiit_ech)، ولولا محركه ما وُجد هذا المشروع.
+نشأ AEmulator Plus من محاكيات HTC Desire HD وHTC One M7 التي صنعها [المطوّر الأصلي](https://t.me/istratiit_ech)، ولولا محركه ما وُجد هذا المشروع.
 
-This is a modified fork of [uxazu/AEmulator](https://github.com/uxazu/AEmulator). Fork changes are documented in [NOTICE](../../NOTICE.md).
+هذا فرع معدَّل من [drel4/AEmulator-Sunset](https://github.com/drel4/AEmulator-Sunset)، وهو بدوره فرع معدَّل من [uxazu/AEmulator](https://github.com/uxazu/AEmulator).
 
 ## 🔗 روابط
 
-- 🧬 Fork: [drel4/AEmulator-Sunset](https://github.com/drel4/AEmulator-Sunset)
-- ↑ Upstream: [uxazu/AEmulator](https://github.com/uxazu/AEmulator)
-- 👤 المطوّر: [drel4](https://github.com/drel4)
-- 🧬 المطوّر الأصلي: [t.me/istratiit_ech](https://t.me/istratiit_ech)
+- فرعي: [somerandomusernam2/AEmulator-Plus](https://github.com/somerandomusernam2/AEmulator-Plus)
+- المستودع الأم: [drel4/AEmulator-Sunset](https://github.com/drel4/AEmulator-Sunset)
+- الأصل: [uxazu/AEmulator](https://github.com/uxazu/AEmulator)
+- المطوّر: [somerandomusername2](https://github.com/somerandomusernam2)
+- المطوّر الأصلي: [t.me/istratiit_ech](https://t.me/istratiit_ech)
 
 ## 📄 الترخيص
 
 GPL-3.0. أندرويد والعلامات التجارية والبرامج الثابتة ملك لأصحابها.
+
+راجع [إشعارات التعديل المؤرخة](../../NOTICE.md) و[تدقيق المصدر والتراخيص المعلَّق](../license-audit.md). وسم GPL ليس شهادة بأن لكل ملف ثنائي مضمَّن شيفرته المصدرية الكاملة المطابقة.
 
 </div>
