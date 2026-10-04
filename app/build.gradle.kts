@@ -96,7 +96,11 @@ dependencies {
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.10.2")
     implementation("org.tukaani:xz:1.10")
     implementation("org.apache.commons:commons-compress:1.28.0")
+    implementation("com.github.junrar:junrar:7.5.5")
     implementation("org.brotli:dec:0.1.2")
+    implementation("net.lingala.zip4j:zip4j:2.11.6")
+    implementation("com.github.luben:zstd-jni:1.5.7-4@aar")
+    implementation("org.anarres.lzo:lzo-commons:1.0.6")
     debugImplementation("androidx.compose.ui:ui-tooling")
     testImplementation("junit:junit:4.13.2")
 }

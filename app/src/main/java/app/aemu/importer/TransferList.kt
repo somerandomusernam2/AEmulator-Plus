@@ -15,16 +15,20 @@ object TransferList {
 
     fun build(list: String, data: InputStream, out: File) {
         val lines = list.lines().map { it.trim() }.filter { it.isNotEmpty() }
+        if (lines.size < 2) throw IOException("transfer.list: missing header")
         val version = lines[0].toIntOrNull() ?: throw IOException("transfer.list: no version")
-        val totalBlocks = lines[1].toLong()
+        val totalBlocks = lines[1].toLongOrNull() ?: throw IOException("transfer.list: bad block count")
+        if (totalBlocks < 0) throw IOException("transfer.list: negative block count")
         val cmdStart = if (version >= 2) 4 else 2
         RandomAccessFile(out, "rw").use { raf ->
             raf.setLength(totalBlocks * BLOCK)
             val buf = ByteArray(BLOCK * 256)
             for (ln in lines.drop(cmdStart)) {
-                val parts = ln.split(' ')
+                val parts = ln.split(Regex("\\s+")).filter { it.isNotEmpty() }
                 when (parts[0]) {
-                    "new" -> for ((a, b) in ranges(parts[1])) {
+                    "new" -> {
+                        if (parts.size < 2) throw IOException("transfer.list: malformed new command")
+                        for ((a, b) in ranges(parts[1])) {
                         var blk = a
                         while (blk < b) {
                             val n = minOf(256L, b - blk).toInt()
@@ -34,6 +38,7 @@ object TransferList {
                             blk += n
                         }
                     }
+                    }
                     "zero", "erase" -> {} // дыры и так нулевые
                     "move", "bsdiff", "imgdiff", "stash", "free" -> throw IOException("this is an incremental OTA, a full firmware is required")
                 }
@@ -42,10 +47,16 @@ object TransferList {
     }
 
     private fun ranges(s: String): List<Pair<Long, Long>> {
-        val v = s.split(',').map { it.toLong() }
+        val v = s.split(',').mapNotNull { it.toLongOrNull() }
+        if (v.isEmpty() || v[0] < 0 || v.size != v[0].toInt() + 1 || v[0] % 2L != 0L)
+            throw IOException("transfer.list: invalid rangeset")
         val out = ArrayList<Pair<Long, Long>>()
         var i = 1
-        while (i + 1 < v.size) { out.add(v[i] to v[i + 1]); i += 2 }
+        while (i + 1 < v.size) {
+            val a = v[i]; val b = v[i + 1]
+            if (a < 0 || b < a) throw IOException("transfer.list: invalid range $a,$b")
+            out.add(a to b); i += 2
+        }
         return out
     }
 

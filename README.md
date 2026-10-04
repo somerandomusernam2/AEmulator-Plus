@@ -69,3 +69,7 @@ This is a modified fork of [drel4/AEmulator-Sunset](https://github.com/drel4/AEm
 GPL-3.0. Android, trademarks and firmware belong to their owners.
 
 See [dated modification notices](NOTICE.md) and the [outstanding source/licensing audit](docs/license-audit.md). The GPL label is not a certification that every bundled prebuilt has complete matching source.
+
+## 2026-10-04 firmware extractor port
+
+The Android importer now integrates the extraction/conversion methods from the supplied firmware-tool bundle. See `docs/firmware-tools-port.md` for the complete 21-file mapping and the distinction between newly ported code and formats already handled by the importer.
