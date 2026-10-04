@@ -956,7 +956,7 @@ class TreeFixer(
     }
 
     private fun mainStackMaps() {
-        if (img.api < 23) return
+        if (img.api < 21) return
         val libc = File(root, "system/lib/libc.so")
         runCatching {
             val d = libc.readBytes()

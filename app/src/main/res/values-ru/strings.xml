@@ -107,6 +107,9 @@
     <string name="vs_radio">Эмуляция радиомодуля</string>
     <string name="vs_radio_sub">Телефония, IMEI и сеть. Выкл.: прошивка ведёт себя как Wi-Fi планшет</string>
     <string name="vs_random">Случайный</string>
+    <string name="vs_device_id">Идентификатор устройства</string>
+    <string name="vs_serial">Серийный номер</string>
+    <string name="vs_serial_sub">Передаётся как ro.serialno и ro.boot.serialno (буквы и цифры, до 32 символов). Применяется при следующем запуске. Пусто = по умолчанию</string>
     <string name="vs_advanced">Дополнительно</string>
     <string name="vs_qemu_args">Доп. параметры qemu</string>
     <string name="vs_qemu_args_sub">Пример: -d unimp DHD_TBFLUSH=2 (ИМЯ=значение становится переменной окружения)</string>

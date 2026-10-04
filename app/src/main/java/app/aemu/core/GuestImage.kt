@@ -49,6 +49,8 @@ data class VmSettings(
     val radio: Boolean = true,
     /** IMEI reported by the fake modem; blank = default sample IMEI */
     val imei: String = "",
+    /** ro.serialno / ro.boot.serialno reported to the guest; blank = default sample serial */
+    val serial: String = "",
     /** extra qemu options; KEY=VALUE tokens are passed as environment variables */
     val qemuArgs: String = "",
 ) {
@@ -67,11 +69,21 @@ data class VmSettings(
         .put("motionSensors", motionSensors).put("hostResolution", hostResolution)
         .put("skipSetupWizard", skipSetupWizard)
         .put("disableGoogleApps", disableGoogleApps)
-        .put("ramMb", ramMb).put("radio", radio).put("imei", imei).put("qemuArgs", qemuArgs)
+        .put("ramMb", ramMb).put("radio", radio).put("imei", imei).put("serial", serial).put("qemuArgs", qemuArgs)
 
     companion object {
         /** Luhn-valid sample IMEI from the standard; the guest has no real modem */
         const val DEFAULT_IMEI = "490154203237518"
+
+        /** Serial the guest sees when none is set (what the property template always used) */
+        const val DEFAULT_SERIAL = "0123456789abcdef"
+
+        /** Characters allowed in a serial: safe for adb, Build.SERIAL and property values (max 91 bytes). */
+        const val SERIAL_MAX = 32
+        fun cleanSerial(v: String): String = v.filter { it in 'a'..'z' || it in 'A'..'Z' || it in '0'..'9' }.take(SERIAL_MAX)
+
+        /** Random 16-char lowercase hex serial, like most real devices report. */
+        fun randomSerial(): String = (1..16).joinToString("") { "0123456789abcdef"[(0..15).random()].toString() }
 
         /** Random Luhn-valid IMEI with a test TAC prefix. */
         fun randomImei(): String {
@@ -115,6 +127,7 @@ data class VmSettings(
                 ramMb = o.optInt("ramMb", 0),
                 radio = o.optBoolean("radio", true),
                 imei = o.optString("imei", ""),
+                serial = cleanSerial(o.optString("serial", "")),
                 qemuArgs = o.optString("qemuArgs", ""),
             )
         }

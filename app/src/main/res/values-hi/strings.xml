@@ -107,6 +107,9 @@
     <string name="vs_radio">Emulate radio module</string>
     <string name="vs_radio_sub">Telephony, IMEI and signal. Off: the firmware behaves like a Wi-Fi tablet</string>
     <string name="vs_random">Random</string>
+    <string name="vs_device_id">Device identity</string>
+    <string name="vs_serial">Serial number</string>
+    <string name="vs_serial_sub">Reported as ro.serialno and ro.boot.serialno (letters and digits, up to 32). Applied on next boot. Blank = default</string>
     <string name="vs_advanced">Advanced</string>
     <string name="vs_qemu_args">Extra qemu options</string>
     <string name="vs_qemu_args_sub">Example: -d unimp DHD_TBFLUSH=2 (NAME=value becomes an environment variable)</string>

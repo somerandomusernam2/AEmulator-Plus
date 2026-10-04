@@ -100,6 +100,17 @@ Implementation details and release-specific testing limits are recorded in
 This notice identifies a modified version. It does not imply endorsement by
 the upstream maintainers, Sony, Samsung, Google, or any firmware vendor.
 
+## Local modifications on top of sunset.30
+
+The following changes were made after sunset.30 and are not part of the
+published Sunset releases:
+
+- per-image **Serial number** setting (VM settings → Device identity): sets
+  `ro.serialno` and `ro.boot.serialno` at each boot, with a Random button;
+  stored in the image profile and carried through `.aessvm` exports;
+- `TreeFixer.mainStackMaps()` now also applies to Android 5.0/5.1 (API 21+)
+  instead of API 23+ only.
+
 ## Source and corresponding binaries
 
 Further modifications dated 2026-10-03 (sunset.26): optional host accelerometer,
