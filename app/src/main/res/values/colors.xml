@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- Modified for AEmulator Sunset on 2026-09-30. -->
+    <!-- Modified for AEmulator Sunset on 2026-09-30; for AEmulator Plus on 2026-10-04 (logo colour). -->
     <color name="bg">#FFFFF8F5</color>
-    <color name="ic_bg">#FFF4511E</color>
+    <color name="ic_bg">#FF3C5DFF</color>
 </resources>
