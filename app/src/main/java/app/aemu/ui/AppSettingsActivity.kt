@@ -71,6 +71,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.toArgb
+import androidx.compose.foundation.background
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalContext
@@ -123,11 +125,25 @@ private fun AppSettings(onBack: () -> Unit, onRestyle: () -> Unit) {
     var defaults by remember { mutableStateOf(AppPrefs.defaults(ctx)) }
     var theme by remember { mutableStateOf(AppPrefs.theme(ctx)) }
     var dynamic by remember { mutableStateOf(AppPrefs.dynamicColor(ctx)) }
+    var accent by remember { mutableStateOf(AppPrefs.accentColor(ctx)) }
+    var accentDialog by remember { mutableStateOf(false) }
     var hostUi by remember { mutableStateOf(AppPrefs.hostUiOptions(ctx)) }
     val scope = rememberCoroutineScope()
     var autoUpdates by remember { mutableStateOf(AppPrefs.autoCheckUpdates(ctx)) }
     var updateState by remember { mutableStateOf<UpdateState>(UpdateState.Idle) }
     var downloadJob by remember { mutableStateOf<Job?>(null) }
+
+    if (accentDialog) {
+        ColorPickerDialog(
+            initial = if (accent == 0) Color(0xFFF4511E) else Color(accent),
+            onDismiss = { accentDialog = false },
+            onReset = { accent = 0; AppPrefs.setAccentColor(ctx, 0); accentDialog = false; onRestyle() },
+            onApply = { c ->
+                val argb = c.toArgb() or 0xFF000000.toInt()
+                accent = argb; AppPrefs.setAccentColor(ctx, argb); accentDialog = false; onRestyle()
+            },
+        )
+    }
 
     fun checkForUpdates() {
         updateState = UpdateState.Checking
@@ -261,7 +277,19 @@ private fun AppSettings(onBack: () -> Unit, onRestyle: () -> Unit) {
                             }
                         }
                     }
-                    if (Build.VERSION.SDK_INT >= 31) {
+                    ListItem(
+                        headlineContent = { Text(stringResource(R.string.as_accent)) },
+                        supportingContent = { Text(if (accent == 0) stringResource(R.string.as_accent_default)
+                            else "#%06X".format(accent and 0xFFFFFF)) },
+                        trailingContent = {
+                            androidx.compose.foundation.layout.Box(Modifier.size(28.dp)
+                                .clip(androidx.compose.foundation.shape.CircleShape)
+                                .background(if (accent == 0) Color(0xFFF4511E) else Color(accent)))
+                        },
+                        colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+                        modifier = Modifier.clickable { accentDialog = true },
+                    )
+                    if (Build.VERSION.SDK_INT >= 31 && accent == 0) {
                         Toggle(stringResource(R.string.as_dynamic), stringResource(R.string.as_dynamic_sub), dynamic) {
                             dynamic = it; AppPrefs.setDynamicColor(ctx, it); onRestyle()
                         }

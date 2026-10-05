@@ -68,6 +68,10 @@ object AppPrefs {
     fun theme(ctx: Context): Int = sp(ctx).getInt("theme", THEME_SYSTEM)
     fun setTheme(ctx: Context, v: Int) = sp(ctx).edit().putInt("theme", v).apply()
 
+    /** Custom accent color (ARGB) chosen with the color picker; 0 = use the built-in Sunset palette. */
+    fun accentColor(ctx: Context): Int = sp(ctx).getInt("accent_color", 0)
+    fun setAccentColor(ctx: Context, argb: Int) = sp(ctx).edit().putInt("accent_color", argb).apply()
+
     fun dynamicColor(ctx: Context): Boolean = sp(ctx).getBoolean("dynamic", false)
     fun setDynamicColor(ctx: Context, v: Boolean) = sp(ctx).edit().putBoolean("dynamic", v).apply()
 

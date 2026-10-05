@@ -81,6 +81,16 @@
     <string name="as_theme_system">System</string>
     <string name="as_theme_light">Light</string>
     <string name="as_theme_dark">Dark</string>
+    <string name="as_accent">Accent color</string>
+    <string name="as_accent_sub">Pick any color to restyle the whole app</string>
+    <string name="as_accent_default">Sunset (default)</string>
+    <string name="as_accent_pick">Choose color</string>
+    <string name="as_accent_reset">Reset</string>
+    <string name="as_accent_apply">Apply</string>
+    <string name="as_accent_hex">Hex</string>
+    <string name="as_accent_hue">Hue</string>
+    <string name="as_accent_sat">Saturation</string>
+    <string name="as_accent_val">Brightness</string>
     <string name="as_dynamic">Dynamic colors</string>
     <string name="as_dynamic_sub">Colors from your wallpaper (Android 12+)</string>
     <string name="as_defaults">Defaults for new systems</string>

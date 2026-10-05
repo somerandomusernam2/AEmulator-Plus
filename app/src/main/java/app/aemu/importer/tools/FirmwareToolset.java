@@ -366,9 +366,108 @@ public final class FirmwareToolset {
     static final class Sbf {
         private static final byte[] MARK={3,2,2,0,0,0,0,3,2,0,0,0,0,0,3,2,1,0};
         static List<Artifact> extract(File f,File work,Consumer<String>log)throws Exception {
-            byte[] d=readAll(f); if(!starts(d,"Multi-Interface"))throw new IOException("not SBF"); File out=new File(work,"sbf");out.mkdirs();List<Artifact>a=new ArrayList<>();int pos=0,n=0;Set<Integer>seen=new HashSet<>();
-            while(true){int m=indexOf(d,MARK,pos);if(m<0)break;int hs=m-7;if(hs<0x300||!seen.add(hs)){pos=m+1;continue;}int img=m+25;int next=indexOf(d,MARK,hs+32);int end=next<0?d.length:next-7;if(img>=end){pos=m+1;continue;}byte[]raw=Arrays.copyOfRange(d,img,end);int exact=androidImageSize(raw);if(exact<0)exact=trim(raw);if(exact<=0){pos=m+1;continue;}String base=starts(raw,"ANDROID!")?(n==0?"boot":"recovery"):(raw.length>16&&containsAscii(raw,"system"))?"system":"section_"+n;File dst=new File(out,base+".img");writeBytes(dst,Arrays.copyOf(raw,Math.min(exact,raw.length)));a.add(new Artifact(dst,roleFor(dst.getName())));log.accept("SBF: "+dst.getName());n++;pos=m+1;}
-            if(a.isEmpty())throw new IOException("SBF contains no recognizable sections"); return a;
+            // Stream everything from disk. The old implementation did readAll(f) plus two full
+            // copies per section, which blew the Android heap on large SBF files.
+            try (RandomAccessFile raf = new RandomAccessFile(f, "r")) {
+                long len = raf.length();
+                byte[] magic = new byte[15];
+                if (len < magic.length) throw new IOException("not SBF");
+                raf.readFully(magic);
+                if (!starts(magic, "Multi-Interface")) throw new IOException("not SBF");
+                File out = new File(work, "sbf"); out.mkdirs();
+                List<Artifact> a = new ArrayList<>();
+                long[] marks = findMarks(raf, len);
+                int n = 0;
+                for (int i = 0; i < marks.length; i++) {
+                    long m = marks[i], hs = m - 7;
+                    if (hs < 0x300) continue;
+                    long img = m + 25;
+                    int j = i + 1;
+                    while (j < marks.length && marks[j] < hs + 32) j++;
+                    long end = j < marks.length ? marks[j] - 7 : len;
+                    if (img >= end) continue;
+                    long rawLen = end - img;
+                    byte[] hd = new byte[(int) Math.min(rawLen, 64)];
+                    raf.seek(img); raf.readFully(hd);
+                    long exact = androidImageSize(hd);
+                    if (exact < 0) exact = trimmedLength(raf, img, rawLen);
+                    if (exact <= 0) continue;
+                    String base = starts(hd, "ANDROID!") ? (n == 0 ? "boot" : "recovery")
+                            : (rawLen > 16 && rangeContains(raf, img, rawLen, "system".getBytes(StandardCharsets.US_ASCII))) ? "system"
+                            : "section_" + n;
+                    File dst = new File(out, base + ".img");
+                    copyRange(raf, img, Math.min(exact, rawLen), dst);
+                    a.add(new Artifact(dst, roleFor(dst.getName())));
+                    log.accept("SBF: " + dst.getName());
+                    n++;
+                }
+                if (a.isEmpty()) throw new IOException("SBF contains no recognizable sections");
+                return a;
+            }
+        }
+        private static final int CHUNK = 1 << 20;
+        /** Offsets of every (possibly overlapping) MARK occurrence, scanned in 1 MiB chunks. */
+        private static long[] findMarks(RandomAccessFile raf, long len) throws IOException {
+            long[] r = new long[16]; int c = 0;
+            byte[] buf = new byte[CHUNK + MARK.length];
+            long base = 0; int carry = 0;
+            while (base + carry < len) {
+                raf.seek(base + carry);
+                int want = (int) Math.min(CHUNK, len - base - carry);
+                raf.readFully(buf, carry, want);
+                int total = carry + want;
+                int last = total - MARK.length;
+                for (int i = 0; i <= last; i++) {
+                    if (buf[i] != MARK[0]) continue;
+                    int k = 1; while (k < MARK.length && buf[i + k] == MARK[k]) k++;
+                    if (k == MARK.length) { if (c == r.length) r = Arrays.copyOf(r, c * 2); r[c++] = base + i; }
+                }
+                int keep = Math.min(MARK.length - 1, total);
+                System.arraycopy(buf, total - keep, buf, 0, keep);
+                base += total - keep; carry = keep;
+            }
+            return Arrays.copyOf(r, c);
+        }
+        /** Length of [start,start+len) with trailing 0x00/0xFF bytes removed (streamed backwards). */
+        private static long trimmedLength(RandomAccessFile raf, long start, long len) throws IOException {
+            byte[] buf = new byte[CHUNK];
+            long e = len;
+            while (e > 0) {
+                int n = (int) Math.min(CHUNK, e);
+                raf.seek(start + e - n); raf.readFully(buf, 0, n);
+                for (int i = n - 1; i >= 0; i--) if (buf[i] != 0 && (buf[i] & 255) != 255) return e - (n - 1 - i);
+                e -= n;
+            }
+            return 0;
+        }
+        /** Streamed substring search inside [start,start+len). */
+        private static boolean rangeContains(RandomAccessFile raf, long start, long len, byte[] pat) throws IOException {
+            byte[] buf = new byte[CHUNK + pat.length];
+            long done = 0; int carry = 0;
+            while (done < len) {
+                int want = (int) Math.min(CHUNK, len - done);
+                raf.seek(start + done); raf.readFully(buf, carry, want);
+                int total = carry + want;
+                if (total >= pat.length) {
+                    byte[] view = total == buf.length ? buf : Arrays.copyOf(buf, total);
+                    if (indexOf(view, pat, 0) >= 0) return true;
+                }
+                done += want;
+                carry = Math.min(pat.length - 1, total);
+                System.arraycopy(buf, total - carry, buf, 0, carry);
+            }
+            return false;
+        }
+        private static void copyRange(RandomAccessFile raf, long start, long count, File dst) throws IOException {
+            byte[] buf = new byte[CHUNK];
+            try (OutputStream o = new BufferedOutputStream(new FileOutputStream(dst), CHUNK)) {
+                long done = 0;
+                while (done < count) {
+                    int n = (int) Math.min(CHUNK, count - done);
+                    raf.seek(start + done); raf.readFully(buf, 0, n);
+                    o.write(buf, 0, n); done += n;
+                }
+            }
         }
         static int androidImageSize(byte[]b){if(!starts(b,"ANDROID!")||b.length<40)return -1;long page=u32(b,36),k=u32(b,8),r=u32(b,16),s=u32(b,24);if(page<512||page>65536||k>Integer.MAX_VALUE||r>Integer.MAX_VALUE||s>Integer.MAX_VALUE)return -1;return safeInt((page + align(k,page)+align(r,page)+align(s,page)));}
     }

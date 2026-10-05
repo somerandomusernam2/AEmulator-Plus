@@ -147,9 +147,9 @@ class Importer(
             Yaffs2Reader.probe(src) -> importImage(src, "system")
             isTar(h) || name.endsWith(".tar", true) || name.endsWith(".md5", true) || name.endsWith(".win", true) ->
                 importTarStream(streamOf(src), name, depth)
-            h[0] == 0x1f.toByte() && h[1] == 0x8b.toByte() -> importTarStream(GZIPInputStream(streamOf(src), 1 shl 16), name, depth)
-            h[0] == 0xfd.toByte() && h[1] == '7'.code.toByte() -> importTarStream(XZInputStream(streamOf(src)), name, depth)
-            h[0] == 'B'.code.toByte() && h[1] == 'Z'.code.toByte() && h[2] == 'h'.code.toByte() -> importTarStream(BZip2CompressorInputStream(streamOf(src)), name, depth)
+            h[0] == 0x1f.toByte() && h[1] == 0x8b.toByte() -> importCompressed(GZIPInputStream(streamOf(src), 1 shl 16), name, depth)
+            h[0] == 0xfd.toByte() && h[1] == '7'.code.toByte() -> importCompressed(XZInputStream(streamOf(src)), name, depth)
+            h[0] == 'B'.code.toByte() && h[1] == 'Z'.code.toByte() && h[2] == 'h'.code.toByte() -> importCompressed(BZip2CompressorInputStream(streamOf(src)), name, depth)
             h.size >= 8 && String(h, 0, 8, Charsets.ISO_8859_1) == "ANDROID!" -> takeBoot(readAllFrom(src))
             // system.img / factoryfs / factoryfs.img / factoryfs.rfs: a system partition whatever the filesystem
             isSystemImageName(name.replace('\\', '/').substringAfterLast('/')) ->
@@ -205,6 +205,22 @@ class Importer(
         val f = File(dir, safe)
         f.outputStream().use { o -> i.copyTo(o, 1 shl 20) }
         return f
+    }
+
+    /**
+     * gzip/xz/bz2 wrapper: unpack to a temp file and re-dispatch on the content. Feeding a decompressing
+     * stream straight into the TAR reader broke .tar.gz/.tgz ("Corrupted TAR archive"), and a plain .gz
+     * of a non-tar image never worked. A seekable file goes through the same path as an uncompressed tar.
+     */
+    private fun importCompressed(decoded: InputStream, name: String, depth: Int) {
+        val base = name.substringAfterLast('/').substringAfterLast('\\')
+        val inner = base.replace(Regex("(?i)\\.(tgz|tbz2?|txz)$"), ".tar")
+            .replace(Regex("(?i)\\.(gz|xz|bz2)$"), "").ifEmpty { "payload" }
+        val f = decoded.use { spill(it, inner) }
+        try {
+            if (f.length() < 2) throw IOException("compressed file is empty: $name")
+            FileChannel.open(f.toPath(), StandardOpenOption.READ).use { c -> handle(ChannelSource(c), c, inner, depth + 1) }
+        } finally { deleteTree(f.parentFile ?: f) }
     }
 
     private fun isTar(h: ByteArray) = h.size > 262 && String(h, 257, 5, Charsets.ISO_8859_1) == "ustar"
@@ -289,8 +305,8 @@ class Importer(
                     // Odin: AP/PDA/CODE — система, BL/KERNEL/HOME — ядро с рамдиском; модем и CSC не нужны
                     && !base.startsWith("MODEM") && !base.startsWith("CP_") && !base.contains("CSC") -> {
                     zip.getInputStream(e).use { s ->
-                        val st = if (base.endsWith("gz")) GZIPInputStream(s, 1 shl 16) else s
-                        importTarStream(st, base, depth + 1)
+                        if (base.endsWith("gz", true)) importCompressed(GZIPInputStream(s, 1 shl 16), base, depth + 1)
+                        else importTarStream(s, base, depth + 1)
                     }
                 }
                 // Block OTA data/list files are useless alone; they are paired after the loop.
