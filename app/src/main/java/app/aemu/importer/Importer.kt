@@ -88,7 +88,7 @@ class Importer(
             if (!File(root, "system/framework").isDirectory && !File(root, "system/build.prop").isFile)
                 throw IOException("no Android system partition found in file")
             finishTree()
-            recovery?.let { runCatching { RecoveryImage.install(paths, it, log) } }
+            recovery?.let { r -> runCatching { RecoveryImage.install(paths, r, log) }.onFailure { log("recovery: install failed (${it.message}), skipped") } }
             onProgress("Analyzing firmware", 0.97f)
             val img = Analyzer(ctx, paths, ramdisk).analyze(id, name)
             TreeFixer(ctx, paths, img, log).sanitize()
@@ -142,6 +142,9 @@ class Importer(
                 String(h, 0, 6, Charsets.US_ASCII) == "070702" ||
                 String(h, 0, 6, Charsets.US_ASCII) == "070707") ->
                 importCpioStream(streamOf(src), name, depth)
+            // HTC: RUU_*.exe installer, Dream-style .nbh, 256-byte-signed rom.zip / *_signed.img.
+            // Routed explicitly so the heuristic probes below never look at a multi-hundred-MB executable.
+            FirmwareToolset.isHtcContainer(h) -> importViaToolset(src, name, depth)
             SparseSource.probe(src) -> importImage(SparseSource(listOf(src)), "system")
             Ext4Reader.probe(src) -> importImage(src, "system")
             Yaffs2Reader.probe(src) -> importImage(src, "system")
@@ -150,34 +153,49 @@ class Importer(
             h[0] == 0x1f.toByte() && h[1] == 0x8b.toByte() -> importCompressed(GZIPInputStream(streamOf(src), 1 shl 16), name, depth)
             h[0] == 0xfd.toByte() && h[1] == '7'.code.toByte() -> importCompressed(XZInputStream(streamOf(src)), name, depth)
             h[0] == 'B'.code.toByte() && h[1] == 'Z'.code.toByte() && h[2] == 'h'.code.toByte() -> importCompressed(BZip2CompressorInputStream(streamOf(src)), name, depth)
+            // a recovery image reached directly (extracted by the firmware toolset, nested archive, plain file)
+            isRecoveryName(name.replace('\\', '/').substringAfterLast('/')) && src.size < 64_000_000 ->
+                takeRecovery(streamOf(src), name.replace('\\', '/').substringAfterLast('/'))
             h.size >= 8 && String(h, 0, 8, Charsets.ISO_8859_1) == "ANDROID!" -> takeBoot(readAllFrom(src))
             // system.img / factoryfs / factoryfs.img / factoryfs.rfs: a system partition whatever the filesystem
             isSystemImageName(name.replace('\\', '/').substringAfterLast('/')) ->
                 importImage(if (SparseSource.probe(src)) SparseSource(listOf(src)) else src, "system")
-            else -> {
-                val source = spill(streamOf(src), name)
-                val toolWork = File(tmp, "tool-${System.nanoTime()}").apply { mkdirs() }
-                try {
-                    val artifacts = FirmwareToolset.extract(source, toolWork) { msg -> log(msg) }
-                    if (artifacts.isEmpty()) throw IOException("unknown file format \"$name\"")
-                    for (artifact in artifacts) {
-                        if (cancelled) throw IOException("cancelled")
-                        if (!artifact.file.isFile) continue
-                        FileChannel.open(artifact.file.toPath(), StandardOpenOption.READ).use { c ->
-                            handle(ChannelSource(c), c, artifact.file.name, depth + 1)
-                        }
-                    }
-                } finally {
-                    deleteTree(toolWork)
-                    source.delete()
+            else -> importViaToolset(src, name, depth)
+        }
+    }
+
+    /**
+     * Spills the file, lets [FirmwareToolset] unpack it and feeds every artifact back into [handle].
+     * Large intermediates are dropped as early as possible: an HTC One S RUU is a 518 MB installer that
+     * yields a 1 GB system.img, which would otherwise sit next to it until the whole import ends.
+     */
+    private fun importViaToolset(src: RandomSource, name: String, depth: Int) {
+        val source = spill(streamOf(src), name)
+        val toolWork = File(tmp, "tool-${System.nanoTime()}").apply { mkdirs() }
+        try {
+            val artifacts = FirmwareToolset.extract(source, toolWork) { msg -> log(msg) }
+            if (artifacts.isEmpty()) throw IOException("unknown file format \"$name\"")
+            // the unpacked copy is all that is needed from here on (unless an artifact IS the spilled file)
+            if (artifacts.none { it.file == source }) source.delete()
+            for (artifact in artifacts) {
+                if (cancelled) throw IOException("cancelled")
+                if (!artifact.file.isFile) continue
+                FileChannel.open(artifact.file.toPath(), StandardOpenOption.READ).use { c ->
+                    handle(ChannelSource(c), c, artifact.file.name, depth + 1)
                 }
+                if (artifact.cleanup && artifact.file != source) artifact.file.delete()
             }
+        } finally {
+            deleteTree(toolWork)
+            source.delete()
         }
     }
 
     private fun recognizedFirmwareTool(name: String): Boolean {
         val n = name.lowercase()
         if (n == "file_contexts.bin" || n == "file_contexts" || n.endsWith("/file_contexts.bin")) return false
+        // HTC RUU installers only: a bare *.exe in an archive is usually adb/fastboot/driver tooling
+        if (n.endsWith(".exe") && n.substringAfterLast('/').startsWith("ruu")) return true
         return n.endsWith(".pac") || n.endsWith(".sbf") || n.endsWith(".nbh") ||
             n.endsWith(".tot") || isLikelyLgBinName(n) || n.endsWith(".ofp") ||
             n.endsWith(".ops") || n.endsWith(".pkg") || n.endsWith(".rfs") ||
@@ -221,6 +239,22 @@ class Importer(
             if (f.length() < 2) throw IOException("compressed file is empty: $name")
             FileChannel.open(f.toPath(), StandardOpenOption.READ).use { c -> handle(ChannelSource(c), c, inner, depth + 1) }
         } finally { deleteTree(f.parentFile ?: f) }
+    }
+
+    /** recovery.img (optionally lz4-framed) or a TWRP raw recovery.*.win backup. */
+    private fun isRecoveryName(base: String) =
+        base.matches(Regex("(?i)recovery(_signed)?\\.img(\\.lz4)?|recovery\\.(emmc|mmc)\\.win"))
+
+    /** boot.img, or HTC's boot_signed.img (256-byte signature + image; BootImage strips it). */
+    private fun isBootName(base: String) = base.equals("boot.img", true) || base.equals("boot_signed.img", true)
+
+    /** Recovery is optional: remember the first one found, and never let a bad one abort the import. */
+    private fun takeRecovery(i: InputStream, base: String) {
+        runCatching {
+            val data = BootImage.stripHtcSignature((if (base.endsWith(".lz4", true))
+                org.apache.commons.compress.compressors.lz4.FramedLZ4CompressorInputStream(i) else i).readBytes())
+            if (recovery == null && data.size >= 512) { recovery = data; log("recovery: found $base, ${data.size shr 10} KB") }
+        }.onFailure { log("recovery: cannot read $base (${it.message}), skipped") }
     }
 
     private fun isTar(h: ByteArray) = h.size > 262 && String(h, 257, 5, Charsets.ISO_8859_1) == "ustar"
@@ -290,8 +324,8 @@ class Importer(
                 base.equals("system.yaffs2.img", true) -> withEntrySource(zip, e) { importImage(it, "system") }
                 base.endsWith(".yaffs2.img", true) -> {} // CWM user-data/cache backups are not firmware.
                 // boot.img at any depth; the shallowest valid one is taken after the loop
-                base.equals("boot.img", true) -> bootEntries.add(n to e)
-                base.equals("recovery.img", true) && e.size < 64_000_000 -> zip.getInputStream(e).use { recovery = it.readBytes() }
+                isBootName(base) -> bootEntries.add(n to e)
+                isRecoveryName(base) && e.size < 64_000_000 -> zip.getInputStream(e).use { takeRecovery(it, base) }
                 isSystemImageName(base) ->
                     withEntrySource(zip, e) { importImage(if (SparseSource.probe(it)) SparseSource(listOf(it)) else it, "system") }
                 base.matches(Regex("(?i)vendor(\\.ext4)?\\.img")) ->
@@ -462,8 +496,8 @@ class Importer(
                         gotSystem = true
                     }
                     base.endsWith(".yaffs2.img", true) && !base.equals("system.yaffs2.img", true) -> drain(entryStream)
-                    base.equals("boot.img", true) -> takeBoot(entryStream.readBytes())
-                    base.equals("recovery.img", true) && e.size < 64_000_000 -> recovery = entryStream.readBytes()
+                    isBootName(base) -> takeBoot(entryStream.readBytes())
+                    isRecoveryName(base) && e.size < 64_000_000 -> takeRecovery(entryStream, base)
                     base.equals("system.yaffs2.img", true) ||
                         isSystemImageName(base) -> {
                         nested.add(spill(entryStream, base) to "system")
@@ -561,7 +595,7 @@ class Importer(
                 val base = entryName.substringAfterLast('/')
                 val sysRel = systemRel(sysRoot, entryName)
                 val interesting = sysRel != null ||
-                    base.equals("boot.img", true) || base.equals("recovery.img", true) ||
+                    isBootName(base) || isRecoveryName(base) ||
                     base.equals("system.yaffs2.img", true) ||
                     isSystemImageName(base) ||
                     base.matches(Regex("(?i).*\\.(zip|rar|7z|tar|tar\\.md5|md5|tgz|tar\\.gz|new\\.dat|transfer\\.list)")) ||
@@ -574,10 +608,10 @@ class Importer(
                     FileInputStream(temp).use { input -> writeFile(sysRel, input, null) }
                     gotSystem = true
                     temp.delete()
-                } else if (base.equals("boot.img", true)) {
+                } else if (isBootName(base)) {
                     takeBoot(temp.readBytes()); temp.delete()
-                } else if (base.equals("recovery.img", true) && temp.length() < 64_000_000) {
-                    recovery = temp.readBytes(); temp.delete()
+                } else if (isRecoveryName(base) && temp.length() < 64_000_000) {
+                    temp.inputStream().use { takeRecovery(it, base) }; temp.delete()
                 } else if (base.equals("system.yaffs2.img", true) ||
                     isSystemImageName(base)) {
                     pending.add(temp to "system")
@@ -677,8 +711,8 @@ class Importer(
                         writeFile(n, cpio.nonClosing(), e.mode.toInt())
                         gotSystem = true
                     }
-                    base.equals("boot.img", true) -> takeBoot(cpio.readBytes())
-                    base.equals("recovery.img", true) && e.size < 64_000_000 -> recovery = cpio.readBytes()
+                    isBootName(base) -> takeBoot(cpio.readBytes())
+                    isRecoveryName(base) && e.size < 64_000_000 -> takeRecovery(cpio, base)
                     isSystemImageName(base) -> {
                         val t = spill(cpio.nonClosing(), base)
                         try {
@@ -733,7 +767,7 @@ class Importer(
                     t.delete()
                 }
                 base.matches(Regex("(?i)(boot\\.img|zImage|kernel)(\\.lz4)?")) && e.isFile && !inSystemDump(n) -> takeBoot(maybeLz4(tar, base).readBytes())
-                base.matches(Regex("(?i)recovery\\.img(\\.lz4)?")) && e.isFile && e.size < 64_000_000 && !inSystemDump(n) -> recovery = maybeLz4(tar, base).readBytes()
+                isRecoveryName(base) && e.isFile && e.size < 64_000_000 && !inSystemDump(n) -> takeRecovery(tar.nonClosing(), base)
                 base.matches(Regex("(?i).*\\.(tar|tar\\.md5)")) && e.isFile && e.size > 20_000_000 -> importTarStream(tar.nonClosing(), base, depth + 1)
                 // factory-образы Google: tgz → image-*.zip → system.img/boot.img; Samsung: zip внутри tar
                 base.lowercase().endsWith(".zip") && e.isFile && e.size > 20_000_000 -> {
@@ -894,8 +928,9 @@ class Importer(
         fs.warnings.forEach { log("YAFFS2 $mount: $it") }
     }
 
-    private fun takeBoot(data: ByteArray) {
+    private fun takeBoot(raw: ByteArray) {
         if (ramdisk != null) return
+        val data = BootImage.stripHtcSignature(raw)
         val rd = runCatching { BootImage.ramdisk(data) }.getOrNull()
         if (rd.isNullOrEmpty()) { log("boot: ramdisk not recognized"); return }
         ramdisk = rd

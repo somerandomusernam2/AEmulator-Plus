@@ -410,6 +410,7 @@ class GuestVm(val ctx: Context, val img: GuestImage, val lowPowerBoot: Boolean =
         bootAt = System.currentTimeMillis()
         bootDoneAt = 0
         everBooted = false; zygoteRestarts = 0
+        bootAnimCheckRunning.set(false); bootAnimFixes = 0
         setState(State.BOOTING)
 
         // 4. binder
@@ -625,7 +626,12 @@ class GuestVm(val ctx: Context, val img: GuestImage, val lowPowerBoot: Boolean =
                 // app creating a sound (the phone process, ToneGenerator) got an ANR.
                 val p = synchronized(procs) { procs.remove("bootanim") } ?: return
                 Thread {
-                    runCatching { if (!p.waitFor(5, java.util.concurrent.TimeUnit.SECONDS)) p.destroyForcibly() }
+                    // an animation that has to be killed (or exits non-zero) may leave its layer on top
+                    val crashed = runCatching {
+                        if (!p.waitFor(5, java.util.concurrent.TimeUnit.SECONDS)) { p.destroyForcibly(); p.waitFor(2, java.util.concurrent.TimeUnit.SECONDS); true }
+                        else p.exitValue() != 0
+                    }.getOrDefault(false)
+                    if (crashed && !stopping) checkDeadBootAnimLayer(runCatching { p.exitValue() }.getOrDefault(-1))
                 }.start()
                 return
             }
@@ -691,6 +697,8 @@ class GuestVm(val ctx: Context, val img: GuestImage, val lowPowerBoot: Boolean =
                     // by name after restartZygote() erased the newly started zygote from supervision.
                     if (!synchronized(procs) { procs.remove(name, p) }) continue
                     val code = runCatching { p.exitValue() }.getOrDefault(-1)
+                    // a clean exit (code 0) is the normal end of the animation; anything else is a crash or a kill
+                    if (name == "bootanim" && code != 0) checkDeadBootAnimLayer(code)
                     if (name == "zygote") {
                         if (state != State.FAILED && (!everBooted || zygoteRestarts >= 6)) {
                             failure = "zygote exited (code $code)" + if (code == 137) " — SIGKILL (cause not established)" else ""
@@ -717,6 +725,8 @@ class GuestVm(val ctx: Context, val img: GuestImage, val lowPowerBoot: Boolean =
                     }
                     // родной audio_policy производителя может падать с нашим HAL — подменяем на AOSP
                     if (name == "mediaserver" && code == 139 && n == 1) swapAudioPolicy()
+                    // the AOSP stand-in crashed as well (different service ABI): keep the firmware's own policy for good
+                    if (name == "mediaserver" && code == 139 && n == 2) abandonAospPolicy()
                     if (svc != null && (svc.restart || name in ALWAYS_RESTART) && code != 137 && code != 143 && n < 12) {
                         restarts[name] = n + 1
                         log("service $name crashed (code $code), restarting (${n + 1}/12)")
@@ -736,6 +746,11 @@ class GuestVm(val ctx: Context, val img: GuestImage, val lowPowerBoot: Boolean =
         val f = File(paths.root, "system/lib/hw/audio_policy.default.so")
         val aosp = File(paths.root, "system/lib/libaemu_apaosp.so")
         val parked = File(paths.root, "system/.aemu-parked/system#lib#hw#audio_policy.default.so")
+        val failedMark = File(paths.root, "system/.aemu-parked/audio-aosp-failed")
+        if (failedMark.isFile) { // the AOSP stand-in already crashed on this firmware: never install it again
+            if (parked.isFile) runCatching { parked.copyTo(f, overwrite = true); aosp.delete() }
+            return
+        }
         // The previous stream-tail bug made mediaserver crash and triggered a
         // policy fallback. ZR's stock policy itself was not the origin of PC=2;
         // the AOSP fallback has a different service ABI and crashes at 0x98.
@@ -751,7 +766,7 @@ class GuestVm(val ctx: Context, val img: GuestImage, val lowPowerBoot: Boolean =
         }
         // MediaTek: AudioPolicyService переделан (другие ops и слоты), политика AOSP в нём падает.
         // Родная политика MTK падала только из-за проверки DRVB, которую теперь снимает TreeFixer
-        if (TreeFixer.isMtkAudio(paths.root)) {
+        if (TreeFixer.isMtkPlatform(paths.root)) {
             if (parked.isFile) runCatching {
                 parked.copyTo(f, overwrite = true); parked.delete(); aosp.delete()
                 log("audio: MediaTek, restored stock audio_policy")
@@ -767,6 +782,59 @@ class GuestVm(val ctx: Context, val img: GuestImage, val lowPowerBoot: Boolean =
             ctx.assets.open("engines/kk/audio_policy.wrap.so").use { i -> f.outputStream().use { o -> i.copyTo(o) } }
             log("audio: firmware audio_policy crashes, installed AOSP one (stock kept)")
         }
+    }
+
+    /** Puts the firmware's own audio policy back and remembers that the AOSP stand-in does not work here. */
+    private fun abandonAospPolicy() {
+        val f = File(paths.root, "system/lib/hw/audio_policy.default.so")
+        val aosp = File(paths.root, "system/lib/libaemu_apaosp.so")
+        val parked = File(paths.root, "system/.aemu-parked/system#lib#hw#audio_policy.default.so")
+        if (!parked.isFile || !aosp.isFile) return
+        runCatching {
+            parked.copyTo(f, overwrite = true)
+            aosp.delete()
+            File(paths.root, "system/.aemu-parked/audio-aosp-failed").writeText("1")
+            log("audio: AOSP policy crashed too, restored the firmware's own audio policy")
+        }.onFailure { log("audio: cannot restore firmware audio policy: ${it.message}") }
+    }
+
+    private val bootAnimCheckRunning = java.util.concurrent.atomic.AtomicBoolean(false)
+    @Volatile private var bootAnimFixes = 0
+
+    /**
+     * bootanim died abnormally. If SurfaceFlinger still keeps its layer on top once the system is up (the dead
+     * client's layer is never reaped here), the screen stays black on top of the real UI. Restart SurfaceFlinger
+     * and the system through the usual crash path of the watchdog, which drops that layer.
+     */
+    private fun checkDeadBootAnimLayer(code: Int) {
+        if (!bootAnimCheckRunning.compareAndSet(false, true)) return
+        log("boot animation died (code $code), will check the top SurfaceFlinger layer after boot")
+        Thread({
+            try {
+                while (!stopping && bootAnimFixes < 2) {
+                    // while booting the animation layer is legitimately on top
+                    if (!waitFor("boot completion (bootanim check)", 300_000) { bootDoneAt != 0L }) return@Thread
+                    Thread.sleep(5000)
+                    if (stopping) return@Thread
+                    val (_, dump) = guestRunner.run(listOf("/system/bin/sh", "-c",
+                        "export PATH=/system/bin:/system/xbin:\$PATH; dumpsys SurfaceFlinger"), 30_000)
+                    val layers = BootAnimLayer.visibleLayers(dump)
+                    if (layers.isEmpty() || !BootAnimLayer.isBootAnim(layers.last())) {
+                        log("boot animation died, top layer is ${layers.lastOrNull() ?: "unknown"}: nothing to fix")
+                        return@Thread
+                    }
+                    bootAnimFixes++
+                    log("✖ dead boot animation is still the top layer, restarting SurfaceFlinger ($bootAnimFixes/2)")
+                    val sf = synchronized(procs) { procs["surfaceflinger"] }
+                    val pid = sf?.let { pidOf(it) }
+                    if (pid == null) { log("surfaceflinger is not running, cannot restart it"); return@Thread }
+                    // the watchdog sees it die, starts it again and restarts zygote
+                    runCatching { AProcess.sendSignal(pid, 9) }
+                    Thread.sleep(10_000) // let the watchdog reset bootDoneAt before waiting for the next boot
+                }
+            } catch (_: InterruptedException) {
+            } finally { bootAnimCheckRunning.set(false) }
+        }, "bootanim-layer-check").apply { isDaemon = true; start() }
     }
 
     private fun restartZygote() {

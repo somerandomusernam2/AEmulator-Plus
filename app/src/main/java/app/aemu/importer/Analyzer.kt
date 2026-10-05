@@ -164,6 +164,7 @@ class Analyzer(private val ctx: Context, private val paths: VmPaths, private val
         rel.startsWith("6") -> 23; rel.startsWith("7.0") -> 24; rel.startsWith("7") -> 25; else -> 19
     }
 
+    /** Only skins proven by properties or files; the device brand alone says nothing (it may be an AOSP/custom ROM). */
     private fun skin(p: Map<String, String>): String {
         val man = (p["ro.product.manufacturer"] ?: p["ro.product.brand"] ?: "").lowercase()
         fun has(path: String) = File(root, path).exists()
@@ -175,14 +176,8 @@ class Analyzer(private val ctx: Context, private val paths: VmPaths, private val
             p.containsKey("ro.build.version.emui") -> "EMUI"
             p.containsKey("ro.build.version.opporom") -> "ColorOS"
             (p["ro.product.brand"] ?: "").lowercase() == "google" || p["ro.build.tags"]?.contains("release-keys") == true && man.contains("samsung") && !has("system/framework/twframework.jar") && !has("system/app/TwLauncher.apk") && !has("system/app/SecLauncher2.apk") -> "AOSP"
-            has("system/framework/twframework.jar") || has("system/app/TwLauncher.apk") || has("system/app/TwLauncher") || has("system/app/SecLauncher2.apk") || man.contains("samsung") -> "TouchWiz"
-            man.contains("htc") || has("system/framework/com.htc.framework.jar") || has("system/framework/HTCExtension.jar") -> "HTC Sense"
-            man.contains("motorola") -> "MOTOBLUR"
-            man.contains("lge") || man.contains("lg") -> "LG Optimus UI"
-            man.contains("sony") || man.contains("semc") -> "Xperia UI"
-            man.contains("asus") -> "ZenUI"
-            man.contains("huawei") -> "EMUI"
-            man.contains("lenovo") -> "Vibe UI"
+            has("system/framework/twframework.jar") || has("system/app/TwLauncher.apk") || has("system/app/TwLauncher") || has("system/app/SecLauncher2.apk") -> "TouchWiz"
+            has("system/framework/com.htc.framework.jar") || has("system/framework/HTCExtension.jar") -> "HTC Sense"
             else -> "AOSP"
         }.trim()
     }

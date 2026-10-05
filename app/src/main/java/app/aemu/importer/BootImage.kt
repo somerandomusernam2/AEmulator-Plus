@@ -31,7 +31,18 @@ object BootImage {
     }
     data class CpioEntry(val name: String, val mode: Int, val data: ByteArray)
 
-    fun ramdisk(img: ByteArray): List<CpioEntry>? {
+    /**
+     * HTC S-ON devices ship boot_signed.img / recovery_signed.img: a 256-byte RSA signature followed by the
+     * ordinary "ANDROID!" image. Returns the image without it, or the input unchanged.
+     */
+    fun stripHtcSignature(img: ByteArray): ByteArray {
+        if (img.size < 264) return img
+        fun at(o: Int) = String(img, o, 8, Charsets.ISO_8859_1) == "ANDROID!"
+        return if (!at(0) && at(256)) img.copyOfRange(256, img.size) else img
+    }
+
+    fun ramdisk(raw: ByteArray): List<CpioEntry>? {
+        val img = stripHtcSignature(raw)
         val bb = ByteBuffer.wrap(img).order(ByteOrder.LITTLE_ENDIAN)
         if (img.size > 64 && String(img, 0, 8, Charsets.ISO_8859_1) == "ANDROID!") {
             val kernelSize = bb.getInt(8).toLong() and 0xffffffffL

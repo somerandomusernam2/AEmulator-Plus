@@ -35,6 +35,7 @@ import java.util.zip.ZipOutputStream;
  * ZIP/7z/RAR/CPIO/TAR/TAR.MD5/gzip/xz/bz2/sparse/ext4/YAFFS2/OTA dat(.br).
  * This registry adds the OEM-specific containers and the standalone conversion
  * utilities from the supplied bundle and feeds their outputs back into Importer.
+ * HTC RUU installers (.exe), Dream-style NBH and 256-byte-signed HTC images live in {@link HtcFirmware}.
  */
 public final class FirmwareToolset {
     private FirmwareToolset() {}
@@ -47,6 +48,10 @@ public final class FirmwareToolset {
 
     public static String detect(File f) throws IOException {
         byte[] h = readHead(f, 4096);
+        // HTC containers first: their first bytes are a random RSA signature / a PE header, so they must not reach the checks below
+        if (HtcFirmware.isDreamNbh(h)) return "HTC_NBH";
+        if (HtcFirmware.isSignedWrapper(h)) return "HTC_SIGNED";
+        if (HtcFirmware.isMz(h) && HtcFirmware.isRuuExe(f)) return "HTC_RUU";
         if (starts(h, "PAC")) { /* handled below by structural PAC probe */ }
         if (h.length >= 4 && u32(h,0) == 0xAA55EC44L) return "LG_BIN";
         if (h.length >= 4 && u32(h,0) == 0xAA55A5A5L) return "LG_BIN";
@@ -87,6 +92,9 @@ public final class FirmwareToolset {
             case "PAC": return Pac.extract(input, work, log);
             case "SBF": return Sbf.extract(input, work, log);
             case "NBH": return Nbh.extract(input, work, log);
+            case "HTC_RUU": return htcArtifacts(HtcFirmware.extractRuu(input, work, log));
+            case "HTC_NBH": return htcArtifacts(HtcFirmware.extractDreamNbh(input, work, log));
+            case "HTC_SIGNED": return htcArtifacts(HtcFirmware.unwrapSigned(input, work, log));
             case "LG_TOT": return Lg.extractTot(input, work, log);
             case "LG_BIN": return Lg.extractBin(input, work, log);
             case "RFS": return Collections.singletonList(new Artifact(Rfs.toZip(input, work, log), Role.ARCHIVE));
@@ -101,6 +109,19 @@ public final class FirmwareToolset {
             case "OTA_PAYLOAD": return PayloadExtractor.extract(input, work, log);
             default: return Collections.emptyList();
         }
+    }
+
+    /** True for the HTC wrappers HtcFirmware unpacks: RUU .exe (MZ), Dream NBH, 256-byte-signed zip / boot image. */
+    public static boolean isHtcContainer(byte[] head) { return HtcFirmware.looksLikeContainer(head); }
+
+    private static List<Artifact> htcArtifacts(List<HtcFirmware.Item> items) {
+        List<Artifact> out = new ArrayList<>();
+        for (HtcFirmware.Item i : items) {
+            Role r = "boot".equals(i.kind) ? Role.BOOT : "recovery".equals(i.kind) ? Role.RECOVERY
+                : "system".equals(i.kind) ? Role.SYSTEM : Role.ARCHIVE;
+            out.add(new Artifact(i.file, r));
+        }
+        return out;
     }
 
     // ===== combine_sparse.py ==================================================
@@ -363,71 +384,257 @@ public final class FirmwareToolset {
     }
 
     // ===== SBF =================================================================
+    /**
+     * Motorola "Multi-Interface Boot File".
+     *
+     * Layout (verified on Xoom EVRSU / HUBWF dumps; both files tile exactly to EOF):
+     *   "Multi-Interface\0", zero fill, a ~3 MiB signature / PKI blob, then records back to back
+     *   until a short footer. Every record is
+     *       [ 4] checksum
+     *       [17] fixed prefix  03 02 02 00 00 00 00 03 02 00 00 00 00 00 03 02 01
+     *       [ 4] payload length, big endian
+     *       [ 4] attribute word (partition slot, e.g. 0x110, 0x120, 0x130 ...)
+     *       [len] payload
+     *
+     * The old code searched for an 18-byte "marker" whose last byte was hard-coded to 0x00. That
+     * byte is really the top byte of the length, so every record of 16 MiB or more (the ext4
+     * system / cache partitions, length 0x10000000 and 0x0A900000) was invisible and got swallowed
+     * by the record before it. It also ignored the length field, labelled sections by guesswork
+     * (first Android image = boot, any blob containing "system" = system.img) and handed unusable
+     * junk sections to Importer, which aborts on the first file it cannot identify.
+     *
+     * This version walks the record chain by its length field, classifies payloads by content,
+     * and emits only what Importer can use: system.img, boot.img and recovery.img.
+     */
     static final class Sbf {
-        private static final byte[] MARK={3,2,2,0,0,0,0,3,2,0,0,0,0,0,3,2,1,0};
-        static List<Artifact> extract(File f,File work,Consumer<String>log)throws Exception {
-            // Stream everything from disk. The old implementation did readAll(f) plus two full
-            // copies per section, which blew the Android heap on large SBF files.
+        private static final byte[] PFX = {3,2,2,0,0,0,0,3,2,0,0,0,0,0,3,2,1};
+        private static final int CK = 4, HDR = CK + 17 + 4 + 4;
+        private static final int CHUNK = 1 << 20;
+        private static final long MIN_UNKNOWN_FS = 16L << 20;
+        private static final byte[][] SYSTEM_MARKERS = {
+            "ro.build.version.sdk=".getBytes(StandardCharsets.US_ASCII),
+            "ro.build.version.release=".getBytes(StandardCharsets.US_ASCII)};
+
+        private static final class Rec {
+            final long data, len; final int attr;
+            Rec(long data, long len, int attr) { this.data = data; this.len = len; this.attr = attr; }
+        }
+        private static final class Part {
+            final Rec r; final String kind; final long copy; Boolean recovery;
+            Part(Rec r, String kind, long copy) { this.r = r; this.kind = kind; this.copy = copy; }
+        }
+
+        static List<Artifact> extract(File f, File work, Consumer<String> log) throws Exception {
             try (RandomAccessFile raf = new RandomAccessFile(f, "r")) {
                 long len = raf.length();
                 byte[] magic = new byte[15];
                 if (len < magic.length) throw new IOException("not SBF");
                 raf.readFully(magic);
                 if (!starts(magic, "Multi-Interface")) throw new IOException("not SBF");
+
+                List<Rec> recs = parseRecords(raf, len, log);
+                if (recs.isEmpty()) throw new IOException("SBF: no records found (unsupported SBF layout)");
+
+                List<Part> fs = new ArrayList<>(), android = new ArrayList<>(), other = new ArrayList<>();
+                for (Rec r : recs) {
+                    Part p = classify(raf, r);
+                    if (p.kind.equals("android")) android.add(p);
+                    else if (p.kind.equals("other")) other.add(p);
+                    else fs.add(p);
+                }
+
+                // system = the filesystem that carries build.prop; fall back to the largest filesystem
+                Part sys = null;
+                for (Part p : fs) if (rangeContains(raf, p.r.data, p.r.len, SYSTEM_MARKERS)) { sys = p; break; }
+                if (sys == null && !fs.isEmpty()) {
+                    sys = fs.get(0);
+                    for (Part p : fs) if (p.r.len > sys.r.len) sys = p;
+                    log.accept("SBF: no build.prop found, using the largest filesystem (slot 0x" + Integer.toHexString(sys.r.attr) + ") as system");
+                }
+                if (sys == null) { // older layouts (YAFFS2 and friends): let Importer try the biggest unknown payload
+                    for (Part p : other) if (p.r.len >= MIN_UNKNOWN_FS && (sys == null || p.r.len > sys.r.len)) sys = p;
+                    if (sys != null) log.accept("SBF: unrecognised filesystem in slot 0x" + Integer.toHexString(sys.r.attr) + ", trying it as system");
+                }
+
+                // boot vs recovery: decided by the ramdisk (only the recovery one carries sbin/recovery)
+                for (Part p : android) p.recovery = ramdiskHasRecovery(raf, p.r.data, p.r.len);
+                Part boot = null, rec = null;
+                for (Part p : android) {
+                    if (Boolean.TRUE.equals(p.recovery) && rec == null) rec = p;
+                    else if (Boolean.FALSE.equals(p.recovery) && boot == null) boot = p;
+                }
+                for (Part p : android) {               // undecidable leftovers: stream order, boot first
+                    if (p == boot || p == rec) continue;
+                    if (boot == null) boot = p; else if (rec == null) rec = p;
+                }
+
                 File out = new File(work, "sbf"); out.mkdirs();
                 List<Artifact> a = new ArrayList<>();
-                long[] marks = findMarks(raf, len);
-                int n = 0;
-                for (int i = 0; i < marks.length; i++) {
-                    long m = marks[i], hs = m - 7;
-                    if (hs < 0x300) continue;
-                    long img = m + 25;
-                    int j = i + 1;
-                    while (j < marks.length && marks[j] < hs + 32) j++;
-                    long end = j < marks.length ? marks[j] - 7 : len;
-                    if (img >= end) continue;
-                    long rawLen = end - img;
-                    byte[] hd = new byte[(int) Math.min(rawLen, 64)];
-                    raf.seek(img); raf.readFully(hd);
-                    long exact = androidImageSize(hd);
-                    if (exact < 0) exact = trimmedLength(raf, img, rawLen);
-                    if (exact <= 0) continue;
-                    String base = starts(hd, "ANDROID!") ? (n == 0 ? "boot" : "recovery")
-                            : (rawLen > 16 && rangeContains(raf, img, rawLen, "system".getBytes(StandardCharsets.US_ASCII))) ? "system"
-                            : "section_" + n;
-                    File dst = new File(out, base + ".img");
-                    copyRange(raf, img, Math.min(exact, rawLen), dst);
-                    a.add(new Artifact(dst, roleFor(dst.getName())));
-                    log.accept("SBF: " + dst.getName());
-                    n++;
-                }
-                if (a.isEmpty()) throw new IOException("SBF contains no recognizable sections");
+                if (sys != null) a.add(emit(raf, sys, new File(out, "system.img"), Role.SYSTEM, log));
+                if (boot != null) a.add(emit(raf, boot, new File(out, "boot.img"), Role.BOOT, log));
+                if (rec != null) a.add(emit(raf, rec, new File(out, "recovery.img"), Role.RECOVERY, log));
+                if (a.isEmpty()) throw new IOException("SBF contains no recognizable Android partitions (" + recs.size() + " records)");
+                if (sys == null) log.accept("SBF: warning, no system filesystem found among " + recs.size() + " records");
+                log.accept("SBF: " + recs.size() + " records, kept " + a.size());
                 return a;
             }
         }
-        private static final int CHUNK = 1 << 20;
-        /** Offsets of every (possibly overlapping) MARK occurrence, scanned in 1 MiB chunks. */
-        private static long[] findMarks(RandomAccessFile raf, long len) throws IOException {
-            long[] r = new long[16]; int c = 0;
-            byte[] buf = new byte[CHUNK + MARK.length];
-            long base = 0; int carry = 0;
-            while (base + carry < len) {
-                raf.seek(base + carry);
-                int want = (int) Math.min(CHUNK, len - base - carry);
-                raf.readFully(buf, carry, want);
-                int total = carry + want;
-                int last = total - MARK.length;
-                for (int i = 0; i <= last; i++) {
-                    if (buf[i] != MARK[0]) continue;
-                    int k = 1; while (k < MARK.length && buf[i + k] == MARK[k]) k++;
-                    if (k == MARK.length) { if (c == r.length) r = Arrays.copyOf(r, c * 2); r[c++] = base + i; }
-                }
-                int keep = Math.min(MARK.length - 1, total);
-                System.arraycopy(buf, total - keep, buf, 0, keep);
-                base += total - keep; carry = keep;
-            }
-            return Arrays.copyOf(r, c);
+
+        private static Artifact emit(RandomAccessFile raf, Part p, File dst, Role role, Consumer<String> log) throws IOException {
+            copyRange(raf, p.r.data, Math.min(p.copy, p.r.len), dst);
+            log.accept("SBF: slot 0x" + Integer.toHexString(p.r.attr) + " (" + p.kind + ", " + (p.r.len >> 10) + " KB) -> " + dst.getName());
+            return new Artifact(dst, role);
         }
+
+        // ---- record chain ---------------------------------------------------------------
+
+        /**
+         * The first record is located by the fixed prefix. A clean chain tiles the file up to its footer;
+         * if the chain breaks (damaged length field) the first plausible candidate is walked again with
+         * resynchronisation instead of accepting some later record whose chain happens to end at EOF.
+         */
+        private static List<Rec> parseRecords(RandomAccessFile raf, long len, Consumer<String> log) throws IOException {
+            long from = 0;
+            for (int tries = 0; tries < 16; tries++) {
+                long p = findPrefix(raf, len, from);
+                if (p < 0) break;
+                from = p + 1;
+                if (p < CK) continue;
+                long[] end = new long[1];
+                List<Rec> strict = walk(raf, len, p - CK, false, null, end);
+                if (strict.isEmpty()) continue;
+                if (len - end[0] <= 64) return strict;                             // clean chain to EOF
+                if (strict.size() >= 2) {                                          // damaged: resync and keep going
+                    List<Rec> loose = walk(raf, len, p - CK, true, log, end);
+                    if (!loose.isEmpty()) return loose;
+                }
+            }
+            return new ArrayList<Rec>();
+        }
+
+        private static List<Rec> walk(RandomAccessFile raf, long len, long start, boolean resync,
+                                      Consumer<String> log, long[] endOut) throws IOException {
+            List<Rec> out = new ArrayList<>();
+            byte[] h = new byte[HDR];
+            long pos = start;
+            while (pos + HDR <= len) {
+                raf.seek(pos); raf.readFully(h);
+                if (!prefixAt(h, CK)) {
+                    if (!resync) break;
+                    long p = findPrefix(raf, len, pos + 1);
+                    if (p < CK) break;
+                    if (log != null) log.accept("SBF: lost record sync at " + pos + ", resynchronised at " + (p - CK));
+                    pos = p - CK; continue;
+                }
+                long dl = be32(h, CK + 17);
+                int attr = (int) be32(h, CK + 21);
+                long data = pos + HDR;
+                if (data + dl > len) dl = len - data;                              // truncated download
+                out.add(new Rec(data, dl, attr));
+                pos = data + dl;
+            }
+            endOut[0] = pos;
+            return out;
+        }
+
+        private static boolean prefixAt(byte[] b, int o) {
+            if (o + PFX.length > b.length) return false;
+            for (int i = 0; i < PFX.length; i++) if (b[o + i] != PFX[i]) return false;
+            return true;
+        }
+        private static long be32(byte[] b, int o) {
+            return ((b[o] & 255L) << 24) | ((b[o + 1] & 255L) << 16) | ((b[o + 2] & 255L) << 8) | (b[o + 3] & 255L);
+        }
+
+        /** Offset of the next fixed prefix at or after {@code from}, or -1. Streamed in 1 MiB chunks. */
+        private static long findPrefix(RandomAccessFile raf, long len, long from) throws IOException {
+            byte[] buf = new byte[CHUNK + PFX.length];
+            long pos = Math.max(0, from);
+            while (pos + PFX.length <= len) {
+                int want = (int) Math.min(buf.length, len - pos);
+                raf.seek(pos); raf.readFully(buf, 0, want);
+                int last = want - PFX.length;
+                for (int i = 0; i <= last; i++) {
+                    if (buf[i] != PFX[0]) continue;
+                    int k = 1; while (k < PFX.length && buf[i + k] == PFX[k]) k++;
+                    if (k == PFX.length) return pos + i;
+                }
+                pos += last + 1;                                                   // keep PFX.length-1 bytes of overlap
+            }
+            return -1;
+        }
+
+        // ---- payload classification -----------------------------------------------------
+
+        private static Part classify(RandomAccessFile raf, Rec r) throws IOException {
+            byte[] hd = new byte[(int) Math.min(r.len, 0x500)];
+            raf.seek(r.data); raf.readFully(hd);
+            if (starts(hd, "ANDROID!")) {
+                long exact = androidImageSize(hd);
+                if (exact <= 0) exact = trimmedLength(raf, r.data, r.len);
+                return new Part(r, "android", exact);
+            }
+            if (isExtSuper(hd)) return new Part(r, "ext", r.len);
+            if (hd.length >= 4 && u32(hd, 0) == 0xED26FF3AL) return new Part(r, "sparse", r.len);
+            if (starts(hd, "hsqs") || starts(hd, "sqsh")) return new Part(r, "squashfs", r.len);
+            return new Part(r, "other", r.len);
+        }
+
+        private static boolean isExtSuper(byte[] b) {
+            if (b.length < 0x460 || b[0x438] != 0x53 || b[0x439] != (byte) 0xEF) return false;
+            return u32(b, 0x400) > 0 && u32(b, 0x404) > 0 && u32(b, 0x418) <= 6 && u32(b, 0x44C) <= 1;
+        }
+
+        /** TRUE = ramdisk has sbin/recovery, FALSE = it does not, null = ramdisk could not be read. */
+        private static Boolean ramdiskHasRecovery(RandomAccessFile raf, long off, long len) {
+            try {
+                byte[] hd = new byte[(int) Math.min(len, 64)];
+                raf.seek(off); raf.readFully(hd);
+                if (!starts(hd, "ANDROID!") || hd.length < 40) return null;
+                long page = u32(hd, 36), k = u32(hd, 8), r = u32(hd, 16);
+                if (page < 512 || page > 65536 || r <= 0 || r > (256L << 20)) return null;
+                long ro = off + page + align(k, page);
+                long rl = Math.min(r, off + len - ro);
+                if (rl <= 4) return null;
+                byte[] m = new byte[6];
+                raf.seek(ro); raf.readFully(m, 0, (int) Math.min(rl, 6));
+                InputStream in = new BufferedInputStream(new RangeIn(raf, ro, rl), 1 << 16);
+                if ((m[0] & 255) == 0x1f && (m[1] & 255) == 0x8b) in = new GZIPInputStream(in, 1 << 16);
+                else if (!starts(m, "070701") && !starts(m, "070702")) return null;
+                return streamContains(in, "sbin/recovery".getBytes(StandardCharsets.US_ASCII));
+            } catch (Exception e) { return null; }
+        }
+
+        private static Boolean streamContains(InputStream in, byte[] pat) {
+            byte[] buf = new byte[(1 << 16) + pat.length];
+            int carry = 0;
+            try {
+                int n;
+                while ((n = in.read(buf, carry, 1 << 16)) > 0) {
+                    int total = carry + n;
+                    if (total >= pat.length && indexOf(Arrays.copyOf(buf, total), pat, 0) >= 0) return Boolean.TRUE;
+                    carry = Math.min(pat.length - 1, total);
+                    System.arraycopy(buf, total - carry, buf, 0, carry);
+                }
+                return Boolean.FALSE;
+            } catch (IOException e) { return null; }
+        }
+
+        private static final class RangeIn extends InputStream {
+            private final RandomAccessFile raf; private long pos; private final long end;
+            RangeIn(RandomAccessFile raf, long start, long len) { this.raf = raf; this.pos = start; this.end = start + len; }
+            @Override public int read() throws IOException { byte[] b = new byte[1]; return read(b, 0, 1) < 0 ? -1 : b[0] & 255; }
+            @Override public int read(byte[] b, int o, int n) throws IOException {
+                if (pos >= end) return -1;
+                int k = (int) Math.min(n, end - pos);
+                raf.seek(pos); k = raf.read(b, o, k);
+                if (k > 0) pos += k;
+                return k;
+            }
+        }
+
+        // ---- streaming helpers ----------------------------------------------------------
+
         /** Length of [start,start+len) with trailing 0x00/0xFF bytes removed (streamed backwards). */
         private static long trimmedLength(RandomAccessFile raf, long start, long len) throws IOException {
             byte[] buf = new byte[CHUNK];
@@ -440,20 +647,19 @@ public final class FirmwareToolset {
             }
             return 0;
         }
-        /** Streamed substring search inside [start,start+len). */
-        private static boolean rangeContains(RandomAccessFile raf, long start, long len, byte[] pat) throws IOException {
-            byte[] buf = new byte[CHUNK + pat.length];
+        /** Streamed search for any of the patterns inside [start,start+len). */
+        private static boolean rangeContains(RandomAccessFile raf, long start, long len, byte[]... pats) throws IOException {
+            int maxPat = 0; for (byte[] p : pats) maxPat = Math.max(maxPat, p.length);
+            byte[] buf = new byte[CHUNK + maxPat];
             long done = 0; int carry = 0;
             while (done < len) {
                 int want = (int) Math.min(CHUNK, len - done);
                 raf.seek(start + done); raf.readFully(buf, carry, want);
                 int total = carry + want;
-                if (total >= pat.length) {
-                    byte[] view = total == buf.length ? buf : Arrays.copyOf(buf, total);
-                    if (indexOf(view, pat, 0) >= 0) return true;
-                }
+                byte[] view = Arrays.copyOf(buf, total);
+                for (byte[] p : pats) if (total >= p.length && indexOf(view, p, 0) >= 0) return true;
                 done += want;
-                carry = Math.min(pat.length - 1, total);
+                carry = Math.min(maxPat - 1, total);
                 System.arraycopy(buf, total - carry, buf, 0, carry);
             }
             return false;

@@ -352,7 +352,9 @@ class TreeFixer(
             // open_output_stream 0x6c, stream write 0x40), so only 4.1–4.2 TouchWiz keeps the stand HAL
             val samsung = img.skin.contains("TouchWiz", true) || img.skin.contains("Samsung", true)
             val htcLike = img.skin.contains("HTC", true) || (samsung && img.api < 18)
+            val mtkHw = from == "audio.primary.default.so" && engine == Engine.KK && isMtkHwOnlyAudio(root)
             val name = when {
+                mtkHw -> "audio.primary.mtk.so"
                 from != "audio.primary.default.so" || htcLike -> from
                 // 4.0 has its own audio_hw_device layout; Qualcomm CAF builds add set_fm_volume/open_output_session
                 img.api in 14..15 -> if (qcomAudioFlinger()) "audio.primary.ics-qcom.so" else "audio.primary.ics.so"
@@ -364,6 +366,12 @@ class TreeFixer(
             val size = runCatching { ctx.assets.openFd(asset).use { it.length } }.getOrDefault(-1L)
             // одинаковый размер ещё не значит тот же файл (правки движка на месте, варианты HAL) — сверяем CRC
             if (dst.isFile && size >= 0 && dst.length() == size && sameContent(asset, dst)) continue
+            if (mtkHw) runCatching {
+                // keep the firmware's own HAL (never one of ours): isMtkAudio keeps working after the swap
+                val parked = File(root, "system/.aemu-parked/system#lib#hw#audio.primary.default.so")
+                if (!parked.isFile && dst.isFile) { parked.parentFile?.mkdirs(); dst.copyTo(parked) }
+                log("audio: MediaTek HAL layout in hw/audio.primary.default.so")
+            }
             runCatching {
                 dst.parentFile?.mkdirs()
                 if (isLink(dst)) Os.remove(dst.absolutePath)
@@ -986,9 +994,49 @@ class TreeFixer(
         /** Прошивка MediaTek, где AudioFlinger связан с собственной звуковой библиотекой MTK (/dev/eac). */
         fun isMtkAudio(root: File): Boolean {
             if (File(root, "system/lib/libaudio.mtk.so").isFile) return true   // already swapped for our HAL
+            if (isMtkHwOnlyAudio(root)) return true
             val f = File(root, "system/lib/libaudio.primary.default.so")
             if (!f.isFile || f.length() > 20_000_000) return false
-            return runCatching { String(f.readBytes(), Charsets.ISO_8859_1).contains("AudioMTKHardware") }.getOrDefault(false)
+            return runCatching {
+                val text = String(f.readBytes(), Charsets.ISO_8859_1)
+                // "AudioMTKHardware" is absent from some MTK 4.4 builds; any MTK audio class or an AudioFlinger
+                // that links this very library (stock AOSP's does not) is just as conclusive
+                text.contains("AudioMTK") || text.contains("AudioALSAHardware") ||
+                    File(root, "system/lib/libaudioflinger.so").let { af ->
+                        af.isFile && af.length() < 20_000_000 &&
+                            String(af.readBytes(), Charsets.ISO_8859_1).contains("libaudio.primary.default.so")
+                    }
+            }.getOrDefault(false)
+        }
+
+        /**
+         * MediaTek platform by any trace (modem/NVRAM daemons, build.prop), not only by the audio HAL string.
+         * Some MTK 4.4 builds (e.g. ALSA-based audio) lack "AudioMTKHardware" yet still ship MTK's reworked
+         * AudioPolicyService, where the AOSP policy stand-in dereferences a missing output descriptor.
+         */
+        fun isMtkPlatform(root: File): Boolean = isMtkAudio(root) || mtkTraces(root)
+
+        /** MediaTek by modem/NVRAM daemons or build.prop alone (independent of the audio libraries). */
+        fun mtkTraces(root: File): Boolean {
+            if (listOf("nvram_daemon", "ccci_mdinit", "muxreport", "gsm0710muxd").any { File(root, "system/bin/$it").isFile }) return true
+            return runCatching {
+                File(root, "system/build.prop").readText()
+                    .contains(Regex("(?m)^(ro\\.mediatek\\.[^=\\s]*=|ro\\.board\\.platform=mt|ro\\.hardware=mt)"))
+            }.getOrDefault(false)
+        }
+
+        /**
+         * MediaTek 4.2+ whose AudioFlinger takes the HAL from the usual system/lib/hw/audio.primary.default.so
+         * (no libaudio.primary.default.so in system/lib): the AOSP-layout stand-in HAL crashes its AudioFlinger,
+         * so the MediaTek-layout HAL goes into hw/ instead.
+         */
+        fun isMtkHwOnlyAudio(root: File): Boolean {
+            if (File(root, "system/lib/libaudio.primary.default.so").isFile || File(root, "system/lib/libaudio.mtk.so").isFile) return false
+            if (!File(root, "system/lib/hw/audio.primary.default.so").isFile) return false
+            val sdk = runCatching {
+                Regex("(?m)^ro\\.build\\.version\\.sdk=(\\d+)").find(File(root, "system/build.prop").readText())?.groupValues?.get(1)?.toInt()
+            }.getOrNull() ?: return false
+            return sdk in 17..20 && mtkTraces(root)
         }
 
         private val LOGS = listOf("main", "system", "radio") // events — канал, его делает EventsSink
