@@ -1,5 +1,6 @@
 /* Modified for AEmulator Sunset through 2026-10-03: motion and boot-media bridges,
- * live library status. GPL-3.0; upstream attribution retained in NOTICE.md. */
+ * live library status; 2026-10-04: native boot of framework-less MMI/FTM builds.
+ * GPL-3.0; upstream attribution retained in NOTICE.md. */
 package app.aemu.core
 
 import android.content.Context
@@ -29,6 +30,10 @@ class GuestVm(val ctx: Context, val img: GuestImage, val lowPowerBoot: Boolean =
 
     val paths = VmPaths(ctx, img.id)
     val settings = img.settings
+    /** Factory-test (MMI/FTM) build: no Java framework, only a native test UI. Booted like the charging class. */
+    val nativeBoot: Boolean by lazy { !lowPowerBoot && MmiBoot.frameworkless(paths.root) && MmiBoot.service(paths.root) != null }
+    /** The guest draws into fb0 itself (double-buffered minui) instead of going through SurfaceFlinger. */
+    val nativeUi: Boolean get() = lowPowerBoot || nativeBoot
     private val storageLease = VmStorageLease.forVm(ctx.filesDir)
     val engine get() = img.engine
 
@@ -74,10 +79,10 @@ class GuestVm(val ctx: Context, val img: GuestImage, val lowPowerBoot: Boolean =
     val adb = AdbServer(this)
     val input = InputService(paths, ::log)
     private val vibration = VibrationBridge(ctx, paths, { settings.vibration }, ::log)
-    private val motion = MotionBridge(ctx, paths, { img.api in 9..25 && !recoveryMode && !lowPowerBoot }, { settings.motionSensors }, ::log)
+    private val motion = MotionBridge(ctx, paths, { img.api in 9..25 && !recoveryMode && !nativeUi }, { settings.motionSensors }, ::log)
     fun motionVisible(visible: Boolean) { motion.visible(visible) }
     fun simulateRotation() = motion.simulateRotation()
-    val cameraSupported get() = engine == Engine.KK && img.api in 14..25 && !recoveryMode && !lowPowerBoot
+    val cameraSupported get() = engine == Engine.KK && img.api in 14..25 && !recoveryMode && !nativeUi
     private val camera = HostCameraBridge(ctx, paths, { settings.camera && cameraSupported }, ::log)
     fun cameraVisible(visible: Boolean) { camera.visible(visible) }
     // 2.x пишет в /dev/eac через AudioHardwareGeneric на 44,1 кГц, HAL 4.x движка — на 48 кГц
@@ -113,7 +118,7 @@ class GuestVm(val ctx: Context, val img: GuestImage, val lowPowerBoot: Boolean =
         failure = null
         setState(State.PREPARING)
         try {
-            if (recoveryMode) doRecovery() else if (lowPowerBoot) doCharging() else doBoot()
+            if (recoveryMode) doRecovery() else if (lowPowerBoot) doCharging() else if (nativeBoot) doMmi() else doBoot()
         } catch (t: Throwable) {
             vibration.stop()
             camera.stop()
@@ -178,6 +183,128 @@ class GuestVm(val ctx: Context, val img: GuestImage, val lowPowerBoot: Boolean =
         }, "charging-watchdog").apply { isDaemon = true; start() }
     }
 
+    /**
+     * Framework-less factory build (ZTE MMI, Qualcomm FFBM…): run just its native test program. Same recipe as
+     * doCharging — fb0 and input come from the host; no zygote and no SurfaceFlinger, but binderd + servicemanager run because vendor libs link libbinder.
+     */
+    private fun doMmi() {
+        paths.bin.mkdirs()
+        runCatching { logFile.writeText("") }
+        log("image \"${img.name}\": ${img.displayVersion}, native MMI/FTM boot (no Android framework)")
+        val service = MmiBoot.service(paths.root) ?: error("no MMI/FTM test program found in this firmware")
+        val qemu = paths.nativeBin(engine.qemu)
+        if (!qemu.canExecute()) error("translator ${engine.qemu} is not executable")
+        val others = MmiBoot.controllable(paths.root)
+        killLeftovers()
+        HostNative.limitStackSafe()
+        TreeFixer(ctx, paths, img, ::log).fixup()
+        File(paths.root, "dev/tty0").delete() // minui cannot use host VT ioctls (KDSETMODE)
+        val sysLink = File(paths.bin, "sys")
+        if (!java.nio.file.Files.exists(sysLink.toPath(), java.nio.file.LinkOption.NOFOLLOW_LINKS))
+            android.system.Os.symlink(File(paths.root, "sys").path, sysLink.path)
+        // mmi opens fonts as "system/fonts/..." (no leading slash), i.e. relative to the cwd; init runs it from "/"
+        for (n in listOf("system", "vendor")) {
+            val l = File(paths.bin, n)
+            if (!java.nio.file.Files.exists(l.toPath(), java.nio.file.LinkOption.NOFOLLOW_LINKS))
+                runCatching { android.system.Os.symlink(File(paths.root, n).path, l.path) }
+        }
+        val serial = VmSettings.cleanSerial(settings.serial).ifBlank { VmSettings.DEFAULT_SERIAL }
+        val overrides = LinkedHashMap(MmiBoot.properties)
+        overrides["ro.aemu.host"] = "qemu-user"
+        overrides["ro.serialno"] = serial
+        overrides["ro.boot.serialno"] = serial
+        overrides["persist.sys.timezone"] = gmtZone()
+        // debugging: run/props.extra — key=value lines on top of everything else
+        File(paths.bin, "props.extra").takeIf { it.isFile }?.readLines()?.forEach { l ->
+            val k = l.substringBefore('=').trim()
+            if (k.isNotEmpty() && !k.startsWith("#") && l.contains('=')) overrides[k] = l.substringAfter('=').trim()
+        }
+        if (!props.prepare(overrides)) error("property area not ready")
+        props.onSet = { k, v -> if (k == "sys.powerctl") powerRequest(v) }
+        // the test program starts helper daemons (ztediag, getlog…) through ctl.start
+        props.onCtl = { start, name ->
+            val def = others[name]
+            if (def == null) log("ctl.${if (start) "start" else "stop"} $name: not started (no guest binary)")
+            else {
+                synchronized(procs) { procs.remove(name) }?.destroyForcibly()
+                if (start && !stopping) Thread { runCatching { startService(def) } }.start()
+            }
+        }
+        props.serve()
+        input.rateHz = settings.touchHz
+        // factory test code is written for the device's kernel touch driver: MT type B (mode 5) unless a mode was chosen explicitly
+        input.mtMode = if (settings.mtMode == 0 || settings.mtMode == 4) 5 else settings.mtMode
+        input.multiPerPid = true // the factory test opens event0 twice (minui + touch probe); the second connection must not evict the first
+        input.serve()
+        frames.serve()
+        runCatching { power.writeText(""); power.setWritable(true, false) }
+        Keeper.hold(ctx, img.name)
+        bootAt = System.currentTimeMillis()
+        bootDoneAt = 0
+        setState(State.BOOTING)
+        // The vendor libs mmi pulls in (mmi_led.so, libmm-disp-apis.so, hwcomposer…) link libbinder, which starts a binder
+        // thread pool. Without binderd every BINDER_WRITE_READ fails with ENOTCONN, and libbinder's joinThreadPool()
+        // abort()s on any error except TIMED_OUT/ECONNREFUSED/EBADF ("returned unexpected error -107, aborting"):
+        // that was the SIGABRT after ~13 s. On the device the kernel binder is simply idle, so run binderd the same way.
+        paths.binderSock.delete()
+        paths.creds.let { d -> d.listFiles()?.forEach { it.delete() }; d.mkdirs() }
+        startBinder()
+        if (!waitFor("binder socket", 15_000) { paths.binderSock.exists() }) error("binderd failed to start")
+        // FFBM starts servicemanager too (srvmag_ffbm); without it getService() would just stall or fail
+        startService(GuestService("servicemanager", listOf("/system/bin/servicemanager"), optional = true))
+        // The "Versions" page (mmi_product.so) calls modem_api_init()/modem_read_nv() from libmodemapi, which speak QMI to a
+        // modem that does not exist here: libqmi_cci dereferences a bad client handle (SIGSEGV in the page's worker thread)
+        // or the page waits forever and the UI never gets its text or its Back key. These three are all mmi_product imports.
+        runCatching {
+            val modemapi = File(paths.root, "system/lib/libmodemapi.so")
+            if (modemapi.isFile) {
+                val n = ElfPatch.returnZero(modemapi, setOf("modem_api_init", "modem_api_release", "modem_read_nv"))
+                if (n > 0) log("modem API: no modem here, init/read_nv answer at once ($n func.)")
+            }
+        }.onFailure { log("modem API patch failed: ${it.message}") }
+        // diagnostics without adb: the guest's system calls go to the service log (see dumpMmiLog)
+        // Tracing slows the factory UI to a crawl (every redraw prints hundreds of lines): opt in with run/strace.keep.
+        runCatching {
+            val flag = File(paths.bin, "strace.${service.name}")
+            if (File(paths.bin, "strace.keep").exists()) flag.createNewFile() else flag.delete()
+            paths.log(service.name).delete() // one run per log, not tens of megabytes of old ones
+        }
+        startService(service)
+        setState(State.RUNNING)
+        log("MMI started: ${service.argv.joinToString(" ")}; Android framework not started")
+        Thread({
+            while (!stopping) {
+                Thread.sleep(500)
+                if (power.length() > 0) { val request = power.readText().trim(); power.writeText(""); powerRequest(request) }
+                val dead = synchronized(procs) { procs[service.name]?.isAlive != true }
+                if (dead && !stopping && !powerHandled) {
+                    val code = synchronized(procs) { procs[service.name] }?.let { runCatching { it.exitValue() }.getOrNull() }
+                    failure = "MMI program ${service.argv.first()} exited (code ${code ?: "?"}). See the ${service.name} log in the VM log folder; missing vendor hardware is expected, a crash is not."
+                    log("✖ $failure"); dumpMmiLog(service.name); setState(State.FAILED); break
+                }
+            }
+        }, "mmi-watchdog").apply { isDaemon = true; start() }
+    }
+
+    /** Copies the interesting part of the MMI program's own log into the VM log, which the app can show. */
+    private fun dumpMmiLog(name: String) {
+        runCatching {
+            val f = paths.log(name)
+            val len = f.length()
+            val text = java.io.RandomAccessFile(f, "r").use { r ->
+                val n = minOf(len, 600_000L).toInt(); r.seek(len - n)
+                val b = ByteArray(n); r.readFully(b); String(b, Charsets.ISO_8859_1)
+            }
+            val lines = text.lines().map { it.take(220) }
+            val key = Regex("fb0|graphics|tty0|/dev/input|ioctl|mmap|openat|open\\(|ENOENT|EACCES|EINVAL|error|fail|FATAL|cannot|can't|could not|not found", RegexOption.IGNORE_CASE)
+            log("── ${name} log: ${lines.size} lines, last 40 ──")
+            lines.takeLast(40).forEach { log("  $it") }
+            val picked = lines.dropLast(40).filter { key.containsMatchIn(it) && !it.contains("EVIOCGBIT") }.takeLast(80)
+            log("── ${name} log: ${picked.size} earlier lines about display/input/errors ──")
+            picked.forEach { log("  $it") }
+        }.onFailure { log("cannot read the $name log: ${it.message}") }
+    }
+
     private fun doRecovery() {
         paths.bin.mkdirs()
         runCatching { logFile.writeText("") }
@@ -189,7 +316,9 @@ class GuestVm(val ctx: Context, val img: GuestImage, val lowPowerBoot: Boolean =
         HostNative.limitStackSafe()
         TreeFixer(ctx, paths, img, ::log).fixup()   // framebuffer, input node
         val sd = Sdcard.setup(ctx, paths, img, ::log)
-        RecoveryImage.prepare(paths, sd)
+        val prep = RecoveryImage.prepare(paths, sd, ::log)
+        input.sinkProtocolB = prep.touchProtocolB
+        prep.format?.let { recoveryFormat = it; log("recovery framebuffer: ${when (it) { 0 -> "RGB565"; 2 -> "BGRA_8888"; else -> "32-bit RGBX" }} (from its binary)") }
         input.rateHz = settings.touchHz
         input.mtMode = settings.mtMode
         input.trackballEnabled = false // recovery does not load the Android evdev shim
@@ -200,7 +329,7 @@ class GuestVm(val ctx: Context, val img: GuestImage, val lowPowerBoot: Boolean =
             val ev = File(RecoveryImage.dir(paths), "dev/input/event0")
             ev.delete()
             android.system.Os.mkfifo(ev.path, "600".toInt(8))
-            val fd = android.system.Os.open(ev.path, android.system.OsConstants.O_RDWR, 0)
+            val fd = android.system.Os.open(ev.path, android.system.OsConstants.O_RDWR or android.system.OsConstants.O_NONBLOCK, 0)
             input.sink = java.io.FileOutputStream(fd)
         }.onFailure { log("recovery: no input channel: ${it.message}") }
         val (w, h) = runCatching { File(paths.root, "dhd.fbgeom").readText().trim().split(Regex("\\s+")).map { it.toInt() } }
@@ -263,6 +392,8 @@ class GuestVm(val ctx: Context, val img: GuestImage, val lowPowerBoot: Boolean =
         runCatching { logFile.writeText("") }
         log("image \"${img.name}\": ${img.displayVersion}, ${img.skin}, engine ${engine.title}")
         if (!File(paths.root, "system/framework").isDirectory) error("firmware tree missing")
+        if (MmiBoot.frameworkless(paths.root))
+            error("this firmware has no Android framework (system/framework/framework.jar) and no native MMI/FTM test program to run instead")
         val qemu = paths.nativeBin(engine.qemu)
         if (!qemu.canExecute()) error("translator ${engine.qemu} is not executable")
         killLeftovers()
@@ -624,15 +755,20 @@ class GuestVm(val ctx: Context, val img: GuestImage, val lowPowerBoot: Boolean =
                 // 4.x sets service.bootanim.exit first and the animation quits on its own, closing its audio.
                 // Killing it outright left Samsung's boot sound track half-open: mediaserver hung and every
                 // app creating a sound (the phone process, ToneGenerator) got an ANR.
-                val p = synchronized(procs) { procs.remove("bootanim") } ?: return
+                // Never kill it: a bootanim that is signalled (SIGTERM 143 / SIGKILL 137) dies without releasing its
+                // SurfaceFlinger layer, which then stays on top of the UI. Leave it in `procs` and just wait: it
+                // leaves by itself (exit 0) once its loop sees the property and calls stopProcess().
+                val p = synchronized(procs) { procs["bootanim"] } ?: return
                 Thread {
-                    // an animation that has to be killed (or exits non-zero) may leave its layer on top
-                    val crashed = runCatching {
-                        if (!p.waitFor(5, java.util.concurrent.TimeUnit.SECONDS)) { p.destroyForcibly(); p.waitFor(2, java.util.concurrent.TimeUnit.SECONDS); true }
-                        else p.exitValue() != 0
-                    }.getOrDefault(false)
-                    if (crashed && !stopping) checkDeadBootAnimLayer(runCatching { p.exitValue() }.getOrDefault(-1))
-                }.start()
+                    var waited = 0
+                    while (!stopping && p.isAlive) {
+                        if (p.waitFor(1, java.util.concurrent.TimeUnit.SECONDS)) break
+                        waited++
+                        if (waited == 30) log("boot animation is still running 30 s after service.bootanim.exit=1, waiting (not killing it)")
+                    }
+                    // the watchdog reaps the exited process and checks the layer if the exit code was non-zero
+                    // (only 2.3 / MIUI ICS animations never poll the property; see the api < 16 note below)
+                }.apply { isDaemon = true; start() }
                 return
             }
             // below 4.1 (2.3, MIUI ICS) the animation does not quit by itself: killed, it leaves the GL bridge on its last frame

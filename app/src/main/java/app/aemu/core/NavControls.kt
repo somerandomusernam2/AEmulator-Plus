@@ -10,6 +10,8 @@ enum class NavButton(val id: String, val scanCode: Int) {
 
 object NavControls {
     const val DEFAULT_BUTTONS = "back,home,recents,menu"
+    /** Framework-less factory/MMI builds are driven by hardware keys: volume moves the highlight, power selects. */
+    const val MMI_BUTTONS = "volume_up,volume_down,power,home,back"
     fun parse(value: String): List<NavButton> = value.split(',').mapNotNull { id ->
         NavButton.entries.firstOrNull { it.id == id.trim() }
     }.distinct()

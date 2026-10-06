@@ -39,7 +39,7 @@ import java.util.zip.ZipOutputStream;
  */
 public final class FirmwareToolset {
     private FirmwareToolset() {}
-    public enum Role { SYSTEM, BOOT, RECOVERY, ARCHIVE, UNKNOWN }
+    public enum Role { SYSTEM, BOOT, RECOVERY, OEM, ARCHIVE, UNKNOWN }
     public static final class Artifact {
         public final File file; public final Role role; public final boolean cleanup;
         public Artifact(File f, Role r) { this(f, r, true); }
@@ -335,7 +335,7 @@ public final class FirmwareToolset {
      * are written out (as system.img / boot.img); everything else is skipped without being copied.
      */
     static final class Pac {
-        static final String[] WANTED = {"system.img", "boot.img"};
+        static final String[] WANTED = {"system.img", "boot.img", "recovery.img", "oem.img"};
 
         private static final class Ent {
             final int index; final String id, name; final long size, off;
@@ -723,8 +723,8 @@ public final class FirmwareToolset {
                 List<Artifact>a=new ArrayList<>();
                 for(Map.Entry<String,List<Ent>> ge:groups.entrySet()){
                     String partition=ge.getKey()==null?"":ge.getKey().trim().toLowerCase(Locale.US);
-                    // Only system and boot are consumed by AEmulator.
-                    if(!partition.equals("system") && !partition.equals("boot")) continue;
+                    // Only system, boot, recovery and oem are consumed by AEmulator.
+                    if(!partition.equals("system") && !partition.equals("boot") && !partition.equals("recovery") && !partition.equals("oem")) continue;
                     List<Ent> xs=ge.getValue();xs.sort(Comparator.comparingLong(e->e.diskOff));
                     long base=xs.get(0).diskOff, max=0;for(Ent e:xs)max=Math.max(max,e.diskOff+e.fileSize);String n=safe(xs.get(0).name);
                     long sectors=gpt.getOrDefault(ge.getKey(),max-base), imageSize=sectors*BLOCK;
@@ -1465,7 +1465,10 @@ public final class FirmwareToolset {
     static boolean looksTar(byte[]b){return b.length>262&&new String(b,257,5,StandardCharsets.ISO_8859_1).equals("ustar");}
     static boolean looksRfs(byte[]b){return Rfs.parseBpb(b,0)!=null;}
     static String roleName(String n){return n==null?"":n.toLowerCase(Locale.US);}
-    static Role roleFor(String n){String x=roleName(n);if(x.contains("recovery"))return Role.RECOVERY;if(x.contains("boot")||x.contains("kernel"))return Role.BOOT;if(x.contains("system")||x.contains("factoryfs"))return Role.SYSTEM;if(x.endsWith(".zip")||x.endsWith(".7z")||x.endsWith(".rar")||x.endsWith(".tar"))return Role.ARCHIVE;return Role.UNKNOWN;}
+    /** Partition names that are a recovery without saying so (Sony SOS / FOTAKernel), after an optional numeric prefix ("005-"). */
+    private static final java.util.regex.Pattern RECOVERY_ALIAS = java.util.regex.Pattern.compile("(?:\\d{1,4}[-_])?(?:sos|fotakernel)(?:\\.(?:img|bin))?");
+    private static final java.util.regex.Pattern OEM_NAME = java.util.regex.Pattern.compile("(?:\\d{1,4}[-_])?oem(?:_signed)?(?:\\.(?:img|ext4|rfs))*");
+    static Role roleFor(String n){String x=roleName(n);if(x.contains("recovery")||RECOVERY_ALIAS.matcher(x).matches())return Role.RECOVERY;if(OEM_NAME.matcher(x).matches())return Role.OEM;if(x.contains("boot")||x.contains("kernel"))return Role.BOOT;if(x.contains("system")||x.contains("factoryfs"))return Role.SYSTEM;if(x.endsWith(".zip")||x.endsWith(".7z")||x.endsWith(".rar")||x.endsWith(".tar"))return Role.ARCHIVE;return Role.UNKNOWN;}
     static List<File> allFiles(File root){List<File>o=new ArrayList<>();File[]fs=root.listFiles();if(fs==null)return o;for(File f:fs){if(f.isDirectory())o.addAll(allFiles(f));else o.add(f);}return o;}
     static List<String> readLines(File f)throws IOException{List<String>x=new ArrayList<>();try(BufferedReader r=new BufferedReader(new FileReader(f))){String s;while((s=r.readLine())!=null){s=s.trim();if(!s.isEmpty())x.add(s);}}return x;}
     static NodeList children(Node n,String name){return ((Element)n).getElementsByTagName(name);}

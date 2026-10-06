@@ -39,6 +39,7 @@ import java.util.zip.GZIPInputStream
  *  - ZIP для CWM/TWRP (MIUI, CyanogenMod, большинство прошивок 2.x–4.x): system/… + boot.img + updater-script
  *  - ZIP/TGZ factory-образов Google, прошивки с system.img внутри
  *  - TAR / TAR.MD5 (Samsung Odin, TouchWiz), TWRP-бэкапы (.win), tar.gz/xz/bz2
+ *  - Huawei dload/UPDATE.APP (packet chain, YAFFS2 system + boot/recovery images)
  *  - system.img: ext2/3/4, в том числе sparse (и разбитый на части: system.img_sparsechunk.N, system_sparsechunkN, system.img.N, system.N, system_N …)
  *  - system.new.dat(.br) + system.transfer.list (OTA 5.x–6.x)
  *  - уже готовое дерево rootfs в tar.gz (например, из стендов HTC)
@@ -58,6 +59,7 @@ class Importer(
     private var files = 0
     private var bytes = 0L
     private var gotSystem = false
+    private var gotOem = false
     @Volatile var cancelled = false
 
     fun import(uri: Uri, name: String): GuestImage {
@@ -106,7 +108,7 @@ class Importer(
 
     // ------------------------------------------------------------------ разбор контейнеров
 
-    private fun handle(src: RandomSource, ch: FileChannel?, name: String, depth: Int) {
+    private fun handle(src: RandomSource, ch: FileChannel?, name: String, depth: Int, role: FirmwareToolset.Role? = null) {
         if (depth > 4) return
         val head = ByteBuffer.allocate(1100)
         src.read(0, head); head.flip()
@@ -122,7 +124,7 @@ class Importer(
                     for (artifact in artifacts) {
                         if (!artifact.file.isFile) continue
                         FileChannel.open(artifact.file.toPath(), StandardOpenOption.READ).use { c ->
-                            handle(ChannelSource(c), c, artifact.file.name, depth + 1)
+                            handle(ChannelSource(c), c, artifact.file.name, depth + 1, artifact.role)
                         }
                     }
                 } finally { deleteTree(toolWork); source.delete() }
@@ -142,11 +144,23 @@ class Importer(
                 String(h, 0, 6, Charsets.US_ASCII) == "070702" ||
                 String(h, 0, 6, Charsets.US_ASCII) == "070707") ->
                 importCpioStream(streamOf(src), name, depth)
+            // Huawei dload/UPDATE.APP: packet chain of raw partition images (the container has no name-based hint)
+            HuaweiApp.probe(h) -> importHuaweiApp(src, name, strict = depth == 0)
             // HTC: RUU_*.exe installer, Dream-style .nbh, 256-byte-signed rom.zip / *_signed.img.
             // Routed explicitly so the heuristic probes below never look at a multi-hundred-MB executable.
             FirmwareToolset.isHtcContainer(h) -> importViaToolset(src, name, depth)
+            // A boot/recovery image that a container extractor (PAC, NBH, TOT/BIN, KDZ, OFP, payload.bin, RUU, ...)
+            // already classified: its role decides, whatever the partition happened to be called in that container
+            // ("005-recovery.img", "02_Recovery.img", "mmcblk0p15", ...).
+            // oem: optional, never boot-critical. Matched before the sparse/ext4 probes below, which would take it for system.
+            role == FirmwareToolset.Role.OEM || isOemName(name.replace('\\', '/').substringAfterLast('/')) -> importOem(src)
+            role == FirmwareToolset.Role.RECOVERY && src.size < 64_000_000 && isAndroidImage(h) ->
+                takeRecovery(streamOf(src), recoveryLabel(name, h))
+            role == FirmwareToolset.Role.RECOVERY && src.size < 64_000_000 && isLz4Frame(h) ->
+                takeRecovery(streamOf(src), recoveryLabel(name, h))
             SparseSource.probe(src) -> importImage(SparseSource(listOf(src)), "system")
             Ext4Reader.probe(src) -> importImage(src, "system")
+            MotoImage.probe(src) -> importImage(src, "system")
             Yaffs2Reader.probe(src) -> importImage(src, "system")
             isTar(h) || name.endsWith(".tar", true) || name.endsWith(".md5", true) || name.endsWith(".win", true) ->
                 importTarStream(streamOf(src), name, depth)
@@ -156,7 +170,13 @@ class Importer(
             // a recovery image reached directly (extracted by the firmware toolset, nested archive, plain file)
             isRecoveryName(name.replace('\\', '/').substringAfterLast('/')) && src.size < 64_000_000 ->
                 takeRecovery(streamOf(src), name.replace('\\', '/').substringAfterLast('/'))
-            h.size >= 8 && String(h, 0, 8, Charsets.ISO_8859_1) == "ANDROID!" -> takeBoot(readAllFrom(src))
+            h.size >= 8 && String(h, 0, 8, Charsets.ISO_8859_1) == "ANDROID!" -> {
+                val data = readAllFrom(src)
+                val base = name.replace('\\', '/').substringAfterLast('/')
+                // an unnamed / oddly named image ("part_7.img", "mmcblk0p9") whose ramdisk carries /sbin/recovery is a recovery
+                if (role != FirmwareToolset.Role.BOOT && !isBootName(base) && hasRecoveryBinary(data)) takeRecovery(data.inputStream(), recoveryLabel(name, h))
+                else takeBoot(data)
+            }
             // system.img / factoryfs / factoryfs.img / factoryfs.rfs: a system partition whatever the filesystem
             isSystemImageName(name.replace('\\', '/').substringAfterLast('/')) ->
                 importImage(if (SparseSource.probe(src)) SparseSource(listOf(src)) else src, "system")
@@ -174,14 +194,19 @@ class Importer(
         val toolWork = File(tmp, "tool-${System.nanoTime()}").apply { mkdirs() }
         try {
             val artifacts = FirmwareToolset.extract(source, toolWork) { msg -> log(msg) }
-            if (artifacts.isEmpty()) throw IOException("unknown file format \"$name\"")
+            if (artifacts.isEmpty()) {
+                // *.bin is only a name guess ("allow-mbmloader-flashing-mbm.bin" of a Motorola package is a bootloader, not
+                // an LG container): inside an archive that is no reason to abort the whole import
+                if (depth > 0 && name.endsWith(".bin", true)) { log("skipped $name: not a firmware container"); return }
+                throw IOException("unknown file format \"$name\"")
+            }
             // the unpacked copy is all that is needed from here on (unless an artifact IS the spilled file)
             if (artifacts.none { it.file == source }) source.delete()
             for (artifact in artifacts) {
                 if (cancelled) throw IOException("cancelled")
                 if (!artifact.file.isFile) continue
                 FileChannel.open(artifact.file.toPath(), StandardOpenOption.READ).use { c ->
-                    handle(ChannelSource(c), c, artifact.file.name, depth + 1)
+                    handle(ChannelSource(c), c, artifact.file.name, depth + 1, artifact.role)
                 }
                 if (artifact.cleanup && artifact.file != source) artifact.file.delete()
             }
@@ -242,11 +267,140 @@ class Importer(
     }
 
     /** recovery.img (optionally lz4-framed) or a TWRP raw recovery.*.win backup. */
-    private fun isRecoveryName(base: String) =
-        base.matches(Regex("(?i)recovery(_signed)?\\.img(\\.lz4)?|recovery\\.(emmc|mmc)\\.win"))
+    private fun isRecoveryName(base: String) = PartitionNames.isRecovery(base)
 
-    /** boot.img, or HTC's boot_signed.img (256-byte signature + image; BootImage strips it). */
-    private fun isBootName(base: String) = base.equals("boot.img", true) || base.equals("boot_signed.img", true)
+    private fun isOemName(base: String) = PartitionNames.isOem(base)
+
+    /**
+     * The OEM partition (/oem: carrier / OEM customisation, sometimes the Samsung/Huawei/Moto extras) is optional and
+     * not needed to boot, so anything that goes wrong with it is logged and skipped; a half-read one is removed again.
+     */
+    private fun importOem(src: RandomSource) {
+        if (gotOem) return
+        val dir = File(root, "oem")
+        val existed = dir.exists()
+        try {
+            importImage(if (SparseSource.probe(src)) SparseSource(listOf(src)) else src, "oem")
+            gotOem = true
+        } catch (t: Throwable) {
+            if (cancelled) throw t
+            log("oem: skipped, cannot read the partition (${t.message ?: t.javaClass.simpleName})")
+            symlinks.removeAll { it.second.startsWith("/oem/") }
+            if (!existed) deleteTree(dir)
+        }
+    }
+
+    /**
+     * Settings import of an OEM image into an existing VM: [image] is a raw / sparse ext, YAFFS2 or Moto-signed image,
+     * [dest] a staging folder that gets "oem/…". The caller moves it into the VM only if this returns normally.
+     */
+    internal fun importOemInto(image: File, dest: File) {
+        root = dest
+        File(dest, "oem").mkdirs()
+        FileChannel.open(image.toPath(), StandardOpenOption.READ).use { c ->
+            val src = ChannelSource(c)
+            importImage(if (SparseSource.probe(src)) SparseSource(listOf(src)) else src, "oem")
+        }
+        for ((target, link) in symlinks) {
+            val rel = link.trimStart('/')
+            if (!rel.startsWith("oem/")) continue
+            val f = File(root, rel)
+            if (!f.canonicalPath.startsWith(File(root, "oem").canonicalPath)) continue
+            f.parentFile?.mkdirs()
+            runCatching {
+                if (f.exists() || isLink(f)) { if (f.isDirectory && !isLink(f)) return@runCatching; f.delete() }
+                Os.symlink(relTarget(link, target), f.absolutePath)
+            }
+        }
+    }
+
+    /** *.APP inside an archive: read in place when stored, otherwise through a temp file (the packets need random access). */
+    private fun importZipHuaweiApp(zip: ZipFile, e: ZipArchiveEntry, base: String) {
+        val ch = zipChannel
+        if (e.method == ZipArchiveEntry.STORED && ch != null) {
+            runCatching { zip.getRawInputStream(e).close() } // computes dataOffset
+            if (e.dataOffset > 0) { importHuaweiApp(ChannelSource(ch, e.dataOffset, e.size), base, strict = false); return }
+        }
+        val t = spillEntry(zip, e)
+        try {
+            FileChannel.open(t.toPath(), StandardOpenOption.READ).use { c -> importHuaweiApp(ChannelSource(c), base, strict = false) }
+        } finally { deleteTree(t.parentFile ?: t) }
+    }
+
+    /**
+     * Huawei UPDATE.APP (see [HuaweiApp]). Of its images the importer needs the system partition (YAFFS2 or ext4),
+     * the boot image and, optionally, the recovery image; modem, bootloader pieces, userdata and the carrier
+     * customisation partition are skipped. Which ANDROID! image is boot and which is recovery is decided by the
+     * ramdisk (/sbin/recovery), because the image ids differ between devices.
+     * [strict]: the file was chosen directly, so a package without a system partition (UPDATE_cust.APP) is an error.
+     */
+    private fun importHuaweiApp(src: RandomSource, name: String, strict: Boolean) {
+        val label = name.replace('\\', '/').substringAfterLast('/')
+        val packets = HuaweiApp.packets(src)
+        if (packets.isEmpty()) {
+            if (strict) throw IOException("not a Huawei update package: $label")
+            log("skipped $label: not a Huawei update package"); return
+        }
+        log("huawei $label: ${packets.size} packets, hardware ${packets[0].hardware.ifEmpty { "?" }}, built ${packets[0].date}")
+        fun slice(p: HuaweiApp.Packet): RandomSource = SliceSource(src, p.dataOffset, p.size)
+        fun head(p: HuaweiApp.Packet, n: Int): ByteArray {
+            val b = ByteBuffer.allocate(minOf(n.toLong(), p.size).toInt()); slice(p).read(0, b); return b.array()
+        }
+
+        // boot / recovery
+        for (p in packets) {
+            if (cancelled) throw IOException("cancelled")
+            if (p.size < 4096 || p.size > 64_000_000) continue
+            if (String(head(p, 8), Charsets.ISO_8859_1) != "ANDROID!") continue
+            val data = readAllFrom(slice(p))
+            val tag = "$label id 0x%02x".format(p.id)
+            if (hasRecoveryBinary(data)) takeRecovery(data.inputStream(), "recovery ($tag)") else takeBoot(data)
+        }
+
+        // filesystems: the system partition is image id 0, otherwise the one whose tree looks like /system
+        val fsParts = packets.filter { p ->
+            if (p.size < (4L shl 20)) return@filter false
+            val h = head(p, 8)
+            if (String(h, Charsets.ISO_8859_1) == "ANDROID!" || (h[0].toInt() == 0x7f && h[1] == 'E'.code.toByte())) return@filter false
+            val s = slice(p)
+            SparseSource.probe(s) || Ext4Reader.probe(s) || Yaffs2Reader.probe(s)
+        }
+        val systemPacket = fsParts.firstOrNull { it.id == HuaweiApp.ID_SYSTEM }
+            ?: fsParts.firstOrNull { looksLikeSystem(slice(it)) }
+        if (systemPacket == null || gotSystem) {
+            val what = if (gotSystem) "system already imported" else "no system partition"
+            if (strict && !gotSystem) throw IOException("\"$label\" has no system partition (customization-only package?); import UPDATE.APP instead")
+            log("huawei $label: $what; skipped ${fsParts.size} other partition(s)")
+            return
+        }
+        onProgress("Verifying $label", -1f)
+        val bad = HuaweiApp.verify(src, systemPacket) { if (cancelled) throw IOException("cancelled") }
+        if (bad > 0) log("huawei $label: $bad block(s) of the system image fail their CRC, the download may be damaged")
+        val s = slice(systemPacket)
+        importImage(if (SparseSource.probe(s)) SparseSource(listOf(s)) else s, "system")
+        for (p in fsParts) if (p !== systemPacket) log("huawei $label: skipped partition id 0x%02x (%d KB)".format(p.id, p.size shr 10))
+    }
+
+    private fun looksLikeSystem(src: RandomSource): Boolean = runCatching {
+        var found = false
+        val s = if (SparseSource.probe(src)) SparseSource(listOf(src)) else MotoImage.unwrap(src)
+        if (Yaffs2Reader.probe(s)) Yaffs2Reader(s).walk { path, _ -> if (path == "build.prop" || path == "framework") found = true }
+        else if (Ext4Reader.probe(s)) Ext4Reader(s).walk { path, _ -> if (path == "build.prop" || path == "framework") found = true }
+        found
+    }.getOrDefault(false)
+
+    private fun isAndroidImage(h: ByteArray) = h.size >= 8 && String(h, 0, 8, Charsets.ISO_8859_1) == "ANDROID!"
+    private fun isLz4Frame(h: ByteArray) = h.size >= 4 && h[0] == 0x04.toByte() && h[1] == 0x22.toByte() && h[2] == 0x4d.toByte() && h[3] == 0x18.toByte()
+    /** takeRecovery decides about lz4 framing by the name, so a framed image always gets the suffix. */
+    private fun recoveryLabel(name: String, h: ByteArray): String {
+        val base = name.replace('\\', '/').substringAfterLast('/')
+        return if (isLz4Frame(h) && !base.endsWith(".lz4", true)) "$base.lz4" else base
+    }
+    private fun hasRecoveryBinary(img: ByteArray): Boolean =
+        runCatching { BootImage.ramdisk(img)?.any { it.name.removePrefix("./") == "sbin/recovery" } == true }.getOrDefault(false)
+
+    /** boot.img, or the signed one: boot_signed.img (HTC: 256-byte signature + image, BootImage strips it) / boot_signed (Motorola fastboot XML). */
+    private fun isBootName(base: String) = PartitionNames.isBoot(base)
 
     /** Recovery is optional: remember the first one found, and never let a bad one abort the import. */
     private fun takeRecovery(i: InputStream, base: String) {
@@ -326,6 +480,7 @@ class Importer(
                 // boot.img at any depth; the shallowest valid one is taken after the loop
                 isBootName(base) -> bootEntries.add(n to e)
                 isRecoveryName(base) && e.size < 64_000_000 -> zip.getInputStream(e).use { takeRecovery(it, base) }
+                isOemName(base) -> withEntrySource(zip, e) { importOem(it) }
                 isSystemImageName(base) ->
                     withEntrySource(zip, e) { importImage(if (SparseSource.probe(it)) SparseSource(listOf(it)) else it, "system") }
                 base.matches(Regex("(?i)vendor(\\.ext4)?\\.img")) ->
@@ -346,6 +501,7 @@ class Importer(
                 // Block OTA data/list files are useless alone; they are paired after the loop.
                 base.endsWith(".new.dat", true) || base.endsWith(".new.dat.br", true) ||
                     base.endsWith(".transfer.list", true) -> {}
+                base.endsWith(".app", true) && e.size > 0 -> importZipHuaweiApp(zip, e, base)
                 recognizedFirmwareTool(base) -> {
                     val nestedFile = spillEntry(zip, e)
                     try {
@@ -400,7 +556,7 @@ class Importer(
                 } else log("ignoring ${sparseChunks.first().name}: not a sparse image set")
             } finally { chans.forEach { it.close() }; parts.forEach { it.delete() } }
         }
-        if (rawProgramEntries.isNotEmpty() && (!gotSystem || ramdisk == null)) importEdl(zip, entries, rawProgramEntries)
+        if (rawProgramEntries.isNotEmpty() && (!gotSystem || ramdisk == null || recovery == null || !gotOem)) importEdl(zip, entries, rawProgramEntries)
         // zips at any depth (Firmware/fw.zip): opened only if the outer archive had no system / boot
         for (pe in pendingZips) {
             if (cancelled) throw IOException("cancelled")
@@ -425,10 +581,12 @@ class Importer(
             val byBase = HashMap<String, MutableList<ZipArchiveEntry>>()
             for (x in entries) if (!x.isDirectory && !x.name.contains("__MACOSX/"))
                 byBase.getOrPut(x.name.replace('\\', '/').substringAfterLast('/').lowercase()) { ArrayList() }.add(x)
-            for (label in listOf("system", "boot")) {
+            for (label in listOf("system", "boot", "recovery", "oem")) {
                 if (cancelled) throw IOException("cancelled")
                 if (label == "system" && gotSystem) continue
                 if (label == "boot" && ramdisk != null) continue
+                if (label == "recovery" && recovery != null) continue
+                if (label == "oem" && gotOem) continue
                 val chunks = File(edlDir, label).apply { mkdirs() }
                 val raw = File(tmp, "edl-$label.raw.img")
                 try {
@@ -449,7 +607,10 @@ class Importer(
                     FileChannel.open(raw.toPath(), StandardOpenOption.READ).use { c ->
                         val src = ChannelSource(c)
                         if (label == "system") importImage(if (SparseSource.probe(src)) SparseSource(listOf(src)) else src, "system")
-                        else if (raw.length() <= 128L shl 20) takeBoot(raw.readBytes())
+                        else if (label == "oem") importOem(src)
+                        else if (raw.length() <= 128L shl 20) {
+                            if (label == "recovery") takeRecovery(raw.inputStream(), "recovery.img") else takeBoot(raw.readBytes())
+                        }
                     }
                 } catch (t: Throwable) {
                     if (cancelled) throw t
@@ -498,6 +659,7 @@ class Importer(
                     base.endsWith(".yaffs2.img", true) && !base.equals("system.yaffs2.img", true) -> drain(entryStream)
                     isBootName(base) -> takeBoot(entryStream.readBytes())
                     isRecoveryName(base) && e.size < 64_000_000 -> takeRecovery(entryStream, base)
+                    isOemName(base) -> nested.add(spill(entryStream, base) to "oem")
                     base.equals("system.yaffs2.img", true) ||
                         isSystemImageName(base) -> {
                         nested.add(spill(entryStream, base) to "system")
@@ -543,6 +705,7 @@ class Importer(
                     FileChannel.open(f.toPath(), StandardOpenOption.READ).use { c ->
                         val src = ChannelSource(c)
                         if (kind == "system") importImage(if (SparseSource.probe(src)) SparseSource(listOf(src)) else src, "system")
+                        else if (kind == "oem") importOem(src)
                         else handle(src, c, f.name, depth + 1)
                     }
                 } finally { f.delete() }
@@ -595,7 +758,7 @@ class Importer(
                 val base = entryName.substringAfterLast('/')
                 val sysRel = systemRel(sysRoot, entryName)
                 val interesting = sysRel != null ||
-                    isBootName(base) || isRecoveryName(base) ||
+                    isBootName(base) || isRecoveryName(base) || isOemName(base) ||
                     base.equals("system.yaffs2.img", true) ||
                     isSystemImageName(base) ||
                     base.matches(Regex("(?i).*\\.(zip|rar|7z|tar|tar\\.md5|md5|tgz|tar\\.gz|new\\.dat|transfer\\.list)")) ||
@@ -612,6 +775,8 @@ class Importer(
                     takeBoot(temp.readBytes()); temp.delete()
                 } else if (isRecoveryName(base) && temp.length() < 64_000_000) {
                     temp.inputStream().use { takeRecovery(it, base) }; temp.delete()
+                } else if (isOemName(base)) {
+                    pending.add(temp to "oem")
                 } else if (base.equals("system.yaffs2.img", true) ||
                     isSystemImageName(base)) {
                     pending.add(temp to "system")
@@ -637,6 +802,7 @@ class Importer(
                     FileChannel.open(temp.toPath(), StandardOpenOption.READ).use { c ->
                         val src = ChannelSource(c)
                         if (kind == "system") importImage(if (SparseSource.probe(src)) SparseSource(listOf(src)) else src, "system")
+                        else if (kind == "oem") importOem(src)
                         else handle(src, c, temp.name, depth + 1)
                     }
                 } finally { temp.delete() }
@@ -668,11 +834,13 @@ class Importer(
         } finally { deferred = outer; t.delete() }
         try {
             for ((f, entry) in mine) {
-                val part = if (entry.substringAfterLast('/').lowercase().startsWith("vendor")) "vendor" else "system"
+                val entryBase = entry.substringAfterLast('/')
+                val part = when { isOemName(entryBase) -> "oem"; entryBase.lowercase().startsWith("vendor") -> "vendor"; else -> "system" }
                 FileChannel.open(f.toPath(), StandardOpenOption.READ).use { c ->
                     val src = ChannelSource(c)
                     val img = if (SparseSource.probe(src)) SparseSource(listOf(src)) else src
-                    if (part == "vendor") runCatching { importImage(img, part) } else importImage(img, part)
+                    if (part == "oem") importOem(img)
+                    else if (part == "vendor") runCatching { importImage(img, part) } else importImage(img, part)
                 }
                 f.delete()
             }
@@ -713,6 +881,10 @@ class Importer(
                     }
                     isBootName(base) -> takeBoot(cpio.readBytes())
                     isRecoveryName(base) && e.size < 64_000_000 -> takeRecovery(cpio, base)
+                    isOemName(base) -> {
+                        val t = spill(cpio.nonClosing(), base)
+                        try { FileChannel.open(t.toPath(), StandardOpenOption.READ).use { c -> importOem(ChannelSource(c)) } } finally { t.delete() }
+                    }
                     isSystemImageName(base) -> {
                         val t = spill(cpio.nonClosing(), base)
                         try {
@@ -722,7 +894,7 @@ class Importer(
                             }
                         } finally { t.delete() }
                     }
-                    n.matches(Regex("^(data|dev|sbin|vendor|etc)(/.*)?$")) ||
+                    n.matches(Regex("^(data|dev|sbin|vendor|oem|etc)(/.*)?$")) ||
                         n.matches(Regex("^[^/]+\\.rc$")) || n == "default.prop" -> {
                         if (e.isSymbolicLink) {
                             // In cpio, a symlink target is stored as the entry payload;
@@ -758,6 +930,10 @@ class Importer(
                     finally { t.delete() }
                 }
                 base.endsWith(".yaffs2.img", true) -> {}
+                isOemName(base.replace(Regex("(?i)\\.lz4$"), "")) && e.isFile && !inSystemDump(n) -> {
+                    val t = spill(maybeLz4(tar, base), base)
+                    try { FileChannel.open(t.toPath(), StandardOpenOption.READ).use { c -> importOem(ChannelSource(c)) } } finally { t.delete() }
+                }
                 isSystemImageName(base.replace(Regex("(?i)\\.lz4$"), "")) && e.isFile -> {
                     val t = spill(maybeLz4(tar, base), base)
                     FileChannel.open(t.toPath(), StandardOpenOption.READ).use { c ->
@@ -766,14 +942,14 @@ class Importer(
                     }
                     t.delete()
                 }
-                base.matches(Regex("(?i)(boot\\.img|zImage|kernel)(\\.lz4)?")) && e.isFile && !inSystemDump(n) -> takeBoot(maybeLz4(tar, base).readBytes())
+                base.matches(Regex("(?i)(boot\\.img|boot_signed(\\.img)?|zImage|kernel)(\\.lz4)?")) && e.isFile && !inSystemDump(n) -> takeBoot(maybeLz4(tar, base).readBytes())
                 isRecoveryName(base) && e.isFile && e.size < 64_000_000 && !inSystemDump(n) -> takeRecovery(tar.nonClosing(), base)
                 base.matches(Regex("(?i).*\\.(tar|tar\\.md5)")) && e.isFile && e.size > 20_000_000 -> importTarStream(tar.nonClosing(), base, depth + 1)
                 // factory-образы Google: tgz → image-*.zip → system.img/boot.img; Samsung: zip внутри tar
                 base.lowercase().endsWith(".zip") && e.isFile && e.size > 20_000_000 -> {
                     handleNestedZip(spill(tar.nonClosing(), base), base, depth)
                 }
-                n.matches(Regex("^(system|data|dev|sbin|vendor|etc)(/.*)?$")) || n.matches(Regex("^[^/]+\\.rc$")) || n == "default.prop" || n.startsWith("dhd.") -> {
+                n.matches(Regex("^(system|data|dev|sbin|vendor|oem|etc)(/.*)?$")) || n.matches(Regex("^[^/]+\\.rc$")) || n == "default.prop" || n.startsWith("dhd.") -> {
                     // файлы корня (рамдиск, dhd.*) берём, только если архив — целое дерево rootfs
                     if (fullRoot != true && !n.startsWith("system") && !(n.startsWith("dhd.") || n.endsWith(".rc") || n == "default.prop" || n.startsWith("sbin"))) continue
                     when {
@@ -784,6 +960,15 @@ class Importer(
                             writeFile(n, tar.nonClosing(), e.mode)
                             if (n.startsWith("system/")) gotSystem = true
                         }
+                    }
+                }
+                // TWRP oem.ext4.win (tar backup of the files): paths without the oem/ prefix
+                name.contains("oem", true) && name.endsWith(".win", true) && !name.contains("system", true) -> {
+                    val p = "oem/$n"
+                    when {
+                        e.isDirectory -> File(root, p).mkdirs()
+                        e.isSymbolicLink -> symlinks.add(e.linkName to "/$p")
+                        e.isFile -> writeFile(p, tar.nonClosing(), e.mode)
                     }
                 }
                 // TWRP system.ext4.win: пути без префикса system/
@@ -813,7 +998,10 @@ class Importer(
 
     // ------------------------------------------------------------------ образы ФС
 
-    private fun importImage(src: RandomSource, mount: String) {
+    private fun importImage(source: RandomSource, mount: String) {
+        // Motorola signed images carry a signature header in front of the ext4 (see MotoImage)
+        val src = MotoImage.unwrap(source)
+        if (src !== source) log("image $mount: Motorola signature header skipped, ${src.size shr 20} MB filesystem")
         if (Yaffs2Reader.probe(src)) { importYaffs2(src, mount); return }
         if (!Ext4Reader.probe(src)) { importOtherFilesystem(src, mount); return }
         val fs = Ext4Reader(src)
@@ -1073,7 +1261,7 @@ class Importer(
     }
 
     /** Image names that always mean the system partition (RFS dumps call it factoryfs). */
-    private fun isSystemImageName(base: String) = SYSTEM_IMG.matches(base)
+    private fun isSystemImageName(base: String) = PartitionNames.isSystem(base)
 
     /**
      * Folder dump of the system partition at any depth ("system/…", "Firmware/system/…").
@@ -1120,7 +1308,6 @@ class Importer(
     }
 
     companion object {
-        private val SYSTEM_IMG = Regex("(?i)system(\\.ext4)?\\.img(\\.ext4)?|system_image\\.img|system\\.raw\\.img|system\\.rfs|factoryfs(\\.img|\\.rfs)?")
         private val SKIP_NESTED = Regex("(?i).*(gapps|supersu|magisk|busybox|xposed|twrp|modem|csc).*")
         /** Апплеты toolbox Android 2.3–6.0 (ссылка создаётся, только если апплет есть в бинарнике). */
         private val TOOLBOX_APPLETS = listOf(

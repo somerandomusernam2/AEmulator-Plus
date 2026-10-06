@@ -123,6 +123,10 @@
     <string name="m_reboot">Перезавантаження</string>
     <string name="m_clip_empty">Буфер обміну порожній</string>
     <string name="m_screenshot_saved">Збережено: %1$s</string>
+    <string name="m_save_logs">Зберегти логи в Downloads</string>
+    <string name="m_save_logs_start">Зберігаю логи…</string>
+    <string name="m_save_logs_ok">Логи збережено: %1$s</string>
+    <string name="m_save_logs_fail">Не вдалося зберегти логи: %1$s</string>
     <string name="m_failed">Не вдалося</string>
     <string name="m_sms_sent">SMS доставлено у вхідні</string>
     <string name="m_sms_from">Відправник</string>

@@ -20,6 +20,10 @@ import app.aemu.core.HeldNavKeys
 import app.aemu.core.VmUiPolicy
 import app.aemu.core.TrackballMotion
 import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.TextButton
+import androidx.compose.ui.unit.sp
 import androidx.compose.material.icons.rounded.BatteryStd
 import androidx.compose.material.icons.rounded.InstallMobile
 import androidx.compose.material.icons.rounded.Tune
@@ -250,10 +254,10 @@ class VmActivity : ComponentActivity() {
         guest = GuestScreen(this, gw, gh).apply {
             input = vm.input
             fb = if (vm.recoveryMode) app.aemu.core.RecoveryImage.fb(vm.paths) else vm.paths.fb
-            if (vm.recoveryMode || vm.lowPowerBoot) pages = 2
+            if (vm.recoveryMode || vm.nativeUi) pages = 2
         }
         // 5.0+ renders through the standalone glserverd into fb0 (see GuestVm.glUp), shown like the software path
-        val useBridge = vm.engine == Engine.KK && s.gpu && !vm.recoveryMode && !vm.lowPowerBoot && vm.img.api < 21
+        val useBridge = vm.engine == Engine.KK && s.gpu && !vm.recoveryMode && !vm.nativeUi && vm.img.api < 21
         surfaceView.visibility = if (useBridge) View.VISIBLE else View.GONE
         guest.passthrough = useBridge
         box.addView(surfaceView, FrameLayout.LayoutParams(-1, -1))
@@ -418,6 +422,7 @@ class VmActivity : ComponentActivity() {
         heldNavKeys.releaseAll()
         if (::guest.isInitialized) guest.stop()
         shellRx?.let { runCatching { unregisterReceiver(it) } }
+        guestShellSession?.close()
         super.onDestroy()
     }
 
@@ -433,7 +438,7 @@ class VmActivity : ComponentActivity() {
         }
     }
 
-    private enum class Dlg { NONE, SMS, CALL, BATTERY, ADB, DEVICE }
+    private enum class Dlg { NONE, SMS, CALL, BATTERY, ADB, SHELL, DEVICE }
 
     // position of the floating menu button, kept across launches
     private val uiPrefs by lazy { getSharedPreferences("vm_ui", MODE_PRIVATE) }
@@ -459,12 +464,42 @@ class VmActivity : ComponentActivity() {
         guestAsync("input text " + q(text.replace(" ", "%s")))
     }
 
-    private fun screenshot() {
-        val name = "aemu-" + java.text.SimpleDateFormat("yyyyMMdd-HHmmss", java.util.Locale.US).format(java.util.Date()) + ".png"
-        val dir = vm.img.sdcardPath.trimEnd('/') + "/Pictures"
-        guestAsync("mkdir -p $dir; screencap -p $dir/$name && echo OK") { out ->
-            toast(if (out.contains("OK")) getString(R.string.m_screenshot_saved, "$dir/$name") else getString(R.string.m_failed))
+    /** adb shell screencap -p + adb pull → /sdcard/Pictures/AEmulator (see core/Screenshot.kt) */
+    /** Packs all host/guest logs + a state snapshot into a zip in Downloads (works without root and without a running guest). */
+    private fun saveLogs() {
+        toast(getString(R.string.m_save_logs_start))
+        thread {
+            val r = runCatching { app.aemu.core.DiagExport.export(applicationContext, vm) }
+            runOnUiThread {
+                Toast.makeText(this, r.fold({ getString(R.string.m_save_logs_ok, it) }, { getString(R.string.m_save_logs_fail, it.toString().take(160)) }), Toast.LENGTH_LONG).show()
+            }
         }
+    }
+
+    private fun screenshot() {
+        thread {
+            val saved = runCatching { app.aemu.core.Screenshot.take(this, vm) }.getOrNull()
+            toast(if (saved != null) getString(R.string.m_screenshot_saved, saved) else getString(R.string.m_failed))
+        }
+    }
+
+    // integrated adb shell: one persistent guest sh, history survives closing the dialog
+    private var shellOut by mutableStateOf("")
+    private var guestShellSession: app.aemu.core.GuestShell? = null
+    private fun shellSession(): app.aemu.core.GuestShell =
+        guestShellSession ?: app.aemu.core.GuestShell(vm) { chunk ->
+            runOnUiThread { shellOut = (shellOut + chunk).takeLast(60_000) }
+        }.also { guestShellSession = it }
+
+    private fun runShellLine(raw: String) {
+        var line = raw.trim()
+        if (line.startsWith("adb shell")) line = line.removePrefix("adb shell").trim()
+        shellOut = (shellOut + "$ $raw\n").takeLast(60_000)
+        when (line) {
+            "" -> return
+            "clear" -> { shellOut = ""; return }
+        }
+        thread { shellSession().send(line) }
     }
 
     // APK picked on the host: copied into the shared card folder, then installed by the guest's package manager
@@ -555,6 +590,45 @@ class VmActivity : ComponentActivity() {
                 }
             },
             confirmButton = { Button(onClick = onDone) { Text(stringResource(R.string.close)) } })
+    }
+
+    @Composable
+    private fun ShellDialog(onDone: () -> Unit) {
+        var input by remember { mutableStateOf("") }
+        val scroll = rememberScrollState()
+        LaunchedEffect(Unit) { thread { shellSession().start() } }
+        LaunchedEffect(shellOut) { delay(30); scroll.scrollTo(scroll.maxValue) }
+        val submit: () -> Unit = {
+            if (input.isNotBlank()) { runShellLine(input); input = "" }
+        }
+        androidx.compose.ui.window.Dialog(onDismissRequest = onDone,
+            properties = androidx.compose.ui.window.DialogProperties(usePlatformDefaultWidth = false)) {
+            Surface(Modifier.fillMaxWidth(0.96f).fillMaxHeight(0.85f).imePadding(),
+                shape = MaterialTheme.shapes.extraLarge, tonalElevation = 6.dp) {
+                Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(stringResource(R.string.m_shell), Modifier.weight(1f), style = MaterialTheme.typography.titleLarge)
+                        TextButton(onClick = { thread { shellSession().interrupt() } }) { Text(stringResource(R.string.m_shell_ctrlc)) }
+                        TextButton(onClick = { shellOut = "" }) { Text(stringResource(R.string.m_shell_clear)) }
+                        IconButton(onClick = onDone) { Icon(Icons.Rounded.Close, stringResource(R.string.close)) }
+                    }
+                    Surface(Modifier.weight(1f).fillMaxWidth(), color = Color(0xFF101010), shape = MaterialTheme.shapes.medium) {
+                        SelectionContainer {
+                            Text(shellOut.ifEmpty { stringResource(R.string.m_shell_hint) },
+                                Modifier.verticalScroll(scroll).padding(8.dp),
+                                color = Color(0xFFD0D0D0), fontSize = 12.sp, lineHeight = 15.sp,
+                                fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace)
+                        }
+                    }
+                    OutlinedTextField(input, { input = it }, Modifier.fillMaxWidth(), singleLine = true,
+                        label = { Text(stringResource(R.string.m_shell_input)) },
+                        keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(
+                            autoCorrectEnabled = false, imeAction = androidx.compose.ui.text.input.ImeAction.Send),
+                        keyboardActions = androidx.compose.foundation.text.KeyboardActions(onSend = { submit() }),
+                        trailingIcon = { TextButton(onClick = { submit() }) { Text(stringResource(R.string.m_send)) } })
+                }
+            }
+        }
     }
 
     @Composable
@@ -676,7 +750,7 @@ class VmActivity : ComponentActivity() {
                     DropdownMenuItem(text = { Text(stringResource(R.string.m_power_menu)) }, leadingIcon = { Icon(Icons.Rounded.PowerSettingsNew, null) },
                         onClick = { menu = false; vm.input.press(InputService.KEY_POWER, 1500) })
                     if (!vm.settings.motionSensors) DropdownMenuItem(text = { Text(stringResource(R.string.m_rotate_screen)) }, leadingIcon = { Icon(Icons.Rounded.ScreenRotation, null) },
-                        enabled = running && vm.img.api in 9..25 && !vm.recoveryMode && !vm.lowPowerBoot,
+                        enabled = running && vm.img.api in 9..25 && !vm.recoveryMode && !vm.nativeUi,
                         onClick = { menu = false; rotateScreen() })
                     // long-press Menu makes 2.x–4.x call InputMethodManager.toggleSoftInput: the firmware's own keyboard
                     DropdownMenuItem(text = { Text(stringResource(R.string.m_keyboard)) }, leadingIcon = { Icon(Icons.Rounded.Keyboard, null) },
@@ -696,8 +770,12 @@ class VmActivity : ComponentActivity() {
                         enabled = running && vm.img.api >= 17, onClick = { menu = false; dialog = Dlg.DEVICE })
                     DropdownMenuItem(text = { Text(stringResource(R.string.m_adb)) }, leadingIcon = { Icon(Icons.Rounded.Lan, null) },
                         enabled = running, onClick = { menu = false; dialog = Dlg.ADB })
+                    DropdownMenuItem(text = { Text(stringResource(R.string.m_shell)) }, leadingIcon = { Icon(Icons.Rounded.Terminal, null) },
+                        enabled = running, onClick = { menu = false; dialog = Dlg.SHELL })
                     DropdownMenuItem(text = { Text(stringResource(R.string.m_screenshot)) }, leadingIcon = { Icon(Icons.Rounded.Screenshot, null) },
                         enabled = running, onClick = { menu = false; screenshot() })
+                    DropdownMenuItem(text = { Text(stringResource(R.string.m_save_logs)) }, leadingIcon = { Icon(Icons.Rounded.Download, null) },
+                        onClick = { menu = false; saveLogs() })
                     DropdownMenuItem(text = { Text(stringResource(R.string.m_settings)) }, leadingIcon = { Icon(Icons.Rounded.Settings, null) },
                         enabled = running, onClick = { menu = false; guestAsync("am start -a android.settings.SETTINGS") })
                     HorizontalDivider()
@@ -724,11 +802,14 @@ class VmActivity : ComponentActivity() {
                 Dlg.CALL -> CallDialog { dialog = Dlg.NONE }
                 Dlg.BATTERY -> BatteryDialog { dialog = Dlg.NONE }
                 Dlg.ADB -> AdbDialog { dialog = Dlg.NONE }
+                Dlg.SHELL -> ShellDialog { dialog = Dlg.NONE }
                 Dlg.DEVICE -> DeviceDialog { dialog = Dlg.NONE }
                 Dlg.NONE -> {}
             }
 
-            val buttons = NavControls.parse(vm.settings.navButtons).filter {
+            // MMI/FTM builds ignore Back/Home/Recents/Menu: unless the user chose buttons, show volume + power
+            val navSetting = if (vm.nativeBoot && vm.settings.navButtons == NavControls.DEFAULT_BUTTONS) NavControls.MMI_BUTTONS else vm.settings.navButtons
+            val buttons = NavControls.parse(navSetting).filter {
                 it != NavButton.RECENTS || vm.img.api >= 11
             }
             val showButtons = vm.settings.showNavBar && buttons.isNotEmpty()

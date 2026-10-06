@@ -16,7 +16,27 @@ class InputService(private val paths: VmPaths, private val log: (String) -> Unit
 
     data class P(val id: Int, val x: Int, val y: Int)
 
-    private class Client(val out: OutputStream, val pid: Int)
+    private class Client(val out: OutputStream, val pid: Int) {
+        private val queue = java.util.concurrent.LinkedBlockingQueue<ByteArray>(512)
+        private var worker: Thread? = null
+        @Volatile var dead = false
+        @Volatile var dropped = 0
+
+        /**
+         * Never blocks the caller. A guest descriptor nobody reads (the factory test's touch probe keeps a second event0
+         * open) would otherwise fill its socket buffer after ~170 frames and block every later write, freezing all input.
+         */
+        fun post(a: ByteArray) {
+            if (dead) return
+            if (worker == null) worker = Thread({
+                try { while (true) { val b = queue.take(); out.write(b); out.flush() } }
+                catch (e: Exception) { dead = true }
+            }, "input-client-$pid").apply { isDaemon = true; start() }
+            if (!queue.offer(a)) dropped++
+        }
+
+        fun close() { dead = true; worker?.interrupt(); runCatching { out.close() } }
+    }
 
     private val clients = CopyOnWriteArrayList<Client>()
     private val trackballClients = CopyOnWriteArrayList<Client>()
@@ -24,6 +44,8 @@ class InputService(private val paths: VmPaths, private val log: (String) -> Unit
     val trackballConnected: Int get() = trackballClients.size
     @Volatile var rateHz = 60
     @Volatile var mtMode = 0
+    /** MMI/FTM: minui and the touch probe of one process each keep their own event0 descriptor, so one pid may own several clients. */
+    @Volatile var multiPerPid = false
     @Volatile var sent = 0L
         private set
     val connected: Int get() = clients.size
@@ -38,8 +60,8 @@ class InputService(private val paths: VmPaths, private val log: (String) -> Unit
     private val server = UnixServer(paths.inputSock, "input") { c ->
         runCatching { c.sendBufferSize = 64 * 1024 }
         val pid = runCatching { c.peerCredentials.pid }.getOrDefault(-1)
-        clients.removeAll { old ->
-            (old.pid == pid && pid > 0).also { if (it) runCatching { old.out.close() } }
+        if (!multiPerPid) clients.removeAll { old ->
+            (old.pid == pid && pid > 0).also { if (it) old.close() }
         }
         val me = Client(c.outputStream, pid)
         clients.add(me)
@@ -52,6 +74,7 @@ class InputService(private val paths: VmPaths, private val log: (String) -> Unit
             if (n < 0) break
         }
         clients.remove(me)
+        me.close()
     }
 
     private val trackballServer = UnixServer(java.io.File(paths.root, "dev/aemu_trackball"), "trackball") { c ->
@@ -108,7 +131,7 @@ class InputService(private val paths: VmPaths, private val log: (String) -> Unit
         trackballServer.stop()
         trackballClients.forEach { runCatching { it.out.close() } }
         trackballClients.clear()
-        clients.forEach { runCatching { it.out.close() } }
+        clients.forEach { it.close() }
         clients.clear()
     }
 
@@ -157,13 +180,59 @@ class InputService(private val paths: VmPaths, private val log: (String) -> Unit
     /** Extra consumer of the raw input_event stream (recovery mode: a FIFO the guest reads as /dev/input/event0). */
     @Volatile var sink: java.io.OutputStream? = null
 
+    /**
+     * The recovery behind [sink] reads touch as multitouch protocol B (LG's swipe gestures): ABS_MT_SLOT, a
+     * TRACKING_ID per touch and TRACKING_ID = -1 on release, one finger. The type-A stream the system's input
+     * stack takes (SYN_MT_REPORT, no release id) never ends a touch for it, so no swipe is ever recognised.
+     */
+    @Volatile var sinkProtocolB = false
+    private var bActive = false
+    private var bId = -1
+    private var bTrack = 0
+    private var bX = 0
+    private var bY = 0
+
+    private fun sendProtocolB(now: List<P>) {
+        val b = ByteBuffer.allocate(12 * EV).order(ByteOrder.LITTLE_ENDIAN)
+        val p = now.firstOrNull { it.id == bId } ?: now.firstOrNull()
+        fun release() {
+            put(b, EV_ABS, ABS_MT_TRACKING_ID, -1)
+            put(b, EV_SYN, SYN_REPORT, 0)
+            bActive = false; bId = -1
+        }
+        if (p == null) {
+            if (bActive) release()
+        } else {
+            if (bActive && p.id != bId) release() // the finger that was followed is gone: end that touch first
+            if (!bActive) {
+                put(b, EV_ABS, ABS_MT_SLOT, 0)
+                put(b, EV_ABS, ABS_MT_TRACKING_ID, bTrack)
+                bTrack = (bTrack + 1) and 0xFFFF
+                put(b, EV_ABS, ABS_MT_POSITION_X, p.x)
+                put(b, EV_ABS, ABS_MT_POSITION_Y, p.y)
+                put(b, EV_SYN, SYN_REPORT, 0)
+                bActive = true; bId = p.id; bX = p.x; bY = p.y
+            } else if (p.x != bX || p.y != bY) {
+                if (p.x != bX) put(b, EV_ABS, ABS_MT_POSITION_X, p.x)
+                if (p.y != bY) put(b, EV_ABS, ABS_MT_POSITION_Y, p.y)
+                put(b, EV_SYN, SYN_REPORT, 0)
+                bX = p.x; bY = p.y
+            }
+        }
+        flush(b)
+    }
+
     private fun send(now: List<P>) {
         if (clients.isEmpty() && sink == null) return
-        val b = ByteBuffer.allocate((now.size * 7 + 3) * EV).order(ByteOrder.LITTLE_ENDIAN)
+        if (sinkProtocolB && sink != null) { sendProtocolB(now); return }
+        val b = ByteBuffer.allocate((now.size * 8 + MAX_SLOTS * 2 + 4) * EV).order(ByteOrder.LITTLE_ENDIAN)
         if (mtMode == 4) { // одиночное касание
             now.firstOrNull()?.let {
                 put(b, EV_ABS, ABS_X, it.x); put(b, EV_ABS, ABS_Y, it.y); put(b, EV_ABS, ABS_PRESSURE, 64)
             }
+        } else if (mtMode == 5) { // MT protocol B (slots, TRACKING_ID -1 on release) plus ABS_X/ABS_Y, so either kind of reader gets the position
+            now.firstOrNull()?.let { put(b, EV_ABS, ABS_X, it.x); put(b, EV_ABS, ABS_Y, it.y) }
+            protocolB(b, now)
         } else {
             for (p in now) {
                 if (mtMode == 0 || mtMode == 1) put(b, EV_ABS, ABS_MT_TRACKING_ID, p.id.coerceIn(0, 31))
@@ -180,9 +249,38 @@ class InputService(private val paths: VmPaths, private val log: (String) -> Unit
             put(b, EV_KEY, BTN_TOUCH, if (down) 1 else 0)
             wasDown = down
         }
-        if (!down && mtMode != 4) put(b, EV_SYN, SYN_MT_REPORT, 0)
+        if (!down && mtMode != 4 && mtMode != 5) put(b, EV_SYN, SYN_MT_REPORT, 0)
         put(b, EV_SYN, SYN_REPORT, 0)
         flush(b)
+    }
+
+    private val slotTrackingId = IntArray(MAX_SLOTS) { -1 }
+    private var nextTrackingId = 1
+
+    /** Type B multitouch: one slot per finger, a fresh TRACKING_ID on touch-down and TRACKING_ID -1 on release. */
+    private fun protocolB(b: ByteBuffer, now: List<P>) {
+        val live = HashSet<Int>()
+        for (p in now) {
+            val slot = p.id.coerceIn(0, MAX_SLOTS - 1)
+            live.add(slot)
+            put(b, EV_ABS, ABS_MT_SLOT, slot)
+            if (slotTrackingId[slot] < 0) {
+                slotTrackingId[slot] = nextTrackingId
+                nextTrackingId = if (nextTrackingId >= 65535) 1 else nextTrackingId + 1
+                put(b, EV_ABS, ABS_MT_TRACKING_ID, slotTrackingId[slot])
+            }
+            put(b, EV_ABS, ABS_MT_POSITION_X, p.x)
+            put(b, EV_ABS, ABS_MT_POSITION_Y, p.y)
+            put(b, EV_ABS, ABS_MT_TOUCH_MAJOR, 40)
+            put(b, EV_ABS, ABS_MT_PRESSURE, 64)
+        }
+        for (slot in 0 until MAX_SLOTS) {
+            if (slotTrackingId[slot] >= 0 && slot !in live) {
+                put(b, EV_ABS, ABS_MT_SLOT, slot)
+                put(b, EV_ABS, ABS_MT_TRACKING_ID, -1)
+                slotTrackingId[slot] = -1
+            }
+        }
     }
 
     fun key(code: Int, down: Boolean) {
@@ -256,14 +354,35 @@ class InputService(private val paths: VmPaths, private val log: (String) -> Unit
         if (b.position() == 0) return
         val a = ByteArray(b.position())
         b.flip(); b.get(a); b.clear()
-        sink?.let { runCatching { it.write(a); it.flush() }.onFailure { sink = null } }
-        val dead = ArrayList<Client>()
-        for (c in clients) {
-            try { c.out.write(a); c.out.flush() } catch (e: Exception) { dead.add(c) }
+        // the FIFO is non-blocking: while the recovery is not reading yet (or stalls) a full pipe drops events
+        // instead of freezing the UI thread; a frame is below PIPE_BUF, so it is written whole or not at all
+        sink?.let { s ->
+            try { s.write(a); s.flush() } catch (e: java.io.IOException) {
+                val full = (e.cause as? android.system.ErrnoException)?.errno == android.system.OsConstants.EAGAIN
+                if (!full) sink = null
+            }
         }
-        if (dead.isNotEmpty()) clients.removeAll(dead.toSet())
+        record(a)
+        var prune = false
+        for (c in clients) { c.post(a); if (c.dead) prune = true }
+        if (prune) clients.removeAll { it.dead }
         sent += a.size / EV
     }
+
+    /** The last events handed to the guest, newest last (for the diagnostics export). */
+    private val recent = java.util.ArrayDeque<String>()
+    @Synchronized private fun record(a: ByteArray) {
+        val bb = ByteBuffer.wrap(a).order(ByteOrder.LITTLE_ENDIAN)
+        val now = SystemClock.uptimeMillis()
+        var o = 0
+        while (o + EV <= a.size) {
+            if (recent.size >= 400) recent.removeFirst()
+            recent.addLast("$now t=${bb.getShort(o + 8)} c=${bb.getShort(o + 10)} v=${bb.getInt(o + 12)}")
+            o += EV
+        }
+    }
+    @Synchronized fun recentEvents(): List<String> = recent.toList()
+    fun clientInfo(): String = clients.joinToString { "pid ${it.pid}${if (it.dropped > 0) " (dropped ${it.dropped} frames: guest does not read this descriptor)" else ""}" }
 
     companion object {
         private const val EV = 16
@@ -275,6 +394,8 @@ class InputService(private val paths: VmPaths, private val log: (String) -> Unit
         private const val ABS_X = 0
         private const val ABS_Y = 1
         private const val ABS_PRESSURE = 24
+        private const val MAX_SLOTS = 32
+        private const val ABS_MT_SLOT = 47
         private const val ABS_MT_TOUCH_MAJOR = 48
         private const val ABS_MT_WIDTH_MAJOR = 50
         private const val ABS_MT_POSITION_X = 53

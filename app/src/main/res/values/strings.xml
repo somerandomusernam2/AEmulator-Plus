@@ -134,6 +134,10 @@
     <string name="m_reboot">Reboot</string>
     <string name="m_clip_empty">Clipboard is empty</string>
     <string name="m_screenshot_saved">Saved: %1$s</string>
+    <string name="m_save_logs">Save logs to Downloads</string>
+    <string name="m_save_logs_start">Saving logs…</string>
+    <string name="m_save_logs_ok">Logs saved: %1$s</string>
+    <string name="m_save_logs_fail">Could not save logs: %1$s</string>
     <string name="m_failed">Failed</string>
     <string name="m_sms_sent">SMS delivered to inbox</string>
     <string name="m_sms_from">From</string>
@@ -154,6 +158,11 @@
     <string name="vs_recovery_install">Install…</string>
     <string name="vs_recovery_failed">Not a recovery image</string>
     <string name="m_adb">ADB over network</string>
+    <string name="m_shell">ADB shell</string>
+    <string name="m_shell_hint">Root shell of the firmware. Type a command (e.g. ls /sdcard, getprop, pm list packages).</string>
+    <string name="m_shell_input">Command</string>
+    <string name="m_shell_clear">Clear</string>
+    <string name="m_shell_ctrlc">Ctrl+C</string>
     <string name="m_adb_enable">Enable</string>
     <string name="m_adb_hint">Anyone on this Wi-Fi network gets a root shell of the firmware. Switch it off on public networks.</string>
     <string name="add_import">Import firmware file</string>
@@ -269,6 +278,9 @@
     <string name="vm_import_boot">Import boot partition</string>
     <string name="vm_import_boot_working">Reading boot partition… Stop all VMs before importing.</string>
     <string name="vm_import_boot_done">Boot partition imported. The boot plan was refreshed; system and data are unchanged.</string>
+    <string name="vm_import_oem">Import OEM partition</string>
+    <string name="vm_import_oem_working">Reading OEM partition… Stop all VMs before importing.</string>
+    <string name="vm_import_oem_done">OEM partition imported and mounted at /oem. System and data are unchanged.</string>
     <string name="as_tablet_navbar_rotation">Rotate tablet navbar</string>
     <string name="as_tablet_navbar_rotation_sub">Follow the tablet window rotation. Off keeps controls on the device’s natural bottom edge. Does not follow motion when host auto-rotate is off. Guest screen is never rotated or stretched by the host.</string>
     <string name="soc_warning_title">Chipset compatibility is unverified</string>

@@ -57,6 +57,7 @@ internal object VmArchive {
                 var link: String? = null
                 if (attrs.isSymbolicLink) {
                     val target = Files.readSymbolicLink(file.toPath())
+                    if (target.isAbsolute) return // host-engine link (e.g. linker path alias), rebuilt by TreeFixer
                     val resolved = file.toPath().parent.resolve(target).normalize()
                     // Host-engine links are rebuilt by TreeFixer, never exported.
                     val boundary = if (name.startsWith("root/system/")) system.toPath() else root.toPath()

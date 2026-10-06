@@ -175,7 +175,7 @@ final class LgKdz {
                     } else if (lower.endsWith(".img") || lower.endsWith(".bin")) {
                         Role role = FirmwareToolset.roleFor(e.name);
                         String canon = role == Role.SYSTEM ? "system.img" : role == Role.BOOT ? "boot.img"
-                            : role == Role.RECOVERY ? "recovery.img" : null;
+                            : role == Role.RECOVERY ? "recovery.img" : role == Role.OEM ? "oem.img" : null;
                         if (canon != null) {
                             File dir = new File(work, "img" + (n++)); dir.mkdirs();
                             File d = new File(dir, canon);
@@ -232,9 +232,10 @@ final class LgKdz {
             {"system", "system_a", "systema", "system.img"},
             {"boot", "boot_a", "boota", "kernel"},
             {"recovery", "recovery_a", "recoverya", "recoveryb", "recovery_b"},
+            {"oem", "oem_a", "oema", "oem_b", "oemb"},
         };
-        Role[] roles = {Role.SYSTEM, Role.BOOT, Role.RECOVERY};
-        String[] files = {"system.img", "boot.img", "recovery.img"};
+        Role[] roles = {Role.SYSTEM, Role.BOOT, Role.RECOVERY, Role.OEM};
+        String[] files = {"system.img", "boot.img", "recovery.img", "oem.img"};
         for (int i = 0; i < wanted.length; i++) {
             List<Chunk> cl = null; String used = null;
             for (String n : wanted[i]) { cl = slices.get(n); if (cl != null) { used = n; break; } }
@@ -418,11 +419,12 @@ final class LgKdz {
 
     private static List<Artifact> firstPerRole(List<Artifact> in) {
         List<Artifact> out = new ArrayList<>();
-        boolean sys = false, boot = false, rec = false;
+        boolean sys = false, boot = false, rec = false, oem = false;
         for (Artifact a : in) {
             if (a.role == Role.SYSTEM) { if (sys) continue; sys = true; }
             else if (a.role == Role.BOOT) { if (boot) continue; boot = true; }
             else if (a.role == Role.RECOVERY) { if (rec) continue; rec = true; }
+            else if (a.role == Role.OEM) { if (oem) continue; oem = true; }
             out.add(a);
         }
         return out;

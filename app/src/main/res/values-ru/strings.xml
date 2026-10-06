@@ -123,6 +123,10 @@
     <string name="m_reboot">Перезагрузка</string>
     <string name="m_clip_empty">Буфер обмена пуст</string>
     <string name="m_screenshot_saved">Сохранено: %1$s</string>
+    <string name="m_save_logs">Сохранить логи в Downloads</string>
+    <string name="m_save_logs_start">Сохраняю логи…</string>
+    <string name="m_save_logs_ok">Логи сохранены: %1$s</string>
+    <string name="m_save_logs_fail">Не удалось сохранить логи: %1$s</string>
     <string name="m_failed">Не удалось</string>
     <string name="m_sms_sent">SMS доставлено во входящие</string>
     <string name="m_sms_from">Отправитель</string>
@@ -260,6 +264,9 @@
     <string name="vm_import_boot">Импортировать загрузочный раздел</string>
     <string name="vm_import_boot_working">Чтение загрузочного раздела… Перед импортом остановите все ВМ.</string>
     <string name="vm_import_boot_done">Загрузочный раздел импортирован, план загрузки обновлён. Система и данные не изменены.</string>
+    <string name="vm_import_oem">Импортировать раздел OEM</string>
+    <string name="vm_import_oem_working">Чтение раздела OEM… Перед импортом остановите все ВМ.</string>
+    <string name="vm_import_oem_done">Раздел OEM импортирован и смонтирован в /oem. Система и данные не изменены.</string>
     <string name="as_tablet_navbar_rotation">Поворачивать панель на планшете</string>
     <string name="as_tablet_navbar_rotation_sub">Панель следует повороту окна планшета. Если выключено, кнопки остаются у нижнего края в исходной ориентации устройства. При выключенном автоповороте хоста панель не реагирует на движение. Хост не поворачивает и не растягивает гостевой экран.</string>
     <string name="soc_warning_title">Совместимость чипсета не проверена</string>

@@ -132,6 +132,7 @@ class TreeFixer(
         vendorChecks()
         scriptShebangs()
         samsungEfs()
+        selinuxOff()
         for (n in LOGS) File(root, "dev/log/$n").let { if (!it.isFile) { it.parentFile?.mkdirs(); it.createNewFile() } }
         makeFb()
     }
@@ -434,6 +435,9 @@ class TreeFixer(
         val dir = File(root, "system/lib/egl").apply { mkdirs() }
         val cfg = File(dir, "egl.cfg")
         val cfgRom = File(dir, "egl.cfg.rom")
+        // Motorola (e.g. XT910 4.0.4): egl.cfg is a symlink to /sys/egl/egl.cfg, which doesn't exist on the
+        // host, so reading/writing through it fails with ENOENT and aborts boot. Replace it with a real file.
+        if (isLink(cfg)) runCatching { Os.remove(cfg.absolutePath) }.onFailure { log("egl.cfg: symlink removal failed: ${it.message}"); cfg.delete() }
         if (!cfgRom.isFile && cfg.isFile) cfg.copyTo(cfgRom, overwrite = true)
         when (engine) {
             Engine.GB -> cfg.writeText(if (gpu) "0 0 dhd\n" else "0 0 android\n")
@@ -491,6 +495,22 @@ class TreeFixer(
             if (n > 0) log("MediaTek DRVB: platform check disabled ($n func.)")
         }
     }.onFailure { log("MediaTek DRVB: failed: ${it.message}") }
+
+    /**
+     * 5.0+/7.x: the guest runs under qemu-user, so libselinux sees the HOST's selinuxfs
+     * (/proc/filesystems, /sys/fs/selinux) and is_selinux_enabled() answers 1. servicemanager (and
+     * installd, keystore, system_server…) then demands a service_contexts handle and a security context
+     * of its own, finds neither, and abort()s (exit 134) before binderd ever gets a context manager.
+     * The guest has no policy of its own to load, so report "SELinux disabled" from libselinux:
+     * every AOSP caller guards its checks with is_selinux_enabled() > 0 and falls back to plain DAC.
+     */
+    private fun selinuxOff() = runCatching {
+        val lib = File(root, "system/lib/libselinux.so")
+        if (lib.isFile) {
+            val n = ElfPatch.returnZero(lib, setOf("is_selinux_enabled", "is_selinux_mls_enabled"))
+            if (n > 0) log("SELinux: libselinux reports disabled ($n func.)")
+        }
+    }.onFailure { log("SELinux: failed to patch libselinux: ${it.message}") }
 
     private fun qtaguid() = runCatching {
         val d = File(root, "data/.aemu_qtaguid").apply { mkdirs() }
@@ -566,6 +586,7 @@ class TreeFixer(
         for ((rel, v) in bat) File(base, rel).let { if (!it.isFile) { it.parentFile?.mkdirs(); it.writeText(v + "\n") } }
         healthdRelativeSysfs(base)
         personalityNoop()
+        hostPathAlias()
         parkNfc()
         mainStackMaps()
         val power = File(root, "sys/power").apply { mkdirs() }
@@ -937,6 +958,33 @@ class TreeFixer(
         }
         log("personality(PER_LINUX32) made a no-op in $n files")
         runCatching { stamp.writeText("$n\n") }
+    }
+
+    /**
+     * 7.0+ linker stats the executable it was started for, by the path from /proc/self/exe. qemu reports the
+     * program's host path (<filesDir>/images/<id>/root/system/bin/servicemanager), but every guest path goes
+     * through "-L root", so the guest looks for <root><host path> and gets ENOENT ("unable to stat file for the
+     * executable", SIGABRT in linker, servicemanager/surfaceflinger die). The host path of root is made to exist
+     * inside root as a link back to root. The target is absolute on purpose: /data/user/0 is itself a link to
+     * ../data, so the real directory holding the alias is not where its path says, and a relative target would
+     * miss. The host kernel resolves the absolute target, qemu does not remap symlink targets. Absolute links
+     * are never exported (VmArchive) and the alias is rechecked on every boot.
+     */
+    private fun hostPathAlias() {
+        if (img.api < 24) return
+        runCatching {
+            val hostRoot = root.absoluteFile.toPath().normalize()
+            val rel = hostRoot.root.relativize(hostRoot)           // data/user/0/app.aemu.plus/files/images/<id>/root
+            if (rel.nameCount < 2) return
+            val alias = File(root, rel.toString())
+            val target = hostRoot.toString()
+            alias.parentFile?.let { if (!it.isDirectory) it.mkdirs() }
+            val cur = runCatching { Os.readlink(alias.path) }.getOrNull()
+            if (cur == target) return
+            if (cur != null || alias.exists()) wipe(alias)
+            Os.symlink(target, alias.path)
+            log("linker: host path of the guest root aliased inside it")
+        }.onFailure { log("host path alias failed: ${it.message}") }
     }
 
     /**

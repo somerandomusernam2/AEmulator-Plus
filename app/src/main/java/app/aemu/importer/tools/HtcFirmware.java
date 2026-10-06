@@ -155,12 +155,12 @@ public final class HtcFirmware {
         return out;
     }
 
-    /** boot.img, boot_signed.img, recovery.img, recovery_signed.img, system.img. */
+    /** boot / recovery / system, plain or signed, with or without the .img suffix. */
     static String kindOfName(String lowerBase) {
         switch (lowerBase) {
-            case "boot.img": case "boot_signed.img": return "boot";
-            case "recovery.img": case "recovery_signed.img": return "recovery";
-            case "system.img": return "system";
+            case "boot.img": case "boot_signed.img": case "boot_signed": return "boot";
+            case "recovery.img": case "recovery_signed.img": case "recovery_signed": return "recovery";
+            case "system.img": case "system_signed.img": case "system_signed": return "system";
             default: return null;
         }
     }

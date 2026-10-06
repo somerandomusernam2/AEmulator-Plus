@@ -235,7 +235,7 @@ class AdbServer(private val vm: GuestVm) {
     }
 
     /** guest path → file on the phone: memory-card paths go to the shared card folder, the rest into the image's root */
-    private fun host(guest: String): File {
+    fun host(guest: String): File {
         val p = "/" + guest.split('/').filter { it.isNotEmpty() && it != "." }
             .fold(ArrayList<String>()) { acc, seg -> if (seg == "..") { if (acc.isNotEmpty()) acc.removeAt(acc.size - 1) } else acc.add(seg); acc }
             .joinToString("/")

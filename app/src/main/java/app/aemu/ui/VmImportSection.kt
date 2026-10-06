@@ -20,6 +20,7 @@ internal fun VmImportSection(img: GuestImage, busy: Boolean, setBusy: (Boolean) 
     val ctx = LocalContext.current
     val scope = rememberCoroutineScope()
     var bootPresent by remember { mutableStateOf(BootPartitionImport.present(VmPaths(ctx, img.id).dir)) }
+    var oemPresent by remember { mutableStateOf(OemPartitionImport.present(VmPaths(ctx, img.id).dir)) }
     var warning by remember { mutableStateOf<VmArchiveStorage.SettingsImport?>(null) }
     var message by remember { mutableStateOf<String?>(null) }
     var picking by remember { mutableStateOf(false) }
@@ -56,12 +57,29 @@ internal fun VmImportSection(img: GuestImage, busy: Boolean, setBusy: (Boolean) 
             }
         }
     }
+    val pickOem = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        picking = false
+        if (uri != null) {
+            setBusy(true)
+            message = ctx.getString(R.string.vm_import_oem_working)
+            scope.launch {
+                val result = withContext(Dispatchers.IO) { runCatching { OemPartitionImport.install(ctx, img.id, uri) } }
+                oemPresent = OemPartitionImport.present(VmPaths(ctx, img.id).dir)
+                setBusy(false)
+                message = result.fold({ ctx.getString(R.string.vm_import_oem_done) },
+                    { ctx.getString(R.string.vm_import_failed, it.message.orEmpty()) })
+            }
+        }
+    }
     TextButton(enabled = !busy && !picking, modifier = Modifier.fillMaxWidth(), onClick = {
         picking = true; pickSettings.launch(arrayOf("*/*"))
     }) { Text(stringResource(R.string.vm_import_settings)) }
     if (!bootPresent) TextButton(enabled = !busy && !picking, modifier = Modifier.fillMaxWidth(), onClick = {
         picking = true; pickBoot.launch(arrayOf("*/*"))
     }) { Text(stringResource(R.string.vm_import_boot)) }
+    if (!oemPresent) TextButton(enabled = !busy && !picking, modifier = Modifier.fillMaxWidth(), onClick = {
+        picking = true; pickOem.launch(arrayOf("*/*"))
+    }) { Text(stringResource(R.string.vm_import_oem)) }
     message?.let { Text(it, style = MaterialTheme.typography.bodySmall) }
     warning?.let { source -> AlertDialog(
         onDismissRequest = { warning = null },
