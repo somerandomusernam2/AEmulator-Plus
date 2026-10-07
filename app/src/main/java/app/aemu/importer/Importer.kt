@@ -10,6 +10,8 @@ import app.aemu.core.ImageStore
 import app.aemu.core.TreeFixer
 import app.aemu.core.VmPaths
 import app.aemu.core.RecoveryImage
+import app.aemu.core.SystemLayout
+import app.aemu.core.StockImage
 import org.apache.commons.compress.archivers.cpio.CpioArchiveEntry
 import org.apache.commons.compress.archivers.cpio.CpioArchiveInputStream
 import org.apache.commons.compress.archivers.tar.TarArchiveEntry
@@ -40,6 +42,7 @@ import java.util.zip.GZIPInputStream
  *  - ZIP/TGZ factory-образов Google, прошивки с system.img внутри
  *  - TAR / TAR.MD5 (Samsung Odin, TouchWiz), TWRP-бэкапы (.win), tar.gz/xz/bz2
  *  - Huawei dload/UPDATE.APP (packet chain, YAFFS2 system + boot/recovery images)
+ *  - Acer flash package (*.bin / *.nb0: record table + YAFFS2 rootfs.img / system.img)
  *  - system.img: ext2/3/4, в том числе sparse (и разбитый на части: system.img_sparsechunk.N, system_sparsechunkN, system.img.N, system.N, system_N …)
  *  - system.new.dat(.br) + system.transfer.list (OTA 5.x–6.x)
  *  - уже готовое дерево rootfs в tar.gz (например, из стендов HTC)
@@ -53,6 +56,8 @@ class Importer(
     private lateinit var root: File
     private val tmp = File(ctx.cacheDir, "import").apply { mkdirs() }
     private var ramdisk: List<BootImage.CpioEntry>? = null
+    private val MAX_RAMDISK = 64L * 1024 * 1024
+    private val MAX_RAMDISK_FILE = 32L * 1024 * 1024
     private var recovery: ByteArray? = null
     private val symlinks = ArrayList<Pair<String, String>>() // (цель, путь ссылки в госте)
     private val perms = ArrayList<Triple<String, Int, Boolean>>() // (путь, режим, рекурсивно-файлы)
@@ -109,7 +114,7 @@ class Importer(
     // ------------------------------------------------------------------ разбор контейнеров
 
     private fun handle(src: RandomSource, ch: FileChannel?, name: String, depth: Int, role: FirmwareToolset.Role? = null) {
-        if (depth > 4) return
+        if (depth > 8) return
         val head = ByteBuffer.allocate(1100)
         src.read(0, head); head.flip()
         val h = ByteArray(head.remaining()).also { head.get(it) }
@@ -146,6 +151,8 @@ class Importer(
                 importCpioStream(streamOf(src), name, depth)
             // Huawei dload/UPDATE.APP: packet chain of raw partition images (the container has no name-based hint)
             HuaweiApp.probe(h) -> importHuaweiApp(src, name, strict = depth == 0)
+            // Acer flash package (*.bin / *.nb0): table of named images, YAFFS2 rootfs + system
+            AcerBin.probe(h) -> importAcerBin(src, name, strict = depth == 0)
             // HTC: RUU_*.exe installer, Dream-style .nbh, 256-byte-signed rom.zip / *_signed.img.
             // Routed explicitly so the heuristic probes below never look at a multi-hundred-MB executable.
             FirmwareToolset.isHtcContainer(h) -> importViaToolset(src, name, depth)
@@ -162,11 +169,14 @@ class Importer(
             Ext4Reader.probe(src) -> importImage(src, "system")
             MotoImage.probe(src) -> importImage(src, "system")
             Yaffs2Reader.probe(src) -> importImage(src, "system")
+            // Compression signatures win over misleading suffixes (a gzip file named *.tgz.tar is not a plain tar)
+            FirmwareContainers.compression(h) != null -> when (FirmwareContainers.compression(h)!!) {
+                FirmwareContainers.Compression.GZIP -> importCompressed(GZIPInputStream(streamOf(src), 1 shl 16), name, depth)
+                FirmwareContainers.Compression.XZ -> importCompressed(XZInputStream(streamOf(src)), name, depth)
+                FirmwareContainers.Compression.BZIP2 -> importCompressed(BZip2CompressorInputStream(streamOf(src)), name, depth)
+            }
             isTar(h) || name.endsWith(".tar", true) || name.endsWith(".md5", true) || name.endsWith(".win", true) ->
                 importTarStream(streamOf(src), name, depth)
-            h[0] == 0x1f.toByte() && h[1] == 0x8b.toByte() -> importCompressed(GZIPInputStream(streamOf(src), 1 shl 16), name, depth)
-            h[0] == 0xfd.toByte() && h[1] == '7'.code.toByte() -> importCompressed(XZInputStream(streamOf(src)), name, depth)
-            h[0] == 'B'.code.toByte() && h[1] == 'Z'.code.toByte() && h[2] == 'h'.code.toByte() -> importCompressed(BZip2CompressorInputStream(streamOf(src)), name, depth)
             // a recovery image reached directly (extracted by the firmware toolset, nested archive, plain file)
             isRecoveryName(name.replace('\\', '/').substringAfterLast('/')) && src.size < 64_000_000 ->
                 takeRecovery(streamOf(src), name.replace('\\', '/').substringAfterLast('/'))
@@ -325,6 +335,128 @@ class Importer(
         try {
             FileChannel.open(t.toPath(), StandardOpenOption.READ).use { c -> importHuaweiApp(ChannelSource(c), base, strict = false) }
         } finally { deleteTree(t.parentFile ?: t) }
+    }
+
+    /** First [n] bytes of a zip entry (fewer if it is shorter). */
+    private fun zipEntryHead(zip: ZipFile, e: ZipArchiveEntry, n: Int): ByteArray = zip.getInputStream(e).use { s ->
+        val b = ByteArray(n)
+        var o = 0
+        while (o < n) { val r = s.read(b, o, n - o); if (r <= 0) break; o += r }
+        b.copyOf(o)
+    }
+
+    /** Acer *.bin / *.nb0 inside an archive: read in place when stored, otherwise through a temp file (the table needs random access). */
+    private fun importZipAcerBin(zip: ZipFile, e: ZipArchiveEntry, base: String) {
+        val ch = zipChannel
+        if (e.method == ZipArchiveEntry.STORED && ch != null) {
+            runCatching { zip.getRawInputStream(e).close() } // computes dataOffset
+            if (e.dataOffset > 0) { importAcerBin(ChannelSource(ch, e.dataOffset, e.size), base, strict = false); return }
+        }
+        onProgress("Unpacking $base", -1f)
+        val t = spillEntry(zip, e)
+        try {
+            FileChannel.open(t.toPath(), StandardOpenOption.READ).use { c -> importAcerBin(ChannelSource(c), base, strict = false) }
+        } finally { deleteTree(t.parentFile ?: t) }
+    }
+
+    /**
+     * Acer flash package (see [AcerBin]). The importer takes
+     *  - `system.img`, the YAFFS2 /system partition (any other image only if no system.img is there and its tree looks like /system),
+     *  - `rootfs.img`, the YAFFS2 root file system, as the ramdisk (init*.rc, default.prop, sbin/...), because the
+     *    kernel is flashed on its own and there is no boot.img,
+     *  - an "ANDROID!" boot / recovery image if a (later) package carries one.
+     * Boot loader pieces, kernel, modem, userdata, hidden/modules, factory-test rootfs and the YAFFS2 recovery
+     * root file system are skipped.
+     * [strict]: the file was chosen directly, so a package without a system partition is an error.
+     */
+    private fun importAcerBin(src: RandomSource, name: String, strict: Boolean) {
+        val label = name.replace('\\', '/').substringAfterLast('/')
+        val entries = try { AcerBin.entries(src) } catch (ex: IOException) {
+            if (strict) throw ex
+            log("skipped $label: ${ex.message}"); return
+        }
+        val profile = AcerBin.profile(src, entries)
+        log("acer $label: ${entries.size} images" +
+            (profile["PROJECT"]?.let { ", project $it" } ?: "") + (profile["PLATFORM"]?.let { ", platform $it" } ?: "") +
+            (profile["MODEL"]?.let { ", model $it" } ?: ""))
+        fun slice(e: AcerBin.Entry): RandomSource = SliceSource(src, e.offset, e.size)
+        fun head(e: AcerBin.Entry, n: Int): ByteArray {
+            val b = ByteBuffer.allocate(minOf(n.toLong(), e.size).toInt()); slice(e).read(0, b); return b.array()
+        }
+
+        // boot / recovery images in Android format (the Gingerbread-era E1xx packages have none)
+        for (e in entries) {
+            if (cancelled) throw IOException("cancelled")
+            if (e.size < 4096 || e.size > 64_000_000) continue
+            if (String(head(e, 8), Charsets.ISO_8859_1) != "ANDROID!") continue
+            val data = readAllFrom(slice(e))
+            if (isRecoveryName(e.base) || hasRecoveryBinary(data)) takeRecovery(data.inputStream(), "recovery (${e.base})") else takeBoot(data)
+        }
+
+        // ramdisk: the root file system image
+        if (ramdisk == null) entries.firstOrNull { AcerBin.isRootfs(it.base) && it.size > 0 }?.let { takeYaffs2Ramdisk(slice(it), "$label ${it.base}") }
+
+        // system partition: system.img, otherwise the file system image whose tree looks like /system
+        val fsEntries = ArrayList<AcerBin.Entry>()
+        val systemEntry = entries.firstOrNull { isSystemImageName(it.base) && it.size > 0 } ?: run {
+            for (e in entries) {
+                if (e.size < (4L shl 20) || AcerBin.isRootfs(e.base) || e.base.contains("ftm", true)) continue
+                val h = head(e, 8)
+                if (String(h, Charsets.ISO_8859_1) == "ANDROID!" || (h[0].toInt() == 0x7f && h[1] == 'E'.code.toByte())) continue
+                val s = slice(e)
+                if (SparseSource.probe(s) || Ext4Reader.probe(s) || Yaffs2Reader.probe(s)) fsEntries.add(e)
+            }
+            fsEntries.firstOrNull { looksLikeSystem(slice(it)) }
+        }
+        if (systemEntry == null || gotSystem) {
+            val what = if (gotSystem) "system already imported" else "no system partition"
+            if (strict && !gotSystem) throw IOException("\"$label\" has no system partition (not a full Acer firmware package?)")
+            log("acer $label: $what")
+            return
+        }
+        val s = slice(systemEntry)
+        importImage(if (SparseSource.probe(s)) SparseSource(listOf(s)) else s, "system")
+        for (e in entries) {
+            if (e === systemEntry) continue
+            if (e.base.endsWith(".img", true) && e.size >= 4096)
+                log("acer $label: skipped ${e.base} (${e.size shr 10} KB)")
+        }
+    }
+
+    /**
+     * Root file system image (YAFFS2) as ramdisk: the same list of files finishTree takes from a boot.img ramdisk.
+     * Without an init.rc the image is not a root file system and is ignored.
+     */
+    private fun takeYaffs2Ramdisk(src: RandomSource, label: String) {
+        if (ramdisk != null) return
+        try {
+            val fs = Yaffs2Reader(src) { if (cancelled) throw IOException("cancelled") }
+            val out = ArrayList<BootImage.CpioEntry>()
+            var total = 0L
+            fs.walk { path, node ->
+                val perm = node.mode and 0xfff
+                when (node.type) {
+                    3 -> { out.add(BootImage.CpioEntry(path, 0x4000 or (if (perm != 0) perm else 0x1ed), ByteArray(0))) }
+                    2 -> { if (node.alias.isNotEmpty()) out.add(BootImage.CpioEntry(path, 0xA000 or 0x1ff, node.alias.toByteArray())) }
+                    1, 4 -> {
+                        if (node.size > MAX_RAMDISK_FILE) { log("ramdisk $label: skipped $path (${node.size shr 20} MB)"); return@walk }
+                        val bytes = java.io.ByteArrayOutputStream(node.size.toInt().coerceAtLeast(16))
+                        fs.copy(node, bytes)
+                        total += bytes.size()
+                        if (total > MAX_RAMDISK) throw IOException("ramdisk too large")
+                        out.add(BootImage.CpioEntry(path, 0x8000 or (fs.fileMode(node) and 0xfff), bytes.toByteArray()))
+                    }
+                    else -> {} // device nodes: the guest creates /dev itself
+                }
+            }
+            fs.warnings.forEach { log("ramdisk $label: $it") }
+            if (out.none { it.name == "init.rc" }) { log("ramdisk $label: no init.rc, not a root file system"); return }
+            ramdisk = out
+            log("boot: ramdisk from YAFFS2 $label, ${out.size} entries")
+        } catch (ex: IOException) {
+            if (cancelled) throw ex
+            log("ramdisk $label: ${ex.message}, skipped")
+        }
     }
 
     /**
@@ -502,6 +634,9 @@ class Importer(
                 base.endsWith(".new.dat", true) || base.endsWith(".new.dat.br", true) ||
                     base.endsWith(".transfer.list", true) -> {}
                 base.endsWith(".app", true) && e.size > 0 -> importZipHuaweiApp(zip, e, base)
+                // Acer packages are recognised by their table, not by the (generic) .bin / .nb0 extension
+                (base.endsWith(".nb0", true) || base.endsWith(".bin", true)) && e.size > AcerBin.MIN_SIZE &&
+                    AcerBin.probe(zipEntryHead(zip, e, 1100)) -> importZipAcerBin(zip, e, base)
                 recognizedFirmwareTool(base) -> {
                     val nestedFile = spillEntry(zip, e)
                     try {
@@ -518,6 +653,9 @@ class Importer(
             if (ramdisk != null) break
             zip.getInputStream(be).use { takeBoot(it.readBytes()) }
         }
+        // Split boot dumps (kernel + ramdisk.gz, or an unpacked initrd/ folder) carry no boot.img: take the ramdisk directly,
+        // otherwise init.rc, /sbin/healthd and friends never reach the tree and system_server dies in BatteryService.
+        if (ramdisk == null) takeLooseRamdisk(zip, entries, wrap, sysRoot)
         for (partition in listOf("system", "vendor")) {
             if (partition == "system" && gotSystem) continue
             val dataE = entries.firstOrNull { it.name.matches(Regex("(?i)(.*/)?$partition\\.new\\.dat(\\.br)?")) } ?: continue
@@ -538,11 +676,12 @@ class Importer(
                     val data = if (dataE.name.endsWith(".br", true)) BrotliInputStream(BufferedInputStream(s, 1 shl 20)) else s
                     TransferList.build(list, data, raw)
                 }
+                keepStockImage = partition == "system"
                 FileChannel.open(raw.toPath(), StandardOpenOption.READ).use { c ->
                     if (partition == "vendor") runCatching { importImage(ChannelSource(c), partition) }
                     else importImage(ChannelSource(c), partition)
                 }
-            } finally { raw.delete() }
+            } finally { keepStockImage = false; raw.delete() }
         }
         if (sparseChunks.isNotEmpty() && !gotSystem) {
             val parts = sparseChunks.map { spillEntry(zip, it) }
@@ -731,8 +870,10 @@ class Importer(
             FileInputStream(actualData).use { dataIn ->
                 TransferList.build(transfer, dataIn, raw)
             }
+            keepStockImage = mount == "system"
             FileChannel.open(raw.toPath(), StandardOpenOption.READ).use { c -> importImage(ChannelSource(c), mount) }
         } finally {
+            keepStockImage = false
             if (actualData !== data) actualData.delete()
             raw.delete()
         }
@@ -745,7 +886,7 @@ class Importer(
 
     /** RAR support is used for RAR4/RAR5 firmware bundles; entries are streamed to temp files. */
     private fun importRar(file: File, name: String, depth: Int) {
-        if (depth > 4) throw IOException("nested archive depth exceeded")
+        if (depth > 8) throw IOException("nested archive depth exceeded")
         RarArchive(file).use { rar ->
             val sysRoot = findSystemRoot(rar.fileHeaders.map { (it.fileNameString ?: "").replace('\\', '/').trimStart('/') })
             val pending = ArrayList<Pair<File, String>>()
@@ -859,13 +1000,27 @@ class Importer(
         val safe = name.substringAfterLast('/').replace('\\', '_').ifEmpty { "entry" }
         val dir = File(tmp, "spill-${System.nanoTime()}").apply { mkdirs() }
         val t = File(dir, safe)
-        t.outputStream().use { o -> i.copyTo(o, 1 shl 20) }
-        return t
+        try {
+            t.outputStream().use { o ->
+                val buffer = ByteArray(1 shl 20)
+                var count = 0L
+                while (true) {
+                    if (cancelled) throw IOException("cancelled")
+                    val n = i.read(buffer)
+                    if (n < 0) break
+                    count += n
+                    if (count > 16L * 1024 * 1024 * 1024 || tmp.usableSpace < n + 32L * 1024 * 1024)
+                        throw IOException("Not enough space to unpack firmware")
+                    o.write(buffer, 0, n)
+                }
+            }
+            return t
+        } catch (toss: Throwable) { deleteTree(dir); throw toss }
     }
 
     /** CPIO (newc/crc/odc), used by recovery packages and Android TV firmware bundles. */
     private fun importCpioStream(input: InputStream, name: String, depth: Int) {
-        if (depth > 4) throw IOException("nested archive depth exceeded")
+        if (depth > 8) throw IOException("nested archive depth exceeded")
         CpioArchiveInputStream(input, "UTF-8").use { cpio ->
             while (true) {
                 if (cancelled) throw IOException("cancelled")
@@ -874,7 +1029,7 @@ class Importer(
                 if (n.isBlank() || n == "TRAILER!!!" || n.split('/').any { it == ".." }) continue
                 val base = n.substringAfterLast('/')
                 when {
-                    e.isDirectory -> File(root, n).mkdirs()
+                    e.isDirectory -> FirmwareContainers.destination(root, n).mkdirs()
                     n.startsWith("system/") -> {
                         writeFile(n, cpio.nonClosing(), e.mode.toInt())
                         gotSystem = true
@@ -953,7 +1108,7 @@ class Importer(
                     // файлы корня (рамдиск, dhd.*) берём, только если архив — целое дерево rootfs
                     if (fullRoot != true && !n.startsWith("system") && !(n.startsWith("dhd.") || n.endsWith(".rc") || n == "default.prop" || n.startsWith("sbin"))) continue
                     when {
-                        e.isDirectory -> File(root, n).mkdirs()
+                        e.isDirectory -> FirmwareContainers.destination(root, n).mkdirs()
                         e.isSymbolicLink -> symlinks.add(e.linkName to "/$n")
                         e.isLink -> hardlink(n, e.linkName)
                         e.isFile -> {
@@ -966,7 +1121,7 @@ class Importer(
                 name.contains("oem", true) && name.endsWith(".win", true) && !name.contains("system", true) -> {
                     val p = "oem/$n"
                     when {
-                        e.isDirectory -> File(root, p).mkdirs()
+                        e.isDirectory -> FirmwareContainers.destination(root, p).mkdirs()
                         e.isSymbolicLink -> symlinks.add(e.linkName to "/$p")
                         e.isFile -> writeFile(p, tar.nonClosing(), e.mode)
                     }
@@ -975,7 +1130,7 @@ class Importer(
                 name.contains("system", true) && name.endsWith(".win", true) -> {
                     val p = "system/$n"
                     when {
-                        e.isDirectory -> File(root, p).mkdirs()
+                        e.isDirectory -> FirmwareContainers.destination(root, p).mkdirs()
                         e.isSymbolicLink -> symlinks.add(e.linkName to "/$p")
                         e.isFile -> { writeFile(p, tar.nonClosing(), e.mode); gotSystem = true }
                     }
@@ -991,37 +1146,55 @@ class Importer(
         if (name.endsWith(".lz4", true)) org.apache.commons.compress.compressors.lz4.FramedLZ4CompressorInputStream(s.nonClosing()) else s.nonClosing()
 
     private fun hardlink(n: String, target: String) {
-        val src = File(root, target.removePrefix("./").trimStart('/'))
-        val dst = File(root, n)
+        val src = FirmwareContainers.destination(root, target.removePrefix("./").trimStart('/'))
+        val dst = FirmwareContainers.destination(root, n)
         if (src.isFile) { dst.parentFile?.mkdirs(); src.copyTo(dst, overwrite = true) }
     }
 
     // ------------------------------------------------------------------ образы ФС
+
+    /**
+     * Set while the system partition image built from a block OTA (system.new.dat + transfer list) is imported: a SquashFS
+     * one cannot be rebuilt from its files later, so it is kept for delta OTAs ([StockImage]).
+     */
+    private var keepStockImage = false
 
     private fun importImage(source: RandomSource, mount: String) {
         // Motorola signed images carry a signature header in front of the ext4 (see MotoImage)
         val src = MotoImage.unwrap(source)
         if (src !== source) log("image $mount: Motorola signature header skipped, ${src.size shr 20} MB filesystem")
         if (Yaffs2Reader.probe(src)) { importYaffs2(src, mount); return }
-        if (!Ext4Reader.probe(src)) { importOtherFilesystem(src, mount); return }
+        if (!Ext4Reader.probe(src)) { importOtherFilesystem(src, mount, keep = keepStockImage && mount == "system" && src === source); return }
         val fs = Ext4Reader(src)
         onProgress("Reading image $mount (ext4, block ${fs.blockSize})", -1f)
         var n = 0
+        // what is needed to rebuild this image later from the files (block-based OTAs work on the image)
+        val cap = if (mount == "system") SystemLayout.Capture(fs, src) else null
         fs.walk { path, node ->
             if (cancelled) throw IOException("cancelled")
             val rel = "$mount/$path"
-            val f = File(root, rel)
+            val f = FirmwareContainers.destination(root, rel)
             when {
-                node.isDir -> f.mkdirs()
-                node.isLink -> symlinks.add(fs.linkTarget(node) to "/$rel")
+                node.isDir -> { f.mkdirs(); cap?.dir(path, node.perm) }
+                node.isLink -> { val t = fs.linkTarget(node); symlinks.add(t to "/$rel"); cap?.link(path, t) }
                 node.isFile -> {
                     f.parentFile?.mkdirs()
-                    f.outputStream().buffered(1 shl 20).use { fs.copy(node, it) }
+                    val md = java.security.MessageDigest.getInstance("SHA-1")
+                    f.outputStream().buffered(1 shl 20).use { fs.copy(node, java.security.DigestOutputStream(it, md)) }
+                    cap?.file(path, node, md.digest())
                     applyMode(f, node.perm)
                     files++; bytes += node.size
                 }
             }
             if (++n % 150 == 0) onProgress("$mount: ${path.substringAfterLast('/')}", -1f)
+        }
+        if (cap != null) {
+            onProgress("Recording the layout of image $mount", -1f)
+            val lf = SystemLayout.file(paths.dir)
+            runCatching { cap.finish(lf) }.onFailure {
+                lf.delete()
+                log("image $mount: layout not kept (${it.message}); block-based OTAs cannot be applied to this VM")
+            }
         }
         if (mount == "system") gotSystem = true
         log("image $mount: $n objects")
@@ -1032,7 +1205,7 @@ class Importer(
      * convert it to a temporary zip and unpack that into the guest root. Anything else fails with
      * a message naming the supported formats instead of an opaque ext4 magic error.
      */
-    private fun importOtherFilesystem(src: RandomSource, mount: String) {
+    private fun importOtherFilesystem(src: RandomSource, mount: String, keep: Boolean = false) {
         val headFile = File(tmp, "probe-${System.nanoTime()}.bin")
         val kind = try {
             val head = ByteBuffer.allocate(minOf((8L shl 20) + 512, src.size).toInt()); src.read(0, head)
@@ -1049,6 +1222,14 @@ class Importer(
             val artifacts = FirmwareToolset.extract(image, File(dir, "out")) { msg -> log(msg) }
             val zipFile = artifacts.firstOrNull { it.file.isFile }?.file
                 ?: throw IOException("$fsName image produced no files")
+            if (keep && kind == "SQUASHFS") {
+                // the partition of a block OTA: delta OTAs run on this image, see StockImage
+                val kept = StockImage.file(paths.dir)
+                runCatching { image.copyTo(kept, overwrite = true) }.onFailure {
+                    kept.delete()
+                    log("image $mount: stock image not kept (${it.message}); block-based OTAs cannot be applied to this VM")
+                }
+            }
             image.delete()
             var n = 0
             ZipFile.builder().setFile(zipFile).get().use { zip ->
@@ -1058,8 +1239,7 @@ class Importer(
                     val inner = e.name.replace('\\', '/').substringAfter('/', "").trimEnd('/')
                     if (inner.isEmpty() || inner.split('/').any { it == ".." }) continue
                     val rel = "$mount/$inner"
-                    val f = File(root, rel)
-                    if (!f.canonicalPath.startsWith(root.canonicalPath + File.separator)) continue
+                    val f = FirmwareContainers.destination(root, rel)
                     when {
                         e.isDirectory -> f.mkdirs()
                         e.isUnixSymlink -> {
@@ -1084,8 +1264,7 @@ class Importer(
         var n = 0
         fs.walk { path, node ->
             val rel = "$mount/$path"
-            val f = File(root, rel)
-            if (!f.canonicalPath.startsWith(root.canonicalPath + File.separator)) throw IOException("unsafe YAFFS2 path")
+            val f = FirmwareContainers.destination(root, rel)
             when (node.type) {
                 3 -> { if (!f.isDirectory && !f.mkdirs()) throw IOException("cannot create $rel") }
                 2 -> {
@@ -1116,6 +1295,49 @@ class Importer(
         fs.warnings.forEach { log("YAFFS2 $mount: $it") }
     }
 
+    private val LOOSE_RAMDISK = Regex("(?i)(ramdisk|initrd|initramfs)(\\.cpio)?(\\.(gz|xz|lzma|lz4))?")
+
+    /** Ramdisk shipped without a boot.img: a packed ramdisk.gz (cpio) or an unpacked initrd/ folder. */
+    private fun takeLooseRamdisk(zip: ZipFile, entries: List<ZipArchiveEntry>, wrap: String, sysRoot: String?) {
+        fun rel(e: ZipArchiveEntry) = e.name.replace('\\', '/').removePrefix(wrap)
+        val usable = entries.filter { e ->
+            val n = rel(e)
+            !e.isDirectory && !n.contains("__MACOSX/") && systemRel(sysRoot, n) == null
+        }
+        // 1. packed ramdisk (keeps modes and symlinks)
+        for (e in usable.filter { LOOSE_RAMDISK.matches(rel(it).substringAfterLast('/')) && it.size in 1024..MAX_RAMDISK }
+            .sortedBy { rel(it).count { c -> c == '/' } }) {
+            val rd = runCatching {
+                val raw = zip.getInputStream(e).use { it.readBytes() }
+                BootImage.decompress(raw)?.let { BootImage.cpio(it) }
+            }.getOrNull()
+            if (!rd.isNullOrEmpty() && rd.any { it.name == "init.rc" }) {
+                ramdisk = rd
+                log("boot: loose ramdisk ${rel(e)}, ${rd.size} files")
+                return
+            }
+        }
+        // 2. unpacked ramdisk folder (.../initrd/init.rc, .../initrd/sbin/healthd)
+        val rc = usable.firstOrNull { rel(it).substringAfterLast('/') == "init.rc" && rel(it).substringBeforeLast('/', "").let { d ->
+            d.substringAfterLast('/').matches(Regex("(?i)(initrd|ramdisk|rootfs)")) } } ?: return
+        val dir = rel(rc).substringBeforeLast('/') + "/"
+        val out = ArrayList<BootImage.CpioEntry>()
+        for (e in usable) {
+            val n = rel(e)
+            if (!n.startsWith(dir) || e.size > MAX_RAMDISK) continue
+            val name = n.removePrefix(dir)
+            if (name.isEmpty()) continue
+            val data = zip.getInputStream(e).use { it.readBytes() }
+            if (e.isUnixSymlink) { out.add(BootImage.CpioEntry(name, 0xA000 or 0x1ff, data)); continue }
+            val perm = e.unixMode.and(0xfff).takeIf { it != 0 } ?: if (name.startsWith("sbin/") || name == "init" || name.endsWith(".sh")) 0x1ed else 0x1a4
+            out.add(BootImage.CpioEntry(name, 0x8000 or perm, data))
+        }
+        if (out.any { it.name == "init.rc" }) {
+            ramdisk = out
+            log("boot: unpacked ramdisk folder ${dir.trimEnd('/')}, ${out.size} files")
+        }
+    }
+
     private fun takeBoot(raw: ByteArray) {
         if (ramdisk != null) return
         val data = BootImage.stripHtcSignature(raw)
@@ -1129,11 +1351,37 @@ class Importer(
     // ------------------------------------------------------------------ файлы, ссылки, права
 
     private fun writeFile(rel: String, i: InputStream, mode: Int?) {
-        val f = File(root, rel)
-        if (!f.canonicalPath.startsWith(root.canonicalPath)) return // защита от ../ в архиве
+        val f = FirmwareContainers.destination(root, rel)
         f.parentFile?.mkdirs()
         if (runCatching { android.system.OsConstants.S_ISLNK(Os.lstat(f.path).st_mode) }.getOrDefault(false)) f.delete()
-        f.outputStream().buffered(1 shl 20).use { o -> bytes += i.copyTo(o, 1 shl 16) }
+        // Windows/Cygwin archives flatten symlinks into small files: "!<symlink>" + (BOM FF FE + UTF-16LE | UTF-8) target + NUL.
+        val src = java.io.BufferedInputStream(i, 1 shl 16)
+        src.mark(1024)
+        val head = ByteArray(512)
+        var hn = 0
+        while (hn < head.size) { val r = src.read(head, hn, head.size - hn); if (r < 0) break; hn += r }
+        src.reset()
+        if (hn in 12 until head.size && String(head, 0, 10, Charsets.ISO_8859_1) == "!<symlink>") {
+            val body = head.copyOfRange(10, hn)
+            val target = (if (body.size >= 2 && body[0] == 0xff.toByte() && body[1] == 0xfe.toByte())
+                String(body, 2, body.size - 2, Charsets.UTF_16LE) else String(body, Charsets.UTF_8)).trimEnd('\u0000', '\n', '\r').trim()
+            if (target.isNotEmpty() && !target.contains('\u0000')) {
+                symlinks.add(target to "/" + rel.trimStart('/'))
+                return
+            }
+        }
+        f.outputStream().buffered(1 shl 20).use { o ->
+            val buffer = ByteArray(1 shl 16)
+            while (true) {
+                if (cancelled) throw IOException("cancelled")
+                val n = src.read(buffer)
+                if (n < 0) break
+                bytes += n
+                if (bytes > 16L * 1024 * 1024 * 1024 || root.usableSpace < n + 32L * 1024 * 1024)
+                    throw IOException("Not enough space to unpack firmware")
+                o.write(buffer, 0, n)
+            }
+        }
         if (mode != null) applyMode(f, mode and 0xfff)
         files++
     }
@@ -1174,7 +1422,7 @@ class Importer(
             val type = e.mode and 0xF000
             val n = e.name
             if (n.isEmpty() || n == "." || n.startsWith("system/") || n.startsWith("data/") || n.startsWith("dev/") || n.startsWith("proc") || n.startsWith("sys/")) return@forEach
-            val f = File(root, n)
+            val f = FirmwareContainers.destination(root, n)
             when (type) {
                 0x4000 -> f.mkdirs()
                 0xA000 -> symlinks.add(String(e.data) to "/$n")
@@ -1188,8 +1436,8 @@ class Importer(
         var made = 0
         for ((target, link) in symlinks) {
             val rel = link.trimStart('/')
-            val f = File(root, rel)
-            if (!f.canonicalPath.startsWith(root.canonicalPath)) continue
+            val f = FirmwareContainers.destination(root, rel)
+            FirmwareContainers.checkLink(rel, target)
             f.parentFile?.mkdirs()
             val t = relTarget(link, target)
             runCatching {
@@ -1198,7 +1446,7 @@ class Importer(
             }
         }
         for ((p, mode, rec) in perms) {
-            val f = File(root, p.trimStart('/'))
+            val f = FirmwareContainers.destination(root, p.trimStart('/'))
             if (rec) f.walkTopDown().filter { it.isFile }.forEach { applyMode(it, mode) } else if (f.isFile) applyMode(f, mode)
         }
         // исполняемые — всё в bin/xbin/sbin
@@ -1309,7 +1557,7 @@ class Importer(
 
     companion object {
         private val SKIP_NESTED = Regex("(?i).*(gapps|supersu|magisk|busybox|xposed|twrp|modem|csc).*")
-        /** Апплеты toolbox Android 2.3–6.0 (ссылка создаётся, только если апплет есть в бинарнике). */
+        /** Апплеты toolbox Android 2.2–6.0 (ссылка создаётся, только если апплет есть в бинарнике). */
         private val TOOLBOX_APPLETS = listOf(
             "cat", "chcon", "chmod", "chown", "clear", "cmp", "cp", "date", "dd", "df", "dmesg", "du", "getenforce",
             "getevent", "getprop", "getsebool", "grep", "hd", "id", "ifconfig", "iftop", "insmod", "ioctl", "ionice",

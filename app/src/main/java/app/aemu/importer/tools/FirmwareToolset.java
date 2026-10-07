@@ -1184,6 +1184,25 @@ public final class FirmwareToolset {
     }
 
     // ===== SquashFS 4 =========================================================
+    /** Receives the content of a SquashFS image, see [walkSquashFs]. Paths are relative to the root of the image. */
+    public interface SquashVisitor {
+        void dir(String path,int mode)throws Exception;
+        void link(String path,String target)throws Exception;
+        /** Returns the stream that receives the file's bytes (it is closed afterwards), or null to skip the file. */
+        OutputStream file(String path,int mode,long size)throws Exception;
+        /** Called after the stream returned by file() has been closed. */
+        void fileEnd(String path)throws Exception;
+    }
+    /** Walks a SquashFS 4 image without extracting it, so that the caller can hash, compare or store single files. */
+    public static void walkSquashFs(File image,Consumer<String>log,SquashVisitor v)throws Exception{
+        try(SquashReader s=new SquashReader(image,log)){s.walkVisit(v);}
+    }
+    /** True if the file starts with a SquashFS 4 superblock (either byte order). */
+    public static boolean isSquashFs(File f){
+        try(InputStream i=new FileInputStream(f)){byte[]h=new byte[4];int n=0;while(n<4){int k=i.read(h,n,4-n);if(k<=0)return false;n+=k;}
+            return (h[0]=='h'&&h[1]=='s'&&h[2]=='q'&&h[3]=='s')||(h[0]=='s'&&h[1]=='q'&&h[2]=='s'&&h[3]=='h');}
+        catch(IOException e){return false;}
+    }
     static final class SquashFs {
         static File toZip(File f,File work,Consumer<String>log)throws Exception{File out=new File(work,safe(stripExt(f.getName()))+".zip");try(SquashReader s=new SquashReader(f,log)){s.writeZip(out,f.getName());}return out;}
     }
@@ -1241,7 +1260,22 @@ public final class FirmwareToolset {
         List<Pair>dir(Inode i)throws Exception{List<Pair>o=new ArrayList<>();Integer dbase=dmap.get((long)i.db);if(dbase==null)return o;int p=dbase+i.doff;int end=p+i.ds-3;while(p+12<=end){int cnt=le32(dirs,p,be),start=le32(dirs,p+4,be);p+=12;for(int k=0;k<=cnt&&p+8<=end;k++){int off=le16(dirs,p,be),len=le16(dirs,p+6,be);p+=8;if(p+len+1>dirs.length)break;String n=new String(dirs,p,len+1,StandardCharsets.UTF_8);p+=len+1;o.add(new Pair(n,((long)start<<16)|(off&0xffffL)));}}return o;}
         void writeZip(File out,String original)throws Exception{String top=safe(stripExt(original));try(FileOutputStream fos=new FileOutputStream(out); ZipArchiveOutputStream z=new ZipArchiveOutputStream(fos)){Set<Long>seen=new HashSet<>();walk(z,rootRef,"",top,seen);}}
         void walk(ZipArchiveOutputStream z,long ref,String rel,String top,Set<Long>seen)throws Exception{Inode in=inode(ref);String path=rel.isEmpty()?top:top+"/"+rel; if(in.type==1||in.type==8){ZipArchiveEntry ze=new ZipArchiveEntry(path+"/");ze.setUnixMode(040000|in.mode);z.putArchiveEntry(ze);z.closeArchiveEntry();if(!seen.add(ref))return;for(Pair p:dir(in)){if(p.name.equals(".")||p.name.equals("..")||p.name.indexOf('/')>=0)continue;String child=rel.isEmpty()?p.name:rel+"/"+p.name;walk(z,p.ref,child,top,seen);}}else if(in.type==2||in.type==9){ZipArchiveEntry ze=new ZipArchiveEntry(path);ze.setUnixMode(0100000|in.mode);z.putArchiveEntry(ze);streamFile(z,in);z.closeArchiveEntry();}else if(in.type==3||in.type==10){ZipArchiveEntry ze=new ZipArchiveEntry(path);ze.setUnixMode(0120000|0777);z.putArchiveEntry(ze);z.write(in.target.getBytes(StandardCharsets.UTF_8));z.closeArchiveEntry();}}
-        void streamFile(ZipArchiveOutputStream z,Inode in)throws Exception{long rem=in.size,pos=in.start;for(int sz:in.sizes){long n=Math.min(block,rem);int c=sz&0x00ffffff;if(c==0){writeZeros(z,n);}else{byte[]raw=readAt(base+pos,c);pos+=c;byte[]data=(sz&UNCOMP)!=0?raw:decomp(raw,block);int take=(int)Math.min(n,data.length);z.write(data,0,take);if(take<n)writeZeros(z,n-take);}rem-=n;if(rem<=0)break;}if(rem>0&&in.frag!=NO_FRAG&&in.frag<frags.size()){Frag f=frags.get(in.frag);byte[]raw=readAt(base+f.start,f.size&0x00ffffff);byte[]data=(f.size&UNCOMP)!=0?raw:decomp(raw,block);int off=Math.min(in.fragOff,data.length);int take=(int)Math.min(rem,data.length-off);z.write(data,off,take);rem-=take;}if(rem>0)writeZeros(z,rem);}
+        void streamFile(OutputStream z,Inode in)throws Exception{long rem=in.size,pos=in.start;for(int sz:in.sizes){long n=Math.min(block,rem);int c=sz&0x00ffffff;if(c==0){writeZeros(z,n);}else{byte[]raw=readAt(base+pos,c);pos+=c;byte[]data=(sz&UNCOMP)!=0?raw:decomp(raw,block);int take=(int)Math.min(n,data.length);z.write(data,0,take);if(take<n)writeZeros(z,n-take);}rem-=n;if(rem<=0)break;}if(rem>0&&in.frag!=NO_FRAG&&in.frag<frags.size()){Frag f=frags.get(in.frag);byte[]raw=readAt(base+f.start,f.size&0x00ffffff);byte[]data=(f.size&UNCOMP)!=0?raw:decomp(raw,block);int off=Math.min(in.fragOff,data.length);int take=(int)Math.min(rem,data.length-off);z.write(data,off,take);rem-=take;}if(rem>0)writeZeros(z,rem);}
+        /** Visits every folder, link and regular file of the image (the root folder itself is not reported). */
+        void walkVisit(SquashVisitor v)throws Exception{walkV(v,rootRef,"",new HashSet<Long>());}
+        void walkV(SquashVisitor v,long ref,String rel,Set<Long>seen)throws Exception{
+            Inode in=inode(ref);
+            if(in.type==1||in.type==8){
+                if(!rel.isEmpty())v.dir(rel,in.mode&07777);
+                if(!seen.add(ref))return;
+                for(Pair p:dir(in)){if(p.name.equals(".")||p.name.equals("..")||p.name.indexOf('/')>=0)continue;walkV(v,p.ref,rel.isEmpty()?p.name:rel+"/"+p.name,seen);}
+            }else if(in.type==2||in.type==9){
+                OutputStream o=v.file(rel,in.mode&07777,in.size);
+                if(o!=null){try{streamFile(o,in);}finally{o.close();}v.fileEnd(rel);}
+            }else if(in.type==3||in.type==10){
+                v.link(rel,in.target);
+            }
+        }
         byte[]readAt(long pos,int n)throws IOException{r.seek(pos);byte[]b=new byte[n];r.readFully(b);return b;}static final class MapTable{byte[]buf;Map<Long,Integer>map;MapTable(byte[]b,Map<Long,Integer>m){buf=b;map=m;}} static final class MetaBlock{byte[]data;long next;MetaBlock(byte[]d,long n){data=d;next=n;}}static final class Frag{long start;int size;Frag(long s,int z){start=s;size=z;}}static final class Inode{int type,mode,db,ds,doff,frag,fragOff;long size,start;int[]sizes=new int[0];String target="";Inode(int t,int m){type=t;mode=m;}}static final class Pair{String name;long ref;Pair(String n,long r){name=n;ref=r;}}
         public void close()throws IOException{r.close();}
     }
@@ -1436,6 +1470,7 @@ public final class FirmwareToolset {
     static void writeBytes(File f,byte[]b)throws IOException{try(OutputStream o=new FileOutputStream(f)){o.write(b);}}
     static void writeZeros(RandomAccessFile r,long n)throws IOException{byte[]z=new byte[1<<20];while(n>0){int k=(int)Math.min(n,z.length);r.write(z,0,k);n-=k;}}
     static void writeFill(RandomAccessFile r,byte[]v,long n)throws IOException{byte[]b=new byte[1<<16];for(int i=0;i<b.length;i++)b[i]=v[i&3];while(n>0){int k=(int)Math.min(n,b.length);r.write(b,0,k);n-=k;}}
+    static void writeZeros(OutputStream z,long n)throws IOException{byte[]b=new byte[1<<16];while(n>0){int k=(int)Math.min(n,b.length);z.write(b,0,k);n-=k;}}
     static void writeZeros(ZipArchiveOutputStream z,long n)throws IOException{byte[]b=new byte[1<<16];while(n>0){int k=(int)Math.min(n,b.length);z.write(b,0,k);n-=k;}}
     static boolean starts(byte[]b,String s){return starts(b,s.getBytes(StandardCharsets.ISO_8859_1));}
     static boolean starts(byte[]b,byte[]p){return b.length>=p.length&&Arrays.equals(Arrays.copyOf(b,p.length),p);}

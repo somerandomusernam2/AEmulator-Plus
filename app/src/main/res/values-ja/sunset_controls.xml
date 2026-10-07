@@ -1,0 +1,27 @@
+<resources>
+    <string name="vs_hide_menu">メニューボタンを非表示</string>
+    <string name="vs_hide_menu_sub">…ボタンを非表示にします。スマートフォンの戻るボタンまたは戻るジェスチャーは、Androidに「戻る」を送る代わりにエミュレータのメニューを開きます。ゲストのナビゲーションボタンは引き続きAndroidを操作します。</string>
+    <string name="vs_vibration">ゲストのバイブレーション</string>
+    <string name="vs_vibration_sub">従来のゲストのバイブレーションをスマートフォンに転送します。次回の起動時に適用されます。1回の振動は最大60秒に制限されます。</string>
+    <string name="nav_buttons">ナビゲーションボタン</string>
+    <string name="nav_order">ボタンの順序（左から右）</string>
+    <string name="nav_earlier">前へ</string>
+    <string name="nav_later">後ろへ</string>
+    <string name="nav_reset">ボタンをリセット</string>
+    <string name="nav_search">検索</string>
+    <string name="nav_power">電源</string>
+    <string name="nav_volume_down">音量を下げる</string>
+    <string name="nav_volume_up">音量を上げる</string>
+    <string name="nav_up">十字キー上</string>
+    <string name="nav_down">十字キー下</string>
+    <string name="nav_left">十字キー左</string>
+    <string name="nav_right">十字キー右</string>
+    <string name="nav_center">十字キー中央</string>
+    <string name="nav_trackball">トラックボール</string>
+    <string name="nav_trackball_sub">ナビゲーションバーの上の円をスワイプして転がします。タップで選択します。</string>
+    <string name="nav_dpad_mode">矢印キーモード</string>
+    <string name="nav_dpad_sub">オフ：ゲストアプリに本物の相対トラックボールイベントを送ります。オン：代わりに十字キーの押下を送ります。両方を同時に送ることはありません。</string>
+    <string name="nav_sensitivity">感度：1ステップあたり %1$d dp（小さいほど速い）</string>
+    <string name="nav_trackball_waiting">ゲストのトラックボールにまだ接続されていません</string>
+    <string name="nav_trackball_recovery">リカバリー：矢印キーモードを使用してください</string>
+</resources>

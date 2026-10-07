@@ -123,6 +123,9 @@ class TreeFixer(
         swapMtkAudioHal()
         eglConfig(img.settings.gpu)
         makeDataDirs()
+        runCatching {
+            if (GuestRootAliases.ensureEtc(root)) log("init: restored /etc -> /system/etc alias")
+        }.onFailure { log("init: could not prepare /etc alias: ${it.message}") }
         makeUserZeroLink()
         makeDevNodes()
         makeSysNodes()
@@ -507,6 +510,9 @@ class TreeFixer(
     private fun selinuxOff() = runCatching {
         val lib = File(root, "system/lib/libselinux.so")
         if (lib.isFile) {
+            // keep the stock file so that a later delta OTA can still rebuild the stock system image
+            val keep = File(root, "system/.aemu-parked/system#lib#libselinux.so")
+            if (!keep.exists()) { keep.parentFile?.mkdirs(); lib.copyTo(keep) }
             val n = ElfPatch.returnZero(lib, setOf("is_selinux_enabled", "is_selinux_mls_enabled"))
             if (n > 0) log("SELinux: libselinux reports disabled ($n func.)")
         }

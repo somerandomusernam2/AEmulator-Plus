@@ -21,7 +21,7 @@ import java.nio.channels.FileChannel
  * В программном режиме (GB или без GPU) сам показывает fb0: отображает файл в память
  * и копирует в RGB565-битмап только когда кадр изменился.
  */
-class GuestScreen(ctx: Context, private val w: Int, private val h: Int) : View(ctx) {
+class GuestScreen(ctx: Context, val w: Int, val h: Int) : View(ctx) {
     var input: InputService? = null
     var fb: File? = null
     @Volatile var passthrough = false
@@ -42,6 +42,8 @@ class GuestScreen(ctx: Context, private val w: Int, private val h: Int) : View(c
     private val pageHash = LongArray(2)
     private var argb: IntArray? = null
     private var page = 0
+    /** the page of a two-page fb0 that was written last (0 for single-page buffers) */
+    val shownPage: Int get() = page
 
     private var bmp: Bitmap? = null
     private var buf: MappedByteBuffer? = null

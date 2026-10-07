@@ -155,10 +155,14 @@ class Yaffs2Reader(private val src: RandomSource, private val checkCancelled: ()
     /** Reads every page's tags, then replays the pages in write order. */
     private fun replayTagged(g: Geometry): HashMap<Long, Obj> {
         val stride = g.stride.toLong()
-        val pages = (src.size - g.base).coerceAtLeast(0L) / stride
+        val avail = (src.size - g.base).coerceAtLeast(0L)
+        var pages = avail / stride
+        // Anything after the last whole page cannot be a valid page (the tags live in the spare area of each
+        // page), so a trailing partial page is ignored. Exception: a last page that is only a few spare bytes
+        // short but still holds all of its data and its tags (Acer packages: every image starts 4 bytes before
+        // its first page, so the final page lacks the last 4 spare bytes) is a real page and is kept.
+        if (avail % stride >= g.pageSize + g.tagOffset + 16) pages++
         if (pages > MAX_PAGES) fail("too many pages")
-        // Anything after the last whole page cannot be a valid page (the tags live in the spare
-        // area of each page), so a trailing partial page is ignored.
 
         // ---- pass 1: tags of every programmed page
         val tags = Tags()

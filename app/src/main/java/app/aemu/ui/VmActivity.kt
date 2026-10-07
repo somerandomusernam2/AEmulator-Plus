@@ -464,7 +464,6 @@ class VmActivity : ComponentActivity() {
         guestAsync("input text " + q(text.replace(" ", "%s")))
     }
 
-    /** adb shell screencap -p + adb pull → /sdcard/Pictures/AEmulator (see core/Screenshot.kt) */
     /** Packs all host/guest logs + a state snapshot into a zip in Downloads (works without root and without a running guest). */
     private fun saveLogs() {
         toast(getString(R.string.m_save_logs_start))
@@ -476,9 +475,13 @@ class VmActivity : ComponentActivity() {
         }
     }
 
+    /** raw fb0 → PNG in /sdcard/Pictures/AEmulator (see core/Screenshot.kt) */
     private fun screenshot() {
+        val g = guest
+        val vmId = vm.img.id
+        val fmt = if (vm.recoveryMode) vm.recoveryFormat else g.format
         thread {
-            val saved = runCatching { app.aemu.core.Screenshot.take(this, vm) }.getOrNull()
+            val saved = runCatching { app.aemu.core.Screenshot.take(this, vmId, g.fb, g.w, g.h, fmt, g.pages, g.shownPage) }.getOrNull()
             toast(if (saved != null) getString(R.string.m_screenshot_saved, saved) else getString(R.string.m_failed))
         }
     }
@@ -646,8 +649,8 @@ class VmActivity : ComponentActivity() {
 
     @Composable
     private fun BatteryDialog(onDone: () -> Unit) {
-        var level by remember { mutableStateOf(80f) }
-        var charging by remember { mutableStateOf(true) }
+        var level by remember { mutableStateOf(vm.hostBatteryLevel.toFloat()) }
+        var charging by remember { mutableStateOf(vm.hostBatteryCharging) }
         AlertDialog(onDismissRequest = onDone,
             title = { Text(stringResource(R.string.m_battery)) },
             text = {
@@ -660,10 +663,10 @@ class VmActivity : ComponentActivity() {
                 }
             },
             confirmButton = { Button(onClick = {
-                guestAsync("dumpsys battery set level ${level.toInt()}; dumpsys battery set ac ${if (charging) 1 else 0}; dumpsys battery set usb 0")
+                vm.setManualBattery(level.toInt(), charging)
                 onDone()
             }) { Text(stringResource(R.string.m_apply)) } },
-            dismissButton = { OutlinedButton(onClick = { guestAsync("dumpsys battery reset"); onDone() }) { Text(stringResource(R.string.m_reset)) } })
+            dismissButton = { OutlinedButton(onClick = { vm.resetBattery(); onDone() }) { Text(stringResource(R.string.m_reset)) } })
     }
 
     private fun rebootVm(recovery: Boolean = false) {
@@ -696,10 +699,23 @@ class VmActivity : ComponentActivity() {
         val running = state == GuestVm.State.RUNNING
         var seconds by remember { mutableStateOf(0L) }
         var frames by remember { mutableStateOf(0L) }
+        var romNote by remember { mutableStateOf(vm.pendingNote) }
+        LaunchedEffect(vm) { while (true) { romNote = vm.pendingNote; delay(500) } }
         LaunchedEffect(Unit) { while (true) { if (vm.recoveryMode) guest.format = vm.recoveryFormat; seconds = vm.bootSeconds(); frames = if (vm.glInApp) dev.lk.m7sense.GlBridge.frames() else guest.rings; delay(500) } }
         // как только гость начал рисовать — карточку убираем, остаётся маленький индикатор
         val drawing = frames > 30
         Box(Modifier.fillMaxSize()) {
+            if (romNote.isNotBlank() && !vm.recoveryMode && !vm.lowPowerBoot && !showLog && !menu) {
+                Surface(shape = MaterialTheme.shapes.large,
+                    color = MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.95f),
+                    modifier = Modifier.align(Alignment.TopCenter).statusBarsPadding().padding(top = 56.dp, start = 16.dp, end = 16.dp)
+                        .widthIn(max = 360.dp).heightIn(max = 200.dp)) {
+                    Column(Modifier.verticalScroll(rememberScrollState()).padding(16.dp)) {
+                        Text(stringResource(R.string.vm_rom_note), style = MaterialTheme.typography.titleSmall)
+                        Text(romNote, style = MaterialTheme.typography.bodyMedium)
+                    }
+                }
+            }
             // карточка загрузки
             AnimatedVisibility(
                 visible = state != GuestVm.State.RUNNING && !showLog && !(drawing && state == GuestVm.State.BOOTING),

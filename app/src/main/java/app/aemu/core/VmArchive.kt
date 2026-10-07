@@ -84,7 +84,7 @@ internal object VmArchive {
                     (file.name == "data" && !selection.data) || (file.name != "data" && !selection.system)) continue
                 add(file, "root/${file.name}")
             }
-            for (name in listOf("props.base", "boot.img")) {
+            for (name in listOf("props.base", "boot.img", "system.layout", "system.base.img")) {
                 val file = File(dir, name)
                 if (selection.system && file.isFile && !Files.isSymbolicLink(file.toPath())) add(file, name)
             }
@@ -108,7 +108,7 @@ internal object VmArchive {
                 require(name.isNotEmpty() && !name.startsWith('/') && !name.contains('\\') &&
                     name.split('/').none { it == "." || it == ".." || it.isEmpty() }) { "Unsafe archive path" }
                 require(seen.add(name) && seen.size <= 1_000_000) { "Duplicate or excessive archive entries" }
-                require(name in setOf("image.json", "aessvm.parts", "props.base", "boot.img", "root") || name.startsWith("root/"))
+                require(name in setOf("image.json", "aessvm.parts", "props.base", "boot.img", "system.layout", "system.base.img", "root") || name.startsWith("root/"))
                 if (!name.startsWith("root")) require(entry.isFile) { "Invalid metadata entry" }
                 require(name.split('/').getOrNull(1) !in runtime) { "Runtime files in archive" }
                 val file = File(dir, name)

@@ -20,7 +20,6 @@ internal fun VmImportSection(img: GuestImage, busy: Boolean, setBusy: (Boolean) 
     val ctx = LocalContext.current
     val scope = rememberCoroutineScope()
     var bootPresent by remember { mutableStateOf(BootPartitionImport.present(VmPaths(ctx, img.id).dir)) }
-    var oemPresent by remember { mutableStateOf(OemPartitionImport.present(VmPaths(ctx, img.id).dir)) }
     var warning by remember { mutableStateOf<VmArchiveStorage.SettingsImport?>(null) }
     var message by remember { mutableStateOf<String?>(null) }
     var picking by remember { mutableStateOf(false) }
@@ -57,6 +56,32 @@ internal fun VmImportSection(img: GuestImage, busy: Boolean, setBusy: (Boolean) 
             }
         }
     }
+    TextButton(enabled = !busy && !picking, modifier = Modifier.fillMaxWidth(), onClick = {
+        picking = true; pickSettings.launch(arrayOf("*/*"))
+    }) { Text(stringResource(R.string.vm_import_settings)) }
+    if (!bootPresent) TextButton(enabled = !busy && !picking, modifier = Modifier.fillMaxWidth(), onClick = {
+        picking = true; pickBoot.launch(arrayOf("*/*"))
+    }) { Text(stringResource(R.string.vm_import_boot)) }
+    message?.let { Text(it, style = MaterialTheme.typography.bodySmall) }
+    warning?.let { source -> AlertDialog(
+        onDismissRequest = { warning = null },
+        title = { Text(stringResource(R.string.vm_import_settings_warning_title)) },
+        text = { Text(stringResource(R.string.vm_import_settings_warning,
+            "${source.image.brand} ${source.image.model} / ${source.image.release} / ${source.image.skin}",
+            "${img.brand} ${img.model} / ${img.release} / ${img.skin}")) },
+        dismissButton = { TextButton(onClick = { warning = null }) { Text(stringResource(R.string.cancel)) } },
+        confirmButton = { TextButton(onClick = { warning = null; accept(source) }) { Text(stringResource(R.string.vm_import_settings)) } },
+    ) }
+}
+
+/** Import of the stock OEM partition; shown next to the recovery option in the VM settings. */
+@Composable
+internal fun OemImportSection(img: GuestImage, busy: Boolean, setBusy: (Boolean) -> Unit) {
+    val ctx = LocalContext.current
+    val scope = rememberCoroutineScope()
+    var oemPresent by remember { mutableStateOf(OemPartitionImport.present(VmPaths(ctx, img.id).dir)) }
+    var message by remember { mutableStateOf<String?>(null) }
+    var picking by remember { mutableStateOf(false) }
     val pickOem = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         picking = false
         if (uri != null) {
@@ -71,23 +96,8 @@ internal fun VmImportSection(img: GuestImage, busy: Boolean, setBusy: (Boolean) 
             }
         }
     }
-    TextButton(enabled = !busy && !picking, modifier = Modifier.fillMaxWidth(), onClick = {
-        picking = true; pickSettings.launch(arrayOf("*/*"))
-    }) { Text(stringResource(R.string.vm_import_settings)) }
-    if (!bootPresent) TextButton(enabled = !busy && !picking, modifier = Modifier.fillMaxWidth(), onClick = {
-        picking = true; pickBoot.launch(arrayOf("*/*"))
-    }) { Text(stringResource(R.string.vm_import_boot)) }
     if (!oemPresent) TextButton(enabled = !busy && !picking, modifier = Modifier.fillMaxWidth(), onClick = {
         picking = true; pickOem.launch(arrayOf("*/*"))
     }) { Text(stringResource(R.string.vm_import_oem)) }
     message?.let { Text(it, style = MaterialTheme.typography.bodySmall) }
-    warning?.let { source -> AlertDialog(
-        onDismissRequest = { warning = null },
-        title = { Text(stringResource(R.string.vm_import_settings_warning_title)) },
-        text = { Text(stringResource(R.string.vm_import_settings_warning,
-            "${source.image.brand} ${source.image.model} / ${source.image.release} / ${source.image.skin}",
-            "${img.brand} ${img.model} / ${img.release} / ${img.skin}")) },
-        dismissButton = { TextButton(onClick = { warning = null }) { Text(stringResource(R.string.cancel)) } },
-        confirmButton = { TextButton(onClick = { warning = null; accept(source) }) { Text(stringResource(R.string.vm_import_settings)) } },
-    ) }
 }

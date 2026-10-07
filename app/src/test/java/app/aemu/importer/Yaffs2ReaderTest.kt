@@ -156,6 +156,16 @@ class Yaffs2ReaderTest {
         Yaffs2Reader(source(base + ByteArray(1000) { 0xff.toByte() }))
         Yaffs2Reader(source(base + ByteArray(1000) { it.toByte() }))
     }
+    @Test fun keepsAFinalPageThatOnlyLacksTheLastSpareBytes() {
+        // Acer packages: the image starts 4 bytes before its first page, so the last page is 4 bytes short
+        val bytes = ByteArray(1500) { (it * 7).toByte() }
+        val raw = header(1, 1, "") + header(257, 1, "file", 1, bytes.size) + data(257, 1, bytes)
+        val fs = Yaffs2Reader(source(raw.copyOf(raw.size - 4)))
+        assertArrayEquals(bytes, files(fs).getValue("file"))
+        assertTrue(fs.warnings.none { "missing data chunks" in it })
+        // a remainder too short to hold the page data and its tags is still ignored
+        Yaffs2Reader(source((header(1, 1, "") + header(257, 1, "file")) + ByteArray(2000) { 0x55 }))
+    }
     @Test fun dropsUnsafeNamesInsteadOfAbortingAndRejectsDirectoryCycles() {
         for (name in listOf("..", "a/b", "a\\b", ".", "")) {
             val fs = Yaffs2Reader(image(header(1, 1, ""), header(257, 1, name), header(258, 1, "ok")))

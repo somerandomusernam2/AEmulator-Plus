@@ -41,7 +41,7 @@ object InitPlan {
         val exports = LinkedHashMap<String, String>()
         val condExports = LinkedHashMap<String, String>()
         // режимы, в которые эмулятор не грузится: заводской, зарядка, восстановление
-        val skip = Regex("""(?i)^(factory_init|meta_init|init[.]charging|init[.]recovery|lpm|FWUpgradeInit).*[.]rc$""")
+        val skip = Regex("""(?i)^(factory_init|meta_init|init[.]charging|init[.]recovery|lpm|fota|FWUpgradeInit).*[.]rc$""")
         val dirs = ArrayList<String>()
         val setprops = LinkedHashMap<String, String>()
         for (f in files) {
@@ -70,7 +70,7 @@ object InitPlan {
                     "import" -> cur = null
                     "setprop" -> if (cur == null && !propTrigger && t.size >= 3 && !t[2].startsWith("$")) setprops.putIfAbsent(t[1], t.drop(2).joinToString(" "))
                     "export" -> if (t.size >= 3) when (condOk) {
-                        null -> exports[t[1]] = t.drop(2).joinToString(" ")
+                        null -> if (f == files.first() || t[1] !in exports) exports[t[1]] = t.drop(2).joinToString(" ")
                         true -> condExports[t[1]] = t.drop(2).joinToString(" ")
                         false -> {}
                     }
@@ -120,8 +120,10 @@ object InitPlan {
     fun plan(rc: Rc, api: Int, root: File): List<GuestService> {
         val out = ArrayList<GuestService>()
         for (r in ORDER) {
-            if (api in 1 until r.minApi) continue
             val found = (listOf(r.name) + r.alt).firstNotNullOfOrNull { rc.services[it] }
+            // Honeycomb (3.x) ROMs run surfaceflinger as an init service (init.rc sets system_init.startsurfaceflinger 0),
+            // so system_server waits for it forever; honour the service when the ROM declares it
+            if (api in 1 until r.minApi && found == null) continue
             val def = found?.let { toService(it, r) } ?: defaults(r.name, api, root)?.let {
                 it.copy(waitSocket = r.waitSocket, delayMs = r.delayMs, restart = r.restart)
             } ?: continue

@@ -1,0 +1,27 @@
+<resources>
+    <string name="vs_hide_menu">मेनू बटन छिपाएँ</string>
+    <string name="vs_hide_menu_sub">… बटन छिपाता है। फ़ोन का बैक बटन या बैक जेस्चर Android को बैक भेजने के बजाय एमुलेटर मेनू खोलता है। गेस्ट के नेविगेशन बटन अब भी Android को नियंत्रित करते हैं।</string>
+    <string name="vs_vibration">गेस्ट वाइब्रेशन</string>
+    <string name="vs_vibration_sub">पुराने गेस्ट वाइब्रेशन को फ़ोन पर आगे भेजता है। अगले बूट पर लागू होता है; हर पल्स अधिकतम 60 सेकंड तक सीमित है।</string>
+    <string name="nav_buttons">नेविगेशन बटन</string>
+    <string name="nav_order">बटन का क्रम (बाएँ से दाएँ)</string>
+    <string name="nav_earlier">पहले</string>
+    <string name="nav_later">बाद में</string>
+    <string name="nav_reset">बटन रीसेट करें</string>
+    <string name="nav_search">खोजें</string>
+    <string name="nav_power">पावर</string>
+    <string name="nav_volume_down">वॉल्यूम कम</string>
+    <string name="nav_volume_up">वॉल्यूम ज़्यादा</string>
+    <string name="nav_up">D-pad ऊपर</string>
+    <string name="nav_down">D-pad नीचे</string>
+    <string name="nav_left">D-pad बाएँ</string>
+    <string name="nav_right">D-pad दाएँ</string>
+    <string name="nav_center">D-pad केंद्र</string>
+    <string name="nav_trackball">ट्रैकबॉल</string>
+    <string name="nav_trackball_sub">लुढ़काने के लिए नेविगेशन बार के ऊपर बने गोले पर स्वाइप करें; चुनने के लिए टैप करें।</string>
+    <string name="nav_dpad_mode">ऐरो-की मोड</string>
+    <string name="nav_dpad_sub">बंद: गेस्ट ऐप्स के लिए असली सापेक्ष ट्रैकबॉल इवेंट। चालू: इनके बजाय D-pad की प्रेस। दोनों एक साथ नहीं भेजता।</string>
+    <string name="nav_sensitivity">संवेदनशीलता: प्रति चरण %1$d dp (कम मान तेज़ है)</string>
+    <string name="nav_trackball_waiting">गेस्ट ट्रैकबॉल से अभी कोई कनेक्शन नहीं है</string>
+    <string name="nav_trackball_recovery">रिकवरी: ऐरो-की मोड का उपयोग करें</string>
+</resources>

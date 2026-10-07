@@ -1,0 +1,27 @@
+<resources>
+    <string name="vs_hide_menu">پنهان کردن دکمه منو</string>
+    <string name="vs_hide_menu_sub">دکمه … را پنهان می‌کند. دکمه بازگشت گوشی یا ژست بازگشت، به‌جای ارسال «بازگشت» به اندروید، منوی شبیه‌ساز را باز می‌کند. دکمه‌های پیمایش مهمان همچنان اندروید را کنترل می‌کنند.</string>
+    <string name="vs_vibration">لرزش مهمان</string>
+    <string name="vs_vibration_sub">لرزش قدیمی مهمان را به گوشی منتقل می‌کند. از بوت بعدی اعمال می‌شود؛ هر پالس حداکثر 60 ثانیه است.</string>
+    <string name="nav_buttons">دکمه‌های پیمایش</string>
+    <string name="nav_order">ترتیب دکمه‌ها (از چپ به راست)</string>
+    <string name="nav_earlier">جلوتر</string>
+    <string name="nav_later">عقب‌تر</string>
+    <string name="nav_reset">بازنشانی دکمه‌ها</string>
+    <string name="nav_search">جست‌وجو</string>
+    <string name="nav_power">روشن/خاموش</string>
+    <string name="nav_volume_down">کاهش صدا</string>
+    <string name="nav_volume_up">افزایش صدا</string>
+    <string name="nav_up">D-pad بالا</string>
+    <string name="nav_down">D-pad پایین</string>
+    <string name="nav_left">D-pad چپ</string>
+    <string name="nav_right">D-pad راست</string>
+    <string name="nav_center">D-pad مرکز</string>
+    <string name="nav_trackball">ترک‌بال</string>
+    <string name="nav_trackball_sub">برای غلتاندن، روی دایره بالای نوار پیمایش بکشید؛ برای انتخاب، لمس کنید.</string>
+    <string name="nav_dpad_mode">حالت کلیدهای جهت‌نما</string>
+    <string name="nav_dpad_sub">خاموش: رویدادهای نسبی واقعی ترک‌بال برای برنامه‌های مهمان. روشن: به‌جای آن، فشردن کلیدهای D-pad. هرگز هر دو را نمی‌فرستد.</string>
+    <string name="nav_sensitivity">حساسیت: %1$d dp در هر گام (کمتر یعنی سریع‌تر)</string>
+    <string name="nav_trackball_waiting">هنوز اتصالی به ترک‌بال مهمان نیست</string>
+    <string name="nav_trackball_recovery">ریکاوری: از حالت کلیدهای جهت‌نما استفاده کنید</string>
+</resources>

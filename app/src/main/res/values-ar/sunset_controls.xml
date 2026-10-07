@@ -1,0 +1,27 @@
+<resources>
+    <string name="vs_hide_menu">إخفاء زر القائمة</string>
+    <string name="vs_hide_menu_sub">يخفي زر «…». يفتح زر الرجوع في الهاتف أو إيماءة الرجوع قائمة المحاكي بدلًا من إرسال «رجوع» إلى Android. تظل أزرار تنقل الضيف تتحكم في Android.</string>
+    <string name="vs_vibration">اهتزاز الضيف</string>
+    <string name="vs_vibration_sub">يمرّر اهتزاز الضيف القديم إلى الهاتف. يُطبَّق عند الإقلاع التالي؛ وكل نبضة محدودة بـ 60 ثانية.</string>
+    <string name="nav_buttons">أزرار التنقل</string>
+    <string name="nav_order">ترتيب الأزرار (من اليسار إلى اليمين)</string>
+    <string name="nav_earlier">أبكر</string>
+    <string name="nav_later">أبعد</string>
+    <string name="nav_reset">إعادة ضبط الأزرار</string>
+    <string name="nav_search">بحث</string>
+    <string name="nav_power">الطاقة</string>
+    <string name="nav_volume_down">خفض الصوت</string>
+    <string name="nav_volume_up">رفع الصوت</string>
+    <string name="nav_up">D-pad لأعلى</string>
+    <string name="nav_down">D-pad لأسفل</string>
+    <string name="nav_left">D-pad لليسار</string>
+    <string name="nav_right">D-pad لليمين</string>
+    <string name="nav_center">D-pad المركز</string>
+    <string name="nav_trackball">كرة التتبع</string>
+    <string name="nav_trackball_sub">اسحب على الدائرة فوق شريط التنقل للتدحرج؛ واضغط للتحديد.</string>
+    <string name="nav_dpad_mode">وضع مفاتيح الأسهم</string>
+    <string name="nav_dpad_sub">متوقف: أحداث كرة تتبع نسبية حقيقية لتطبيقات الضيف. قيد التشغيل: ضغطات مفاتيح D-pad بدلًا منها. لا يرسل الاثنين معًا.</string>
+    <string name="nav_sensitivity">الحساسية: %1$d dp لكل خطوة (الأقل أسرع)</string>
+    <string name="nav_trackball_waiting">لا يوجد اتصال بكرة تتبع الضيف بعد</string>
+    <string name="nav_trackball_recovery">الاسترداد: استخدم وضع مفاتيح الأسهم</string>
+</resources>

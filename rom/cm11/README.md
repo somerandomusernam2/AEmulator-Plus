@@ -1,6 +1,14 @@
 # CM11 Android 4.4.2 for AEmulator Sunset
 
-**Experimental: compiled and packaged successfully; not boot-tested yet.**
+**Experimental: user reports CM11 boots on the first attempt (2026-10-07).**
+AESS442-2 adds a guarded fallback for default-keyboard selection. AESS442-3
+explicitly packages the pinned Goldfish software media-codec configuration and
+the init-created `/etc -> /system/etc` alias. Both older archives already contain
+the XML under `/system/etc`, but lack `/etc`; CM11's MediaCodecList opens
+`/etc/media_codecs.xml` and logs show SoundPool unable to decode Ogg UI sounds.
+The earlier missing-XML hypothesis was superseded by archive comparison.
+Sunset.33 also restores missing aliases for existing VMs. Sound playback still
+needs on-device testing.
 Added 2026-10-04.
 
 This is an unofficial ARMv7 CM11 guest, not firmware for a physical phone.
@@ -56,7 +64,7 @@ in AEmulator. Planned distribution name remains `Android442forAESS.aessvm`.
 ## Packaging
 
 Compile `guest-fs-config.c` against the pinned `system/core/include` headers into
-`packaged/guest-fs-config`, then run `python3 recipe/pack.py /path/to/cm11-aess`.
+`packaged-AESS442-3/guest-fs-config`, then run `python3 recipe/pack.py /path/to/cm11-aess`.
 It packages system files using CM's filesystem ownership/mode rules and root
 files using ramdisk CPIO metadata. Absolute guest links become relative links
 inside the archive. Settings are included; data and runtime files are omitted.
@@ -73,3 +81,8 @@ Distribution includes `Android442forAESS-source.tar.gz`: the actual patched
 source tree and checked-in prebuilts, recipe, resolved manifest, and terminal
 APK. Git/repo metadata and build outputs are excluded. Upstream source licenses
 remain in their directories and Android's generated NOTICE is retained in the VM.
+
+For AESS442-3, additionally apply `Android442forAESS-source-update-AESS442-3.tar.gz`
+over the original source bundle: it supplies the updated recipe and full modified
+InputMethodManagerService source. Rebuild using the documented container, then
+package. The original complete source bundle is retained unchanged.

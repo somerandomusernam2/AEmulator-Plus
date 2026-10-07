@@ -13,7 +13,7 @@ import java.util.zip.Inflater
 /**
  * Достаёт рамдиск (init.rc, default.prop, sbin/…) из boot.img любого производителя:
  *  - стандартный заголовок "ANDROID!" (Google, HTC, Sony, MIUI, CM…), с MTK-заголовком рамдиска;
- *  - Samsung zImage со встроенным initramfs (2.3–4.x: в .tar из Odin лежит zImage/boot.img без "ANDROID!").
+ *  - Samsung zImage со встроенным initramfs (2.2–4.x: в .tar из Odin лежит zImage/boot.img без "ANDROID!").
  */
 object BootImage {
     // Sunset: bound untrusted decompression, including embedded Samsung kernels.

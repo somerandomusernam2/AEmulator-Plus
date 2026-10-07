@@ -2,59 +2,127 @@ package app.aemu.core
 
 import android.content.ContentValues
 import android.content.Context
+import android.graphics.Bitmap
 import android.media.MediaScannerConnection
 import android.os.Build
 import android.os.Environment
 import android.provider.MediaStore
+import java.io.ByteArrayOutputStream
 import java.io.File
+import java.io.RandomAccessFile
+import java.nio.ByteBuffer
+import java.nio.ByteOrder
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import java.util.zip.CRC32
 
 /**
- * Screenshot of the running guest, done the `adb` way:
- *   adb shell screencap -p /data/local/tmp/<name>.png
- *   adb pull /data/local/tmp/<name>.png /sdcard/Pictures/AEmulator/<name>.png
- * The pull is the same guest-path → phone-file mapping the network ADB server uses for sync (AdbServer.host).
+ * Screenshot of the running guest from the raw framebuffer instead of `screencap`:
+ *   adb pull /dev/graphics/fb0 /sdcard/Pictures/AEmulator/temp-<timestamp>-fb0.raw
+ *   convert the raw pixels (RGB565 by default) to PNG, 320 dpi
+ *   delete the temporary .raw, keep /sdcard/Pictures/AEmulator/<timestamp>-<VM id>.png
  */
 object Screenshot {
-    private const val GUEST_TMP = "/data/local/tmp"
     private const val PHONE_REL = "Pictures/AEmulator"
+    private const val DPI = 320
 
     /** /sdcard/Pictures/AEmulator on the phone */
     fun phoneDir(): File = File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_PICTURES), "AEmulator")
 
-    /** Blocking. Returns the phone path of the saved PNG, or null on failure. */
-    fun take(ctx: Context, vm: GuestVm): String? {
-        val name = "aemu-" + SimpleDateFormat("yyyyMMdd-HHmmss", Locale.US).format(Date()) + ".png"
-        val remote = "$GUEST_TMP/$name"
-        val local = vm.adb.host(remote)
+    /**
+     * Blocking. [fb] is the host file behind the guest's /dev/graphics/fb0, [w]×[h] the guest screen,
+     * [format] 0 = RGB565, 1 = RGBA_8888/RGBX, 2 = BGRA_8888; with [pages] == 2 the file holds two pages
+     * and [page] is the one the guest drew last. Returns the phone path of the saved PNG, or null on failure.
+     */
+    fun take(ctx: Context, vmId: String, fb: File?, w: Int, h: Int, format: Int, pages: Int, page: Int): String? {
+        if (fb == null || !fb.isFile || w <= 0 || h <= 0) return null
+        val stamp = SimpleDateFormat("yyyyMMdd-HHmmss", Locale.US).format(Date())
+        val name = "$stamp-$vmId.png"
 
-        // adb shell screencap -p <file>
-        vm.guestShell("mkdir -p $GUEST_TMP; screencap -p $remote", 60_000)
-        if (!ok(local)) {
-            // some firmwares only write the PNG to stdout
-            local.delete()
-            vm.guestShell("screencap -p > $remote", 60_000)
+        // adb pull /dev/graphics/fb0 → temp-<timestamp>-fb0.raw (phone folder; app cache if that is not writable)
+        val raw = pullRaw(ctx, fb, "temp-$stamp-fb0.raw") ?: return null
+        try {
+            val bpp = if (format == 0) 2 else 4
+            val png = rawToPng(raw, w, h, format, bpp, if (pages == 2) page else 0) ?: return null
+            return save(ctx, png, name)
+        } finally {
+            raw.delete()
         }
-        if (!ok(local)) { local.delete(); return null }
-
-        // adb pull
-        val saved = pull(ctx, local, name)
-        local.delete()
-        return saved
     }
 
-    private fun ok(f: File) = f.isFile && f.length() > 0
+    private fun pullRaw(ctx: Context, fb: File, name: String): File? {
+        for (dir in listOf(phoneDir(), ctx.cacheDir)) {
+            val dst = File(dir, name)
+            val ok = runCatching {
+                if (!dir.isDirectory && !dir.mkdirs() && !dir.isDirectory) error("cannot create ${dir.absolutePath}")
+                fb.inputStream().use { i -> dst.outputStream().use { o -> i.copyTo(o) } }
+                if (dst.length() == 0L) error("empty framebuffer")
+            }.isSuccess
+            if (ok) return dst
+            dst.delete()
+        }
+        return null
+    }
 
-    private fun pull(ctx: Context, src: File, name: String): String? {
+    /** Same conversion as the reference extract.py (RGB565, little endian), generalised to the guest size and 32-bit formats. */
+    private fun rawToPng(raw: File, w: Int, h: Int, format: Int, bpp: Int, page: Int): ByteArray? {
+        val size = w.toLong() * h * bpp
+        val data = ByteArray(size.toInt())
+        RandomAccessFile(raw, "r").use { f ->
+            val off = page * size
+            if (f.length() < off + size) {
+                // a single-page file was asked for page 1: fall back to the first page
+                if (page != 0 && f.length() >= size) f.seek(0) else return null
+            } else f.seek(off)
+            f.readFully(data)
+        }
+        val bb = ByteBuffer.wrap(data).order(ByteOrder.LITTLE_ENDIAN)
+        val px = IntArray(w * h)
+        when (format) {
+            0 -> for (i in px.indices) {
+                val v = bb.getShort(i * 2).toInt() and 0xFFFF
+                val r = ((v shr 11) and 0x1F) * 255 / 31
+                val g = ((v shr 5) and 0x3F) * 255 / 63
+                val b = (v and 0x1F) * 255 / 31
+                px[i] = -0x1000000 or (r shl 16) or (g shl 8) or b
+            }
+            // BGRA in memory = 0xAARRGGBB as a little-endian int; the alpha byte is padding, force it opaque
+            2 -> for (i in px.indices) px[i] = bb.getInt(i * 4) or -0x1000000
+            // RGBA in memory: swap R and B
+            else -> for (i in px.indices) {
+                val v = bb.getInt(i * 4)
+                px[i] = -0x1000000 or ((v and 0xff) shl 16) or (v and 0xff00) or ((v shr 16) and 0xff)
+            }
+        }
+        val bmp = Bitmap.createBitmap(px, w, h, Bitmap.Config.ARGB_8888)
+        val out = ByteArrayOutputStream()
+        bmp.compress(Bitmap.CompressFormat.PNG, 100, out)
+        bmp.recycle()
+        return withDpi(out.toByteArray(), DPI)
+    }
+
+    /** Inserts a pHYs chunk right after IHDR, like PIL's save(dpi=...). */
+    private fun withDpi(png: ByteArray, dpi: Int): ByteArray {
+        if (png.size < 33) return png
+        val ppm = Math.round(dpi / 0.0254).toInt()
+        val body = ByteBuffer.allocate(9).order(ByteOrder.BIG_ENDIAN).putInt(ppm).putInt(ppm).put(1).array()
+        val type = "pHYs".toByteArray(Charsets.US_ASCII)
+        val crc = CRC32().apply { update(type); update(body) }.value
+        val chunk = ByteBuffer.allocate(4 + 4 + 9 + 4).order(ByteOrder.BIG_ENDIAN)
+            .putInt(9).put(type).put(body).putInt(crc.toInt()).array()
+        val ihdrEnd = 8 + 4 + 4 + 13 + 4 // signature + IHDR chunk
+        return png.copyOfRange(0, ihdrEnd) + chunk + png.copyOfRange(ihdrEnd, png.size)
+    }
+
+    private fun save(ctx: Context, png: ByteArray, name: String): String? {
         val shown = "/sdcard/$PHONE_REL/$name"
         val dir = phoneDir()
         val dst = File(dir, name)
         val direct = runCatching {
             if (!dir.isDirectory && !dir.mkdirs() && !dir.isDirectory) error("cannot create ${dir.absolutePath}")
-            src.inputStream().use { i -> dst.outputStream().use { o -> i.copyTo(o) } }
-            if (dst.length() != src.length()) error("short write")
+            dst.writeBytes(png)
+            if (dst.length() != png.size.toLong()) error("short write")
         }.isSuccess
         if (direct) {
             MediaScannerConnection.scanFile(ctx, arrayOf(dst.absolutePath), arrayOf("image/png"), null)
@@ -69,9 +137,7 @@ object Screenshot {
                 put(MediaStore.MediaColumns.RELATIVE_PATH, PHONE_REL)
             }
             val uri = runCatching { ctx.contentResolver.insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, cv) }.getOrNull() ?: return null
-            val wrote = runCatching {
-                ctx.contentResolver.openOutputStream(uri)!!.use { o -> src.inputStream().use { it.copyTo(o) } }
-            }.isSuccess
+            val wrote = runCatching { ctx.contentResolver.openOutputStream(uri)!!.use { it.write(png) } }.isSuccess
             if (!wrote) { runCatching { ctx.contentResolver.delete(uri, null, null) }; return null }
             return shown
         }

@@ -18,8 +18,11 @@ object ElfPatch {
     private const val THUMB_RET0 = 0x47702000         // movs r0, #0 ; bx lr
 
     /** Адрес → смещение в файле, для каждой функции из списка. null — не ELF32 ARM или символа нет. */
-    fun symbols(f: File, names: Set<String>): Map<String, Long>? {
-        val d = runCatching { f.readBytes() }.getOrNull() ?: return null
+    fun symbols(f: File, names: Set<String>): Map<String, Long>? =
+        runCatching { f.readBytes() }.getOrNull()?.let { symbolsIn(it, names) }
+
+    /** The same for the bytes of an ELF file. */
+    fun symbolsIn(d: ByteArray, names: Set<String>): Map<String, Long>? {
         if (d.size < 52 || d[0] != 0x7f.toByte() || d[1] != 'E'.code.toByte() || d[4] != 1.toByte()) return null
         val b = ByteBuffer.wrap(d).order(ByteOrder.LITTLE_ENDIAN)
         if (b.getShort(18).toInt() != 40) return null // EM_ARM
@@ -59,6 +62,15 @@ object ElfPatch {
             }
         }
         return out
+    }
+
+    /** The bytes returnZero() writes over a function entry: 4 for Thumb (bit 40 of [v]), 8 for ARM. */
+    fun retZeroBytes(v: Long): ByteArray {
+        val thumb = (v shr 40) and 1L == 1L
+        val want = ByteBuffer.allocate(8).order(ByteOrder.LITTLE_ENDIAN).apply {
+            if (thumb) putInt(THUMB_RET0).putInt(THUMB_RET0) else putInt(ARM_RET0).putInt(ARM_BX_LR)
+        }.array()
+        return want.copyOf(if (thumb) 4 else 8)
     }
 
     /** Сделать функции «return 0». Возвращает число изменённых (уже исправленные не считаются). */

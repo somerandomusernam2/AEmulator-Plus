@@ -5,6 +5,7 @@ package app.aemu.ui
 import app.aemu.R
 import androidx.compose.ui.res.stringResource
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -16,6 +17,8 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonGroupDefaults
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
@@ -43,6 +46,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import app.aemu.core.Engine
 import app.aemu.core.GuestImage
+import app.aemu.core.GyroLock
 import app.aemu.core.VmSettings
 import app.aemu.core.VmStorageLease
 import app.aemu.core.VmDataReset
@@ -131,7 +135,9 @@ fun SettingsSheet(img: GuestImage, onDismiss: () -> Unit, onSave: (VmSettings) -
             Toggle(stringResource(R.string.vs_lowram), stringResource(R.string.vs_lowram_sub), s.lowRam) { s = s.copy(lowRam = it) }
             Toggle(stringResource(R.string.vs_proxy), stringResource(R.string.vs_proxy_sub), s.netProxy) { s = s.copy(netProxy = it) }
             Toggle(stringResource(R.string.vs_vibration), stringResource(R.string.vs_vibration_sub), s.vibration) { s = s.copy(vibration = it) }
+            Toggle(stringResource(R.string.vs_host_battery), stringResource(R.string.vs_host_battery_sub), s.hostBattery) { s = s.copy(hostBattery = it) }
             if (img.api in 9..25) Toggle(stringResource(R.string.vs_motion), stringResource(R.string.vs_motion_sub), s.motionSensors) { s = s.copy(motionSensors = it) }
+            if (img.api in 9..25 && s.motionSensors) GyroLockPicker(s.gyroLock) { s = s.copy(gyroLock = it) }
             if (img.api in 16..25) Toggle(stringResource(R.string.vs_skip_setup), stringResource(R.string.vs_skip_setup_sub), s.skipSetupWizard) { s = s.copy(skipSetupWizard = it) }
             if (img.api in 9..25) Toggle(stringResource(R.string.vs_disable_google), stringResource(R.string.vs_disable_google_sub), s.disableGoogleApps) { s = s.copy(disableGoogleApps = it) }
             if (img.api in 14..25) {
@@ -167,6 +173,10 @@ fun SettingsSheet(img: GuestImage, onDismiss: () -> Unit, onSave: (VmSettings) -
 
             Spacer(Modifier.height(8.dp))
             RecoverySection(img)
+            OemImportSection(img, resetting) { resetting = it }
+
+            Spacer(Modifier.height(8.dp))
+            OtaSection(img, resetting) { resetting = it }
 
             Spacer(Modifier.height(8.dp))
             Text(stringResource(R.string.vs_controls), style = MaterialTheme.typography.titleMedium)
@@ -227,6 +237,31 @@ internal fun Toggle(title: String, sub: String, on: Boolean, set: (Boolean) -> U
     )
 }
 
+/** Disabled / 0° / 180° / no-gyroscope list for the host motion sensors. */
+@Composable
+private fun GyroLockPicker(mode: Int, set: (Int) -> Unit) {
+    var open by remember { mutableStateOf(false) }
+    val labels = listOf(R.string.vs_gyro_disabled, R.string.vs_gyro_0, R.string.vs_gyro_180, R.string.vs_gyro_none)
+        .map { stringResource(it) }
+    val current = GyroLock.sanitize(mode)
+    ListItem(
+        headlineContent = { Text(stringResource(R.string.vs_gyro_lock)) },
+        supportingContent = { Text(stringResource(R.string.vs_gyro_lock_sub)) },
+        trailingContent = {
+            Box {
+                TextButton(onClick = { open = true }) { Text(labels[current]) }
+                DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
+                    labels.forEachIndexed { i, label ->
+                        DropdownMenuItem(text = { Text(label) }, onClick = { open = false; set(i) })
+                    }
+                }
+            }
+        },
+        colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+        modifier = Modifier.fillMaxWidth(),
+    )
+}
+
 @Composable
 private fun NumField(label: String, value: Int, modifier: Modifier, set: (Int) -> Unit) {
     var text by remember(value) { mutableStateOf(value.toString()) }
@@ -268,6 +303,73 @@ private fun RecoverySection(img: GuestImage) {
         },
         colors = ListItemDefaults.colors(containerColor = Color.Transparent),
     )
+}
+
+
+/** Delta (incremental) OTA zips applied on top of this VM's system image. */
+@Composable
+private fun OtaSection(img: GuestImage, busy: Boolean, setBusy: (Boolean) -> Unit) {
+    val ctx = LocalContext.current
+    val scope = rememberCoroutineScope()
+    var prepared by remember { mutableStateOf<app.aemu.core.DeltaOta.Prepared?>(null) }
+    var message by remember { mutableStateOf<String?>(null) }
+    var picking by remember { mutableStateOf(false) }
+    androidx.compose.runtime.DisposableEffect(Unit) { onDispose { prepared?.close() } }
+    val pick = androidx.activity.compose.rememberLauncherForActivityResult(
+        androidx.activity.result.contract.ActivityResultContracts.OpenDocument()) { uri ->
+        picking = false
+        if (uri == null) return@rememberLauncherForActivityResult
+        setBusy(true)
+        message = ctx.getString(R.string.vs_ota_checking)
+        scope.launch {
+            val result = withContext(Dispatchers.IO) { runCatching { app.aemu.core.DeltaOta.prepare(ctx, img.id, uri) } }
+            setBusy(false)
+            result.onSuccess { prepared?.close(); prepared = it; message = null }
+                .onFailure { message = ctx.getString(R.string.vs_ota_failed, it.message ?: it.javaClass.simpleName) }
+        }
+    }
+    Text(stringResource(R.string.vs_ota), style = MaterialTheme.typography.titleMedium)
+    ListItem(
+        headlineContent = { Text(stringResource(R.string.vs_ota_install)) },
+        supportingContent = { Text(message ?: stringResource(R.string.vs_ota_sub)) },
+        trailingContent = {
+            TextButton(enabled = !busy && !picking, onClick = { picking = true; pick.launch(arrayOf("*/*")) }) {
+                Text(stringResource(R.string.vs_ota_button))
+            }
+        },
+        colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+    )
+    prepared?.let { p ->
+        AlertDialog(
+            onDismissRequest = { p.close(); prepared = null },
+            title = { Text(stringResource(R.string.vs_ota_confirm_title)) },
+            text = {
+                val base = stringResource(R.string.vs_ota_confirm, p.fromBuild, p.toBuild)
+                Text(if (p.partial) base + "\n\n" + stringResource(R.string.vs_ota_partial) else base)
+            },
+            dismissButton = { TextButton(onClick = { p.close(); prepared = null }) { Text(stringResource(R.string.cancel)) } },
+            confirmButton = { TextButton(onClick = {
+                prepared = null
+                setBusy(true)
+                message = ctx.getString(R.string.vs_ota_working, "")
+                scope.launch {
+                    val result = withContext(Dispatchers.IO) {
+                        runCatching {
+                            p.use { app.aemu.core.DeltaOta.install(ctx, img.id, it) { stage ->
+                                message = ctx.getString(R.string.vs_ota_working, stage)
+                            } }
+                        }
+                    }
+                    setBusy(false)
+                    message = result.fold(
+                        { ctx.getString(R.string.vs_ota_done, it.toBuild, it.patched, it.added, it.removed) +
+                            it.notes.joinToString("") { n -> "\n$n" } },
+                        { ctx.getString(R.string.vs_ota_failed, it.message ?: it.javaClass.simpleName) },
+                    )
+                }
+            }) { Text(stringResource(R.string.vs_ota_confirm_ok)) } },
+        )
+    }
 }
 
 private fun recoveryStatus(paths: app.aemu.core.VmPaths): String? {

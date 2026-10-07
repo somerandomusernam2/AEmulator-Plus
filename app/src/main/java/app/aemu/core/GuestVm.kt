@@ -42,9 +42,12 @@ class GuestVm(val ctx: Context, val img: GuestImage, val lowPowerBoot: Boolean =
     @Volatile var bootAt = 0L
         private set
     @Volatile var bootDoneAt = 0L
+    private val noteBoot = OneTimeVmNote()
+    @Volatile var pendingNote = img.oneTimeNote
+        private set
     /** Guest reported boot completion; this does not prove that its launcher rendered. */
     @Volatile private var everBooted = false
-    private var zygoteRestarts = 0
+    @Volatile private var zygoteRestarts = 0
         private set
     @Volatile var failure: String? = null
         private set
@@ -79,7 +82,17 @@ class GuestVm(val ctx: Context, val img: GuestImage, val lowPowerBoot: Boolean =
     val adb = AdbServer(this)
     val input = InputService(paths, ::log)
     private val vibration = VibrationBridge(ctx, paths, { settings.vibration }, ::log)
-    private val motion = MotionBridge(ctx, paths, { img.api in 9..25 && !recoveryMode && !nativeUi }, { settings.motionSensors }, ::log)
+    private val battery = HostBatteryBridge(ctx, paths.root, img.api, settings.hostBattery,
+        { everBooted && state == State.RUNNING && !stopping && !recoveryMode && !lowPowerBoot },
+        { zygoteRestarts }, { command ->
+            val result = guestRunner.run(listOf("/system/bin/sh", "-c", command), 4_000)
+            check(result.first == 0) { "Guest battery update failed: ${result.first}" }
+        }, ::log)
+    fun setManualBattery(percent: Int, charging: Boolean) = battery.applyManual(percent, charging)
+    fun resetBattery() = battery.reset(settings.hostBattery)
+    val hostBatteryLevel get() = battery.latest?.percent ?: 80
+    val hostBatteryCharging get() = battery.latest?.status in listOf(2, 5)
+    private val motion = MotionBridge(ctx, paths, { img.api in 9..25 && !recoveryMode && !nativeUi }, { settings.motionSensors }, { settings.gyroLock }, ::log)
     fun motionVisible(visible: Boolean) { motion.visible(visible) }
     fun simulateRotation() = motion.simulateRotation()
     val cameraSupported get() = engine == Engine.KK && img.api in 14..25 && !recoveryMode && !nativeUi
@@ -121,6 +134,7 @@ class GuestVm(val ctx: Context, val img: GuestImage, val lowPowerBoot: Boolean =
             if (recoveryMode) doRecovery() else if (lowPowerBoot) doCharging() else if (nativeBoot) doMmi() else doBoot()
         } catch (t: Throwable) {
             vibration.stop()
+            battery.stop()
             camera.stop()
             motion.stop()
             failure = t.message ?: t.toString()
@@ -143,6 +157,7 @@ class GuestVm(val ctx: Context, val img: GuestImage, val lowPowerBoot: Boolean =
         killLeftovers()
         HostNative.limitStackSafe()
         TreeFixer(ctx, paths, img, ::log).fixup()
+        battery.start()
         File(paths.root, "dev/tty0").delete() // minui cannot use host VT ioctls
         val sysLink = File(paths.bin, "sys")
         if (!java.nio.file.Files.exists(sysLink.toPath(), java.nio.file.LinkOption.NOFOLLOW_LINKS))
@@ -315,6 +330,7 @@ class GuestVm(val ctx: Context, val img: GuestImage, val lowPowerBoot: Boolean =
         killLeftovers()
         HostNative.limitStackSafe()
         TreeFixer(ctx, paths, img, ::log).fixup()   // framebuffer, input node
+        battery.start()
         val sd = Sdcard.setup(ctx, paths, img, ::log)
         val prep = RecoveryImage.prepare(paths, sd, ::log)
         input.sinkProtocolB = prep.touchProtocolB
@@ -402,6 +418,7 @@ class GuestVm(val ctx: Context, val img: GuestImage, val lowPowerBoot: Boolean =
         // 1. дерево
         val fixer = TreeFixer(ctx, paths, img, ::log)
         fixer.fixup()
+        battery.start()
         // политика звука уже подменялась раньше — обновить её файлы (обёртка/AOSP) до текущей версии
         if (File(paths.root, "system/.aemu-parked/system#lib#hw#audio_policy.default.so").isFile) swapAudioPolicy()
         GuestLog.clear(paths.root)
@@ -451,8 +468,9 @@ class GuestVm(val ctx: Context, val img: GuestImage, val lowPowerBoot: Boolean =
             if (img.api >= 24 && !s.fullDexopt) for (r in listOf("first-boot", "boot", "install", "bg-dexopt", "ab-ota", "core-app", "forced-dexopt", "nsys-library"))
                 overrides["pm.dexopt.$r"] = "verify-none"
             overrides["dalvik.vm.dex2oat-flags"] = "-j" + Runtime.getRuntime().availableProcessors().coerceIn(2, 4)
-            // 6.0 relocates the boot image to a random address (patchoat), which fails under qemu: keep it in place
-            if (img.api >= 23) {
+            // ART (5.0+) relocates the boot image to a random address (patchoat), which fails under qemu
+            // (the relocated oat has a wrong oatdata offset, zygote then dies in dex2oat): keep it in place
+            if (img.api >= 21) {
                 overrides["dalvik.vm.extra-opts"] = "-Xnorelocate"
                 // installd's dex2oat starts its own runtime: without this it tries patchoat too and fails every app
                 overrides["dalvik.vm.dex2oat-flags"] = overrides["dalvik.vm.dex2oat-flags"] + " --runtime-arg -Xnorelocate"
@@ -542,6 +560,8 @@ class GuestVm(val ctx: Context, val img: GuestImage, val lowPowerBoot: Boolean =
         bootDoneAt = 0
         everBooted = false; zygoteRestarts = 0
         bootAnimCheckRunning.set(false); bootAnimFixes = 0
+        noteBoot.interrupted()
+        pendingNote = ImageStore.get(ctx, img.id)?.oneTimeNote ?: img.oneTimeNote
         setState(State.BOOTING)
 
         // 4. binder
@@ -561,7 +581,7 @@ class GuestVm(val ctx: Context, val img: GuestImage, val lowPowerBoot: Boolean =
             }
             // 4.2+: заглушка bluetooth_manager до зиготы (system_server с ro.kernel.qemu=1 свою не поднимает)
             if (svc.name == "zygote" && img.api >= 9 && engine == Engine.KK && File(paths.root, "system/framework/aemu-stubs.jar").isFile) {
-                // 2.3–4.1 look up "bluetooth" instead; without it BluetoothAdapter is null and the vendor's Bluetooth apps crash
+                // 2.2–4.1 look up "bluetooth" instead; without it BluetoothAdapter is null and the vendor's Bluetooth apps crash
                 val btName = if (img.api >= 17) "bluetooth_manager" else "bluetooth"
                 startService(GuestService("aemu-bt", listOf("/system/bin/app_process",
                     "-Djava.class.path=/system/framework/aemu-stubs.jar", "/system/bin", "app.aemu.stub.BtStub", btName), optional = true))
@@ -740,6 +760,7 @@ class GuestVm(val ctx: Context, val img: GuestImage, val lowPowerBoot: Boolean =
             if (v == "1") onCtl(false, "bootanim")
         }
         if ((k == "sys.boot_completed" || k == "dev.bootcomplete") && v == "1" && bootDoneAt == 0L) {
+            if (!recoveryMode && !lowPowerBoot) noteBoot.reported(SystemClock.elapsedRealtime())
             bootDoneAt = System.currentTimeMillis()
             everBooted = true
             log("★ guest reported boot completion in ${(bootDoneAt - bootAt) / 1000} s (UI not verified)")
@@ -791,12 +812,13 @@ class GuestVm(val ctx: Context, val img: GuestImage, val lowPowerBoot: Boolean =
         r.run(listOf("/system/bin/sh", "-c", "export PATH=/system/bin:/system/xbin:\$PATH; svc power stayon true"), 60_000)
         TreeFixer(ctx, paths, img, ::log).noScreenSleep()
         disableBrokenComponents()
-        val img2 = img.copy(lastBootMs = bootDoneAt - bootAt, bootCount = img.bootCount + 1)
-        ImageStore.save(ctx, img2)
+        runCatching {
+            ImageStore.update(ctx, img.id) { it.copy(lastBootMs = bootDoneAt - bootAt, bootCount = it.bootCount + 1) }
+        }.onFailure { log("boot statistics: could not save: ${it.message}") }
     }
 
     /**
-     * 2.3–4.1 Google network location (in Play services and in Maps) calls TelephonyRegistry.listen with notifyNow at
+     * 2.2–4.1 Google network location (in Play services and in Maps) calls TelephonyRegistry.listen with notifyNow at
      * start: the reply of that call is lost between the nested oneway callback and the reply, and the service dies with
      * "Unknown exception code" and a "has stopped" dialog on every boot. Nothing here needs network location.
      */
@@ -810,7 +832,7 @@ class GuestVm(val ctx: Context, val img: GuestImage, val lowPowerBoot: Boolean =
             "com.google.android.apps.maps/com.google.android.location.internal.server.NetworkLocationService",
             "com.google.android.apps.maps/com.google.android.location.NetworkLocationService",
         )
-        // PATH of 2.3–4.x starts with /sbin: the pm script's "app_process" is then looked up there and qemu gives up
+        // PATH of 2.2–4.x starts with /sbin: the pm script's "app_process" is then looked up there and qemu gives up
         for (c in list) runCatching { guestRunner.run(listOf("/system/bin/sh", "-c", "export PATH=/system/bin:/system/xbin:\$PATH; pm disable $c"), 120_000) }
         runCatching { marker.writeText("1") }
     }
@@ -833,6 +855,7 @@ class GuestVm(val ctx: Context, val img: GuestImage, val lowPowerBoot: Boolean =
                     // by name after restartZygote() erased the newly started zygote from supervision.
                     if (!synchronized(procs) { procs.remove(name, p) }) continue
                     val code = runCatching { p.exitValue() }.getOrDefault(-1)
+                    if (name in setOf("zygote", "surfaceflinger", "mediaserver")) noteBoot.interrupted()
                     // a clean exit (code 0) is the normal end of the animation; anything else is a crash or a kill
                     if (name == "bootanim" && code != 0) checkDeadBootAnimLayer(code)
                     if (name == "zygote") {
@@ -867,6 +890,17 @@ class GuestVm(val ctx: Context, val img: GuestImage, val lowPowerBoot: Boolean =
                         restarts[name] = n + 1
                         log("service $name crashed (code $code), restarting (${n + 1}/12)")
                         runCatching { startService(svc) }
+                    }
+                }
+                if (pendingNote.isNotBlank() && !recoveryMode && !lowPowerBoot && !stopping) {
+                    val healthy = synchronized(procs) {
+                        listOf("zygote", "surfaceflinger").all { procs[it]?.isAlive == true }
+                    }
+                    if (noteBoot.ready(SystemClock.elapsedRealtime(), state == State.RUNNING, healthy)) {
+                        runCatching {
+                            val saved = ImageStore.update(ctx, img.id) { it.copy(oneTimeNote = "") }
+                            if (saved != null) pendingNote = ""
+                        }.onFailure { log("ROM note: could not save completion: ${it.message}") }
                     }
                 }
             }
@@ -1023,6 +1057,7 @@ class GuestVm(val ctx: Context, val img: GuestImage, val lowPowerBoot: Boolean =
         setState(State.STOPPING)
         log("stopping system")
         vibration.stop()
+        battery.stop()
         camera.stop()
         motion.stop()
         runCatching { guestRunner.run(listOf("/system/bin/sync"), 5_000) }

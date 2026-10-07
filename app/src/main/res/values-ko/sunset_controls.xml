@@ -1,0 +1,27 @@
+<resources>
+    <string name="vs_hide_menu">메뉴 버튼 숨기기</string>
+    <string name="vs_hide_menu_sub">… 버튼을 숨깁니다. 휴대전화의 뒤로 버튼이나 뒤로 가기 제스처가 Android에 ‘뒤로’를 보내는 대신 에뮬레이터 메뉴를 엽니다. 게스트의 탐색 버튼은 계속 Android를 제어합니다.</string>
+    <string name="vs_vibration">게스트 진동</string>
+    <string name="vs_vibration_sub">레거시 게스트 진동을 휴대전화로 전달합니다. 다음 부팅 시 적용되며, 각 진동은 최대 60초로 제한됩니다.</string>
+    <string name="nav_buttons">탐색 버튼</string>
+    <string name="nav_order">버튼 순서(왼쪽에서 오른쪽)</string>
+    <string name="nav_earlier">앞으로</string>
+    <string name="nav_later">뒤로</string>
+    <string name="nav_reset">버튼 초기화</string>
+    <string name="nav_search">검색</string>
+    <string name="nav_power">전원</string>
+    <string name="nav_volume_down">볼륨 낮추기</string>
+    <string name="nav_volume_up">볼륨 높이기</string>
+    <string name="nav_up">방향 패드 위</string>
+    <string name="nav_down">방향 패드 아래</string>
+    <string name="nav_left">방향 패드 왼쪽</string>
+    <string name="nav_right">방향 패드 오른쪽</string>
+    <string name="nav_center">방향 패드 가운데</string>
+    <string name="nav_trackball">트랙볼</string>
+    <string name="nav_trackball_sub">탐색 바 위의 원을 스와이프하여 굴리고, 탭하여 선택합니다.</string>
+    <string name="nav_dpad_mode">방향키 모드</string>
+    <string name="nav_dpad_sub">끔: 게스트 앱에 실제 상대 트랙볼 이벤트를 보냅니다. 켬: 대신 방향 패드 키 입력을 보냅니다. 둘 다 보내지는 않습니다.</string>
+    <string name="nav_sensitivity">감도: 한 단계당 %1$d dp(낮을수록 빠름)</string>
+    <string name="nav_trackball_waiting">아직 게스트 트랙볼에 연결되지 않았습니다</string>
+    <string name="nav_trackball_recovery">복구: 방향키 모드를 사용하세요</string>
+</resources>

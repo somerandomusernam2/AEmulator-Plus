@@ -162,7 +162,7 @@ private fun AppSettings(onBack: () -> Unit, onRestyle: () -> Unit) {
                     }
                 },
                 onFailure = { err ->
-                    updateState = UpdateState.Error(err.localizedMessage ?: "Ошибка сети")
+                    updateState = UpdateState.Error(err.localizedMessage ?: ctx.getString(R.string.update_network_error))
                 }
             )
         }
@@ -179,7 +179,7 @@ private fun AppSettings(onBack: () -> Unit, onRestyle: () -> Unit) {
                 AppUpdateManager.installApk(ctx, file)
             } catch (e: Exception) {
                 if (e !is kotlinx.coroutines.CancellationException) {
-                    updateState = UpdateState.Error(e.localizedMessage ?: "Ошибка загрузки")
+                    updateState = UpdateState.Error(e.localizedMessage ?: ctx.getString(R.string.update_download_failed_generic))
                 }
             }
         }

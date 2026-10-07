@@ -39,6 +39,8 @@ class ChannelSource(private val ch: SeekableByteChannel, private val base: Long 
  */
 class Ext4Reader(private val src: RandomSource) {
     val blockSize: Int
+    /** Blocks of the filesystem as the superblock counts them. */
+    val blockCount: Long
     private val inodesPerGroup: Int
     private val inodeSize: Int
     private val descSize: Int
@@ -75,6 +77,7 @@ class Ext4Reader(private val src: RandomSource) {
         descSize = if (is64) maxOf(32, sb.getShort(0xFE).toInt() and 0xffff) else 32
         val blocksHi = if (is64) sb.getInt(0x150).toLong() and 0xffffffffL else 0
         val blocks = blocksLo or (blocksHi shl 32)
+        blockCount = blocks
         groupCount = maxOf(((blocks - firstDataBlock + blocksPerGroup - 1) / blocksPerGroup).toInt(), (inodesCount + inodesPerGroup - 1) / inodesPerGroup)
         val nameBytes = ByteArray(16).also { for (i in 0 until 16) it[i] = sb.get(0x78 + i) }
         volumeName = String(nameBytes).trimEnd('\u0000')
@@ -121,7 +124,7 @@ class Ext4Reader(private val src: RandomSource) {
     }
 
     /** Список физических отрезков файла: (логический блок, физический блок, длина). */
-    private fun extents(n: Node): List<LongArray> {
+    fun extents(n: Node): List<LongArray> {
         val out = ArrayList<LongArray>()
         if (n.flags and 0x80000 != 0) { // EXT4_EXTENTS_FL
             walkExtents(ByteBuffer.wrap(n.block).order(ByteOrder.LITTLE_ENDIAN), out, 0)

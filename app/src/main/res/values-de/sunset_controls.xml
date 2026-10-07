@@ -1,0 +1,27 @@
+<resources>
+    <string name="vs_hide_menu">Menü-Schaltfläche ausblenden</string>
+    <string name="vs_hide_menu_sub">Blendet die …-Schaltfläche aus. Die Zurück-Taste oder -Geste des Telefons öffnet stattdessen das Emulator-Menü, statt „Zurück“ an Android zu senden. Die Navigationstasten des Gasts steuern weiterhin Android.</string>
+    <string name="vs_vibration">Gast-Vibration</string>
+    <string name="vs_vibration_sub">Leitet die ältere Gast-Vibration an das Telefon weiter. Gilt ab dem nächsten Start; jeder Impuls ist auf 60 Sekunden begrenzt.</string>
+    <string name="nav_buttons">Navigationstasten</string>
+    <string name="nav_order">Reihenfolge der Tasten (von links nach rechts)</string>
+    <string name="nav_earlier">Früher</string>
+    <string name="nav_later">Später</string>
+    <string name="nav_reset">Tasten zurücksetzen</string>
+    <string name="nav_search">Suche</string>
+    <string name="nav_power">Ein/Aus</string>
+    <string name="nav_volume_down">Leiser</string>
+    <string name="nav_volume_up">Lauter</string>
+    <string name="nav_up">Steuerkreuz oben</string>
+    <string name="nav_down">Steuerkreuz unten</string>
+    <string name="nav_left">Steuerkreuz links</string>
+    <string name="nav_right">Steuerkreuz rechts</string>
+    <string name="nav_center">Steuerkreuz Mitte</string>
+    <string name="nav_trackball">Trackball</string>
+    <string name="nav_trackball_sub">Wische auf dem Kreis über der Navigationsleiste, um zu rollen; tippe zum Auswählen.</string>
+    <string name="nav_dpad_mode">Pfeiltasten-Modus</string>
+    <string name="nav_dpad_sub">Aus: echte relative Trackball-Ereignisse für Gast-Apps. Ein: stattdessen Steuerkreuz-Tastendrücke. Es wird nie beides gesendet.</string>
+    <string name="nav_sensitivity">Empfindlichkeit: %1$d dp pro Schritt (niedriger ist schneller)</string>
+    <string name="nav_trackball_waiting">Noch keine Trackball-Verbindung zum Gast</string>
+    <string name="nav_trackball_recovery">Recovery: Pfeiltasten-Modus verwenden</string>
+</resources>

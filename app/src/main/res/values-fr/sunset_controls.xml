@@ -1,0 +1,27 @@
+<resources>
+    <string name="vs_hide_menu">Masquer le bouton de menu</string>
+    <string name="vs_hide_menu_sub">Masque le bouton …. Le bouton Retour ou le geste de retour du téléphone ouvre alors le menu de l’émulateur au lieu d’envoyer Retour à Android. Les boutons de navigation de l’invité contrôlent toujours Android.</string>
+    <string name="vs_vibration">Vibration de l’invité</string>
+    <string name="vs_vibration_sub">Transmet au téléphone l’ancienne vibration de l’invité. S’applique au prochain démarrage ; chaque impulsion est limitée à 60 secondes.</string>
+    <string name="nav_buttons">Boutons de navigation</string>
+    <string name="nav_order">Ordre des boutons (de gauche à droite)</string>
+    <string name="nav_earlier">Plus tôt</string>
+    <string name="nav_later">Plus tard</string>
+    <string name="nav_reset">Réinitialiser les boutons</string>
+    <string name="nav_search">Recherche</string>
+    <string name="nav_power">Marche/Arrêt</string>
+    <string name="nav_volume_down">Volume −</string>
+    <string name="nav_volume_up">Volume +</string>
+    <string name="nav_up">Croix directionnelle haut</string>
+    <string name="nav_down">Croix directionnelle bas</string>
+    <string name="nav_left">Croix directionnelle gauche</string>
+    <string name="nav_right">Croix directionnelle droite</string>
+    <string name="nav_center">Croix directionnelle centre</string>
+    <string name="nav_trackball">Trackball</string>
+    <string name="nav_trackball_sub">Faites glisser le doigt sur le cercle au-dessus de la barre de navigation pour faire rouler ; touchez pour sélectionner.</string>
+    <string name="nav_dpad_mode">Mode touches fléchées</string>
+    <string name="nav_dpad_sub">Désactivé : vrais événements relatifs de trackball pour les applis invitées. Activé : appuis sur la croix directionnelle à la place. N’envoie jamais les deux.</string>
+    <string name="nav_sensitivity">Sensibilité : %1$d dp par pas (plus bas = plus rapide)</string>
+    <string name="nav_trackball_waiting">Pas encore de connexion au trackball de l’invité</string>
+    <string name="nav_trackball_recovery">Recovery : utilisez le mode touches fléchées</string>
+</resources>

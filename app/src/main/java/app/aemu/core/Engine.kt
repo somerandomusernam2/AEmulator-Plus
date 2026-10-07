@@ -29,7 +29,7 @@ enum class Engine(
     ),
     KK(
         id = "kk",
-        title = "Universal (2.3–7.x)",
+        title = "Universal (2.2–7.x)",
         qemu = "libqemu_kk.so",
         binderd = "libbinderd_kk.so",
         glserverd = "libglserverd_kk.so",
@@ -39,7 +39,7 @@ enum class Engine(
 
     companion object {
         /**
-         * KK — универсальный: GL-мост в приложении (быстрее) и полный GLES 1/2/3, работает и с 2.3.
+         * KK — универсальный: GL-мост в приложении (быстрее) и полный GLES 1/2/3, работает и с 2.2.
          * GB остаётся запасным (выбирается в настройках образа).
          */
         fun forApi(api: Int): Engine = KK

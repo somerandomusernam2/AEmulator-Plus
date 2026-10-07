@@ -1,0 +1,27 @@
+<resources>
+    <string name="vs_hide_menu">Nascondi il pulsante del menu</string>
+    <string name="vs_hide_menu_sub">Nasconde il pulsante …. Il pulsante Indietro del telefono o il gesto indietro apre invece il menu dell’emulatore, anziché inviare Indietro ad Android. I pulsanti di navigazione dell’ospite continuano a controllare Android.</string>
+    <string name="vs_vibration">Vibrazione dell’ospite</string>
+    <string name="vs_vibration_sub">Inoltra al telefono la vibrazione legacy dell’ospite. Si applica al prossimo avvio; ogni impulso è limitato a 60 secondi.</string>
+    <string name="nav_buttons">Pulsanti di navigazione</string>
+    <string name="nav_order">Ordine dei pulsanti (da sinistra a destra)</string>
+    <string name="nav_earlier">Prima</string>
+    <string name="nav_later">Dopo</string>
+    <string name="nav_reset">Ripristina i pulsanti</string>
+    <string name="nav_search">Cerca</string>
+    <string name="nav_power">Accensione</string>
+    <string name="nav_volume_down">Volume giù</string>
+    <string name="nav_volume_up">Volume su</string>
+    <string name="nav_up">D-pad su</string>
+    <string name="nav_down">D-pad giù</string>
+    <string name="nav_left">D-pad sinistra</string>
+    <string name="nav_right">D-pad destra</string>
+    <string name="nav_center">D-pad centro</string>
+    <string name="nav_trackball">Trackball</string>
+    <string name="nav_trackball_sub">Scorri sul cerchio sopra la barra di navigazione per far rotolare; tocca per selezionare.</string>
+    <string name="nav_dpad_mode">Modalità tasti freccia</string>
+    <string name="nav_dpad_sub">Disattivata: veri eventi relativi del trackball per le app dell’ospite. Attivata: pressioni dei tasti del D-pad al loro posto. Non invia mai entrambi.</string>
+    <string name="nav_sensitivity">Sensibilità: %1$d dp per passo (più basso è più veloce)</string>
+    <string name="nav_trackball_waiting">Ancora nessuna connessione al trackball dell’ospite</string>
+    <string name="nav_trackball_recovery">Recovery: usa la modalità tasti freccia</string>
+</resources>

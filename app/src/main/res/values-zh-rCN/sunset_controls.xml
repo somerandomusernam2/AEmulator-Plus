@@ -1,0 +1,27 @@
+<resources>
+    <string name="vs_hide_menu">隐藏菜单按钮</string>
+    <string name="vs_hide_menu_sub">隐藏 … 按钮。手机的返回键或返回手势将打开模拟器菜单，而不是向 Android 发送返回。客户机的导航按钮仍可控制 Android。</string>
+    <string name="vs_vibration">客户机振动</string>
+    <string name="vs_vibration_sub">将旧版客户机的振动转发到手机。下次启动时生效；每次振动最长限制为 60 秒。</string>
+    <string name="nav_buttons">导航按钮</string>
+    <string name="nav_order">按钮顺序（从左到右）</string>
+    <string name="nav_earlier">前移</string>
+    <string name="nav_later">后移</string>
+    <string name="nav_reset">重置按钮</string>
+    <string name="nav_search">搜索</string>
+    <string name="nav_power">电源</string>
+    <string name="nav_volume_down">音量减</string>
+    <string name="nav_volume_up">音量加</string>
+    <string name="nav_up">方向键上</string>
+    <string name="nav_down">方向键下</string>
+    <string name="nav_left">方向键左</string>
+    <string name="nav_right">方向键右</string>
+    <string name="nav_center">方向键中心</string>
+    <string name="nav_trackball">轨迹球</string>
+    <string name="nav_trackball_sub">在导航栏上方的圆圈上滑动即可滚动；点按即可选择。</string>
+    <string name="nav_dpad_mode">方向键模式</string>
+    <string name="nav_dpad_sub">关闭：为客户机应用提供真实的相对轨迹球事件。开启：改为发送方向键按键。不会同时发送两者。</string>
+    <string name="nav_sensitivity">灵敏度：每步 %1$d dp（数值越小越快）</string>
+    <string name="nav_trackball_waiting">尚未连接客户机轨迹球</string>
+    <string name="nav_trackball_recovery">Recovery：请使用方向键模式</string>
+</resources>

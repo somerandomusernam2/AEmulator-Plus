@@ -115,7 +115,7 @@ fun UpdateDialog(
                         if (rel.sizeBytes > 0) {
                             Spacer(Modifier.height(4.dp))
                             Text(
-                                text = "Размер: ${AppUpdateManager.formatBytes(rel.sizeBytes)}",
+                                text = stringResource(R.string.update_size, AppUpdateManager.formatBytes(rel.sizeBytes)),
                                 style = MaterialTheme.typography.labelMedium,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
@@ -217,13 +217,13 @@ fun UpdateDialog(
                 },
                 title = {
                     Text(
-                        text = "Готово к установке",
+                        text = stringResource(R.string.update_ready_title),
                         style = MaterialTheme.typography.headlineSmall
                     )
                 },
                 text = {
                     Text(
-                        text = "Файл обновления (${state.release.tagName}) успешно загружен. Нажмите «Установить», чтобы обновить приложение.",
+                        text = stringResource(R.string.update_ready_msg, state.release.tagName),
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurface
                     )
@@ -253,7 +253,7 @@ fun UpdateDialog(
                 },
                 title = {
                     Text(
-                        text = "Обновлений не найдено",
+                        text = stringResource(R.string.update_none_title),
                         style = MaterialTheme.typography.headlineSmall
                     )
                 },
@@ -267,7 +267,7 @@ fun UpdateDialog(
                         if (state.latestTag.isNotBlank()) {
                             Spacer(Modifier.height(4.dp))
                             Text(
-                                text = "Последняя версия на GitHub: ${state.latestTag}",
+                                text = stringResource(R.string.update_latest_github, state.latestTag),
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
@@ -299,7 +299,7 @@ fun UpdateDialog(
                 },
                 title = {
                     Text(
-                        text = "Ошибка",
+                        text = stringResource(R.string.update_error_title),
                         style = MaterialTheme.typography.headlineSmall
                     )
                 },

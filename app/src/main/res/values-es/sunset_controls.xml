@@ -1,0 +1,27 @@
+<resources>
+    <string name="vs_hide_menu">Ocultar el botón de menú</string>
+    <string name="vs_hide_menu_sub">Oculta el botón …. El botón Atrás del teléfono o el gesto de retroceso abre el menú del emulador en lugar de enviar Atrás a Android. Los botones de navegación del invitado siguen controlando Android.</string>
+    <string name="vs_vibration">Vibración del invitado</string>
+    <string name="vs_vibration_sub">Reenvía al teléfono la vibración heredada del invitado. Se aplica en el próximo arranque; cada pulso está limitado a 60 segundos.</string>
+    <string name="nav_buttons">Botones de navegación</string>
+    <string name="nav_order">Orden de los botones (de izquierda a derecha)</string>
+    <string name="nav_earlier">Antes</string>
+    <string name="nav_later">Después</string>
+    <string name="nav_reset">Restablecer botones</string>
+    <string name="nav_search">Buscar</string>
+    <string name="nav_power">Encendido</string>
+    <string name="nav_volume_down">Bajar volumen</string>
+    <string name="nav_volume_up">Subir volumen</string>
+    <string name="nav_up">Cruceta arriba</string>
+    <string name="nav_down">Cruceta abajo</string>
+    <string name="nav_left">Cruceta izquierda</string>
+    <string name="nav_right">Cruceta derecha</string>
+    <string name="nav_center">Cruceta centro</string>
+    <string name="nav_trackball">Trackball</string>
+    <string name="nav_trackball_sub">Desliza el dedo por el círculo sobre la barra de navegación para rodar; toca para seleccionar.</string>
+    <string name="nav_dpad_mode">Modo de teclas de flecha</string>
+    <string name="nav_dpad_sub">Desactivado: eventos relativos reales de trackball para las apps del invitado. Activado: pulsaciones de la cruceta en su lugar. Nunca envía ambos.</string>
+    <string name="nav_sensitivity">Sensibilidad: %1$d dp por paso (menos es más rápido)</string>
+    <string name="nav_trackball_waiting">Aún no hay conexión con el trackball del invitado</string>
+    <string name="nav_trackball_recovery">Recovery: usa el modo de teclas de flecha</string>
+</resources>

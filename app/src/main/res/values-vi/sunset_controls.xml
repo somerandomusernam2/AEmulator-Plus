@@ -1,0 +1,27 @@
+<resources>
+    <string name="vs_hide_menu">Ẩn nút menu</string>
+    <string name="vs_hide_menu_sub">Ẩn nút …. Nút Quay lại hoặc cử chỉ quay lại của điện thoại sẽ mở menu trình giả lập thay vì gửi Quay lại tới Android. Các nút điều hướng của máy khách vẫn điều khiển Android.</string>
+    <string name="vs_vibration">Rung của máy khách</string>
+    <string name="vs_vibration_sub">Chuyển tiếp chế độ rung cũ của máy khách tới điện thoại. Áp dụng ở lần khởi động sau; mỗi xung rung được giới hạn 60 giây.</string>
+    <string name="nav_buttons">Nút điều hướng</string>
+    <string name="nav_order">Thứ tự nút (từ trái sang phải)</string>
+    <string name="nav_earlier">Lên trước</string>
+    <string name="nav_later">Xuống sau</string>
+    <string name="nav_reset">Đặt lại các nút</string>
+    <string name="nav_search">Tìm kiếm</string>
+    <string name="nav_power">Nguồn</string>
+    <string name="nav_volume_down">Giảm âm lượng</string>
+    <string name="nav_volume_up">Tăng âm lượng</string>
+    <string name="nav_up">D-pad lên</string>
+    <string name="nav_down">D-pad xuống</string>
+    <string name="nav_left">D-pad trái</string>
+    <string name="nav_right">D-pad phải</string>
+    <string name="nav_center">D-pad giữa</string>
+    <string name="nav_trackball">Bi xoay (trackball)</string>
+    <string name="nav_trackball_sub">Vuốt trên vòng tròn phía trên thanh điều hướng để lăn; chạm để chọn.</string>
+    <string name="nav_dpad_mode">Chế độ phím mũi tên</string>
+    <string name="nav_dpad_sub">Tắt: sự kiện trackball tương đối thật cho ứng dụng khách. Bật: thay bằng thao tác nhấn phím D-pad. Không gửi cả hai.</string>
+    <string name="nav_sensitivity">Độ nhạy: %1$d dp mỗi bước (càng thấp càng nhanh)</string>
+    <string name="nav_trackball_waiting">Chưa có kết nối trackball của máy khách</string>
+    <string name="nav_trackball_recovery">Recovery: hãy dùng chế độ phím mũi tên</string>
+</resources>

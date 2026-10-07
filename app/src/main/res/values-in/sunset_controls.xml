@@ -1,0 +1,27 @@
+<resources>
+    <string name="vs_hide_menu">Sembunyikan tombol menu</string>
+    <string name="vs_hide_menu_sub">Menyembunyikan tombol …. Tombol Kembali ponsel atau gestur kembali akan membuka menu emulator, bukan mengirim Kembali ke Android. Tombol navigasi tamu tetap mengontrol Android.</string>
+    <string name="vs_vibration">Getaran tamu</string>
+    <string name="vs_vibration_sub">Meneruskan getaran tamu lama ke ponsel. Berlaku pada boot berikutnya; setiap denyut dibatasi 60 detik.</string>
+    <string name="nav_buttons">Tombol navigasi</string>
+    <string name="nav_order">Urutan tombol (kiri ke kanan)</string>
+    <string name="nav_earlier">Lebih awal</string>
+    <string name="nav_later">Lebih akhir</string>
+    <string name="nav_reset">Atur ulang tombol</string>
+    <string name="nav_search">Cari</string>
+    <string name="nav_power">Daya</string>
+    <string name="nav_volume_down">Volume turun</string>
+    <string name="nav_volume_up">Volume naik</string>
+    <string name="nav_up">D-pad atas</string>
+    <string name="nav_down">D-pad bawah</string>
+    <string name="nav_left">D-pad kiri</string>
+    <string name="nav_right">D-pad kanan</string>
+    <string name="nav_center">D-pad tengah</string>
+    <string name="nav_trackball">Trackball</string>
+    <string name="nav_trackball_sub">Geser pada lingkaran di atas bilah navigasi untuk menggulir; ketuk untuk memilih.</string>
+    <string name="nav_dpad_mode">Mode tombol panah</string>
+    <string name="nav_dpad_sub">Mati: peristiwa trackball relatif asli untuk aplikasi tamu. Hidup: penekanan tombol D-pad sebagai gantinya. Tidak mengirim keduanya.</string>
+    <string name="nav_sensitivity">Sensitivitas: %1$d dp per langkah (lebih rendah lebih cepat)</string>
+    <string name="nav_trackball_waiting">Belum ada koneksi trackball tamu</string>
+    <string name="nav_trackball_recovery">Recovery: gunakan mode tombol panah</string>
+</resources>

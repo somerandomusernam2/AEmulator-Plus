@@ -1,0 +1,27 @@
+<resources>
+    <string name="vs_hide_menu">Menü düğmesini gizle</string>
+    <string name="vs_hide_menu_sub">… düğmesini gizler. Telefonun Geri düğmesi veya geri hareketi, Android’e Geri göndermek yerine emülatör menüsünü açar. Misafir gezinme düğmeleri Android’i denetlemeye devam eder.</string>
+    <string name="vs_vibration">Misafir titreşimi</string>
+    <string name="vs_vibration_sub">Eski misafir titreşimini telefona iletir. Bir sonraki açılışta uygulanır; her darbe 60 saniye ile sınırlıdır.</string>
+    <string name="nav_buttons">Gezinme düğmeleri</string>
+    <string name="nav_order">Düğme sırası (soldan sağa)</string>
+    <string name="nav_earlier">Daha önce</string>
+    <string name="nav_later">Daha sonra</string>
+    <string name="nav_reset">Düğmeleri sıfırla</string>
+    <string name="nav_search">Ara</string>
+    <string name="nav_power">Güç</string>
+    <string name="nav_volume_down">Sesi kıs</string>
+    <string name="nav_volume_up">Sesi aç</string>
+    <string name="nav_up">D-pad yukarı</string>
+    <string name="nav_down">D-pad aşağı</string>
+    <string name="nav_left">D-pad sol</string>
+    <string name="nav_right">D-pad sağ</string>
+    <string name="nav_center">D-pad orta</string>
+    <string name="nav_trackball">İzleme topu</string>
+    <string name="nav_trackball_sub">Yuvarlamak için gezinme çubuğunun üstündeki daire üzerinde kaydırın; seçmek için dokunun.</string>
+    <string name="nav_dpad_mode">Ok tuşu modu</string>
+    <string name="nav_dpad_sub">Kapalı: misafir uygulamalar için gerçek göreli izleme topu olayları. Açık: bunun yerine D-pad tuş basışları. İkisini birden göndermez.</string>
+    <string name="nav_sensitivity">Hassasiyet: adım başına %1$d dp (düşük değer daha hızlıdır)</string>
+    <string name="nav_trackball_waiting">Henüz misafir izleme topu bağlantısı yok</string>
+    <string name="nav_trackball_recovery">Recovery: ok tuşu modunu kullanın</string>
+</resources>

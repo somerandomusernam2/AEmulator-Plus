@@ -13,11 +13,15 @@ import java.io.File
 
 /** Real natural-device axes when enabled; explicit synthetic gravity for manual rotation otherwise. */
 internal class MotionBridge(ctx: Context, paths: VmPaths, private val enabled: () -> Boolean,
-    private val hostSensors: () -> Boolean, private val log: (String) -> Unit) : SensorEventListener {
+    private val hostSensors: () -> Boolean, private val gyroLock: () -> Int, private val log: (String) -> Unit) : SensorEventListener {
     private val manager = ctx.getSystemService(SensorManager::class.java)
     private val sensors = MotionProtocol.types.map { manager?.getDefaultSensor(it) }
     private val hostAvailable = sensors.mapIndexed { i, s -> if (s != null) 1 shl i else 0 }.fold(0, Int::or)
-    private val available get() = if (hostSensors()) hostAvailable else 1
+    private val lockTurns get() = if (hostSensors()) GyroLock.turns(gyroLock()) else null
+    // Locked orientation synthesizes gravity (accelerometer) and a still gyroscope, so those never need real hardware.
+    private val synthMask get() = if (lockTurns != null) 1 or (hostMask and 4) else 0
+    private val hostMask get() = if (GyroLock.removesGyro(gyroLock())) hostAvailable and 4.inv() else hostAvailable
+    private val available get() = if (hostSensors()) hostMask or (if (lockTurns != null) 1 else 0) else 1
     private var manualTurns = 0
     private val latest = arrayOfNulls<MotionProtocol.Sample>(3)
     private var worker: HandlerThread? = null
@@ -38,10 +42,19 @@ internal class MotionBridge(ctx: Context, paths: VmPaths, private val enabled: (
                 handler?.post { updateRegistration() }
                 MotionProtocol.samples(if (!visible || !started || !enabled()) emptyList() else if (!hostSensors())
                     if (desired and 1 != 0) listOf(MotionProtocol.Sample(1, android.os.SystemClock.elapsedRealtimeNanos(), ManualMotion.gravity(manualTurns), 3)) else emptyList()
-                else latest.mapIndexedNotNull { i, sample -> sample?.takeIf { desired and (1 shl i) != 0 } })
+                else lockedSamples() + latest.mapIndexedNotNull { i, sample -> sample?.takeIf { desired and (1 shl i) != 0 && synthMask and (1 shl i) == 0 } })
             }
         }
         client.outputStream.write(reply); client.outputStream.flush()
+    }
+    /** Pinned 0°/180° gravity plus zero angular velocity, in place of the real accelerometer and gyroscope. */
+    private fun lockedSamples(): List<MotionProtocol.Sample> {
+        val turns = lockTurns ?: return emptyList()
+        val now = android.os.SystemClock.elapsedRealtimeNanos()
+        return buildList {
+            if (desired and 1 != 0) add(MotionProtocol.Sample(1, now, ManualMotion.gravity(turns), 3))
+            if (desired and 4 != 0) add(MotionProtocol.Sample(4, now, floatArrayOf(0f, 0f, 0f), 3))
+        }
     }
     @Synchronized fun serve() {
         if (started || !enabled()) return
@@ -49,7 +62,7 @@ internal class MotionBridge(ctx: Context, paths: VmPaths, private val enabled: (
         handler = Handler(worker!!.looper)
         started = true
         if (!server.start(log)) { stop(); return }
-        log("motion: ${if (hostSensors()) "host" else "manual gravity"} bridge ready, sensor mask=$available, capped at 50 Hz")
+        log("motion: ${if (hostSensors()) "host" + (lockTurns?.let { " (orientation locked to ${it * 90}°)" } ?: if (GyroLock.removesGyro(gyroLock())) " (gyroscope disabled)" else "") else "manual gravity"} bridge ready, sensor mask=$available, capped at 50 Hz")
     }
     @Synchronized fun simulateRotation(): Boolean {
         if (!started || !enabled() || hostSensors()) return false
@@ -63,7 +76,7 @@ internal class MotionBridge(ctx: Context, paths: VmPaths, private val enabled: (
         handler?.post { updateRegistration() }
     }
     @Synchronized private fun updateRegistration() {
-        val target = if (started && visible && enabled() && hostSensors()) desired else 0
+        val target = if (started && visible && enabled() && hostSensors()) desired and synthMask.inv() else 0
         if (target == registered) return
         manager?.unregisterListener(this)
         latest.fill(null)

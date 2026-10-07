@@ -1,0 +1,27 @@
+<resources>
+    <string name="vs_hide_menu">Ukryj przycisk menu</string>
+    <string name="vs_hide_menu_sub">Ukrywa przycisk …. Przycisk Wstecz telefonu lub gest wstecz otwiera wtedy menu emulatora zamiast wysyłać Wstecz do Androida. Przyciski nawigacji gościa nadal sterują Androidem.</string>
+    <string name="vs_vibration">Wibracje gościa</string>
+    <string name="vs_vibration_sub">Przekazuje na telefon starsze wibracje gościa. Działa od następnego uruchomienia; każdy impuls jest ograniczony do 60 sekund.</string>
+    <string name="nav_buttons">Przyciski nawigacji</string>
+    <string name="nav_order">Kolejność przycisków (od lewej do prawej)</string>
+    <string name="nav_earlier">Wcześniej</string>
+    <string name="nav_later">Później</string>
+    <string name="nav_reset">Resetuj przyciski</string>
+    <string name="nav_search">Szukaj</string>
+    <string name="nav_power">Zasilanie</string>
+    <string name="nav_volume_down">Ciszej</string>
+    <string name="nav_volume_up">Głośniej</string>
+    <string name="nav_up">D-pad w górę</string>
+    <string name="nav_down">D-pad w dół</string>
+    <string name="nav_left">D-pad w lewo</string>
+    <string name="nav_right">D-pad w prawo</string>
+    <string name="nav_center">D-pad środek</string>
+    <string name="nav_trackball">Trackball</string>
+    <string name="nav_trackball_sub">Przesuń palcem po kółku nad paskiem nawigacji, aby toczyć; dotknij, aby wybrać.</string>
+    <string name="nav_dpad_mode">Tryb klawiszy strzałek</string>
+    <string name="nav_dpad_sub">Wyłączone: prawdziwe względne zdarzenia trackballa dla aplikacji gościa. Włączone: zamiast nich naciśnięcia klawiszy D-pada. Nigdy nie wysyła obu naraz.</string>
+    <string name="nav_sensitivity">Czułość: %1$d dp na krok (mniej = szybciej)</string>
+    <string name="nav_trackball_waiting">Brak jeszcze połączenia z trackballem gościa</string>
+    <string name="nav_trackball_recovery">Recovery: użyj trybu klawiszy strzałek</string>
+</resources>

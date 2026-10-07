@@ -1,0 +1,27 @@
+<resources>
+    <string name="vs_hide_menu">Сховати кнопку меню</string>
+    <string name="vs_hide_menu_sub">Сховати кнопку «…». Кнопка «Назад» телефона або жест «назад» відкриватиме меню емулятора замість надсилання «Назад» в Android. Кнопки навігації гостя й надалі керують Android.</string>
+    <string name="vs_vibration">Вібрація гостя</string>
+    <string name="vs_vibration_sub">Передавати застарілу вібрацію гостя на телефон. Застосовується під час наступного завантаження; кожен імпульс обмежено 60 секундами.</string>
+    <string name="nav_buttons">Кнопки навігації</string>
+    <string name="nav_order">Порядок кнопок (зліва направо)</string>
+    <string name="nav_earlier">Раніше</string>
+    <string name="nav_later">Пізніше</string>
+    <string name="nav_reset">Скинути кнопки</string>
+    <string name="nav_search">Пошук</string>
+    <string name="nav_power">Живлення</string>
+    <string name="nav_volume_down">Гучність −</string>
+    <string name="nav_volume_up">Гучність +</string>
+    <string name="nav_up">D-pad вгору</string>
+    <string name="nav_down">D-pad вниз</string>
+    <string name="nav_left">D-pad вліво</string>
+    <string name="nav_right">D-pad вправо</string>
+    <string name="nav_center">D-pad центр</string>
+    <string name="nav_trackball">Трекбол</string>
+    <string name="nav_trackball_sub">Проведіть пальцем по колу над панеллю навігації, щоб покотити; торкніться, щоб вибрати.</string>
+    <string name="nav_dpad_mode">Режим клавіш зі стрілками</string>
+    <string name="nav_dpad_sub">Вимкнено: справжні відносні події трекбола для гостьових застосунків. Увімкнено: натискання клавіш D-pad замість них. Обидва варіанти не надсилаються одночасно.</string>
+    <string name="nav_sensitivity">Чутливість: %1$d dp на крок (менше — швидше)</string>
+    <string name="nav_trackball_waiting">З’єднання з трекболом гостя ще немає</string>
+    <string name="nav_trackball_recovery">Recovery: використовуйте режим клавіш зі стрілками</string>
+</resources>

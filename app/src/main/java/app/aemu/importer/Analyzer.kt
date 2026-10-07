@@ -45,8 +45,13 @@ class Analyzer(private val ctx: Context, private val paths: VmPaths, private val
         }?.toMap() ?: emptyMap()
         val dhdBcp = File(root, "dhd.bootclasspath").takeIf { it.isFile }?.readText()?.trim()?.takeIf { it.isNotEmpty() }
         val dhdDirs = File(root, "dhd.dirs").takeIf { it.isFile }?.readLines()?.map { it.trim() }?.filter { it.startsWith("/") } ?: emptyList()
-        val bcp = rc.exports["BOOTCLASSPATH"]?.takeIf { it.isNotBlank() } ?: dhdBcp ?: dhdExports["BOOTCLASSPATH"]
-            ?: bootclasspathFromOdex() ?: bootclasspathGuess(api)
+        val bcpFromRc = rc.exports["BOOTCLASSPATH"]?.takeIf { it.isNotBlank() }
+        // an odexed ROM is only loadable if BOOTCLASSPATH has exactly the jars (in the order) its odex files were built against;
+        // if the init script disagrees (low-power/fota variants), trust the odex dependency chain
+        val odexBcp = bootclasspathFromOdex()
+        val bcpRcOk = bcpFromRc == null || odexBcp == null || odexBcp.split(':').all { it in bcpFromRc.split(':') }
+        val bcp = (if (bcpRcOk) bcpFromRc else odexBcp) ?: dhdBcp ?: dhdExports["BOOTCLASSPATH"]
+            ?: odexBcp ?: bootclasspathGuess(api)
         val exports = LinkedHashMap<String, String>(dhdExports).apply { putAll(rc.exports); remove("BOOTCLASSPATH") }
         val dirs = (rc.dirs + dhdDirs).filter { it.startsWith("/data") || it.startsWith("/cache") || it.startsWith("/mnt") || it.startsWith("/storage") }.distinct()
         if (api >= 17 && !exports.containsKey("EMULATED_STORAGE_TARGET") && exports["EXTERNAL_STORAGE"]?.startsWith("/storage/emulated") != false) {
@@ -101,11 +106,12 @@ class Analyzer(private val ctx: Context, private val paths: VmPaths, private val
             runtime = if (api >= 21) "art" else "dalvik",
             warnings = warnings,
             profileVersion = VERSION,
+            buildId = (all["ro.build.id"] ?: "").trim(),
         )
     }
 
     companion object {
-        const val VERSION = 14
+        const val VERSION = 15
 
         private val LMK_DEFAULTS = listOf(
             "ro.FOREGROUND_APP_ADJ" to "0", "ro.VISIBLE_APP_ADJ" to "1", "ro.PERCEPTIBLE_APP_ADJ" to "2",
@@ -156,6 +162,7 @@ class Analyzer(private val ctx: Context, private val paths: VmPaths, private val
             val out = fresh.copy(
                 name = img.name, settings = img.settings, createdAt = img.createdAt, sizeBytes = img.sizeBytes,
                 lastBootMs = img.lastBootMs, bootCount = img.bootCount,
+                oneTimeNote = img.oneTimeNote,
             )
             app.aemu.core.ImageStore.save(ctx, out)
             return out

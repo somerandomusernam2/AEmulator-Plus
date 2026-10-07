@@ -34,9 +34,12 @@ data class VmSettings(
     val trackballStepDp: Int = 18,
     val keepScreenOn: Boolean = true,
     val vibration: Boolean = true,
+    val hostBattery: Boolean = true,
     /** Explicit host-camera opt-in; applies at the next full VM boot. */
     val camera: Boolean = false,
     val motionSensors: Boolean = false,
+    /** With host motion sensors: 0 = disabled (real orientation), 1 = locked to 0°, 2 = locked to 180°, 3 = no gyroscope (see [GyroLock]). */
+    val gyroLock: Int = GyroLock.DISABLED,
     val hostResolution: Boolean = false,
     val skipSetupWizard: Boolean = false,
     val disableGoogleApps: Boolean = false,
@@ -65,8 +68,9 @@ data class VmSettings(
         .put("trackballStepDp", trackballStepDp.coerceIn(4, 48))
         .put("keepScreenOn", keepScreenOn).put("mtMode", mtMode).put("legacyEngine", legacyEngine)
         .put("vibration", vibration)
+        .put("hostBattery", hostBattery)
         .put("camera", camera)
-        .put("motionSensors", motionSensors).put("hostResolution", hostResolution)
+        .put("motionSensors", motionSensors).put("gyroLock", gyroLock).put("hostResolution", hostResolution)
         .put("skipSetupWizard", skipSetupWizard)
         .put("disableGoogleApps", disableGoogleApps)
         .put("ramMb", ramMb).put("radio", radio).put("imei", imei).put("serial", serial).put("qemuArgs", qemuArgs)
@@ -117,8 +121,10 @@ data class VmSettings(
                 trackballStepDp = o.optInt("trackballStepDp", 18).coerceIn(4, 48),
                 keepScreenOn = o.optBoolean("keepScreenOn", d.keepScreenOn),
                 vibration = o.optBoolean("vibration", d.vibration),
+                hostBattery = o.optBoolean("hostBattery", d.hostBattery),
                 camera = o.optBoolean("camera", d.camera),
                 motionSensors = o.optBoolean("motionSensors", false),
+                gyroLock = GyroLock.sanitize(o.optInt("gyroLock", GyroLock.DISABLED)),
                 hostResolution = o.optBoolean("hostResolution", false),
                 skipSetupWizard = o.optBoolean("skipSetupWizard", d.skipSetupWizard),
                 disableGoogleApps = o.optBoolean("disableGoogleApps", false),
@@ -210,8 +216,12 @@ data class GuestImage(
     val profileVersion: Int = 0,
     /** container: id of the image whose /system this one shares (its own /data, card and settings) */
     val baseId: String = "",
+    /** ro.build.id of the firmware (e.g. LCA43), shown next to the Android version */
+    val buildId: String = "",
+    /** Export-author note: consumed only after a reported, stable normal boot. */
+    val oneTimeNote: String = "",
 ) {
-    val displayVersion: String get() = "Android $release (API $api)"
+    val displayVersion: String get() = "Android $release (API $api)" + if (buildId.isNotBlank()) " (Build $buildId)" else ""
 
     /** Движок с учётом выбора пользователя. */
     fun effective(): GuestImage = copy(engine = if (settings.legacyEngine && api < 14) Engine.GB else Engine.KK)
@@ -233,6 +243,8 @@ data class GuestImage(
         .put("lastBootMs", lastBootMs).put("bootCount", bootCount)
         .put("profileVersion", profileVersion)
         .put("baseId", baseId)
+        .put("buildId", buildId)
+        .put("oneTimeNote", OneTimeVmNote.normalize(oneTimeNote))
 
     companion object {
         fun fromJson(o: JSONObject): GuestImage {
@@ -267,6 +279,8 @@ data class GuestImage(
                 bootCount = o.optInt("bootCount", 0),
                 profileVersion = o.optInt("profileVersion", 0),
                 baseId = o.optString("baseId", ""),
+                buildId = o.optString("buildId", ""),
+                oneTimeNote = OneTimeVmNote.normalize(o.optString("oneTimeNote", "")),
             )
         }
     }
