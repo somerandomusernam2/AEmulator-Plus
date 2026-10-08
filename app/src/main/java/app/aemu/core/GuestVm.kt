@@ -437,6 +437,19 @@ class GuestVm(val ctx: Context, val img: GuestImage, val lowPowerBoot: Boolean =
         }
         overrides["ro.sf.lcd_density"] = s.density.toString()
         overrides["qemu.sf.lcd_density"] = s.density.toString()
+        // Panels mounted sideways (Galaxy Tab 10.1 GT-P7300: "ro.sf.hwrotation=90", fb 800x1280 on a landscape UI) make
+        // SurfaceFlinger turn the whole UI inside the framebuffer. Here the framebuffer IS the screen the user sees at
+        // the resolution they picked, so the rotation only shows up as a UI lying on its side: 1280x720 came up as a
+        // sideways portrait UI, 720x1280 as a sideways landscape one. Run the panel unrotated; the UI then follows the
+        // framebuffer (wide = landscape, tall = portrait). run/props.extra can still set it back.
+        val hwRot = runCatching {
+            File(paths.root, "system/build.prop").readLines()
+                .firstOrNull { it.trim().startsWith("ro.sf.hwrotation=") }?.substringAfter('=')?.trim()?.toIntOrNull()
+        }.getOrNull()
+        if (hwRot != null && hwRot != 0) {
+            overrides["ro.sf.hwrotation"] = "0"
+            log("display: ignoring the firmware's panel rotation ($hwRot°), the UI follows the framebuffer")
+        }
         overrides["ro.aemu.host"] = "qemu-user"
         // serial number from the image settings (blank = default); real devices expose it under both names
         val serial = VmSettings.cleanSerial(s.serial).ifBlank { VmSettings.DEFAULT_SERIAL }

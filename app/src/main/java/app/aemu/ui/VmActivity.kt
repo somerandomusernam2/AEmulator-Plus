@@ -408,11 +408,18 @@ class VmActivity : ComponentActivity() {
         return true
     }
 
+    private fun recoveryKeys() = ::vm.isInitialized && vm.recoveryMode
+
     private fun map(k: Int): Int? = when (k) {
         KeyEvent.KEYCODE_VOLUME_UP -> InputService.KEY_VOLUMEUP
         KeyEvent.KEYCODE_VOLUME_DOWN -> InputService.KEY_VOLUMEDOWN
         KeyEvent.KEYCODE_MENU -> InputService.KEY_MENU
         KeyEvent.KEYCODE_SEARCH -> InputService.KEY_SEARCH
+        // a keyboard or D-pad on the host drives the recovery's menu (CWM and stock take arrows/Enter as well as volume/power)
+        KeyEvent.KEYCODE_DPAD_UP -> if (recoveryKeys()) InputService.KEY_UP else null
+        KeyEvent.KEYCODE_DPAD_DOWN -> if (recoveryKeys()) InputService.KEY_DOWN else null
+        KeyEvent.KEYCODE_ENTER, KeyEvent.KEYCODE_NUMPAD_ENTER, KeyEvent.KEYCODE_DPAD_CENTER ->
+            if (recoveryKeys()) InputService.KEY_ENTER else null
         else -> null
     }
 
@@ -824,11 +831,19 @@ class VmActivity : ComponentActivity() {
             }
 
             // MMI/FTM builds ignore Back/Home/Recents/Menu: unless the user chose buttons, show volume + power
-            val navSetting = if (vm.nativeBoot && vm.settings.navButtons == NavControls.DEFAULT_BUTTONS) NavControls.MMI_BUTTONS else vm.settings.navButtons
+            // Recovery is driven by hardware keys too (and the strip must exist even when the user hid the navbar)
+            val navSetting = when {
+                vm.recoveryMode && vm.settings.navButtons == NavControls.DEFAULT_BUTTONS -> NavControls.RECOVERY_BUTTONS
+                vm.nativeBoot && vm.settings.navButtons == NavControls.DEFAULT_BUTTONS -> NavControls.MMI_BUTTONS
+                else -> vm.settings.navButtons
+            }
             val buttons = NavControls.parse(navSetting).filter {
                 it != NavButton.RECENTS || vm.img.api >= 11
             }
-            val showButtons = vm.settings.showNavBar && buttons.isNotEmpty()
+            val showButtons = (vm.settings.showNavBar || vm.recoveryMode) && buttons.isNotEmpty()
+            // "Go to recovery" (leave the stock recovery's "No command" screen): only in a stock recovery, whatever the settings
+            val stockRecovery = remember(vm.recoveryMode) { vm.recoveryMode && app.aemu.core.RecoveryImage.kind(vm.paths) == app.aemu.core.RecoveryImage.Kind.STOCK }
+            val showStrip = showButtons || stockRecovery
             val stripTurns = controlsTurns
             val sideways = stripTurns % 2 != 0
             val stripAlignment = when (DisplayGeometry.edge(stripTurns)) {
@@ -837,15 +852,15 @@ class VmActivity : ComponentActivity() {
                 DisplayGeometry.Edge.TOP -> Alignment.TopCenter
                 DisplayGeometry.Edge.BOTTOM -> Alignment.BottomCenter
             }
-            DisposableEffect(showButtons, vm.settings.trackball, showLog, stripTurns) {
+            DisposableEffect(showStrip, vm.settings.trackball, showLog, stripTurns) {
                 heldNavKeys.releaseAll()
                 box.post { updateGuestLayout?.invoke() }
-                if ((!showButtons && !vm.settings.trackball) || showLog) {
+                if ((!showStrip && !vm.settings.trackball) || showLog) {
                     controlsHeightPx = 0; box.post { updateGuestLayout?.invoke() }
                 }
                 onDispose { }
             }
-            if ((showButtons || vm.settings.trackball) && !showLog) {
+            if ((showStrip || vm.settings.trackball) && !showLog) {
                 Box(Modifier.align(stripAlignment).onSizeChanged { size ->
                     controlsHeightPx = if (sideways) size.width else size.height
                     box.post { updateGuestLayout?.invoke() }
@@ -886,8 +901,9 @@ class VmActivity : ComponentActivity() {
                             }
                         }
                     }, buttons = {
-                        if (showButtons) ControlButtons(sideways) {
-                            (if (stripTurns == 1 || stripTurns == 2) buttons.asReversed() else buttons).forEach { button ->
+                        if (showStrip) ControlButtons(sideways) {
+                            if (stockRecovery && (stripTurns == 1 || stripTurns == 2)) GoToRecoveryButton(sideways)
+                            (if (!showButtons) emptyList() else if (stripTurns == 1 || stripTurns == 2) buttons.asReversed() else buttons).forEach { button ->
                                 val code = when (button) {
                                     NavButton.HOME -> vm.input.homeCode
                                     NavButton.CENTER -> vm.input.centerCode
@@ -901,13 +917,26 @@ class VmActivity : ComponentActivity() {
                                             hostUi.tabletNavbarRotation, iconTurns, windowTurns), original = !hostUi.sunsetNavbar)
                                 }
                             }
+                            if (stockRecovery && !(stripTurns == 1 || stripTurns == 2)) GoToRecoveryButton(sideways)
                         }
                         // Trackball-only layouts still keep it above a navbar-sized safety zone.
-                        if (!showButtons && vm.settings.trackball) Spacer(if (sideways) Modifier.width(52.dp) else Modifier.height(52.dp))
+                        if (!showStrip && vm.settings.trackball) Spacer(if (sideways) Modifier.width(52.dp) else Modifier.height(52.dp))
                     })
                 }
                 }
             }
+        }
+    }
+
+    /** Stock recovery "No command" screen: hold Power, tap Volume Up, release Power. */
+    @Composable
+    private fun GoToRecoveryButton(sideways: Boolean) {
+        val label = stringResource(R.string.nav_go_to_recovery)
+        if (sideways) IconButton(onClick = { vm.input.enterStockRecoveryMenu() }, modifier = Modifier.size(48.dp)) {
+            Icon(Icons.Rounded.RestartAlt, label, tint = Color.White)
+        } else TextButton(onClick = { vm.input.enterStockRecoveryMenu() },
+            contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 12.dp)) {
+            Text(label, color = Color.White, maxLines = 1, style = MaterialTheme.typography.labelLarge)
         }
     }
 

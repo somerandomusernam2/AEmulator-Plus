@@ -10,6 +10,7 @@
     <string name="nav_reset">Reset buttons</string>
     <string name="nav_search">Search</string>
     <string name="nav_power">Power</string>
+    <string name="nav_go_to_recovery">Go to recovery</string>
     <string name="nav_volume_down">Volume down</string>
     <string name="nav_volume_up">Volume up</string>
     <string name="nav_up">D-pad up</string>

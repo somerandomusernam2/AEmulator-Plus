@@ -12,6 +12,11 @@ object NavControls {
     const val DEFAULT_BUTTONS = "back,home,recents,menu"
     /** Framework-less factory/MMI builds are driven by hardware keys: volume moves the highlight, power selects. */
     const val MMI_BUTTONS = "volume_up,volume_down,power,home,back"
+    /**
+     * Recoveries (CWM, stock AOSP, vendor ones) have no touch menu on old devices: volume moves the highlight, power
+     * selects, back goes up a level. Used while booted into recovery when the user kept the default buttons.
+     */
+    const val RECOVERY_BUTTONS = "volume_up,volume_down,power,back"
     fun parse(value: String): List<NavButton> = value.split(',').mapNotNull { id ->
         NavButton.entries.firstOrNull { it.id == id.trim() }
     }.distinct()

@@ -93,4 +93,64 @@ object ElfPatch {
         }
         return n
     }
+
+    /**
+     * Thumb "mov r0, r5 ; pop {r2-r6, pc}" - the common exit of SurfaceTextureClient::unlockAndPost() in the 4.0 libgui:
+     * r5 holds the queueBuffer() status. Replacing the mov with "movs r0, #0" makes the call always report success.
+     */
+    private val THUMB_MOV_R0_R5_POP = byteArrayOf(0x28, 0x46, 0x7c, 0xbd.toByte())
+    private val THUMB_MOVS_R0_0 = byteArrayOf(0x00, 0x20)
+
+    /**
+     * ICS libgui: when SurfaceTexture::queueBuffer() refuses a buffer (EINVAL, "slot N is current!"),
+     * Surface.unlockCanvasAndPost() turns that into an IllegalArgumentException. In an app it only kills the app,
+     * but a window drawn on a system_server thread (an app-error dialog) makes the exception fatal to the whole
+     * system process, so zygote exits and everything collapses. Report success instead: the frame is dropped.
+     * Only an exact, single match inside the function is patched; anything else is left alone.
+     * Returns 1 when patched, 0 when already patched / not applicable.
+     */
+    fun unlockAndPostNeverFails(f: File): Int {
+        val name = "_ZN7android20SurfaceTextureClient13unlockAndPostEv"
+        val d = runCatching { f.readBytes() }.getOrNull() ?: return 0
+        val sym = symbolsIn(d, setOf(name))?.get(name) ?: return 0
+        if ((sym shr 40) and 1L != 1L) return 0 // Thumb only
+        val start = (sym and 0xffffffffffL).toInt()
+        val size = symbolSize(d, name) ?: return 0
+        if (size < 16 || start + size > d.size) return 0
+        var hit = -1
+        var i = start
+        while (i + THUMB_MOV_R0_R5_POP.size <= start + size) {
+            if (THUMB_MOV_R0_R5_POP.indices.all { d[i + it] == THUMB_MOV_R0_R5_POP[it] }) {
+                if (hit >= 0) return 0 // ambiguous
+                hit = i
+            }
+            i += 2
+        }
+        if (hit < 0) return 0
+        RandomAccessFile(f, "rw").use { raf -> raf.seek(hit.toLong()); raf.write(THUMB_MOVS_R0_0) }
+        return 1
+    }
+
+    /** st_size of the dynamic function symbol [name], or null. */
+    private fun symbolSize(d: ByteArray, name: String): Int? {
+        if (d.size < 52 || d[0] != 0x7f.toByte() || d[4] != 1.toByte()) return null
+        val b = ByteBuffer.wrap(d).order(ByteOrder.LITTLE_ENDIAN)
+        val shoff = b.getInt(32); val shentsize = b.getShort(46).toInt() and 0xffff; val shnum = b.getShort(48).toInt() and 0xffff
+        if (shoff <= 0 || shoff + shnum * shentsize > d.size) return null
+        for (i in 0 until shnum) {
+            val sh = shoff + i * shentsize
+            if (b.getInt(sh + 4) != 11) continue
+            val symOff = b.getInt(sh + 16); val symSize = b.getInt(sh + 20); val link = b.getInt(sh + 24)
+            val strOff = b.getInt(shoff + link * shentsize + 16)
+            var s = symOff
+            while (s + 16 <= symOff + symSize && s + 16 <= d.size) {
+                val nameOff = b.getInt(s)
+                var e = strOff + nameOff
+                while (e < d.size && d[e] != 0.toByte()) e++
+                if (String(d, strOff + nameOff, e - strOff - nameOff, Charsets.US_ASCII) == name) return b.getInt(s + 8)
+                s += 16
+            }
+        }
+        return null
+    }
 }

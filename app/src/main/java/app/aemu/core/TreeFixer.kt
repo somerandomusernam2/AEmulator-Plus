@@ -120,6 +120,7 @@ class TreeFixer(
         protectOat()
         fixThemeXml()
         parkWhetstone()
+        parkPlayReady()
         swapMtkAudioHal()
         eglConfig(img.settings.gpu)
         makeDataDirs()
@@ -130,12 +131,14 @@ class TreeFixer(
         makeDevNodes()
         makeSysNodes()
         makeProcMounts()
+        vendorAudioPolicy()
         audioPolicy()
         qtaguid()
         vendorChecks()
         scriptShebangs()
         samsungEfs()
         selinuxOff()
+        surfaceGuard()
         for (n in LOGS) File(root, "dev/log/$n").let { if (!it.isFile) { it.parentFile?.mkdirs(); it.createNewFile() } }
         makeFb()
     }
@@ -173,6 +176,48 @@ class TreeFixer(
     private fun qcomAudioFlinger(): Boolean = runCatching {
         val af = File(root, "system/lib/libaudioflinger.so")
         af.isFile && String(af.readBytes(), Charsets.ISO_8859_1).contains("setFmVolume")
+    }.getOrDefault(false)
+
+    /**
+     * Samsung 4.0 AudioFlinger (AudioPolicyService::getParamFromPolicy) calls an extra slot (+108) of the audio_policy
+     * struct that only Samsung's own policy library (audio_policy.<board>.so) fills in. The generic
+     * audio_policy.default.so leaves it null, so the first getParameters("situationVolume") from the framework killed
+     * mediaserver with PC=0. When the firmware ships that library (sanitize parked it) it is installed as the
+     * default policy module; the generic one is kept aside.
+     */
+    private fun vendorAudioPolicy() {
+        if (img.api >= 16) return
+        runCatching {
+            val af = File(root, "system/lib/libaudioflinger.so")
+            val marker = "getParamFromPolicy".toByteArray(Charsets.ISO_8859_1)
+            fun has(b: ByteArray): Boolean {
+                outer@ for (i in 0..b.size - marker.size) {
+                    for (k in marker.indices) if (b[i + k] != marker[k]) continue@outer
+                    return true
+                }
+                return false
+            }
+            if (!af.isFile || !has(af.readBytes())) return
+            val parkedDir = File(root, "system/.aemu-parked")
+            val hw = File(root, "system/lib/hw")
+            val candidates = (parkedDir.listFiles()?.filter { it.name.startsWith("system#lib#hw#audio_policy.") && it.name.endsWith(".so") && !it.name.endsWith("#audio_policy.default.so") } ?: emptyList()) +
+                (hw.listFiles()?.filter { it.name.startsWith("audio_policy.") && it.name.endsWith(".so") && it.name != "audio_policy.default.so" } ?: emptyList())
+            val vendor = candidates.firstOrNull { has(it.readBytes()) } ?: return
+            val dst = File(hw, "audio_policy.default.so")
+            val bytes = vendor.readBytes()
+            if (dst.isFile && dst.length() == bytes.size.toLong() && dst.readBytes().contentEquals(bytes)) return
+            val keep = File(parkedDir, "audio_policy.default.so.generic")
+            if (!keep.isFile && dst.isFile) { parkedDir.mkdirs(); dst.copyTo(keep) }
+            dst.writeBytes(bytes)
+            dst.setReadable(true, false)
+            dst.setExecutable(true, false)
+            log("audio: Samsung audio policy (${vendor.name.substringAfterLast('#')}) installed as the default policy")
+        }.onFailure { log("audio: Samsung audio policy install failed: ${it.message}") }
+    }
+
+    private fun samsungDeviceSlots(): Boolean = runCatching {
+        val af = File(root, "system/lib/libaudioflinger.so")
+        af.isFile && AudioHalAbi.openOutputSlot(af.readBytes()) == 116
     }.getOrDefault(false)
 
     private fun directTrackAudio(): Boolean = img.api in 19..20 && runCatching {
@@ -246,6 +291,23 @@ class TreeFixer(
             }
         }
     }
+
+    /**
+     * Samsung/TouchWiz ICS: drmserver loads every plugin from /system/lib/drm while it handles the first DRM
+     * request after boot. libplayreadyplugin.so (Microsoft PlayReady) dereferences a NULL pointer there (SIGSEGV at
+     * 0x4, exit 139) because its device-key / platform setup cannot succeed on the emulator. drmserver then dies,
+     * 'drm.drmManager' disappears from servicemanager and every DrmManagerClient call blocks waiting for it.
+     * The plugin only serves PlayReady-protected media, which can never play here, so it is set aside; drmserver
+     * simply registers the remaining plugins (OMA/forward-lock). The stock file is kept for a later delta OTA.
+     */
+    private fun parkPlayReady() = runCatching {
+        val plugin = File(root, "system/lib/drm/libplayreadyplugin.so")
+        if (!plugin.isFile && !isLink(plugin)) return@runCatching
+        val parked = File(root, "system/.aemu-parked/system#lib#drm#libplayreadyplugin.so")
+        parked.parentFile?.mkdirs()
+        val moved = if (isLink(plugin) || parked.exists()) plugin.delete() else plugin.renameTo(parked)
+        if (moved) log("DRM: PlayReady plugin set aside (drmserver crashed in it)")
+    }.onFailure { log("DRM: could not set aside the PlayReady plugin: ${it.message}") }
 
     private fun installCameraHal() {
         val enabled = img.settings.camera && engine == Engine.KK && img.api in 14..25
@@ -354,14 +416,24 @@ class TreeFixer(
             // поэтому там остаётся исходный: выход не открывается, система работает без звука.
             // Samsung 4.3 AudioFlinger uses the KitKat slots (verified on I9300 XXUGNJ2: init_check 0x44,
             // open_output_stream 0x6c, stream write 0x40), so only 4.1–4.2 TouchWiz keeps the stand HAL
+            // Samsung 4.0 (api 14-15, e.g. GT-P7300) has the ICS device layout (no get_master_volume /
+            // set_master_mute slots): the stand HAL's JB layout put a data pointer in a slot AudioFlinger calls
+            // right after get_supported_devices (SIGSEGV pc inside libaudioflinger .data), so it takes the ICS HAL
             val samsung = img.skin.contains("TouchWiz", true) || img.skin.contains("Samsung", true)
-            val htcLike = img.skin.contains("HTC", true) || (samsung && img.api < 18)
+            val htcLike = img.skin.contains("HTC", true) || (samsung && img.api in 16..17)
             val mtkHw = from == "audio.primary.default.so" && engine == Engine.KK && isMtkHwOnlyAudio(root)
             val name = when {
                 mtkHw -> "audio.primary.mtk.so"
                 from != "audio.primary.default.so" || htcLike -> from
                 // 4.0 has its own audio_hw_device layout; Qualcomm CAF builds add set_fm_volume/open_output_session
-                img.api in 14..15 -> if (qcomAudioFlinger()) "audio.primary.ics-qcom.so" else "audio.primary.ics.so"
+                img.api in 14..15 -> when {
+                    qcomAudioFlinger() -> "audio.primary.ics-qcom.so"
+                    // the +0xc-shifted device layout only when this firmware's AudioFlinger really calls
+                    // open_output_stream at +116; stock ICS (+104, e.g. GT-P7300 4.0.4) must keep the plain ICS HAL,
+                    // otherwise AudioFlinger calls set_parameters instead and mediaserver dies in readOutputParameters
+                    samsung && samsungDeviceSlots() -> "audio.primary.ics-samsung.so"
+                    else -> "audio.primary.ics.so"
+                }
                 directTrackAudio() -> "audio.primary.directtrack.so"
                 img.api >= 16 -> "audio.primary.aosp.so"
                 else -> from
@@ -507,6 +579,19 @@ class TreeFixer(
      * The guest has no policy of its own to load, so report "SELinux disabled" from libselinux:
      * every AOSP caller guards its checks with is_selinux_enabled() > 0 and falls back to plain DAC.
      */
+    /**
+     * A failed Surface.unlockCanvasAndPost() throws IllegalArgumentException; on a system_server thread nothing
+     * catches it, system_server kills itself and zygote exits (see ElfPatch.unlockAndPostNeverFails).
+     */
+    private fun surfaceGuard() = runCatching {
+        val lib = File(root, "system/lib/libgui.so")
+        if (lib.isFile) {
+            val keep = File(root, "system/.aemu-parked/system#lib#libgui.so")
+            if (!keep.exists()) { keep.parentFile?.mkdirs(); lib.copyTo(keep) }
+            if (ElfPatch.unlockAndPostNeverFails(lib) > 0) log("libgui: a failed frame post no longer kills the caller")
+        }
+    }.onFailure { log("libgui: patch failed: ${it.message}") }
+
     private fun selinuxOff() = runCatching {
         val lib = File(root, "system/lib/libselinux.so")
         if (lib.isFile) {

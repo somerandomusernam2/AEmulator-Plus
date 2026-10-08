@@ -13,6 +13,24 @@ object RecoveryImage {
     fun installed(paths: VmPaths) = File(dir(paths), "sbin/recovery").isFile
     fun fb(paths: VmPaths) = File(dir(paths), "dev/graphics/fb0")
 
+    enum class Kind { TWRP, ORANGEFOX, CWM, STOCK }
+
+    /** Which recovery the unpacked ramdisk in [dir] is; anything that is not a known custom one counts as stock. */
+    fun kindOf(dir: File): Kind {
+        val prop = runCatching { File(dir, "default.prop").readText() }.getOrDefault("")
+        return when {
+            Regex("ro\\.twrp\\.version=").containsMatchIn(prop) || File(dir, "twres").isDirectory -> Kind.TWRP
+            File(dir, "sbin/orangefox.sh").exists() || prop.contains("orangefox", true) -> Kind.ORANGEFOX
+            prop.contains("cwm", true) || File(dir, "res/images/icon_clockwork.png").exists() ||
+                File(dir, "sbin/recovery").takeIf { it.isFile }?.let { f ->
+                    runCatching { String(f.readBytes(), Charsets.ISO_8859_1).contains("CWM-based Recovery") }.getOrDefault(false)
+                } == true -> Kind.CWM
+            else -> Kind.STOCK
+        }
+    }
+
+    fun kind(paths: VmPaths): Kind = kindOf(dir(paths))
+
     /** Unpacks a recovery (or boot) image; false when it holds no /sbin/recovery. */
     fun install(paths: VmPaths, image: ByteArray, log: (String) -> Unit): Boolean {
         val rd = runCatching { BootImage.ramdisk(image) }.getOrNull()
@@ -151,18 +169,32 @@ object RecoveryImage {
         ProbePatch(hex("002804dda87900f06001602904d0"), 2, 12),
         // the same family's ev_init — EVIOCGBIT(0) must show EV_KEY or EV_REL (bit 1)
         ProbePatch(hex("002803db019b13f0060f03d1"), 2, 10),
+        // Samsung ICS stock recovery (Galaxy Tab 8.9 GT-P7300…): the same EVIOCGBIT(0) check, but its result buffer
+        // lives at [sp,#0xc]. Without this the FIFO fails the ioctl, minui closes event0 and no volume/power key arrives.
+        ProbePatch(hex("002803db039b13f0060f03d1"), 2, 10),
+        // CWM 6.0.x built from CyanogenMod 10.x (Prestigio PMP7079D3G_QUAD…): the same ev_init check, but the mask is 0xe
+        // (EV_KEY | EV_REL | EV_ABS, CM's minui also takes touch devices). Without it the FIFO fails the ioctl, minui
+        // closes event0 and neither Volume Up/Down nor Power ever reaches the menu.
+        ProbePatch(hex("002803db039b13f00e0f03d1"), 2, 10),
     )
 
     /** Bit mask of the known probes now neutralised (patched now or earlier); 0 = none of the known code is in the binary. */
     private fun patchEvdevProbes(bin: File, data: ByteArray): Int {
+        val before = data.copyOf()
+        val mask = patchEvdevProbes(data)
+        if (!data.contentEquals(before)) bin.writeBytes(data)
+        return mask
+    }
+
+    /** The in-memory part of [patchEvdevProbes]: patches [data] in place, returns the mask of probes now neutralised. */
+    internal fun patchEvdevProbes(data: ByteArray): Int {
         var mask = 0
-        var changed = false
         for ((i, p) in probePatches.withIndex()) {
             val at = indexOf(data, p.sig)
             if (at >= 0) {
                 data[at + p.nopAt] = 0x00; data[at + p.nopAt + 1] = 0xBF.toByte()   // nop
                 data[at + p.branchAt + 1] = 0xE0.toByte()                           // Bcc.N -> B.N, same target
-                changed = true; mask = mask or (1 shl i)
+                mask = mask or (1 shl i)
             } else {
                 val done = p.sig.copyOf().also {
                     it[p.nopAt] = 0x00; it[p.nopAt + 1] = 0xBF.toByte(); it[p.branchAt + 1] = 0xE0.toByte()
@@ -170,7 +202,6 @@ object RecoveryImage {
                 if (indexOf(data, done) >= 0) mask = mask or (1 shl i)
             }
         }
-        if (changed) bin.writeBytes(data)
         return mask
     }
 
@@ -281,7 +312,8 @@ object RecoveryImage {
     // ---- line_length hook ------------------------------------------------------------------------------------
 
     private const val HOOK_BYTES = 20                 // push r0 / ldr / lsl / str / pop r0
-    private const val CAVE_BYTES = HOOK_BYTES + 4 + 4 // + the displaced 32-bit instruction + the branch back
+    // the cave holds HOOK_BYTES, then the displaced instructions (4 or 6 bytes), then the 4-byte branch back
+    private fun caveBytes(moved: Int) = HOOK_BYTES + moved + 4
 
     private fun u32(d: ByteArray, o: Int) = u16(d, o) or (u16(d, o + 2) shl 16)
     private fun put32(d: ByteArray, o: Int, v: Int) { put16(d, o, v and 0xFFFF); put16(d, o + 2, v ushr 16) }
@@ -310,6 +342,73 @@ object RecoveryImage {
         return at + 4 + off
     }
 
+    /** a 16-bit Thumb instruction that can be moved elsewhere unchanged: nothing PC-relative, no branch, no IT */
+    private fun relocatable16(h: Int): Boolean {
+        if ((h and 0xF800) == 0x4800) return false                         // ldr rN,[pc,#imm]
+        if ((h and 0xF800) == 0xA000) return false                         // adr / add rN,pc,#imm
+        if ((h and 0xF000) == 0xD000) return false                         // b<cond>, svc, udf
+        if ((h and 0xF800) == 0xE000) return false                         // b
+        if ((h and 0xF500) == 0xB100) return false                         // cbz / cbnz
+        if ((h and 0xFF00) == 0xBD00) return false                         // pop {..., pc}
+        if ((h and 0xFF00) == 0xBF00 && h != 0xBF00) return false          // it / hints other than nop
+        if ((h and 0xFC00) == 0x4400) {                                    // add/cmp/mov on high registers, bx/blx
+            if ((h and 0xFF00) == 0x4700) return false
+            val rm = (h shr 3) and 0xF
+            val rd = (h and 7) or ((h shr 4) and 8)
+            if (rm == 15 || rd == 15) return false
+        }
+        return true
+    }
+
+    /**
+     * Length (4 or 6 bytes) of the whole instructions at [at] that a 4-byte B.W can replace, or null when one of them
+     * cannot be moved: a 32-bit instruction, two 16-bit ones, or a 16-bit one followed by a 32-bit one.
+     */
+    private fun movedLength(d: ByteArray, at: Int): Int? {
+        var n = 0
+        while (n < 4) {
+            if (at + n + 2 > d.size) return null
+            val wide = (u16(d, at + n) and 0xF800) >= 0xE800
+            if (wide) {
+                if (at + n + 4 > d.size || !relocatable32(d, at + n)) return null
+                n += 4
+            } else {
+                if (!relocatable16(u16(d, at + n))) return null
+                n += 2
+            }
+        }
+        return n
+    }
+
+    private fun signExtend(v: Int, bits: Int) = (v shl (32 - bits)) shr (32 - bits)
+
+    /** whether a branch in [from, to) lands in [lo, hi); a linear sweep, so a false alarm only means the hook is not used */
+    private fun branchInto(d: ByteArray, from: Int, to: Int, lo: Int, hi: Int): Boolean {
+        var j = from and 1.inv()
+        while (j + 2 <= to) {
+            val h = u16(d, j)
+            var target: Int? = null
+            when {
+                (h and 0xF000) == 0xD000 && ((h shr 8) and 0xF) < 0xE -> target = j + 4 + 2 * signExtend(h and 0xFF, 8)
+                (h and 0xF800) == 0xE000 -> target = j + 4 + 2 * signExtend(h and 0x7FF, 11)
+                (h and 0xF500) == 0xB100 -> target = j + 4 + ((((h shr 9) and 1) shl 6) or (((h shr 3) and 0x1F) shl 1))
+                (h and 0xF800) == 0xF000 && j + 4 <= d.size -> {
+                    val h2 = u16(d, j + 2)
+                    if ((h2 and 0xD000) == 0x9000) target = decodeBw(d, j)
+                    else if ((h2 and 0xD000) == 0x8000) { // b<cond>.w
+                        val s = (h shr 10) and 1
+                        val imm = (s shl 20) or (((h2 shr 11) and 1) shl 19) or (((h2 shr 13) and 1) shl 18) or
+                            ((h and 0x3F) shl 12) or ((h2 and 0x7FF) shl 1)
+                        target = j + 4 + signExtend(imm, 21)
+                    }
+                }
+            }
+            if (target != null && target >= lo && target < hi) return true
+            j += 2
+        }
+        return false
+    }
+
     /** a 32-bit Thumb-2 instruction that can be moved elsewhere unchanged: nothing PC-relative, no branch */
     private fun relocatable32(d: ByteArray, at: Int): Boolean {
         val h1 = u16(d, at); val h2 = u16(d, at + 2)
@@ -328,7 +427,10 @@ object RecoveryImage {
      * segment, behind a few instructions that scale the field, and replaced with a branch there:
      *
      *     push {r0}; ldr.w r0,[rFI,#0x2c]; lsl.w r0,r0,#1; str.w r0,[rFI,#0x2c]; pop {r0}   (no flags touched)
-     *     <the moved instruction>; b.w back
+     *     <the moved instruction(s)>; b.w back
+     *
+     * A B.W needs 4 bytes, so what is moved is one 32-bit instruction, or two 16-bit ones (or a 16-bit and a 32-bit one,
+     * the B.W then being followed by a nop). Samsung's ICS recovery has `str r5,[sp]; movs r2,#3` right there.
      *
      * Recognised shape (AOSP 4.4 / Wear gr_init): `movw r1,#0x4602; …; mov r2,rFI; bl ioctl; cmp r0,#0; bge ok`
      * with rFI a callee-saved register (it is the address of `fi`). Returns the number of words changed, 0 when the
@@ -363,24 +465,28 @@ object RecoveryImage {
 
         // already installed? (the moved instruction is behind a branch into the cave, whose first word is ours)
         decodeBw(d, hook)?.let { cave ->
-            if (cave in 0..d.size - CAVE_BYTES && u32(d, cave) == 0x0D04F84D && u32(d, cave + 4) == (0x002CF8D0 or rFi)) return 0
+            if (cave in 0..d.size - HOOK_BYTES - 4 && u32(d, cave) == 0x0D04F84D && u32(d, cave + 4) == (0x002CF8D0 or rFi)) return 0
         }
-        if (!relocatable32(d, hook)) return null
+        val moved = movedLength(d, hook) ?: return null
+        // nothing may jump into the middle of what is moved (a jump to `hook` itself is fine: it runs the B.W)
+        if (branchInto(d, maxOf(0, anchor - 0x200), minOf(d.size - 4, end), hook + 2, hook + moved)) return null
 
         // free space: zero padding behind the last executable segment, still inside its last page
-        val cave = findCave(d, hook) ?: return null
-        val back = encodeBw(cave.start + HOOK_BYTES + 4, hook + 4) ?: return null
+        val size = caveBytes(moved)
+        val cave = findCave(d, hook, size) ?: return null
+        val back = encodeBw(cave.start + HOOK_BYTES + moved, hook + moved) ?: return null
         val there = encodeBw(hook, cave.start) ?: return null
         put32(d, cave.start, 0x0D04F84D)                            // str r0,[sp,#-4]!  (push {r0})
         put32(d, cave.start + 4, 0x002CF8D0 or rFi)                 // ldr.w r0,[rFI,#0x2c]
         put32(d, cave.start + 8, 0x0040EA4F)                        // lsl.w r0,r0,#1
         put32(d, cave.start + 12, 0x002CF8C0 or rFi)                // str.w r0,[rFI,#0x2c]
         put32(d, cave.start + 16, 0x0B04F85D)                       // ldr r0,[sp],#4  (pop {r0})
-        put32(d, cave.start + HOOK_BYTES, u32(d, hook))             // the instruction the branch replaces
-        put32(d, cave.start + HOOK_BYTES + 4, back)
+        System.arraycopy(d, hook, d, cave.start + HOOK_BYTES, moved) // the instructions the branch replaces
+        put32(d, cave.start + HOOK_BYTES + moved, back)
         put32(d, hook, there)
-        put32(d, cave.header + 16, cave.fileSize + cave.start + CAVE_BYTES - cave.end) // p_filesz
-        put32(d, cave.header + 20, cave.memSize + cave.start + CAVE_BYTES - cave.end)  // p_memsz
+        if (moved == 6) put16(d, hook + 4, 0xBF00)                  // nop over the tail of the second instruction
+        put32(d, cave.header + 16, cave.fileSize + cave.start + size - cave.end) // p_filesz
+        put32(d, cave.header + 20, cave.memSize + cave.start + size - cave.end)  // p_memsz
         var changed = 3
         // an earlier version of this app halved the stride and doubled the second page instead: undo that, the
         // hook makes the original instructions right
@@ -391,7 +497,7 @@ object RecoveryImage {
     private class Cave(val start: Int, val end: Int, val header: Int, val fileSize: Int, val memSize: Int)
 
     /** zero bytes after the end of the executable PT_LOAD holding [at] that the loader maps anyway (rest of its page) */
-    private fun findCave(d: ByteArray, at: Int): Cave? {
+    private fun findCave(d: ByteArray, at: Int, size: Int): Cave? {
         if (d.size < 64 || u32(d, 0) != 0x464C457F || d[4].toInt() != 1 || d[5].toInt() != 1) return null
         val off = u32(d, 28); val sz = u16(d, 42); val n = u16(d, 44)
         if (sz < 32 || off < 52 || off + n * sz > d.size) return null
@@ -404,14 +510,14 @@ object RecoveryImage {
             val start = (end + 3) and 3.inv()
             val pageEndVa = (va + fs + 0xFFF) and 0xFFF.inv()
             val pageEnd = po + (pageEndVa - va)                             // end of the last mapped page, as a file offset
-            if (start + CAVE_BYTES > pageEnd || start + CAVE_BYTES > d.size) return null
+            if (start + size > pageEnd || start + size > d.size) return null
             for (k in 0 until n) {                                          // no other segment may use that page
                 val g = off + k * sz
                 if (k == i || u32(d, g) != 1) continue
                 val gv = u32(d, g + 8); val gm = u32(d, g + 20)
                 if (gm != 0 && gv < pageEndVa && gv + gm > va + fs) return null
             }
-            for (k in end until start + CAVE_BYTES) if (d[k].toInt() != 0) return null
+            for (k in end until start + size) if (d[k].toInt() != 0) return null
             return Cave(start, end, h, fs, ms)
         }
         return null

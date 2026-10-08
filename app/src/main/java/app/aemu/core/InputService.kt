@@ -87,7 +87,25 @@ class InputService(private val paths: VmPaths, private val log: (String) -> Unit
         } finally { trackballClients.remove(me) }
     }
 
+    /**
+     * Android 3.x/4.x pick the touch device type from the device's .idc file (named after the evdev name, "dhd-touch").
+     * Without one, 3.0/3.1 ignore it and 3.2 treats it as a touchpad (mouse cursor). Real devices ship such a file
+     * (e.g. Atmel_maXTouch_Touchscreen_controller.idc), so write one for the emulated screen unless the image has it.
+     */
+    private fun writeTouchIdc() {
+        runCatching {
+            val sys = java.io.File(paths.root, "system")
+            if (!sys.isDirectory) return
+            java.io.File(sys, "usr/idc/dhd-touch.idc").apply {
+                parentFile?.mkdirs()
+                if (!exists()) writeText("device.internal = 1\ntouch.deviceType = touchScreen\ntouch.orientationAware = 1\n")
+                setReadable(true, false)
+            }
+        }.onFailure { log("input: cannot write touch idc: ${it.message}") }
+    }
+
     fun serve(): Boolean {
+        writeTouchIdc()
         val ok = server.start(log)
         if (trackballEnabled) {
             // An emulator-owned node: no vendor library or original image is patched.
@@ -316,6 +334,27 @@ class InputService(private val paths: VmPaths, private val log: (String) -> Unit
         }
     }
 
+    private val comboRunning = java.util.concurrent.atomic.AtomicBoolean(false)
+
+    /**
+     * Stock recoveries show "No command" (a lying Android with a red triangle) until the menu is asked for with the
+     * hardware combination: hold Power, tap Volume Up, release Power. Pressed in exactly that order, with the
+     * pauses a person leaves; a second call while one is running is ignored.
+     */
+    fun enterStockRecoveryMenu() {
+        if (!comboRunning.compareAndSet(false, true)) return
+        Thread({
+            try {
+                key(KEY_POWER, true); Thread.sleep(600)
+                key(KEY_VOLUMEUP, true); Thread.sleep(200)
+                key(KEY_VOLUMEUP, false); Thread.sleep(300)
+                key(KEY_POWER, false)
+            } catch (_: InterruptedException) {
+                key(KEY_VOLUMEUP, false); key(KEY_POWER, false)
+            } finally { comboRunning.set(false) }
+        }, "recovery-menu-combo").apply { isDaemon = true; start() }
+    }
+
     fun press(code: Int, holdMs: Long = 80) {
         Thread {
             key(code, true)
@@ -412,5 +451,8 @@ class InputService(private val paths: VmPaths, private val log: (String) -> Unit
         const val KEY_VOLUMEDOWN = 114
         const val KEY_VOLUMEUP = 115
         const val KEY_APPSELECT = 580
+        const val KEY_ENTER = 28
+        const val KEY_UP = 103
+        const val KEY_DOWN = 108
     }
 }
