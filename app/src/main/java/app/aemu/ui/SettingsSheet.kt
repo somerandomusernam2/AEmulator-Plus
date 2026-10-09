@@ -140,6 +140,9 @@ fun SettingsSheet(img: GuestImage, onDismiss: () -> Unit, onSave: (VmSettings) -
             if (img.api in 9..25 && s.motionSensors) GyroLockPicker(s.gyroLock) { s = s.copy(gyroLock = it) }
             if (img.api in 16..25) Toggle(stringResource(R.string.vs_skip_setup), stringResource(R.string.vs_skip_setup_sub), s.skipSetupWizard) { s = s.copy(skipSetupWizard = it) }
             if (img.api in 9..25) Toggle(stringResource(R.string.vs_disable_google), stringResource(R.string.vs_disable_google_sub), s.disableGoogleApps) { s = s.copy(disableGoogleApps = it) }
+            if (img.api in 9..25) {
+                if (experimental || s.bluetooth) Toggle(stringResource(R.string.vs_bluetooth), stringResource(R.string.vs_bluetooth_sub), s.bluetooth) { s = s.copy(bluetooth = it) }
+            }
             if (img.api in 14..25) {
                 if (experimental || s.camera) Toggle(stringResource(R.string.vs_camera), stringResource(R.string.vs_camera_sub), s.camera) { s = s.copy(camera = it) }
                 else Text(stringResource(R.string.experimental_locked), style = MaterialTheme.typography.bodySmall)
@@ -164,12 +167,21 @@ fun SettingsSheet(img: GuestImage, onDismiss: () -> Unit, onSave: (VmSettings) -
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Ascii), modifier = Modifier.weight(1f))
                 TextButton(onClick = { s = s.copy(serial = VmSettings.randomSerial()) }) { Text(stringResource(R.string.vs_random)) }
             }
+            OutlinedTextField(value = s.kernel, onValueChange = { v -> s = s.copy(kernel = VmSettings.cleanKernel(v)) },
+                label = { Text(stringResource(R.string.vs_kernel)) }, placeholder = { Text(VmSettings.DEFAULT_KERNEL) },
+                supportingText = { Text(stringResource(R.string.vs_kernel_sub)) }, singleLine = true,
+                modifier = Modifier.fillMaxWidth().padding(top = 4.dp))
+            OutlinedTextField(value = s.baseband, onValueChange = { v -> s = s.copy(baseband = VmSettings.cleanBaseband(v)) },
+                label = { Text(stringResource(R.string.vs_baseband)) }, placeholder = { Text(VmSettings.DEFAULT_BASEBAND) },
+                supportingText = { Text(stringResource(R.string.vs_baseband_sub)) }, singleLine = true,
+                modifier = Modifier.fillMaxWidth().padding(top = 4.dp))
 
             Spacer(Modifier.height(8.dp))
             Text(stringResource(R.string.vs_advanced), style = MaterialTheme.typography.titleMedium)
             OutlinedTextField(value = s.qemuArgs, onValueChange = { s = s.copy(qemuArgs = it) },
                 label = { Text(stringResource(R.string.vs_qemu_args)) }, supportingText = { Text(stringResource(R.string.vs_qemu_args_sub)) },
                 modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp))
+            HardwarePicker(s.hardware) { s = s.copy(hardware = it) }
 
             Spacer(Modifier.height(8.dp))
             RecoverySection(img)
@@ -260,6 +272,27 @@ private fun GyroLockPicker(mode: Int, set: (Int) -> Unit) {
         colors = ListItemDefaults.colors(containerColor = Color.Transparent),
         modifier = Modifier.fillMaxWidth(),
     )
+}
+
+/** ro.hardware given to the guest: free text plus a menu of common values; blank = the firmware's own. */
+@Composable
+private fun HardwarePicker(value: String, set: (String) -> Unit) {
+    var open by remember { mutableStateOf(false) }
+    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
+        OutlinedTextField(value = value, onValueChange = { set(VmSettings.cleanHardware(it)) },
+            label = { Text(stringResource(R.string.vs_hardware)) }, placeholder = { Text(stringResource(R.string.vs_hardware_default)) },
+            supportingText = { Text(stringResource(R.string.vs_hardware_sub)) }, singleLine = true,
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Ascii), modifier = Modifier.weight(1f))
+        Box {
+            TextButton(onClick = { open = true }) { Text(stringResource(R.string.vs_hardware_pick)) }
+            DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
+                DropdownMenuItem(text = { Text(stringResource(R.string.vs_hardware_default)) }, onClick = { open = false; set("") })
+                VmSettings.HARDWARE_PRESETS.forEach { hw ->
+                    DropdownMenuItem(text = { Text(hw) }, onClick = { open = false; set(hw) })
+                }
+            }
+        }
+    }
 }
 
 @Composable

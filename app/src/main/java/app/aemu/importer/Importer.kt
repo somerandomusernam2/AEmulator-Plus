@@ -149,6 +149,8 @@ class Importer(
                 String(h, 0, 6, Charsets.US_ASCII) == "070702" ||
                 String(h, 0, 6, Charsets.US_ASCII) == "070707") ->
                 importCpioStream(streamOf(src), name, depth)
+            // full eMMC/UFS dump with a GUID partition table: boot / recovery / system are cut out of it
+            GptDisk.probe(h) && src.size > (1L shl 20) -> importGptDisk(src, name)
             // Huawei dload/UPDATE.APP: packet chain of raw partition images (the container has no name-based hint)
             HuaweiApp.probe(h) -> importHuaweiApp(src, name, strict = depth == 0)
             // Acer flash package (*.bin / *.nb0): table of named images, YAFFS2 rootfs + system
@@ -588,6 +590,9 @@ class Importer(
         // system folder dump at any depth (Firmware/system/…); null if the archive has none
         val sysRoot = findSystemRoot(names.filter { !it.contains("__MACOSX/") })
         if (sysRoot != null && sysRoot.isNotEmpty()) log("system folder dump under \"${sysRoot.trimEnd('/')}\"")
+        // zip of a raw system partition (build.prop + bin/ at the zip root, no system/ folder): all of it goes under system/
+        val rawDump = sysRoot == null && PartitionNames.isRawSystemDump(names)
+        if (rawDump) log("raw system partition dump (build.prop and bin/ at the archive root)")
         val bootEntries = ArrayList<Pair<String, ZipArchiveEntry>>()
         val pendingZips = ArrayList<ZipArchiveEntry>()
         // split sparse system (system.img_sparsechunk.N, system_sparsechunkN, system.img.N, system.N, system_N, …)
@@ -600,8 +605,20 @@ class Importer(
             val n = e.name.replace('\\', '/').removePrefix(wrap)
             val base = n.substringAfterLast('/')
             when {
-                e.isDirectory -> {}
                 n.contains("__MACOSX/") || base.startsWith("._") -> {}
+                rawDump -> {
+                    val rel = "system/" + n.trimStart('/')
+                    when {
+                        e.isDirectory -> FirmwareContainers.destination(root, rel).mkdirs()
+                        e.isUnixSymlink -> {
+                            val target = zip.getInputStream(e).use { String(it.readBytes(), Charsets.UTF_8) }
+                            if (target.isNotEmpty()) symlinks.add(target to "/$rel")
+                        }
+                        else -> zip.getInputStream(e).use { writeFile(rel, it, e.unixMode.takeIf { m -> m != 0 }) }
+                    }
+                    gotSystem = true
+                }
+                e.isDirectory -> {}
                 // everything inside a system folder dump belongs to it (never scanned for boot.img etc.)
                 systemRel(sysRoot, n) != null -> {
                     zip.getInputStream(e).use { writeFile(systemRel(sysRoot, n)!!, it, e.unixMode.takeIf { m -> m != 0 }) }
@@ -767,6 +784,9 @@ class Importer(
      * not expose entry streams.
      */
     private fun importSevenZ(ch: FileChannel, name: String, depth: Int) {
+        // handle() probed the header through the shared channel, which left it at that offset; SevenZFile reads
+        // its signature from the current position, hence "Bad 7z signature" on a perfectly good archive
+        ch.position(0)
         SevenZFile.builder().setSeekableByteChannel(ch).get().use { z ->
             val sysRoot = findSystemRoot(z.entries.map { it.name.replace('\\', '/').trimStart('/') })
             val nested = ArrayList<Pair<File, String>>()
@@ -823,7 +843,7 @@ class Importer(
                         val nestedFile = spill(entryStream, base)
                         nested.add(nestedFile to "tool")
                     }
-                    else -> drain(entryStream)
+                    else -> if (e.size < (4L shl 20) || !importGptStream(entryStream, base)) drain(entryStream)
                 }
                 onProgress("Extracting: $base", 0.5f)
             }
@@ -851,6 +871,90 @@ class Importer(
             }
             if (!gotSystem && nested.isEmpty()) log("no system found in archive $name")
         }
+    }
+
+    private fun applyGptPart(kind: GptDisk.Kind, src: RandomSource) {
+        when (kind) {
+            GptDisk.Kind.BOOT -> takeBoot(readAllFrom(src))
+            GptDisk.Kind.RECOVERY -> takeRecovery(streamOf(src), "recovery.img")
+            GptDisk.Kind.OEM -> importOem(src)
+            GptDisk.Kind.SYSTEM -> {
+                importImage(if (SparseSource.probe(src)) SparseSource(listOf(src)) else src, "system")
+                gotSystem = true
+            }
+        }
+    }
+
+    /** Random-access full dump (plain .img, nested file): partitions are used in place, nothing is copied. */
+    private fun importGptDisk(src: RandomSource, name: String) {
+        val first = ByteBuffer.allocate(8192)
+        src.read(0, first)
+        val fb = first.array()
+        val need = GptDisk.headSize(fb, fb.size) ?: throw IOException("$name: unreadable GPT")
+        val head = ByteBuffer.allocate(need).also { src.read(0, it) }.array()
+        val picks = GptDisk.pick(GptDisk.parse(head) ?: throw IOException("$name: unreadable GPT"))
+        if (picks.isEmpty()) throw IOException("$name: no boot/recovery/system partition in GPT")
+        log("$name: full dump, partitions " + picks.joinToString { "${it.second.name} ${it.second.size shr 20} MB" })
+        for ((kind, p) in picks) {
+            if (cancelled) throw IOException("cancelled")
+            applyGptPart(kind, SliceSource(src, p.start, minOf(p.size, src.size - p.start)))
+        }
+    }
+
+    /**
+     * Sequential full dump (a 7z entry cannot be seeked): only the wanted partitions are written to temp files
+     * and decompression stops after the last one, so a 4 GB dump is neither stored nor unpacked completely.
+     * Returns false (after consuming only the first bytes) if the stream is not a GPT disk.
+     */
+    private fun importGptStream(input: InputStream, label: String): Boolean {
+        val first = ByteArray(8192)
+        val n = GptDisk.readFully(input, first, 0, first.size)
+        val need = GptDisk.headSize(first, n) ?: return false
+        var head = first.copyOf(n)
+        if (need > n) {
+            val big = first.copyOf(need)
+            val got = GptDisk.readFully(input, big, n, need - n)
+            if (n + got < need) return false
+            head = big
+        }
+        val picks = GptDisk.pick(GptDisk.parse(head) ?: return false)
+        if (picks.isEmpty()) { log("$label: GPT disk without boot/recovery/system partitions"); return true }
+        log("$label: full dump, partitions " + picks.joinToString { "${it.second.name} ${it.second.size shr 20} MB" })
+        val dir = File(tmp, "gpt-${System.nanoTime()}").apply { mkdirs() }
+        try {
+            val outs = picks.map { (k, p) -> Triple(k, p, File(dir, "${k.name.lowercase()}.img")) }
+            val streams = outs.map { it.third.outputStream().buffered(1 shl 20) }
+            try {
+                val end = picks.maxOf { it.second.start + it.second.size }
+                var pos = 0L
+                fun feed(buf: ByteArray, len: Int) {
+                    for ((i, o) in outs.withIndex()) {
+                        val p = o.second
+                        val a = maxOf(p.start, pos)
+                        val b = minOf(p.start + p.size, pos + len)
+                        if (b > a) streams[i].write(buf, (a - pos).toInt(), (b - a).toInt())
+                    }
+                    pos += len
+                }
+                feed(head, head.size)
+                val buf = ByteArray(1 shl 20)
+                var tick = 0
+                while (pos < end) {
+                    if (cancelled) throw IOException("cancelled")
+                    if (tmp.usableSpace < (64L shl 20)) throw IOException("Not enough space to unpack firmware")
+                    val r = input.read(buf, 0, minOf(buf.size.toLong(), end - pos).toInt())
+                    if (r < 0) break
+                    if (r > 0) feed(buf, r)
+                    if (++tick % 16 == 0) onProgress("Reading $label", (pos.toFloat() / end).coerceIn(0f, 1f) * 0.5f)
+                }
+            } finally { streams.forEach { runCatching { it.close() } } }
+            for ((kind, _, f) in outs) {
+                if (cancelled) throw IOException("cancelled")
+                FileChannel.open(f.toPath(), StandardOpenOption.READ).use { c -> applyGptPart(kind, ChannelSource(c)) }
+                f.delete()
+            }
+        } finally { deleteTree(dir) }
+        return true
     }
 
     private fun importVdatPair(data: File, list: File, key: String, depth: Int) {
@@ -888,13 +992,13 @@ class Importer(
     private fun importRar(file: File, name: String, depth: Int) {
         if (depth > 8) throw IOException("nested archive depth exceeded")
         RarArchive(file).use { rar ->
-            val sysRoot = findSystemRoot(rar.fileHeaders.map { (it.fileNameString ?: "").replace('\\', '/').trimStart('/') })
+            val sysRoot = findSystemRoot(rar.fileHeaders.map { (it.fileName ?: "").replace('\\', '/').trimStart('/') })
             val pending = ArrayList<Pair<File, String>>()
             val vdat = LinkedHashMap<String, MutableMap<String, File>>()
             for (e: RarFileHeader in rar.fileHeaders) {
                 if (cancelled) throw IOException("cancelled")
                 if (e.isDirectory) continue
-                val entryName = (e.fileNameString ?: "").replace('\\', '/').trimStart('/')
+                val entryName = (e.fileName ?: "").replace('\\', '/').trimStart('/')
                 if (entryName.isBlank() || entryName.split('/').any { it == ".." }) continue
                 val base = entryName.substringAfterLast('/')
                 val sysRel = systemRel(sysRoot, entryName)
@@ -907,7 +1011,15 @@ class Importer(
                 if (!interesting) continue
                 val dir = File(tmp, "rar-${System.nanoTime()}").apply { mkdirs() }
                 val temp = File(dir, base).apply { parentFile?.mkdirs() }
-                temp.outputStream().use { out -> rar.extractFile(e, out) }
+                try {
+                    temp.outputStream().buffered(1 shl 20).use { out -> rar.extractFile(e, out) }
+                } catch (t: com.github.junrar.exception.RarException) {
+                    temp.delete()
+                    pending.forEach { it.first.delete() }
+                    vdat.values.forEach { slot -> slot.values.forEach { it.delete() } }
+                    throw IOException("RAR entry '$entryName' failed to unpack (${t.javaClass.simpleName}); " +
+                        "the archive may be damaged or the RAR decoder (junrar) is too old", t)
+                }
                 if (sysRel != null) {
                     FileInputStream(temp).use { input -> writeFile(sysRel, input, null) }
                     gotSystem = true
@@ -1075,7 +1187,8 @@ class Importer(
             val e: TarArchiveEntry = tar.nextEntry ?: break
             var n = e.name.removePrefix("./").trimStart('/')
             if (n.isEmpty()) continue
-            val base = n.substringAfterLast('/')
+            // Odin names members "system.img.md5", "boot.img.md5", ...: match on the real image name
+            val base = PartitionNames.stripOdinMd5(n.substringAfterLast('/'))
             // дерево rootfs целиком (system/, data/, dev/, …)
             if (fullRoot == null && (n == "system" || n.startsWith("system/") || n.startsWith("init.rc") || n.startsWith("default.prop"))) fullRoot = true
             when {
@@ -1295,7 +1408,8 @@ class Importer(
         fs.warnings.forEach { log("YAFFS2 $mount: $it") }
     }
 
-    private val LOOSE_RAMDISK = Regex("(?i)(ramdisk|initrd|initramfs)(\\.cpio)?(\\.(gz|xz|lzma|lz4))?")
+    // "ramdisk.img" is how Google's SDK system images (clockwork_sdk, sysimg_*) ship the root fs: a gzip'd cpio next to system.img
+    private val LOOSE_RAMDISK = Regex("(?i)(ramdisk|initrd|initramfs)(\\.cpio)?(\\.(gz|xz|lzma|lz4|img))?")
 
     /** Ramdisk shipped without a boot.img: a packed ramdisk.gz (cpio) or an unpacked initrd/ folder. */
     private fun takeLooseRamdisk(zip: ZipFile, entries: List<ZipArchiveEntry>, wrap: String, sysRoot: String?) {
@@ -1425,7 +1539,7 @@ class Importer(
             val f = FirmwareContainers.destination(root, n)
             when (type) {
                 0x4000 -> f.mkdirs()
-                0xA000 -> symlinks.add(String(e.data) to "/$n")
+                0xA000 -> symlinks.add(String(e.data).trimEnd('\u0000') to "/$n")
                 0x8000 -> {
                     if (n == "init" || n.startsWith("sbin/ueventd") || n.startsWith("sbin/adbd")) return@forEach
                     f.parentFile?.mkdirs(); f.writeBytes(e.data)

@@ -568,17 +568,20 @@ object DeltaOta {
     /**
      * Edits the app itself makes to imported files, undone on a copy so the OTA's SHA-1 of the stock file can
      * still be matched: libc's /proc/self/task/%d/maps string (5.0+), the personality() no-op in ELF files
-     * (6.0+), and the shebang added to shell scripts. The OTA's result is stock again; TreeFixer redoes its edits
+     * (6.0+), the shebang added to shell scripts, and the /proc/net/if_inet6 string of the Dalvik core dex. The OTA's result is stock again; TreeFixer redoes its edits
      * at the next start.
      */
     private class Fix(val strip: Boolean = false, val pers: Boolean = false, val maps: Int = -1,
                       /** libselinux: entries (file offset, bit 40 = Thumb) that ElfPatch.returnZero overwrote */
-                      val rets: List<Long> = emptyList()) {
-        val identity get() = !strip && !pers && maps < 0 && rets.isEmpty()
+                      val rets: List<Long> = emptyList(),
+                      /** Dalvik core odex/dex: the /proc/net/if_inet6 string that DexStringPatch swapped */
+                      val ifinet: Boolean = false) {
+        val identity get() = !strip && !pers && maps < 0 && rets.isEmpty() && !ifinet
         fun revert(b: ByteArray): ByteArray {
             if (identity) return b
             val d = if (strip) b.copyOfRange(SHEBANG.size, b.size) else b.copyOf()
             if (pers) personalitySites(d, true)
+            if (ifinet) DexStringPatch.undo(d)
             if (maps >= 0) for (k in ORIG_MAPS.indices) d[maps + k] = ORIG_MAPS[k]
             // returnZero() destroyed the first instructions of is_selinux_enabled() / is_selinux_mls_enabled(); AOSP's
             // versions just "return 1" ("movs r0, #1; bx lr" in Thumb, "mov r0, #1; bx lr" in ARM)
@@ -641,6 +644,7 @@ object DeltaOta {
             yield(Fix(maps = m))
             if (pers) yield(Fix(pers = true, maps = m))
         }
+        if (b.size > 1000 && b[0] == 'd'.code.toByte() && b[1] == 'e'.code.toByte() && DexStringPatch.apply(b.copyOf()) == 0) yield(Fix(ifinet = true))
         val sel = selinuxSites(b)
         if (sel.isNotEmpty()) for (mask in 1 until (1 shl sel.size)) yield(Fix(rets = sel.filterIndexed { i, _ -> mask and (1 shl i) != 0 }))
     }
@@ -680,6 +684,34 @@ object DeltaOta {
             for (fix in fixes(b)) if (!fix.identity && sha1(fix.revert(b)) == s.srcSha) return Loc.Need(f, fix)
         }
         return Loc.Bad(if (seen) "modified" else "missing")
+    }
+
+    /** What [matchBootImage] found: the boot image as the OTA sees it, and whether that is already the updated one. */
+    internal class BootMatch(val image: ByteArray, val isTarget: Boolean)
+
+    /**
+     * Compares the boot image a VM keeps with what an incremental OTA expects of the boot partition.
+     *
+     * The OTA names the partition as "EMMC:<device>:<size>:<sha1>[:<size>:<sha1>...]" (MTD: on Android 2.x), and
+     * applypatch hashes the first <size> bytes of the partition, not the whole of it. A boot image the VM keeps may be
+     * longer than that (a raw partition dump, or an image padded to the partition size) or shorter (the zero padding
+     * was dropped), so the image is cut or zero-padded to every size the OTA lists before it is hashed. The image as
+     * it is also counts, for OTAs whose partition name carries no sizes.
+     */
+    internal fun matchBootImage(b: ByteArray, spec: String, srcSha: String, tgtSha: String): BootMatch? {
+        fun probe(v: ByteArray): BootMatch? {
+            val h = sha1(v)
+            return when (h) {
+                srcSha -> BootMatch(v, false)
+                tgtSha -> BootMatch(v, true)
+                else -> null
+            }
+        }
+        probe(b)?.let { return it }
+        val sizes = spec.split(':').drop(2).chunked(2).mapNotNull { it.firstOrNull()?.toIntOrNull() }
+            .filter { it > 0 && it <= (64 shl 20) && it != b.size }.distinct()
+        for (n in sizes) probe(b.copyOf(n))?.let { return it }
+        return null
     }
 
     /** True if [path] (or its parked copy) hashes to one of [shas], also with the app's own edits undone. */
@@ -1141,8 +1173,8 @@ object DeltaOta {
                 val bootFile = File(paths.dir, "boot.img")
                 // block devices are named mmcblk0p9 and the like: then the boot partition is the one whose image this VM keeps
                 val bootGuess = if (plan.boot == null && plan.others.isNotEmpty() && bootFile.isFile) {
-                    val h = sha1(bootFile.readBytes())
-                    plan.others.firstOrNull { it.second.srcSha == h || it.second.tgtSha == h }
+                    val bytes = bootFile.readBytes()
+                    plan.others.firstOrNull { matchBootImage(bytes, it.second.path, it.second.srcSha, it.second.tgtSha) != null }
                 } else null
                 val bootStep = plan.boot ?: bootGuess?.second
                 for ((part, _) in plan.others) if (bootGuess == null || part != bootGuess.first) notes.add("partition \"$part\" is not part of a VM and was skipped")
@@ -1150,17 +1182,11 @@ object DeltaOta {
                 if (bootStep != null) {
                     if (bootFile.isFile) {
                         val b = bootFile.readBytes()
-                        val h = sha1(b)
-                        // a raw flash partition (MTD:boot:<size>:…) is the boot image padded with zeros to the partition size
-                        val padded = bootStep.path.split(':').getOrNull(2)?.toIntOrNull()
-                            ?.takeIf { it > b.size && it <= (64 shl 20) }?.let { b.copyOf(it) }
-                        val hp = padded?.let { sha1(it) }
+                        val m = matchBootImage(b, bootStep.path, bootStep.srcSha, bootStep.tgtSha)
                         when {
-                            h == bootStep.srcSha -> bootOld = b
-                            h == bootStep.tgtSha -> already++
-                            hp == bootStep.srcSha -> bootOld = padded
-                            hp == bootStep.tgtSha -> already++
-                            else -> bad.add("boot.img (modified)")
+                            m == null -> bad.add("boot.img (modified: SHA-1 ${sha1(b)}, ${b.size} bytes; the OTA expects ${bootStep.srcSha})")
+                            m.isTarget -> already++
+                            else -> bootOld = m.image
                         }
                     } else notes.add("This VM keeps no boot image, so the boot ramdisk was not updated.")
                 }

@@ -72,7 +72,12 @@ class GuestRunner(
         e["LOOP_MOUNTPOINT"] = img.exports["LOOP_MOUNTPOINT"] ?: "/mnt/obb"
         e["BOOTCLASSPATH"] = img.bootclasspath
         // 4.2+: зигота монтирует карту для каждого пользователя и без этих переменных роняет приложения
-        if (img.api >= 17) {
+        // 5.0+: Environment.isExternalStorageEmulated() ищет путь /storage/emulated/<user> среди томов MountService (storage_list.xml).
+        // У прошивки с единственным физическим томом (SDK/goldfish: /storage/sdcard) такого тома нет, и ActivityManager не может
+        // запустить ни один процесс приложения ("Failed to find storage device at /storage/emulated/0"), так что эти переменные не задаём.
+        val ext = img.exports["EXTERNAL_STORAGE"]
+        val physicalOnly = img.api >= 21 && ext != null && !ext.startsWith("/storage/emulated")
+        if (img.api >= 17 && !physicalOnly) {
             e.putIfAbsent("EMULATED_STORAGE_SOURCE", "/mnt/shell/emulated")
             e.putIfAbsent("EMULATED_STORAGE_TARGET", "/storage/emulated")
         }
@@ -80,6 +85,8 @@ class GuestRunner(
         e["TMPDIR"] = "/data/local/tmp"
         e["ASHMEM_SHIM_DIR"] = "/data/local/tmp"
         e["TZ"] = "UTC"
+        // uname -r / os.version: qemu-user reports this release instead of the host kernel's
+        if (img.settings.kernel.isNotBlank()) e["QEMU_UNAME"] = VmSettings.kernelRelease(img.settings.kernel)
         e["DHD_FB_W"] = s.width.toString()
         e["DHD_FB_H"] = s.height.toString()
         e["DHD_IN_W"] = s.width.toString()

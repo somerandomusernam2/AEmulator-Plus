@@ -25,4 +25,7 @@
     <string name="nav_sensitivity">Sensitivity: %1$d dp per step (lower is faster)</string>
     <string name="nav_trackball_waiting">No guest trackball connection yet</string>
     <string name="nav_trackball_recovery">Recovery: use arrow-key mode</string>
+    <string name="vs_bluetooth">Host Bluetooth (experimental)</string>
+    <string name="vs_bluetooth_sub">Let the guest scan, pair-list, and talk to Bluetooth devices through the phone: classic serial (RFCOMM) and Bluetooth LE (GATT). Needs Bluetooth permission and a full VM restart. Not raw HCI: the guest sees the phone adapter through a bridge, so headsets (audio profiles) are not supported.</string>
+    <string name="bluetooth_permission_denied">Bluetooth permission denied: the guest will boot without host Bluetooth.</string>
 </resources>

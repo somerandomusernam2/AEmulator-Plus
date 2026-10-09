@@ -20,4 +20,29 @@ internal object PartitionNames {
     fun isBoot(base: String) = BOOT.matches(base)
     /** recovery image (optionally lz4-framed, optionally signed) or a TWRP raw recovery.*.win backup. */
     fun isRecovery(base: String) = RECOVERY.matches(base)
+
+    /**
+     * Older Samsung Odin packages (e.g. GT-S5303 .tar.md5) name every tar member "<image>.md5" - "system.img.md5",
+     * "boot.img.md5", "recovery.img.md5" - with the payload being the plain image. Strip that suffix so the
+     * partition matchers above see the real name. Nested "*.tar.md5" archives keep their suffix.
+     */
+    fun stripOdinMd5(base: String): String =
+        if (base.endsWith(".md5", true) && !base.endsWith(".tar.md5", true) && base.length > 4) base.dropLast(4) else base
+
+    /**
+     * A zip of a raw /system partition (the contents of system.img, not a "system/" folder inside it):
+     * build.prop and a bin/ directory sit at the zip root. Everything in it is then placed under system/.
+     */
+    fun isRawSystemDump(names: Collection<String>): Boolean {
+        var buildProp = false
+        var bin = false
+        for (raw in names) {
+            val n = raw.replace('\\', '/').trimStart('/')
+            if (n.startsWith("__MACOSX/")) continue
+            if (n == "build.prop") buildProp = true
+            else if (n == "bin" || n.startsWith("bin/")) bin = true
+            if (buildProp && bin) return true
+        }
+        return false
+    }
 }

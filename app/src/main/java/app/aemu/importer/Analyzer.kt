@@ -68,6 +68,8 @@ class Analyzer(private val ctx: Context, private val paths: VmPaths, private val
         val warnings = ArrayList<String>()
         if (noBuildProp) warnings += "No system/build.prop: Android version was inferred from the system tree."
         if (rcFiles.isEmpty() && dhdBcp == null) warnings += "No boot.img in firmware: boot plan and BOOTCLASSPATH were guessed."
+        if (api >= 19 && plan.none { it.name == "healthd" })
+            warnings += "No healthd in the boot plan (no /sbin/healthd; ramdisk missing from the import?): system_server will die in BatteryService."
         if (abi.startsWith("arm64")) warnings += "64-bit firmware: only 32-bit ARM is supported."
         if (abi.startsWith("x86") || abi.startsWith("mips")) warnings += "Firmware is not ARM ($abi) and will not run."
         if (api >= 21) warnings += "Android ${release}: support is experimental (ART, SELinux)."

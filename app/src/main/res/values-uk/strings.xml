@@ -113,6 +113,10 @@
     <string name="vs_advanced">Додатково</string>
     <string name="vs_qemu_args">Дод. параметри qemu</string>
     <string name="vs_qemu_args_sub">Приклад: -d unimp DHD_TBFLUSH=2 (ІМʼЯ=значення стає змінною оточення)</string>
+    <string name="vs_hardware">ro.hardware</string>
+    <string name="vs_hardware_default">Типове для прошивки</string>
+    <string name="vs_hardware_pick">Обрати</string>
+    <string name="vs_hardware_sub">Значення ro.hardware, яке отримує гість під час запуску. За ним система шукає HAL-бібліотеки (gralloc.&lt;значення&gt;.so, lights.&lt;значення&gt;.so…), тож змінюйте його лише якщо знаєте, чого чекає прошивка. Діє після повного перезапуску ВМ.</string>
     <string name="m_power_menu">Меню живлення</string>
     <string name="m_keyboard">Показати/сховати клавіатуру</string>
     <string name="m_paste">Вставити текст з буфера</string>

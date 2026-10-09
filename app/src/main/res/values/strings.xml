@@ -120,10 +120,18 @@
     <string name="vs_random">Random</string>
     <string name="vs_device_id">Device identity</string>
     <string name="vs_serial">Serial number</string>
+    <string name="vs_kernel">Kernel version</string>
+    <string name="vs_kernel_sub">Shown in /proc/version and uname -r (e.g. 3.0.31-custom, or a full "Linux version ..." line). Applied on next boot. Blank = default</string>
+    <string name="vs_baseband">Baseband version</string>
+    <string name="vs_baseband_sub">Reported as gsm.version.baseband and by the modem. Applied on next boot. Blank = default</string>
     <string name="vs_serial_sub">Reported as ro.serialno and ro.boot.serialno (letters and digits, up to 32). Applied on next boot. Blank = default</string>
     <string name="vs_advanced">Advanced</string>
     <string name="vs_qemu_args">Extra qemu options</string>
     <string name="vs_qemu_args_sub">Example: -d unimp DHD_TBFLUSH=2 (NAME=value becomes an environment variable)</string>
+    <string name="vs_hardware">ro.hardware</string>
+    <string name="vs_hardware_default">Firmware default</string>
+    <string name="vs_hardware_pick">Choose</string>
+    <string name="vs_hardware_sub">Value of ro.hardware given to the guest at launch. The system looks up HAL libraries by it (gralloc.&lt;value&gt;.so, lights.&lt;value&gt;.so…), so change it only if you know what the firmware expects. Takes effect after a full VM restart.</string>
     <string name="m_power_menu">Power menu</string>
     <string name="m_keyboard">Show/hide keyboard</string>
     <string name="m_paste">Paste text from clipboard</string>

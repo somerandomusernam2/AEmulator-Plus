@@ -33,7 +33,7 @@ android {
         //noinspection ExpiredTargetSdkVersion
         targetSdk = 28
         versionCode = 32
-        versionName = "0.0.0.2.6" // <AEmulator base>.<Plus release>
+        versionName = "0.0.0.2.7" // <AEmulator base>.<Plus release>
         ndk { abiFilters += listOf("arm64-v8a") }
     }
 
@@ -96,7 +96,7 @@ dependencies {
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.10.2")
     implementation("org.tukaani:xz:1.10")
     implementation("org.apache.commons:commons-compress:1.28.0")
-    implementation("com.github.junrar:junrar:7.5.5")
+    implementation("com.github.junrar:junrar:8.1.1")
     implementation("org.brotli:dec:0.1.2")
     implementation("net.lingala.zip4j:zip4j:2.11.6")
     implementation("com.github.luben:zstd-jni:1.5.7-4@aar")

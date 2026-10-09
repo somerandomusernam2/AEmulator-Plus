@@ -46,6 +46,9 @@ object DiagExport {
                     val f = File(vm.paths.root, rel)
                     if (f.isFile && f.length() < 8L shl 20) addFile(zip, "guest/$rel", f)
                 }
+                // stack dumps (ANR / boot-stall SIGQUIT): the first thing needed to see where system_server is blocked
+                File(vm.paths.root, "data/anr").listFiles()?.filter { it.isFile && it.length() < (8L shl 20) }
+                    ?.forEach { addFile(zip, "guest/data/anr/${it.name}", it) }
                 File(vm.paths.root, "data").listFiles()?.filter { it.isFile && (it.extension == "log" || it.extension == "txt") && it.length() < (4L shl 20) }
                     ?.forEach { addFile(zip, "guest/data/${it.name}", it) }
             }

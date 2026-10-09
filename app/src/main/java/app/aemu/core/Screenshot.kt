@@ -51,6 +51,19 @@ object Screenshot {
         }
     }
 
+    /**
+     * For the in-app GPU bridge (frames go straight to the SurfaceView and fb0 stays empty):
+     * [bmp] is a PixelCopy of the surface. Scaled to the guest size [w]×[h] when they differ.
+     */
+    fun takeBitmap(ctx: Context, vmId: String, bmp: Bitmap, w: Int, h: Int): String? {
+        val stamp = SimpleDateFormat("yyyyMMdd-HHmmss", Locale.US).format(Date())
+        val src = if (w > 0 && h > 0 && (bmp.width != w || bmp.height != h)) Bitmap.createScaledBitmap(bmp, w, h, true) else bmp
+        val out = ByteArrayOutputStream()
+        src.compress(Bitmap.CompressFormat.PNG, 100, out)
+        if (src !== bmp) src.recycle()
+        return save(ctx, withDpi(out.toByteArray(), DPI), "$stamp-$vmId.png")
+    }
+
     private fun pullRaw(ctx: Context, fb: File, name: String): File? {
         for (dir in listOf(phoneDir(), ctx.cacheDir)) {
             val dst = File(dir, name)

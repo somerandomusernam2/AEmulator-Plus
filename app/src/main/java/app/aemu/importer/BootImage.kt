@@ -194,7 +194,14 @@ object BootImage {
             dataStart = (dataStart + 3) and 3.inv()
             if (name == "TRAILER!!!") break
             require(dataStart.toLong() + fileSize <= d.size) { "Truncated ramdisk" }
-            val data = d.copyOfRange(dataStart, dataStart + fileSize)
+            var data = d.copyOfRange(dataStart, dataStart + fileSize)
+            // The kernel's gen_init_cpio (Samsung zImage initramfs) stores a symlink target with its trailing NUL
+            // counted in the payload size; the NUL is not part of the target and made checkLink reject the link.
+            if ((mode and 0xF000) == 0xA000) {
+                var end = data.size
+                while (end > 0 && data[end - 1] == 0.toByte()) end--
+                if (end != data.size) data = data.copyOfRange(0, end)
+            }
             out.add(CpioEntry(name.removePrefix("./").trimStart('/'), mode, data))
             off = (dataStart + fileSize + 3) and 3.inv()
         }

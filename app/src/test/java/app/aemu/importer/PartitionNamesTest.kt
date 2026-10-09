@@ -27,4 +27,27 @@ class PartitionNamesTest {
         // not an image: a folder / fastboot word, other partitions, other files
         for (n in listOf("oem", "oem.xml", "oemsbl.img", "system.img", "oem_config.bin")) assertFalse(n, PartitionNames.isOem(n))
     }
+
+    @Test fun odinMd5MemberNames() {
+        // GT-S5303 style Odin tar.md5: every member carries an extra ".md5"
+        assertTrue(PartitionNames.isSystem(PartitionNames.stripOdinMd5("system.img.md5")))
+        assertTrue(PartitionNames.isBoot(PartitionNames.stripOdinMd5("boot.img.md5")))
+        assertTrue(PartitionNames.isRecovery(PartitionNames.stripOdinMd5("recovery.img.md5")))
+        assertTrue(PartitionNames.isSystem(PartitionNames.stripOdinMd5("factoryfs.img.md5")))
+        // nested tar.md5 keeps its suffix; plain names are untouched
+        assertTrue(PartitionNames.stripOdinMd5("CODE_S5303.tar.md5") == "CODE_S5303.tar.md5")
+        assertTrue(PartitionNames.stripOdinMd5("system.img") == "system.img")
+        assertTrue(PartitionNames.stripOdinMd5(".md5") == ".md5")
+    }
+
+    @Test fun rawSystemDumpZip() {
+        assertTrue(PartitionNames.isRawSystemDump(listOf("build.prop", "bin/", "bin/sh", "framework/framework.jar")))
+        assertTrue(PartitionNames.isRawSystemDump(listOf("bin/sh", "app/a.apk", "build.prop")))
+        // wrong layouts: nested folder, missing bin, missing build.prop, only macOS junk
+        assertFalse(PartitionNames.isRawSystemDump(listOf("system/build.prop", "system/bin/sh")))
+        assertFalse(PartitionNames.isRawSystemDump(listOf("build.prop", "app/a.apk")))
+        assertFalse(PartitionNames.isRawSystemDump(listOf("bin/sh", "etc/hosts")))
+        assertFalse(PartitionNames.isRawSystemDump(listOf("__MACOSX/build.prop", "__MACOSX/bin/sh")))
+        assertFalse(PartitionNames.isRawSystemDump(listOf("binary/x", "build.prop")))
+    }
 }

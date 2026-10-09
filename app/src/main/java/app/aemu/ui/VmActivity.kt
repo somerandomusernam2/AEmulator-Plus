@@ -130,6 +130,7 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.ComposeView
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import app.aemu.core.BluetoothPermissions
 import app.aemu.core.Engine
 import app.aemu.core.GuestLog
 import app.aemu.core.GuestVm
@@ -166,10 +167,19 @@ class VmActivity : ComponentActivity() {
     private var cutoutInsets = androidx.core.graphics.Insets.NONE
     private var orientationListener: android.view.OrientationEventListener? = null
     private var updateGuestLayout: (() -> Unit)? = null
-    private val cameraPermission = registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+    /** Camera and Bluetooth are requested together so the VM boots once, after the person has answered. */
+    private val hostPermissions = registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { result ->
         if (::vm.isInitialized) {
-            vm.log("camera: host permission ${if (granted) "granted" else "denied"}")
-            if (!granted) toast(getString(R.string.camera_permission_denied))
+            result[android.Manifest.permission.CAMERA]?.let { granted ->
+                vm.log("camera: host permission ${if (granted) "granted" else "denied"}")
+                if (!granted) toast(getString(R.string.camera_permission_denied))
+            }
+            val bluetooth = result.filterKeys { it in BluetoothPermissions.required() }
+            if (bluetooth.isNotEmpty()) {
+                val granted = bluetooth.values.all { it }
+                vm.log("bluetooth: host permission ${if (granted) "granted" else "denied"}")
+                if (!granted) toast(getString(R.string.bluetooth_permission_denied))
+            }
             bootIfStopped()
         }
     }
@@ -306,10 +316,14 @@ class VmActivity : ComponentActivity() {
         })
 
         registerShell()
-        if (s.camera && vm.cameraSupported &&
-            checkSelfPermission(android.Manifest.permission.CAMERA) != android.content.pm.PackageManager.PERMISSION_GRANTED &&
-            (vm.state == GuestVm.State.STOPPED || vm.state == GuestVm.State.FAILED)) {
-            cameraPermission.launch(android.Manifest.permission.CAMERA)
+        val needed = buildList {
+            if (s.camera && vm.cameraSupported &&
+                checkSelfPermission(android.Manifest.permission.CAMERA) != android.content.pm.PackageManager.PERMISSION_GRANTED)
+                add(android.Manifest.permission.CAMERA)
+            if (s.bluetooth && vm.bluetoothSupported) addAll(BluetoothPermissions.missing(this@VmActivity))
+        }
+        if (needed.isNotEmpty() && (vm.state == GuestVm.State.STOPPED || vm.state == GuestVm.State.FAILED)) {
+            hostPermissions.launch(needed.toTypedArray())
         } else bootIfStopped()
     }
 
@@ -487,6 +501,22 @@ class VmActivity : ComponentActivity() {
         val g = guest
         val vmId = vm.img.id
         val fmt = if (vm.recoveryMode) vm.recoveryFormat else g.format
+        // in-app GPU bridge: the guest never writes fb0, the frame only exists on the SurfaceView
+        if (g.passthrough && surfaceView.width > 0 && surfaceView.height > 0 && surfaceView.holder.surface.isValid) {
+            val bmp = android.graphics.Bitmap.createBitmap(surfaceView.width, surfaceView.height, android.graphics.Bitmap.Config.ARGB_8888)
+            val h = android.os.Handler(android.os.Looper.getMainLooper())
+            runCatching {
+                android.view.PixelCopy.request(surfaceView, bmp, { res ->
+                    thread {
+                        val saved = if (res == android.view.PixelCopy.SUCCESS)
+                            runCatching { app.aemu.core.Screenshot.takeBitmap(this, vmId, bmp, g.w, g.h) }.getOrNull() else null
+                        bmp.recycle()
+                        toast(if (saved != null) getString(R.string.m_screenshot_saved, saved) else getString(R.string.m_failed))
+                    }
+                }, h)
+            }.onFailure { bmp.recycle(); toast(getString(R.string.m_failed)) }
+            return
+        }
         thread {
             val saved = runCatching { app.aemu.core.Screenshot.take(this, vmId, g.fb, g.w, g.h, fmt, g.pages, g.shownPage) }.getOrNull()
             toast(if (saved != null) getString(R.string.m_screenshot_saved, saved) else getString(R.string.m_failed))

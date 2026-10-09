@@ -98,10 +98,13 @@ class GuestVm(val ctx: Context, val img: GuestImage, val lowPowerBoot: Boolean =
     val cameraSupported get() = engine == Engine.KK && img.api in 14..25 && !recoveryMode && !nativeUi
     private val camera = HostCameraBridge(ctx, paths, { settings.camera && cameraSupported }, ::log)
     fun cameraVisible(visible: Boolean) { camera.visible(visible) }
+    val bluetoothSupported get() = engine == Engine.KK && img.api in 9..25 && !recoveryMode && !nativeUi
+    private val bluetooth = BluetoothBridge(ctx, paths, { settings.bluetooth && bluetoothSupported }, ::log)
     // 2.x пишет в /dev/eac через AudioHardwareGeneric на 44,1 кГц, HAL 4.x движка — на 48 кГц
     val audio = AudioOut(paths, ::log, if (img.api < 14) 44100 else AudioOut.RATE,
         if (TreeFixer.isMtkAudio(paths.root)) "dev/aemu_pcm" else "dev/eac")
-    val ril = RilStub(paths, ::log, img.settings.imei.ifBlank { VmSettings.DEFAULT_IMEI }, img.api)
+    val ril = RilStub(paths, ::log, img.settings.imei.ifBlank { VmSettings.DEFAULT_IMEI }, img.api,
+        VmSettings.cleanBaseband(img.settings.baseband).ifBlank { VmSettings.DEFAULT_BASEBAND })
     val vold = VoldStub(paths, img.sdcardPath, ::log, others = img.volumes)
     var onFrame: (() -> Unit)? = null
     val frames = FrameBell(paths, ::log) { onFrame?.invoke() }
@@ -136,6 +139,7 @@ class GuestVm(val ctx: Context, val img: GuestImage, val lowPowerBoot: Boolean =
             vibration.stop()
             battery.stop()
             camera.stop()
+            bluetooth.stop()
             motion.stop()
             failure = t.message ?: t.toString()
             log("✖ boot aborted: $failure")
@@ -228,6 +232,7 @@ class GuestVm(val ctx: Context, val img: GuestImage, val lowPowerBoot: Boolean =
         overrides["ro.aemu.host"] = "qemu-user"
         overrides["ro.serialno"] = serial
         overrides["ro.boot.serialno"] = serial
+        VmSettings.cleanBaseband(settings.baseband).takeIf { it.isNotEmpty() }?.let { overrides["gsm.version.baseband"] = it }
         overrides["persist.sys.timezone"] = gmtZone()
         // debugging: run/props.extra — key=value lines on top of everything else
         File(paths.bin, "props.extra").takeIf { it.isFile }?.readLines()?.forEach { l ->
@@ -455,6 +460,13 @@ class GuestVm(val ctx: Context, val img: GuestImage, val lowPowerBoot: Boolean =
         val serial = VmSettings.cleanSerial(s.serial).ifBlank { VmSettings.DEFAULT_SERIAL }
         overrides["ro.serialno"] = serial
         overrides["ro.boot.serialno"] = serial
+        // baseband from the settings; the RIL stub answers the same string
+        VmSettings.cleanBaseband(s.baseband).takeIf { it.isNotEmpty() }?.let { overrides["gsm.version.baseband"] = it }
+        // ro.hardware from the settings (blank = the firmware's own value); the guest picks HAL libraries by it
+        VmSettings.cleanHardware(s.hardware).takeIf { it.isNotEmpty() }?.let {
+            overrides["ro.hardware"] = it
+            log("props: ro.hardware=$it (from settings)")
+        }
         if (s.camera && cameraSupported) overrides["ro.hardware.camera"] = "aemu_host"
         if (img.api in 9..25) overrides["ro.hardware.sensors"] = "aemu_host"
         overrides["dalvik.vm.execution-mode"] = if (s.jit) "int:jit" else "int:fast"
@@ -470,6 +482,10 @@ class GuestVm(val ctx: Context, val img: GuestImage, val lowPowerBoot: Boolean =
         // PBO для текстур шрифтов (hwui 4.4+ на GLES3) ломают часть драйверов (Mali) — грузим текстуры напрямую
         if (HostInfo.gpu().contains("mali")) overrides["ro.hwui.use_gpu_pixel_buffers"] = "false"
         if (img.api in 19..20) overrides["persist.sys.dalvik.vm.lib"] = "libdvm.so"
+        // Glass (4.0.x): CameraService's Gcam (HDR+) path pre-allocates 2592x1944 buffers in the OMAP format 0x100
+        // (TI NV12); the emulated gralloc refuses it (EINVAL), dequeueBuffer fails and libgui then dereferences a null
+        // buffer: mediaserver dies with SIGSEGV on the first camera open. Without Gcam the plain HAL path is used.
+        if (img.api in 9..15) overrides["persist.lab.gcam"] = "0"
         // зигота 4.4+ заранее открывает EGL; дети после fork наследуют соединение моста, и гостевая
         // библиотека моста уходит в бесконечную рекурсию (падение по стеку в каждом приложении)
         if (img.api >= 19) overrides["ro.zygote.disable_gl_preload"] = "1"
@@ -525,6 +541,7 @@ class GuestVm(val ctx: Context, val img: GuestImage, val lowPowerBoot: Boolean =
         vibration.serve()
         motion.serve()
         if (s.camera && cameraSupported) camera.serve()
+        if (s.bluetooth && bluetoothSupported) bluetooth.serve()
         frames.serve()
         if (s.radio) ril.serve() else log("radio: emulation disabled in settings")
         vold.serve()
@@ -584,7 +601,7 @@ class GuestVm(val ctx: Context, val img: GuestImage, val lowPowerBoot: Boolean =
         if (!waitFor("binder socket", 15_000) { paths.binderSock.exists() }) error("binderd failed to start")
 
         // 5. службы гостя по плану из init.rc прошивки
-        val plan = img.services.ifEmpty { InitPlan.fallback(img, paths.root) }
+        val plan = img.services.filter { it.name !in InitPlan.NEVER_START }.ifEmpty { InitPlan.fallback(img, paths.root) }
         var glDone = false
         for (svc in plan) {
             if (stopping) return
@@ -596,8 +613,12 @@ class GuestVm(val ctx: Context, val img: GuestImage, val lowPowerBoot: Boolean =
             if (svc.name == "zygote" && img.api >= 9 && engine == Engine.KK && File(paths.root, "system/framework/aemu-stubs.jar").isFile) {
                 // 2.2–4.1 look up "bluetooth" instead; without it BluetoothAdapter is null and the vendor's Bluetooth apps crash
                 val btName = if (img.api >= 17) "bluetooth_manager" else "bluetooth"
+                // Android 4.4 (API 19, incl. the KKWT Wear image): the real bridge client; everything else keeps the placeholder
+                val bridgeJar = img.api == 19 && File(paths.root, "system/framework/aemu-bt.jar").isFile
+                synchronized(procs) { procs.remove("aemu-bt") }?.let { runCatching { it.destroyForcibly() } }
                 startService(GuestService("aemu-bt", listOf("/system/bin/app_process",
-                    "-Djava.class.path=/system/framework/aemu-stubs.jar", "/system/bin", "app.aemu.stub.BtStub", btName), optional = true))
+                    "-Djava.class.path=/system/framework/${if (bridgeJar) "aemu-bt.jar" else "aemu-stubs.jar"}", "/system/bin",
+                    if (bridgeJar) "app.aemu.stub.BtService" else "app.aemu.stub.BtStub", btName), optional = true))
             }
             // 5.0–7.x: a registered network, otherwise ConnectivityService says "no active network" and browsers stay offline
             if (svc.name == "zygote" && img.api in 21..25 && engine == Engine.KK && File(paths.root, "system/framework/aemu-stubs.jar").isFile) {
@@ -783,7 +804,7 @@ class GuestVm(val ctx: Context, val img: GuestImage, val lowPowerBoot: Boolean =
     }
 
     private fun onCtl(start: Boolean, svc: String) {
-        val plan = img.services.ifEmpty { InitPlan.fallback(img, paths.root) }
+        val plan = img.services.filter { it.name !in InitPlan.NEVER_START }.ifEmpty { InitPlan.fallback(img, paths.root) }
         if (svc == "bootanim" || svc == "bootanimation" || svc == "samsungani") {
             if (!start) {
                 // 4.x sets service.bootanim.exit first and the animation quits on its own, closing its audio.
@@ -846,7 +867,10 @@ class GuestVm(val ctx: Context, val img: GuestImage, val lowPowerBoot: Boolean =
             "com.google.android.apps.maps/com.google.android.location.NetworkLocationService",
         )
         // PATH of 2.2–4.x starts with /sbin: the pm script's "app_process" is then looked up there and qemu gives up
-        for (c in list) runCatching { guestRunner.run(listOf("/system/bin/sh", "-c", "export PATH=/system/bin:/system/xbin:\$PATH; pm disable $c"), 120_000) }
+        // Glass needs the "network" provider (settings' NewTimeZoneService requests it at boot and dies without it)
+        val glass = GlassLocationPolicy.isGlass(img.name, img.model, File(paths.root, "system/app/GlassBluetooth.apk").isFile ||
+            File(paths.root, "system/.aemu-parked/system#app#GlassBluetooth.apk").isFile)
+        for (c in list) if (!GlassLocationPolicy.keepEnabled(c, glass)) runCatching { guestRunner.run(listOf("/system/bin/sh", "-c", "export PATH=/system/bin:/system/xbin:\$PATH; pm disable $c"), 120_000) }
         runCatching { marker.writeText("1") }
     }
 
@@ -1055,7 +1079,7 @@ class GuestVm(val ctx: Context, val img: GuestImage, val lowPowerBoot: Boolean =
             val pid = d.name.toIntOrNull() ?: return@forEach
             val cmd = runCatching { String(File(d, "cmdline").readBytes(), Charsets.ISO_8859_1) }.getOrNull() ?: return@forEach
             // app_process с aemu-stubs.jar — наша заглушка bluetooth_manager, не приложение зиготы
-            if (cmd.contains(marker) && cmd.contains("/system/bin/app_process") && !cmd.contains("aemu-stubs.jar")) {
+            if (cmd.contains(marker) && cmd.contains("/system/bin/app_process") && !cmd.contains("aemu-stubs.jar") && !cmd.contains("aemu-bt.jar")) {
                 runCatching { AProcess.sendSignal(pid, 9) }; n++
             }
         }
@@ -1072,6 +1096,7 @@ class GuestVm(val ctx: Context, val img: GuestImage, val lowPowerBoot: Boolean =
         vibration.stop()
         battery.stop()
         camera.stop()
+        bluetooth.stop()
         motion.stop()
         runCatching { guestRunner.run(listOf("/system/bin/sync"), 5_000) }
         killAll()

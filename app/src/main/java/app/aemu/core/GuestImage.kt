@@ -37,6 +37,8 @@ data class VmSettings(
     val hostBattery: Boolean = true,
     /** Explicit host-camera opt-in; applies at the next full VM boot. */
     val camera: Boolean = false,
+    /** Experimental host Bluetooth passthrough (scan, RFCOMM, GATT); applies at the next full VM boot. */
+    val bluetooth: Boolean = false,
     val motionSensors: Boolean = false,
     /** With host motion sensors: 0 = disabled (real orientation), 1 = locked to 0°, 2 = locked to 180°, 3 = no gyroscope (see [GyroLock]). */
     val gyroLock: Int = GyroLock.DISABLED,
@@ -54,8 +56,14 @@ data class VmSettings(
     val imei: String = "",
     /** ro.serialno / ro.boot.serialno reported to the guest; blank = default sample serial */
     val serial: String = "",
+    /** kernel version shown in /proc/version and uname -r; blank = built-in default. A full "Linux version ..." line is used as is */
+    val kernel: String = "",
+    /** gsm.version.baseband and the modem's baseband answer; blank = default */
+    val baseband: String = "",
     /** extra qemu options; KEY=VALUE tokens are passed as environment variables */
     val qemuArgs: String = "",
+    /** ro.hardware given to the guest at launch; blank = whatever the firmware defines */
+    val hardware: String = "",
 ) {
     fun toJson(): JSONObject = JSONObject()
         .put("width", width).put("height", height).put("density", density)
@@ -70,10 +78,12 @@ data class VmSettings(
         .put("vibration", vibration)
         .put("hostBattery", hostBattery)
         .put("camera", camera)
+        .put("bluetooth", bluetooth)
         .put("motionSensors", motionSensors).put("gyroLock", gyroLock).put("hostResolution", hostResolution)
         .put("skipSetupWizard", skipSetupWizard)
         .put("disableGoogleApps", disableGoogleApps)
-        .put("ramMb", ramMb).put("radio", radio).put("imei", imei).put("serial", serial).put("qemuArgs", qemuArgs)
+        .put("ramMb", ramMb).put("radio", radio).put("imei", imei).put("serial", serial).put("kernel", kernel).put("baseband", baseband).put("qemuArgs", qemuArgs)
+        .put("hardware", hardware)
 
     companion object {
         /** Luhn-valid sample IMEI from the standard; the guest has no real modem */
@@ -84,6 +94,37 @@ data class VmSettings(
 
         /** Characters allowed in a serial: safe for adb, Build.SERIAL and property values (max 91 bytes). */
         const val SERIAL_MAX = 32
+        /** Suggested ro.hardware values for the settings menu (any other value can be typed). */
+        val HARDWARE_PRESETS = listOf("goldfish", "ranchu", "qcom")
+
+        /** Characters allowed in ro.hardware: it names HAL libraries (gralloc.<hw>.so, init.<hw>.rc), so no path or shell characters. */
+        const val HARDWARE_MAX = 32
+        fun cleanHardware(v: String): String =
+            v.filter { it in 'a'..'z' || it in 'A'..'Z' || it in '0'..'9' || it == '_' || it == '-' || it == '.' }.take(HARDWARE_MAX)
+
+        const val DEFAULT_KERNEL = "3.0.31-aemu"
+        const val DEFAULT_BASEBAND = "AEmulator"
+        const val KERNEL_MAX = 120
+        const val BASEBAND_MAX = 64
+
+        /** Single line of printable ASCII (no newline, so /proc/version and property values stay well-formed). */
+        private fun cleanLine(v: String, max: Int): String = v.filter { it in ' '..'~' }.take(max)
+        fun cleanKernel(v: String): String = cleanLine(v, KERNEL_MAX)
+        fun cleanBaseband(v: String): String = cleanLine(v, BASEBAND_MAX)
+
+        /** Release part for uname -r: the word after "Linux version " if a full line was typed, else the first token. */
+        fun kernelRelease(v: String): String {
+            val t = cleanKernel(v).trim().removePrefix("Linux version").trim()
+            return t.substringBefore(' ').ifEmpty { DEFAULT_KERNEL }
+        }
+
+        /** Full /proc/version text for the setting. */
+        fun procVersion(v: String): String {
+            val t = cleanKernel(v).trim()
+            return if (t.startsWith("Linux version")) t + "\n"
+            else "Linux version ${kernelRelease(t).ifEmpty { DEFAULT_KERNEL }} (aemu@aemu) (gcc version 4.6) #1 SMP PREEMPT Thu Jan 1 00:00:00 UTC 2026\n"
+        }
+
         fun cleanSerial(v: String): String = v.filter { it in 'a'..'z' || it in 'A'..'Z' || it in '0'..'9' }.take(SERIAL_MAX)
 
         /** Random 16-char lowercase hex serial, like most real devices report. */
@@ -123,6 +164,7 @@ data class VmSettings(
                 vibration = o.optBoolean("vibration", d.vibration),
                 hostBattery = o.optBoolean("hostBattery", d.hostBattery),
                 camera = o.optBoolean("camera", d.camera),
+                bluetooth = o.optBoolean("bluetooth", d.bluetooth),
                 motionSensors = o.optBoolean("motionSensors", false),
                 gyroLock = GyroLock.sanitize(o.optInt("gyroLock", GyroLock.DISABLED)),
                 hostResolution = o.optBoolean("hostResolution", false),
@@ -134,7 +176,10 @@ data class VmSettings(
                 radio = o.optBoolean("radio", true),
                 imei = o.optString("imei", ""),
                 serial = cleanSerial(o.optString("serial", "")),
+                kernel = cleanKernel(o.optString("kernel", "")),
+                baseband = cleanBaseband(o.optString("baseband", "")),
                 qemuArgs = o.optString("qemuArgs", ""),
+                hardware = cleanHardware(o.optString("hardware", "")),
             )
         }
     }

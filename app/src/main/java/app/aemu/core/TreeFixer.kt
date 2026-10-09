@@ -133,12 +133,18 @@ class TreeFixer(
         makeProcMounts()
         vendorAudioPolicy()
         audioPolicy()
+        audioOpenSlot()
+        qemuAudioPolicy()
         qtaguid()
         vendorChecks()
         scriptShebangs()
         samsungEfs()
         selinuxOff()
         surfaceGuard()
+        glassGestureGuard()
+        glassBluetoothPark()
+        disableStallingPackages()
+        glassLocationProvider()
         for (n in LOGS) File(root, "dev/log/$n").let { if (!it.isFile) { it.parentFile?.mkdirs(); it.createNewFile() } }
         makeFb()
     }
@@ -215,9 +221,58 @@ class TreeFixer(
         }.onFailure { log("audio: Samsung audio policy install failed: ${it.message}") }
     }
 
+    /**
+     * Samsung KitKat AudioFlinger calls open_output_stream at another offset of audio_hw_device than AOSP does (108):
+     * on SM-C115M 4.4.2 the call landed on a stub of the stand HAL, "Failed to open primary output" followed and every
+     * audio policy (Samsung's, then the AOSP stand-in) died in mediaserver with no output to work with. The offset is
+     * read from the firmware's own libaudioflinger and handed to the HAL in /aemu.audio.slot; the HAL moves the end of
+     * its device structure accordingly. No file means the AOSP layout.
+     */
+    private fun audioOpenSlot() {
+        val f = File(root, "aemu.audio.slot")
+        runCatching {
+            val samsung = img.skin.contains("TouchWiz", true) || img.skin.contains("Samsung", true)
+            val af = File(root, "system/lib/libaudioflinger.so")
+            val slot = if (img.api >= 16 && samsung && af.isFile) AudioHalAbi.openOutputSlot(af.readBytes()) else null
+            if (slot != null && slot > 108 && slot <= 172 && slot % 4 == 0) {
+                if (!f.isFile || f.readText().trim() != slot.toString()) f.writeText("$slot\n")
+                f.setReadable(true, false)
+                log("audio: AudioFlinger opens the output at device slot $slot (AOSP 108), HAL layout shifted")
+            } else {
+                if (f.exists()) f.delete()
+                if (img.api >= 16 && samsung) log("audio: AudioFlinger open_output_stream slot: ${slot ?: "unknown"}")
+            }
+        }.onFailure { log("audio: cannot write aemu.audio.slot: ${it.message}") }
+    }
+
+    /**
+     * The mediaserver runs with ro.kernel.qemu=1 (emulator audio output). Samsung 2.x AudioPolicyService() skips
+     * createAudioPolicyManager() in that mode and then calls setSystemProperty() on the NULL policy manager:
+     * mediaserver died with SIGSEGV at the first start, every start (see ElfPatch.policyBranchIn).
+     * The firmware's libaudioflinger is patched to always create its policy; the stock file is kept aside.
+     */
+    private fun qemuAudioPolicy() = runCatching {
+        val lib = File(root, "system/lib/libaudioflinger.so")
+        if (!lib.isFile) return@runCatching
+        val keep = File(root, "system/.aemu-parked/system#lib#libaudioflinger.so")
+        val d = lib.readBytes()
+        if (ElfPatch.policyBranchOffsets(d).isEmpty()) { // not this firmware, or already patched
+            log("audio: libaudioflinger policy branch not found (already patched or different build)")
+            return@runCatching
+        }
+        if (!keep.exists()) { keep.parentFile?.mkdirs(); lib.copyTo(keep) }
+        if (ElfPatch.policyManagerAlways(lib) > 0) log("audio: AudioPolicyService creates its policy in emulator mode (libaudioflinger patched)")
+        else log("audio: libaudioflinger policy patch was not written")
+    }.onFailure { log("audio: libaudioflinger policy patch failed: ${it.message}") }
+
     private fun samsungDeviceSlots(): Boolean = runCatching {
         val af = File(root, "system/lib/libaudioflinger.so")
         af.isFile && AudioHalAbi.openOutputSlot(af.readBytes()) == 116
+    }.getOrDefault(false)
+
+    private fun openOutputSlotIs(slot: Int): Boolean = runCatching {
+        val af = File(root, "system/lib/libaudioflinger.so")
+        af.isFile && AudioHalAbi.openOutputSlot(af.readBytes()) == slot
     }.getOrDefault(false)
 
     private fun directTrackAudio(): Boolean = img.api in 19..20 && runCatching {
@@ -366,6 +421,7 @@ class TreeFixer(
                 "fbpaint" to "system/bin/fbpaint",
                 "netprobe" to "system/bin/netprobe",
                 "aemu-stubs.jar" to "system/framework/aemu-stubs.jar",
+                "aemu-bt.jar" to "system/framework/aemu-bt.jar",
             )
             Engine.GB -> listOf(
                 "libashmemshim.so" to "system/lib/libashmemshim.so",
@@ -432,7 +488,19 @@ class TreeFixer(
                     // open_output_stream at +116; stock ICS (+104, e.g. GT-P7300 4.0.4) must keep the plain ICS HAL,
                     // otherwise AudioFlinger calls set_parameters instead and mediaserver dies in readOutputParameters
                     samsung && samsungDeviceSlots() -> "audio.primary.ics-samsung.so"
+                    // ICS 4.0.x build with the JB/KK device layout (get_master_volume slot present, e.g. Nexus Q):
+                    // open_output_stream is at +108, which the plain ICS HAL leaves as close_output_stream -> SIGSEGV
+                    // in mediaserver at AudioFlinger::openOutput. The AOSP-layout HAL matches that slot.
+                    openOutputSlotIs(108) -> "audio.primary.aosp.so"
                     else -> "audio.primary.ics.so"
+                }
+                // Samsung KitKat+ whose AudioFlinger calls open_output_stream at +116 (the +0xc-shifted device layout):
+                // the AOSP-layout HAL answers that slot with another method, the policy gets no primary output
+                // ("Failed to open primary output", init_check "No such device") and mediaserver then dies in the
+                // half-initialised policy (heap corruption in audio_policy.default.so, code 139)
+                samsung && img.api >= 18 && samsungDeviceSlots() -> {
+                    log("audio: Samsung AudioFlinger calls open_output_stream at +116, using the shifted-layout HAL")
+                    "audio.primary.ics-samsung.so"
                 }
                 directTrackAudio() -> "audio.primary.directtrack.so"
                 img.api >= 16 -> "audio.primary.aosp.so"
@@ -592,6 +660,59 @@ class TreeFixer(
         }
     }.onFailure { log("libgui: patch failed: ${it.message}") }
 
+    /**
+     * Google Glass (XE): GlassSystemServer creates the DMP gesture detector inside system_server's ServerThread.
+     * DMPManager's constructor calls MPLSensor::getInstance() (libinvensense_hal), which cond-waits on MPLSensor::mWait
+     * until the Invensense sensors HAL has constructed the MPLSensor singleton. installSensorHal() replaces that
+     * HAL with the host one, so nobody ever builds it, the wait has no timeout and boot stops right after
+     * "GlassSystemServer: Starting gesture service." (futex on libinvensense_hal's mWait, no further SystemServer steps).
+     * Make getInstance() return null at once and report the DMP as unavailable, so Glass uses the software
+     * (sensor-based) gesture detectors it already builds; a null MPLSensor is never dereferenced then.
+     */
+    private fun glassGestureGuard() = runCatching {
+        fun patch(name: String, funcs: Set<String>, label: String) {
+            val lib = File(root, "system/lib/$name")
+            if (!lib.isFile) return
+            val keep = File(root, "system/.aemu-parked/system#lib#$name")
+            if (!keep.exists()) { keep.parentFile?.mkdirs(); lib.copyTo(keep) }
+            val n = ElfPatch.returnZero(lib, funcs)
+            if (n > 0) log("$label ($n func.)")
+        }
+        patch("libinvensense_hal.so", setOf("_ZN9MPLSensor11getInstanceEv"),
+            "glass: MPLSensor::getInstance() no longer waits for the Invensense HAL")
+        patch("libglassgesture.so",
+            setOf("_ZNK5glass10DMPManager22isDMPGesturesSupportedEv", "_ZN5glass10DMPManager27blockUntilGestureRecognizedEPNS_10DMPGestureE"),
+            "glass: DMP gestures reported unavailable")
+    }.onFailure { log("glass: gesture patch failed: ${it.message}") }
+
+    /**
+     * Glass (4.0.x): the Glass Bluetooth app (com.google.glass.bluetooth) cannot work in the guest. Its
+     * GlassBluetoothService opens an RFCOMM server socket (HandsFreeProfile, channel 13), the guest cannot create
+     * AF_BLUETOOTH sockets under the host app (EACCES), the listener stays null and AsyncBluetoothServerSocket's
+     * AcceptThread dies with an NPE; the app restarts and crashes again, so "Bluetooth has stopped" covers the UI.
+     * Disabling only the service is not enough: CompanionLocationService in the same app then crashes because it
+     * cannot bind to it. The APK (and its odex) is set aside in /system/.aemu-parked instead and PackageManager drops
+     * the missing system app, like the backup transport in disableStallingPackages().
+     */
+    private fun glassBluetoothPark() = runCatching {
+        if (img.api >= 16) return@runCatching
+        val parked = File(root, "system/.aemu-parked").apply { mkdirs() }
+        var moved = 0
+        for (dir in listOf("system/app", "system/priv-app")) {
+            val apk = File(root, "$dir/GlassBluetooth.apk")
+            for (f in listOf(apk, File(apk.path.removeSuffix(".apk") + ".odex"))) {
+                if (!f.isFile) continue
+                val dst = File(parked, f.relativeTo(root).path.replace('/', '#'))
+                if (dst.exists()) dst.delete()
+                if (f.renameTo(dst)) moved++ else log("glass: could not park ${f.name}")
+            }
+        }
+        if (moved > 0) {
+            File(root, "data/dalvik-cache/system@app@GlassBluetooth.apk@classes.dex").delete()
+            log("glass: Bluetooth app parked ($moved file(s)); RFCOMM sockets are unavailable in the guest")
+        }
+    }.onFailure { log("glass: could not park the Bluetooth app: ${it.message}") }
+
     private fun selinuxOff() = runCatching {
         val lib = File(root, "system/lib/libselinux.so")
         if (lib.isFile) {
@@ -620,12 +741,19 @@ class TreeFixer(
 
     private fun makeDataDirs() {
         var made = 0
-        val want = (DATA_DIRS + img.dirs.map { it.trim().removePrefix("/") }).filter { it.isNotEmpty() && !it.startsWith("#") }
+        val rcs = root.listFiles { f -> f.isFile && f.name.endsWith(".rc") }?.map { f ->
+            runCatching { f.readText() }.getOrDefault("")
+        }.orEmpty()
+        val dbdata = dbdataDirs(rcs, img.dirs,
+            legacySamsung = img.api < 14 && img.brand.contains("samsung", true) || img.name.contains("samsung", true) && img.api < 14,
+            alreadyThere = File(root, "dbdata").exists())
+        val want = (DATA_DIRS + img.dirs.map { it.trim().removePrefix("/") } + dbdata).filter { it.isNotEmpty() && !it.startsWith("#") }
         for (d in want.distinct()) {
             // каталоги init в /dev, /sys, /proc, /acct не создаём — это подменяет qemu
             if (d.startsWith("proc") || d.startsWith("sys/") || d == "sys" || d.startsWith("acct")) continue
             val f = File(root, d)
             if (!f.isDirectory && f.mkdirs()) made++
+            if (d in dbdata) { f.setReadable(true, false); f.setWritable(true, false); f.setExecutable(true, false) }
         }
         if (made > 0) log("created init directories: $made")
     }
@@ -665,7 +793,17 @@ class TreeFixer(
         for ((n, v) in listOf("present" to "0-${cpus - 1}", "possible" to "0-${cpus - 1}", "online" to "0-${cpus - 1}", "offline" to "")) {
             File(cpu, n).let { if (!it.isFile) it.writeText(v + "\n") }
         }
-        File(root, "sys/class/net/lo").mkdirs()
+        // Dalvik's NetworkInterface.getByName() reads these files; without them the open falls through to the host's
+        // /sys, which answers EACCES. The Nexus Q broker (IPUtils) then finds no loopback address and its thread dies,
+        // which restarts the Tungsten apps in a loop.
+        val lo = File(root, "sys/class/net/lo").apply { mkdirs() }
+        run { var d: File? = lo; while (d != null && d != root && d.path.startsWith(root.path)) { d.setReadable(true, false); d.setExecutable(true, false); d = d.parentFile } }
+        for ((n, v) in listOf("ifindex" to "1", "flags" to "0x9", "mtu" to "16436", "type" to "772", "operstate" to "unknown",
+            "carrier" to "1", "address" to "00:00:00:00:00:00", "addr_len" to "6", "dev_id" to "0x0")) {
+            runCatching {
+                File(lo, n).let { f -> if (!f.isFile || f.length() == 0L) f.writeText(v + "\n"); f.setReadable(true, false) }
+            }.onFailure { log("sysfs: cannot create /sys/class/net/lo/$n: ${it.message}") }
+        }
         val base = File(root, "sys/class/power_supply")
         val bat = mapOf(
             "battery/type" to "Battery", "battery/status" to "Full", "battery/health" to "Good",
@@ -706,6 +844,210 @@ class TreeFixer(
         val bl = File(root, "sys/class/leds/lcd-backlight").apply { mkdirs() }
         File(bl, "brightness").let { if (!it.isFile) it.writeText("255\n") }
         File(bl, "max_brightness").let { if (!it.isFile) it.writeText("255\n") }
+        lowMemoryKillerNodes()
+        procNetNodes()
+        javaIfInet6Redirect()
+        tungstenLedNodes()
+        tungstenLedInitPatch()
+        tungstenLedCountPatch()
+    }
+
+    /**
+     * NetworkInterface.getByName() (Dalvik 4.x) opens /proc/net/if_inet6 for every interface; on this host the open
+     * falls through to the real /proc and fails with EACCES, so the Nexus Q broker (IPUtils) gets a SocketException,
+     * finds no loopback address and its thread dies (NPE in NetworkSetupSession.reloadNetworkState). BootReceiver
+     * also reads /proc/version. Serve both from the tree.
+     *
+     * qemu's -L prefix only redirects a guest path when the file exists in the tree, so the nodes have to be real
+     * regular files under real, traversable directories. A symlink or a directory left at one of these paths would
+     * either send the write into the host /proc (EACCES, the guest keeps hitting the host file) or make the lookup
+     * miss, so such leftovers are replaced. Modes are set explicitly instead of through File.setReadable(), and every
+     * node is read back and logged, so run/aemu.log shows whether the stub is in place.
+     */
+    private fun procNetNodes() {
+        val nodes = linkedMapOf(
+            "proc/net/if_inet6" to "00000000000000000000000000000001 01 80 10 80       lo\n",
+            "proc/version" to VmSettings.procVersion(img.settings.kernel),
+        )
+        // directories the guest (a faked, non-owner uid) must be able to traverse: 0755
+        for (rel in listOf("proc", "proc/net")) runCatching {
+            val d = File(root, rel)
+            if (isLink(d) || (d.exists() && !d.isDirectory)) wipe(d)
+            if (!d.isDirectory && !d.mkdirs()) error("mkdirs failed")
+            Os.chmod(d.path, 0b111_101_101)
+        }.onFailure { log("procfs: cannot prepare /$rel: ${it.message}") }
+        for ((rel, v) in nodes) runCatching {
+            val f = File(root, rel)
+            if (isLink(f) || f.isDirectory) wipe(f)
+            f.parentFile?.mkdirs()
+            if (!f.isFile || f.readText() != v) f.writeText(v)
+            Os.chmod(f.path, 0b110_100_100) // 0644: readable by any guest uid
+            val back = f.readText()
+            val mode = Os.stat(f.path).st_mode and 0xfff
+            if (back != v) error("read-back mismatch (${back.length} bytes)")
+            log("procfs: /$rel served from the tree (${Integer.toOctalString(mode)}, ${f.length()} bytes)")
+        }.onFailure { log("procfs: cannot create /$rel: ${it.message}") }
+    }
+
+    /**
+     * The real fix for the /proc/net/if_inet6 EACCES. Whatever qemu does with /proc paths, the guest's open of
+     * /proc/net/if_inet6 still reached the host's /proc (EACCES) even with a correct tree file in place, so stop
+     * depending on /proc: Dalvik's libcore has the path as a string constant, and the tree's /data is served like any
+     * other tree file. [DexStringPatch] swaps the constant for /data/.aemu_ifinet, where the loopback line is put.
+     * Dalvik (API 20 and below) only; ART has no such patchable constant.
+     * Files patched: core.odex when the firmware has it; otherwise the dalvik-cache copy of core.jar's dex (so the
+     * jar itself stays stock, which keeps delta OTAs and every other file's dependency data valid; on a deodexed
+     * firmware the cache is created by the first boot, so the patch lands from the second boot on).
+     * DeltaOta undoes the patch on a copy to match the OTA's source hashes, and this runs again at the next start.
+     */
+    private fun javaIfInet6Redirect() = runCatching {
+        if (img.api > 20) return@runCatching
+        val odex = File(root, "system/framework/core.odex").takeIf { it.isFile }
+        val targets = if (odex != null) listOf(odex)
+        else listOfNotNull(File(root, "data/dalvik-cache/system@framework@core.jar@classes.dex").takeIf { it.isFile })
+        if (targets.isEmpty()) {
+            if (File(root, "system/framework/core.jar").isFile) log("libcore: no core.odex or dalvik-cache copy yet; if_inet6 redirect follows after the first boot")
+            return@runCatching
+        }
+        val node = File(root, "data/.aemu_ifinet")
+        val text = "00000000000000000000000000000001 01 80 10 80       lo\n"
+        node.parentFile?.mkdirs()
+        if (isLink(node) || node.isDirectory) wipe(node)
+        if (!node.isFile || node.readText() != text) node.writeText(text)
+        Os.chmod(node.path, 0b110_100_100)
+        for (f in targets) {
+            val d = f.readBytes()
+            when (DexStringPatch.apply(d)) {
+                1 -> {
+                    f.setWritable(true, true)
+                    f.writeBytes(d)
+                    log("libcore: ${f.name} now reads the interface list from /data/.aemu_ifinet")
+                }
+                0 -> {}
+                else -> log("libcore: /proc/net/if_inet6 string not found in ${f.name}, left as is")
+            }
+        }
+    }.onFailure { log("libcore: if_inet6 redirect failed: ${it.message}") }
+
+    /**
+     * Nexus Q (Tungsten): LEDService's LEDController.nativeInit() opens the LED ring driver and throws
+     * "LEDController nativeInit failed" when it can't, so the service crashes and is restarted every 5 s. The node
+     * name lives in the native library, so scan the *led* libraries (system/lib, app-lib, and inside the LED/health
+     * APKs) for /dev/ paths and give each a world-writable placeholder file so the open succeeds.
+     */
+    private fun tungstenLedNodes() = runCatching {
+        val re = Regex("/dev/[A-Za-z0-9_./-]{2,40}")
+        val found = LinkedHashSet<String>()
+        fun scan(bytes: ByteArray) { for (m in re.findAll(String(bytes, Charsets.ISO_8859_1))) found += m.value.trimEnd('.', '/') }
+        val libs = ArrayList<File>()
+        for (d in listOf("system/lib", "data/app-lib", "data/data/com.google.tungsten.ledservice/lib", "system/app", "system/priv-app")) {
+            File(root, d).walkTopDown().maxDepth(4).filter { it.isFile && it.name.contains("led", true) }.forEach { libs += it }
+        }
+        for (f in libs) {
+            if (f.name.endsWith(".so")) scan(f.readBytes())
+            else if (f.name.endsWith(".apk")) java.util.zip.ZipFile(f).use { z ->
+                for (e in z.entries()) if (e.name.startsWith("lib/armeabi") && e.name.endsWith(".so") && e.name.contains("led", true))
+                    scan(z.getInputStream(e).use { it.readBytes() })
+            }
+        }
+        val skip = setOf("/dev/null", "/dev/zero", "/dev/log", "/dev/input", "/dev/socket", "/dev/graphics", "/dev/binder", "/dev/ashmem", "/dev/random", "/dev/urandom", "/dev/tty")
+        for (path in found) {
+            if (path in skip || path.startsWith("/dev/log/") || path.startsWith("/dev/socket/")) continue
+            val f = File(root, path.removePrefix("/"))
+            if (f.exists()) continue
+            f.parentFile?.mkdirs()
+            f.writeBytes(ByteArray(4096))
+            f.setReadable(true, false); f.setWritable(true, false)
+            log("tungsten: placeholder LED node $path")
+        }
+        if (found.isNotEmpty()) log("tungsten: /dev paths found in LED libs: ${found.joinToString()}")
+    }.onFailure { log("tungsten: LED node scan failed: ${it.message}") }
+
+    /**
+     * Nexus Q (Tungsten), the real cause of the LED crash loop: the /dev/leds placeholder makes open() succeed, but
+     * TungstenLEDs::InitBuffer() then does ioctl(fd, 0x8001e206, &ledCount) on it. A regular file answers ENOTTY, so
+     * InitBuffer returns -11, getInstance() logs "Failed to open handle to led driver or initBuffer", nativeInit throws
+     * and the service dies and restarts. There is no LED driver to answer, so patch the Thumb code of InitBuffer:
+     *   before: r1 = this+4; r4 = this; r0 = ioctl_wrapper(this, r1)      (bl, 4 bytes)
+     *   after : r1 = 32;     r4 = this; this->ledCount(+4) = 32; r0 = 0
+     * The rest (malloc of 3*(count+1) bytes for the RGB buffer, success return) stays untouched. 32 is the ring size
+     * of the Nexus Q. Later ioctls (commit/set) keep failing with a logged error, which the JNI layer does not throw.
+     */
+    private fun tungstenLedInitPatch() = runCatching {
+        val libs = ArrayList<File>()
+        for (d in listOf("system/lib", "data/app-lib", "data/data/com.google.tungsten.ledservice/lib"))
+            File(root, d).walkTopDown().maxDepth(4).filter { it.isFile && it.name == "libtungsten_led.so" }.forEach { libs += it }
+        val name = "_ZN7android12TungstenLEDs10InitBufferEv"
+        for (f in libs) {
+            val sym = ElfPatch.symbols(f, setOf(name))?.get(name) ?: continue
+            val off = sym and 0xffffffffffL
+            fun hw(r: java.io.RandomAccessFile, at: Long): Int { r.seek(at); val a = r.read(); val b = r.read(); return a or (b shl 8) }
+            java.io.RandomAccessFile(f, "rw").use { r ->
+                if (hw(r, off) != 0xb510) { log("tungsten: InitBuffer prologue unexpected in ${f.name}, not patched"); return@use }
+                if (hw(r, off + 2) == 0x2120) return@use // already patched
+                // push {r4,lr}; adds r1,r0,#4; mov r4,r0; bl <ioctl wrapper>
+                if (hw(r, off + 2) != 0x1d01 || hw(r, off + 4) != 0x4604 || hw(r, off + 6) != 0xf7ff || (hw(r, off + 8) and 0xd000) != 0xd000) {
+                    log("tungsten: InitBuffer body unexpected in ${f.name}, not patched"); return@use
+                }
+                val patch = intArrayOf(0x2120, 0x4604, 0x7121, 0x2000) // movs r1,#32; mov r4,r0; strb r1,[r4,#4]; movs r0,#0
+                r.seek(off + 2)
+                for (h in patch) { r.write(h and 0xff); r.write(h shr 8) }
+                log("tungsten: InitBuffer in ${f.name} no longer needs the LED ioctl (32 LEDs)")
+            }
+        }
+    }.onFailure { log("tungsten: InitBuffer patch failed: ${it.message}") }
+
+    /**
+     * Second half of the Nexus Q LED fix. LEDService's JNI nativeInit() calls TungstenLEDs::getLedCount(&n) and
+     * returns false (-> "LEDController nativeInit failed", crash loop) when it is non-zero. getLedCount is a thin
+     * ioctl(fd, 0x8001e206, out) wrapper, which fails with ENOTTY on the /dev/leds placeholder file. Replace the
+     * 8 bytes "ldr r0,[r0]; ldr r1,[pc,#8]; blx ioctl" with "movs r3,#32; strb r3,[r2]; movs r0,#0; nop", so it
+     * reports 32 LEDs and success; the null-pointer check and the pop stay as they were.
+     */
+    private fun tungstenLedCountPatch() = runCatching {
+        val libs = ArrayList<File>()
+        for (d in listOf("system/lib", "data/app-lib", "data/data/com.google.tungsten.ledservice/lib"))
+            File(root, d).walkTopDown().maxDepth(4).filter { it.isFile && it.name == "libtungsten_led.so" }.forEach { libs += it }
+        val name = "_ZN7android12TungstenLEDs11getLedCountEPh"
+        for (f in libs) {
+            val off = (ElfPatch.symbols(f, setOf(name))?.get(name) ?: continue) and 0xffffffffffL
+            fun hw(r: java.io.RandomAccessFile, at: Long): Int { r.seek(at); val a = r.read(); val b = r.read(); return a or (b shl 8) }
+            java.io.RandomAccessFile(f, "rw").use { r ->
+                if (hw(r, off + 16) == 0x2320) return@use // already patched
+                // push {r4,lr}; mov r2,r1; cbnz r1; mvn r0,#21; b; ldr r0,[r0]; ldr r1,[pc,#8]; blx ioctl; pop
+                if (hw(r, off) != 0xb510 || hw(r, off + 2) != 0x460a || hw(r, off + 4) != 0xb911 ||
+                    hw(r, off + 12) != 0x6800 || hw(r, off + 14) != 0x4902 || hw(r, off + 16) != 0xf7ff) {
+                    log("tungsten: getLedCount unexpected in ${f.name}, not patched"); return@use
+                }
+                r.seek(off + 12)
+                for (h in intArrayOf(0x2320, 0x7013, 0x2000, 0xbf00)) { r.write(h and 0xff); r.write(h shr 8) }
+                log("tungsten: getLedCount in ${f.name} reports 32 LEDs")
+            }
+        }
+    }.onFailure { log("tungsten: getLedCount patch failed: ${it.message}") }
+
+    /**
+     * Some vendor ActivityManagers (Spreadtrum KitKat: ProcessList.updateOomLevels) read the kernel's
+     * lowmemorykiller tunables and Integer.parseInt() them without checking for an empty read. The guest has
+     * no such kernel module, so the read returned "" and system_server died with
+     * "NumberFormatException: Invalid int: """, which looked like an endless reboot. Give those files
+     * stock-shaped content (six oom_adj levels, minfree in 4 KB pages). Our GuestLmk does the real killing.
+     */
+    private fun lowMemoryKillerNodes() {
+        val nodes = mapOf(
+            "sys/module/lowmemorykiller/parameters/adj" to "0,1,2,4,9,15",
+            "sys/module/lowmemorykiller/parameters/minfree" to "1536,2048,4096,5120,5632,6144",
+            "proc/sys/vm/extra_free_kbytes" to "0",
+        )
+        for ((rel, v) in nodes) runCatching {
+            val f = File(root, rel)
+            if (!f.isFile || f.length() == 0L) {
+                f.parentFile?.mkdirs()
+                f.writeText(v + "\n")
+            }
+            f.setReadable(true, false)
+            f.setWritable(true, false)
+        }.onFailure { log("sysfs: cannot create /$rel: ${it.message}") }
     }
 
     /**
@@ -955,6 +1297,69 @@ class TreeFixer(
     }
 
     /** Existing legacy Google sign-in workaround; independent of the setup-skip option. */
+    /**
+     * Packages that stall boot on legacy images, handled before the system starts (afterBoot() is too late: it only
+     * runs once boot has completed). 4.0.x Glass: system_server binds com.google.android.backup's
+     * BackupTransportService, the process never answers, ActivityManager reports "ANR in system" ("System is not
+     * responding") and sys.boot_completed is never set. Backup is opted out in the guest anyway.
+     * The APK (and its odex) is set aside in /system/.aemu-parked; PackageManager then drops the missing system app.
+     */
+    private fun disableStallingPackages() = runCatching {
+        if (img.api >= 16) { log("boot stall guard: skipped (api ${img.api})"); return@runCatching }
+        val pkg = "com.google.android.backup"
+        val packagesXml = File(root, "data/system/packages.xml")
+        val declared = if (packagesXml.isFile) Regex("<package name=\"${Regex.escape(pkg)}\"[^>]*?codePath=\"([^\"]+)\"").find(packagesXml.readText())?.groupValues?.get(1) else null
+        val parked = File(root, "system/.aemu-parked").apply { mkdirs() }
+        val candidates = LinkedHashSet<File>()
+        if (declared != null) candidates += File(root, declared.trimStart('/'))
+        for (dir in listOf("system/app", "system/priv-app", "system/vendor/app", "vendor/app"))
+            File(root, dir).listFiles()?.filter { it.isFile && it.name.endsWith(".apk") && it.name.contains("Backup", ignoreCase = true) && it.name.contains("Google", ignoreCase = true) }?.let { candidates += it }
+        log("boot stall guard: ${pkg} codePath=${declared ?: "unknown (no packages.xml entry)"}, candidates=${candidates.joinToString { it.name }}")
+        var moved = 0
+        for (apk in candidates) {
+            if (!apk.isFile) continue
+            for (f in listOf(apk, File(apk.path.removeSuffix(".apk") + ".odex"))) {
+                if (!f.isFile) continue
+                val dst = File(parked, f.relativeTo(root).path.replace('/', '#'))
+                if (dst.exists()) dst.delete()
+                if (f.renameTo(dst)) { moved++; log("boot stall guard: parked ${f.name}") } else log("boot stall guard: could not park ${f.name}")
+            }
+        }
+        // Fallback / belt and braces: mark the package disabled for user 0 as well.
+        val restrictions = File(root, "data/system/users/0/package-restrictions.xml")
+        if (restrictions.isFile && packagesXml.isFile && packagesXml.readText().contains("<package name=\"$pkg\"")) {
+            var xml = restrictions.readText()
+            val m = Regex("<pkg name=\"${Regex.escape(pkg)}\"([^>]*?)(/?)>").find(xml)
+            if (m == null) {
+                xml = xml.replace("</package-restrictions>", "    <pkg name=\"$pkg\" enabled=\"2\" />\n</package-restrictions>")
+                restrictions.writeText(xml); log("boot stall guard: $pkg marked disabled")
+            } else if (!m.groupValues[1].contains("enabled=\"2\"")) {
+                val attrs = m.groupValues[1].replace(Regex(" enabled=\"\\d\""), "")
+                xml = xml.replaceRange(m.range, "<pkg name=\"$pkg\"$attrs enabled=\"2\"${m.groupValues[2]}>")
+                restrictions.writeText(xml); log("boot stall guard: $pkg marked disabled")
+            }
+        } else log("boot stall guard: no restrictions entry changed (restrictions=${restrictions.isFile}, packages.xml=${packagesXml.isFile})")
+        if (moved == 0 && declared == null) log("boot stall guard: $pkg not found in this tree, nothing to do")
+    }.onFailure { log("boot stall guard failed: ${it.message}") }
+
+    /**
+     * Glass: earlier versions switched off com.google.android.location's NetworkLocationService, which removes the
+     * "network" location provider and makes com.google.glass.settings crash at boot (IllegalArgumentException:
+     * provider=network). The disabled state sits in packages.xml, so it is cleared here, before system_server reads it.
+     */
+    private fun glassLocationProvider() = runCatching {
+        if (img.api !in 9..16) return@runCatching
+        val glass = GlassLocationPolicy.isGlass(img.name, img.model,
+            File(root, "system/app/GlassBluetooth.apk").isFile || File(root, "system/.aemu-parked/system#app#GlassBluetooth.apk").isFile)
+        if (!glass) return@runCatching
+        val f = File(root, "data/system/packages.xml")
+        if (!f.isFile) return@runCatching
+        GlassLocationPolicy.reenable(f.readText())?.let {
+            f.writeText(it)
+            log("glass: network location service enabled again (settings needs the network provider)")
+        }
+    }.onFailure { log("glass: could not re-enable network location: ${it.message}") }
+
     private fun disableLegacyGoogleLogin() {
         val f = File(root, "data/system/users/0/package-restrictions.xml")
         if (!f.isFile) return
@@ -1177,6 +1582,19 @@ class TreeFixer(
             }.getOrNull() ?: return false
             return sdk in 17..20 && mtkTraces(root)
         }
+
+        private val DBDATA_DIRS = listOf("dbdata", "dbdata/databases", "dbdata/system")
+
+        /**
+         * Samsung 2.x keeps app databases and the account / sync registries on a separate /dbdata partition
+         * (/dbdata/databases/<pkg>/, /dbdata/system/), which init.rc mounts and the framework then uses by
+         * absolute path. There is no such partition here, so nothing creates those directories: SettingsProvider fails with
+         * "unable to open database file", system_server dies on it and zygote exits. Returns the directories to create
+         * when the init scripts ([rcTexts]) or their mkdir lines ([initDirs]) mention /dbdata, else nothing.
+         */
+        internal fun dbdataDirs(rcTexts: List<String>, initDirs: List<String>, legacySamsung: Boolean = false, alreadyThere: Boolean = false): List<String> =
+            // the framework hardcodes /dbdata on Samsung 2.x/3.x even when the ramdisk's init.rc never mentions it (the mount lives in a vendor script)
+            if (legacySamsung || alreadyThere || initDirs.any { it.contains("dbdata") } || rcTexts.any { it.contains("/dbdata") }) DBDATA_DIRS else emptyList()
 
         private val LOGS = listOf("main", "system", "radio") // events — канал, его делает EventsSink
         private val DATA_DIRS = listOf(

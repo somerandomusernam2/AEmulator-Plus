@@ -19,6 +19,7 @@ extern void *calloc(unsigned long n, unsigned long size);
 extern void free(void *p);
 extern int *__errno(void);
 extern int usleep(unsigned long us);
+extern long read(int fd, void *buf, unsigned long n);
 
 #define O_RDWR 2
 #define EAGAIN 11
@@ -330,6 +331,31 @@ static long d_mtk_stub(void) { return 0; }
 #endif
 static int d_close(struct hw_device *dev) { free(dev); return 0; }
 
+#if !defined(AEMU_ICS) && !defined(AEMU_MTK) && !defined(AEMU_QCOM)
+#define AEMU_SLOTFILE 1
+/*
+ * Samsung KitKat AudioFlinger calls open_output_stream at a larger offset of audio_hw_device than AOSP (108): the
+ * vendor inserts slots in front of it. With the AOSP layout that call lands on one of our -ENOSYS stubs, the primary
+ * output never opens ("Failed to open primary output") and the audio policy then aborts in mediaserver.
+ * The emulator reads the offset out of the firmware's libaudioflinger and leaves it as a decimal number in
+ * /aemu.audio.slot. Returns how many bytes the tail of the structure (open_output_stream and everything after it)
+ * has to move up; 0 when the file is missing or holds the AOSP offset.
+ */
+static unsigned slot_shift(void) {
+    char b[16];
+    int fd = open("/aemu.audio.slot", 0);
+    if (fd < 0) return 0;
+    long n = read(fd, b, sizeof(b) - 1);
+    close(fd);
+    if (n <= 0) return 0;
+    unsigned v = 0;
+    for (long i = 0; i < n; i++) { if (b[i] < '0' || b[i] > '9') break; v = v * 10 + (unsigned)(b[i] - '0'); }
+    unsigned base = (unsigned)offsetof(struct audio_hw_device, open_output_stream);
+    if (v <= base || v > base + 64 || (v & 3)) return 0;
+    return v - base;
+}
+#endif
+
 static int hal_open(const struct hw_module *m, const char *id, struct hw_device **dev) {
     const char *want = "audio_hw_if";
     for (int i = 0; ; i++) {
@@ -340,7 +366,12 @@ static int hal_open(const struct hw_module *m, const char *id, struct hw_device 
     struct audio_hw_device *d = (struct audio_hw_device *)calloc(1, sizeof(struct audio_hw_device) + MTK_EXTRA * sizeof(void *));
     if (d) { void **x = (void **)(d + 1); for (int i = 0; i < MTK_EXTRA; i++) x[i] = (void *)d_mtk_stub; }
 #else
-    struct audio_hw_device *d = (struct audio_hw_device *)calloc(1, sizeof(struct audio_hw_device));
+#ifdef AEMU_SLOTFILE
+    unsigned shift = slot_shift();
+#else
+    unsigned shift = 0;
+#endif
+    struct audio_hw_device *d = (struct audio_hw_device *)calloc(1, sizeof(struct audio_hw_device) + shift);
 #endif
     if (!d) return -12;
     d->common.tag = 0x48574454;          /* HARDWARE_DEVICE_TAG */
@@ -376,6 +407,17 @@ static int hal_open(const struct hw_module *m, const char *id, struct hw_device 
 #ifndef AEMU_ICS
     d->set_master_mute = d_set_master_mute;
     d->get_master_mute = d_get_master_mute;
+#endif
+#ifdef AEMU_SLOTFILE
+    if (shift) {
+        /* open_output_stream .. get_master_mute move up by [shift]; the slots left in front of them answer 0 */
+        void **w = (void **)d;
+        unsigned first = (unsigned)offsetof(struct audio_hw_device, open_output_stream) / sizeof(void *);
+        unsigned last = (unsigned)sizeof(struct audio_hw_device) / sizeof(void *);
+        unsigned k = shift / sizeof(void *);
+        for (unsigned i = last; i-- > first; ) w[i + k] = w[i];
+        for (unsigned i = first; i < first + k; i++) w[i] = (void *)d_zero;
+    }
 #endif
     *dev = &d->common;
     return 0;

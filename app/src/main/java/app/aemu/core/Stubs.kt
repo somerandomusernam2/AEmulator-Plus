@@ -25,6 +25,7 @@ class RilStub(
     private val log: (String) -> Unit,
     private val imei: String = VmSettings.DEFAULT_IMEI,
     private val api: Int = 19,
+    private val baseband: String = VmSettings.DEFAULT_BASEBAND,
 ) {
     @Volatile var answered = 0L
         private set
@@ -110,7 +111,7 @@ class RilStub(
             val data = when (request) {
                 RIL_REQUEST_GET_IMEI -> str(imei)
                 RIL_REQUEST_GET_IMEISV -> str(IMEISV)
-                RIL_REQUEST_BASEBAND_VERSION -> str(BASEBAND)
+                RIL_REQUEST_BASEBAND_VERSION -> str(baseband)
                 RIL_REQUEST_DEVICE_IDENTITY -> strs(imei, IMEISV, "", "")
                 else -> null
             }
@@ -137,7 +138,7 @@ class RilStub(
             RIL_REQUEST_SIM_IO -> LegacySimIo.handle(args).let { 0 to (le(it.sw1) + le(it.sw2) + str(it.hex)) }
             RIL_REQUEST_GET_IMEI -> 0 to str(imei)
             RIL_REQUEST_GET_IMEISV -> 0 to str(IMEISV)
-            RIL_REQUEST_BASEBAND_VERSION -> 0 to str(BASEBAND)
+            RIL_REQUEST_BASEBAND_VERSION -> 0 to str(baseband)
             RIL_REQUEST_DEVICE_IDENTITY -> 0 to strs(imei, IMEISV, "", "")
             RIL_REQUEST_QUERY_NETWORK_SELECTION_MODE -> 0 to ints(0)
             RIL_REQUEST_GET_PREFERRED_NETWORK_TYPE -> 0 to ints(0)
@@ -287,7 +288,6 @@ class RilStub(
         private const val RIL_REQUEST_GET_SMSC_ADDRESS = 100
         private const val RIL_REQUEST_VOICE_RADIO_TECH = 108
         private const val IMEISV = "01"
-        private const val BASEBAND = "AEmulator"
     }
 }
 

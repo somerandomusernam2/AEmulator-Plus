@@ -16,8 +16,8 @@ class BootImageBoundsTest {
         header.putInt(16, Int.MAX_VALUE)
         assertNull(BootImage.ramdisk(img))
     }
-    private fun cpio(name: String, bytes: ByteArray, size: Long = bytes.size.toLong()): ByteArray {
-        val fields = LongArray(13).apply { this[1] = 0x81a4; this[6] = size; this[11] = name.length + 1L }
+    private fun cpio(name: String, bytes: ByteArray, size: Long = bytes.size.toLong(), mode: Long = 0x81a4): ByteArray {
+        val fields = LongArray(13).apply { this[1] = mode; this[6] = size; this[11] = name.length + 1L }
         val header = "070701" + fields.joinToString("") { "%08x".format(it) }
         return ByteArrayOutputStream().also {
             it.write(header.toByteArray()); it.write(name.toByteArray()); it.write(0)
@@ -34,5 +34,13 @@ class BootImageBoundsTest {
     @Test fun rejectsTruncatedOrOverflowingCpioData() {
         assertThrows(IllegalArgumentException::class.java) { BootImage.cpio(cpio("init.rc", byteArrayOf(1), 4096)) }
         assertThrows(IllegalArgumentException::class.java) { BootImage.cpio(cpio("init.rc", byteArrayOf(1), 0xffffffffL)) }
+    }
+    @Test fun stripsTrailingNulFromSymlinkTarget() {
+        // gen_init_cpio counts the terminating NUL in a symlink's file size
+        val link = BootImage.cpio(cpio("sbin/ueventd", "../init\u0000".toByteArray(), mode = 0xA1ff)).single()
+        assertArrayEquals("../init".toByteArray(), link.data)
+        FirmwareContainers.checkLink(link.name, String(link.data))
+        // regular files keep their bytes untouched, including trailing zeros
+        assertArrayEquals(byteArrayOf(1, 0), BootImage.cpio(cpio("a.bin", byteArrayOf(1, 0))).single().data)
     }
 }

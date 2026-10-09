@@ -421,6 +421,7 @@ class InputService(private val paths: VmPaths, private val log: (String) -> Unit
         }
     }
     @Synchronized fun recentEvents(): List<String> = recent.toList()
+
     fun clientInfo(): String = clients.joinToString { "pid ${it.pid}${if (it.dropped > 0) " (dropped ${it.dropped} frames: guest does not read this descriptor)" else ""}" }
 
     companion object {
