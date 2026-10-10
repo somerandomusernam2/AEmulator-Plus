@@ -30,6 +30,15 @@ class GptDiskTest {
         assertEquals(524288L * 512, picks[2].second.size)
     }
 
+    @Test fun picksAbSlotAAndGapps() {
+        val d = disk(Triple("uboot_a", 100, 199), Triple("boot_a", 200, 299), Triple("boot_b", 300, 399),
+            Triple("system_a", 400, 999), Triple("system_b", 1000, 1599), Triple("oem_a", 1600, 1699),
+            Triple("gapps_a", 1700, 2299), Triple("gapps_b", 2300, 2899), Triple("userdata", 2900, 9999))
+        val picks = GptDisk.pick(GptDisk.parse(d)!!)
+        assertEquals(listOf(GptDisk.Kind.BOOT, GptDisk.Kind.OEM, GptDisk.Kind.SYSTEM, GptDisk.Kind.GAPPS), picks.map { it.first })
+        assertEquals(listOf("boot_a", "oem_a", "system_a", "gapps_a"), picks.map { it.second.name })
+    }
+
     @Test fun rejectsNonGpt() {
         assertFalse(GptDisk.probe(ByteArray(8192)))
         assertNull(GptDisk.headSize(ByteArray(8192), 8192))

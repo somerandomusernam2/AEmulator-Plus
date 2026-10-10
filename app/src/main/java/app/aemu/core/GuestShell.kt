@@ -20,6 +20,7 @@ class GuestShell(private val vm: GuestVm, private val onOutput: (String) -> Unit
         val pb = ProcessBuilder(r.cmdline(listOf("/system/bin/sh"))).directory(vm.paths.bin).redirectErrorStream(true)
         pb.environment().clear()
         pb.environment().putAll(r.env(mapOf("HOME" to "/data/local/tmp", "TERM" to "dumb")))
+        pb.environment()["PATH"] = GuestRunner.shellPath(pb.environment()["PATH"])
         val p = runCatching { pb.start() }.getOrElse { onOutput("[${it.message}]\n"); return false }
         proc = p; stdin = p.outputStream
         thread(name = "guest-shell-out", isDaemon = true) {
@@ -34,6 +35,7 @@ class GuestShell(private val vm: GuestVm, private val onOutput: (String) -> Unit
             if (proc === p) onOutput("\n[shell exited]\n")
         }
         send("cd /data/local/tmp")
+        GuestRunner.scriptFns(vm.paths.root).let { if (it.isNotEmpty()) send(it) }
         return true
     }
 

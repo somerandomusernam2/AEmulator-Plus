@@ -738,6 +738,19 @@ class VmActivity : ComponentActivity() {
         var frames by remember { mutableStateOf(0L) }
         var romNote by remember { mutableStateOf(vm.pendingNote) }
         LaunchedEffect(vm) { while (true) { romNote = vm.pendingNote; delay(500) } }
+        // Samsung 2.x boot animation: playlogos1 writes straight into fb0, which the GL-surface mode never shows
+        LaunchedEffect(vm) {
+            var onFb = false
+            while (true) {
+                val want = vm.legacyLogoRunning()
+                if (want != onFb && (guest.passthrough || onFb)) {
+                    onFb = want
+                    if (want) { guest.pages = 2; guest.format = vm.logoFormat }
+                    guest.passthrough = !want; guest.poke()
+                }
+                delay(200)
+            }
+        }
         LaunchedEffect(Unit) { while (true) { if (vm.recoveryMode) guest.format = vm.recoveryFormat; seconds = vm.bootSeconds(); frames = if (vm.glInApp) dev.lk.m7sense.GlBridge.frames() else guest.rings; delay(500) } }
         // как только гость начал рисовать — карточку убираем, остаётся маленький индикатор
         val drawing = frames > 30

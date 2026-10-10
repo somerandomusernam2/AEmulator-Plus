@@ -17,6 +17,13 @@ internal object DexStringPatch {
     /** @return 1 patched, 0 already patched, -1 string not found */
     fun apply(d: ByteArray): Int = if (swap(d, FROM, TO)) 1 else if (find(d, TO).isNotEmpty()) 0 else -1
 
+    /** Same swap for any equal-length pair of strings. @return 1 patched, 0 already patched, -1 string not found */
+    fun apply(d: ByteArray, from: String, to: String): Int {
+        val a = from.toByteArray(Charsets.ISO_8859_1); val b = to.toByteArray(Charsets.ISO_8859_1)
+        require(a.size == b.size) { "replacement must have the same length" }
+        return if (swap(d, a, b)) 1 else if (find(d, b).isNotEmpty()) 0 else -1
+    }
+
     /** Back to the stock bytes. @return true if anything changed */
     fun undo(d: ByteArray): Boolean = swap(d, TO, FROM)
 

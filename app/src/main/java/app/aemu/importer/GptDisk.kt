@@ -6,10 +6,11 @@ import java.nio.ByteOrder
 
 /**
  * Full eMMC/UFS dump (one raw image of the whole disk, GUID partition table at LBA 1).
- * Only the partitions the importer consumes are picked: boot, recovery, system, oem.
+ * Only the partitions the importer consumes are picked: boot, recovery, system, oem and (Android Things) gapps.
+ * A/B slot "_a" names are accepted (boot_a, system_a, oem_a, gapps_a).
  */
 object GptDisk {
-    enum class Kind { BOOT, RECOVERY, OEM, SYSTEM }
+    enum class Kind { BOOT, RECOVERY, OEM, SYSTEM, GAPPS }
 
     class Part(val name: String, val start: Long, val size: Long)
 
@@ -74,10 +75,11 @@ object GptDisk {
         "recovery", "recovery_a", "fotakernel" -> Kind.RECOVERY
         "oem", "oem_a" -> Kind.OEM
         "system", "system_a", "factoryfs" -> Kind.SYSTEM
+        "gapps", "gapps_a" -> Kind.GAPPS
         else -> null
     }
 
-    /** First partition of every kind, in the order boot, recovery, oem, system. */
+    /** First partition of every kind, in the order boot, recovery, oem, system, gapps. */
     fun pick(parts: List<Part>): List<Pair<Kind, Part>> =
         Kind.values().mapNotNull { k -> parts.firstOrNull { kindOf(it.name) == k }?.let { k to it } }
 

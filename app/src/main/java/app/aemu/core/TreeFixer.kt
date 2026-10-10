@@ -122,7 +122,11 @@ class TreeFixer(
         parkWhetstone()
         parkPlayReady()
         swapMtkAudioHal()
-        eglConfig(img.settings.gpu)
+        // glibc (Google TV) firmware: the engine's GL shims are bionic libraries (NEEDED libdl.so / libc.so) and cannot
+        // be loaded by a glibc userland ("load_driver(libGLES_android.so): libdl.so: cannot open shared object file",
+        // then no EGL display, SurfaceFlinger cannot pick a config and system_server dies with SIGSEGV).
+        // They also replace the firmware's own libGLES_android.so, so use the firmware's software renderer instead.
+        eglConfig(img.settings.gpu && !GuestPreload.isGlibcFirmware(root))
         makeDataDirs()
         runCatching {
             if (GuestRootAliases.ensureEtc(root)) log("init: restored /etc -> /system/etc alias")
@@ -137,14 +141,19 @@ class TreeFixer(
         qemuAudioPolicy()
         qtaguid()
         vendorChecks()
+        shellLink()
+        pldHints()
+        berlinOsalGuard()
         scriptShebangs()
         samsungEfs()
         selinuxOff()
         surfaceGuard()
+        surfaceFlingerGuard()
         glassGestureGuard()
         glassBluetoothPark()
         disableStallingPackages()
         glassLocationProvider()
+        seedDefaultIme()
         for (n in LOGS) File(root, "dev/log/$n").let { if (!it.isFile) { it.parentFile?.mkdirs(); it.createNewFile() } }
         makeFb()
     }
@@ -154,15 +163,50 @@ class TreeFixer(
      * execve отвечает ENOEXEC и mksh запускает файл сам, а qemu вместо этого падает «Exec format error».
      */
     private fun scriptShebangs() {
-        for (dir in listOf("system/bin", "system/xbin")) {
-            val files = File(root, dir).listFiles() ?: continue
+        var fixed = 0
+        val failed = ArrayList<String>()
+        // the commands (system/bin, system/xbin) plus the *.sh helpers the framework runs itself (WifiHW runs
+        // system/etc/wifi/wifi_device_detect.sh: "Error while loading ...: Exec format error" in logcat)
+        val files = ArrayList<File>()
+        for (dir in listOf("system/bin", "system/xbin")) File(root, dir).listFiles()?.let { files += it }
+        File(root, "system/etc").walkTopDown().maxDepth(3).filter { it.isFile && it.name.endsWith(".sh") }.forEach { files += it }
+        run {
             for (f in files) {
                 if (!f.isFile || f.length() > 64_000 || java.nio.file.Files.isSymbolicLink(f.toPath())) continue
                 val head = runCatching { f.inputStream().use { s -> ByteArray(2).also { s.read(it) } } }.getOrNull() ?: continue
-                if (head[0] != '#'.code.toByte() || head[1] == '!'.code.toByte()) continue
-                runCatching { f.writeBytes("#!/system/bin/sh\n".toByteArray() + f.readBytes()) }
+                // am/pm/input/monkey…: "exec app_process" is looked up through PATH, and the default PATH of 2.2–4.x/Google TV
+                // starts with /sbin:/vendor/bin:/system/sbin, so run from a plain shell (adb shell) it fails where the same
+                // command with /system/bin first works. These scripts all set base=/system: call it by its full path.
+                if (head[0] == '#'.code.toByte() && head[1] == '!'.code.toByte()) {
+                    runCatching {
+                        val t = f.readText(Charsets.ISO_8859_1)
+                        val u = t.replace(Regex("(?m)^(\\s*)exec app_process\\b"), "$1exec /system/bin/app_process")
+                        if (u != t) { f.writeText(u, Charsets.ISO_8859_1); fixed++ }
+                    }
+                    continue
+                }
+                if (head[0] != '#'.code.toByte()) continue
+                // a read-only or odd-owner file made writeBytes() fail silently and left "pm: Exec format error" behind:
+                // retry through a temp file that replaces the original, keeping the mode bits
+                val ok = runCatching {
+                    val body = ("#!/system/bin/sh\n" + String(f.readBytes(), Charsets.ISO_8859_1)
+                        .replace(Regex("(?m)^(\\s*)exec app_process\\b"), "$1exec /system/bin/app_process")).toByteArray(Charsets.ISO_8859_1)
+                    val exec = f.canExecute()
+                    try { f.writeBytes(body) } catch (_: Exception) {
+                        f.setWritable(true, true)
+                        val tmp = File(f.parentFile, f.name + ".aemu-tmp")
+                        tmp.writeBytes(body)
+                        if (!tmp.renameTo(f)) { f.delete(); if (!tmp.renameTo(f)) { tmp.delete(); error("cannot replace") } }
+                    }
+                    f.setReadable(true, false)
+                    f.setExecutable(true, false)
+                    if (exec) f.setExecutable(true, false)
+                }.isSuccess
+                if (ok) fixed++ else failed += f.name
             }
         }
+        if (fixed > 0) log("scripts: #! added to $fixed shell script(s) and \"exec app_process\" made absolute (system/bin, system/xbin, system/etc/*.sh)")
+        if (failed.isNotEmpty()) log("scripts: could not add #! to ${failed.joinToString()}")
     }
 
     /**
@@ -285,6 +329,32 @@ class TreeFixer(
      * our HAL there; it forwards the DcRemove filter AudioFlinger links from that library to the original.
      */
     private fun swapMtkAudioHal() {
+        swapMtkAudioHalImpl()
+        redirectMtkAudioDeps()
+    }
+
+    /**
+     * Other MediaTek libraries link symbols that only MTK's own HAL has (libmtkplayer.so needs
+     * AudioResourceManager::getInstance(); libmtkplayer is pulled in by libmediaplayerservice and, through
+     * libandroid_servers, by system_server — both died at link time). The stand-in exports just the DcRemove filter,
+     * so those libraries are pointed at the parked original instead; the path has exactly the length of the old
+     * name and is the one the stand-in itself uses, so the library is loaded once per process.
+     * libaudioflinger is left alone: it is the one that must see the stand-in.
+     */
+    private fun redirectMtkAudioDeps() = runCatching {
+        if (!File(root, "system/lib/libaudio.mtk.so").isFile) return@runCatching
+        var n = 0
+        for (dir in listOf("system/lib", "system/lib/hw", "vendor/lib", "vendor/lib/hw")) {
+            File(root, dir).listFiles()?.forEach { f ->
+                if (f.isFile && f.name.endsWith(".so") && f.name != "libaudioflinger.so" && f.name != "libaudio.mtk.so" &&
+                    f.name != "libaudio.primary.default.so" && !isLink(f))
+                    n += ElfPatch.redirectNeeded(f, "libaudio.primary.default.so", "/system/lib/libaudio.mtk.so")
+            }
+        }
+        if (n > 0) log("audio: $n MediaTek librar${if (n == 1) "y" else "ies"} linked to the original HAL (libaudio.mtk.so)")
+    }.onFailure { log("audio: HAL link redirect failed: ${it.message}") }
+
+    private fun swapMtkAudioHalImpl() {
         if (engine != Engine.KK || img.api < 17) return
         val lib = File(root, "system/lib/libaudio.primary.default.so")
         val orig = File(root, "system/lib/libaudio.mtk.so")
@@ -412,6 +482,8 @@ class TreeFixer(
     }
 
     private fun installEngineFiles() {
+        // the fake SHM devices (libshmshim.so) keep their allocator state in these files: start every boot from scratch
+        File(root, "data/local/tmp").listFiles()?.filter { it.name == "shm_cache.bin" || it.name == "shm_noncache.bin" }?.forEach { it.delete() }
         val copies = when (engine) {
             Engine.KK -> listOf(
                 "libashmemshim.so" to "system/lib/libashmemshim.so",
@@ -422,6 +494,7 @@ class TreeFixer(
                 "netprobe" to "system/bin/netprobe",
                 "aemu-stubs.jar" to "system/framework/aemu-stubs.jar",
                 "aemu-bt.jar" to "system/framework/aemu-bt.jar",
+                "aemu-sensorhub.jar" to "system/framework/aemu-sensorhub.jar",
             )
             Engine.GB -> listOf(
                 "libashmemshim.so" to "system/lib/libashmemshim.so",
@@ -462,7 +535,9 @@ class TreeFixer(
                 runCatching { Os.symlink("libGLES_android.so", sw.path) }
         }
         for ((from, to) in (copies + nougat).filter { !noBridge || !it.second.startsWith("system/lib/egl/libGLES_") } +
-            listOf("@libaemushim.so" to "system/lib/libaemushim.so")) {
+            listOf("@libaemushim.so" to "system/lib/libaemushim.so") +
+            // glibc (Google TV) firmware: fake /dev/shm_cache and /dev/shm_noncache so av_settings & co. can start
+            (if (GuestPreload.isGlibcFirmware(root)) listOf("@libshmshim.so" to GuestPreload.SHMSHIM.removePrefix("/")) else emptyList())) {
             val dst = File(root, to)
             // gralloc движка — только если в прошивке своего нет
             if (from == "gralloc.default.so" && dst.isFile) continue
@@ -625,6 +700,52 @@ class TreeFixer(
 
     /** Пустые таблицы xt_qtaguid, на которые гостевая прослойка подменяет /proc/net/xt_qtaguid/… */
     /**
+     * `adb shell` and every `sh -c` start /system/bin/sh. qemu stats the host path of the executable, so the link must
+     * be relative and resolve inside the tree: a missing sh, a dangling link, or an absolute link (it would resolve
+     * against the phone's own /system) ends in "unable to stat file for the executable" and an abort in the guest
+     * linker. Relinks it (relative) to the first of mksh/ash/toybox/busybox that really lives inside the tree; a
+     * working sh is left alone.
+     */
+    private fun shellLink() = runCatching {
+        val bin = File(root, "system/bin")
+        val path = File(bin, "sh").toPath()
+        val nofollow = java.nio.file.LinkOption.NOFOLLOW_LINKS
+        val rootPath = root.canonicalPath + File.separator
+        // canonicalFile resolves absolute links against the phone, so such a target lands outside rootPath and is rejected
+        fun inTree(f: File) = runCatching { f.canonicalFile.let { it.isFile && it.path.startsWith(rootPath) } }.getOrDefault(false)
+        val isLink = java.nio.file.Files.isSymbolicLink(path)
+        if (isLink) {
+            val t = java.nio.file.Files.readSymbolicLink(path).toString()
+            if (!t.startsWith("/") && inTree(File(bin, "sh"))) return@runCatching
+        } else if (java.nio.file.Files.exists(path, nofollow)) {
+            return@runCatching // a real file (or something unusual): not ours to replace
+        }
+        val target = listOf("mksh", "ash", "toybox", "busybox", "../xbin/busybox").firstOrNull { inTree(File(bin, it)) }
+        if (target == null) { log("sh: system/bin/sh is missing and there is no mksh/ash/toybox/busybox to link it to"); return@runCatching }
+        if (isLink) java.nio.file.Files.delete(path)
+        java.nio.file.Files.createSymbolicLink(path, java.nio.file.Paths.get(target))
+        log("sh: system/bin/sh -> $target restored")
+    }.onFailure { log("sh: could not repair system/bin/sh: ${it.message}") }
+
+    /**
+     * MediaTek bionic (linker, libc) uses `pldw` hints that qemu-user rejects with SIGILL, so every process died in
+     * its first memcpy. See [ElfPatch.fixPldHints].
+     */
+    private fun pldHints() = runCatching {
+        var words = 0; var files = 0
+        val hit = ArrayList<String>()
+        for (dir in listOf("system/bin", "system/xbin", "system/lib", "vendor/lib", "vendor/bin")) {
+            File(root, dir).listFiles()?.forEach { f ->
+                if (f.isFile && !java.nio.file.Files.isSymbolicLink(f.toPath())) {
+                    val n = ElfPatch.fixPldHints(f)
+                    if (n > 0) { words += n; files++; hit.add("${f.name}=$n") }
+                }
+            }
+        }
+        if (words > 0) log("pld hints: $words word(s) rewritten in $files file(s) (qemu rejects pldw and malformed pld): ${hit.joinToString(", ")}")
+    }.onFailure { log("pld hints: failed: ${it.message}") }
+
+    /**
      * MediaTek DRVB: кодеки, DRM, камера и даже debuggerd сверяют «платформу» через демон drvbd, а тот
      * читает efuse через /dev/devmap. На эмуляторе проверка проваливается, каждый клиент 10 с ждёт демон,
      * а модуль DRM затем нарочно прыгает на 0xddeeaadd (drmserver падает, MediaPlayer зависает намертво).
@@ -647,6 +768,114 @@ class TreeFixer(
      * The guest has no policy of its own to load, so report "SELinux disabled" from libselinux:
      * every AOSP caller guards its checks with is_selinux_enabled() > 0 and falls back to plain DAC.
      */
+    /**
+     * Google TV (Marvell Berlin, e.g. Hisense GX1200V): av_settings and client_auth_service call MV_OSAL_Init(), which
+     * starts the OSAL worker tasks and raises their priority with os_set_task_prio() -> pthread_setschedparam()
+     * (SCHED_RR/FIFO). The guest is an unprivileged process under qemu-user, so the host refuses it (EPERM) and the
+     * caller does MV_ASSERT(ret == 0); t_Assert() then deliberately writes to address 0 (SIGSEGV inside libOSAL.so,
+     * av_settings exit 139) and the logs show "MV_OSAL_Init() failed (80004005)". "media.avsettings" is never
+     * registered, SurfaceFlinger waits for it forever and the boot never gets past the splash.
+     * Real-time priorities mean nothing here, so os_set_task_prio() just reports success.
+     */
+    private val HDMIRX_NOOPS = setOf(
+        "GetBoardVersion", "kg2h_gpio_exit", "kg2h_gpio_set", "kg2h_gpio_enable_irq", "kg2h_gpio_disable_irq",
+    )
+
+    private fun berlinOsalGuard() = runCatching {
+        if (!GuestPreload.isGlibcFirmware(root)) return@runCatching
+        // The Marvell kernel drivers (/dev/galois_cc, /dev/galois_pe_agent, /dev/mvpm) do not exist here:
+        //  - MV_CC_DSS_Init() opens /dev/galois_cc and fails, so MV_OSAL_Init() returns E_FAIL (80004005);
+        //  - MV_PE_Init() opens /dev/galois_pe_agent and fails, the hotplug handler then cleans up with
+        //    MV_PE_Remove(NULL), whose MV_ASSERT(handle != NULL) crashes av_settings (SIGSEGV in t_Assert).
+        //  - MV_CC_UDP_Init() -> MV_CC_UDP_Open() opens a private netlink socket (AF_NETLINK, SOCK_RAW, protocol 29)
+        //    towards the Galois kernel module; the host refuses it, so MV_OSAL_Init() still fails after SHM init.
+        // The OSAL/PE calls that need the drivers are reduced to "success" so av_settings can reach
+        // "media.avsettings"; the rest of the Berlin A/V path is not available in the guest anyway.
+        val targets = mapOf(
+            "libOSAL.so" to setOf("os_set_task_prio", "MV_CC_DSS_Init", "MV_CC_UDP_Init"),
+            // every PE (Marvell "player engine") entry point that the hotplug handler of av_settings calls: there is no
+            // /dev/galois_pe_agent, so each one just reports success (output buffers stay as the caller left them)
+            "libPEAgent.so" to setOf(
+                "MV_PE_Init", "MV_PE_Remove", "MV_PE_RegisterEventCallBack", "MV_PE_ClearScreen",
+                "MV_PE_VOutSetEnable", "MV_PE_VOutSetInput", "MV_PE_VOutHDMIGetSinkCaps", "MV_PE_VOutGetCPCBResolution",
+                "MV_PE_VOutHDMISetVideoFormat", "MV_PE_VOutHDMISetAudioFormat", "MV_PE_VOutSetCPCBResolutionBDEx",
+                "MV_PE_VOutHDMISet3DVideoFormat", "MV_PE_VOutHDMILoadHDCPKeys", "MV_PE_VOutHDMISetHDCP",
+                "MV_PE_VideoSet3DConvertMode", "MV_PE_VideoSetSSType",
+                "MV_PE_AOutGetDigitalOutCaps", "MV_PE_AOutSetVolume", "MV_PE_AOutSetMute", "MV_PE_AOutGetHDMIFormat",
+                "MV_PE_AOutSetHDMIFormat", "MV_PE_AOutGetSpdifFormat", "MV_PE_AOutSetSpdifFormat",
+            ),
+        )
+        for ((name, funcs) in targets) for (dir in listOf("system/vendor/lib", "system/lib")) {
+            val rel = "$dir/$name"
+            val lib = File(root, rel)
+            if (!lib.isFile) continue
+            val keep = File(root, "system/.aemu-parked/" + rel.replace("/", "#"))
+            if (!keep.exists()) { keep.parentFile?.mkdirs(); lib.copyTo(keep) }
+            val n = ElfPatch.returnZero(lib, funcs)
+            if (n > 0) log("Berlin: $name patched ($n func.: ${funcs.joinToString()})")
+        }
+        // mediaserver crash loop (exit 139, 12 restarts, media.audio_policy never published): libkg2h's HDMI RX init
+        // fails (no /dev/twsi0, no /dev/gpio -> "ROM code status" never passes), the error path calls
+        // libHdmiRx GetBoardVersion(), which does fopen("/proc/galois_pe/detail") + fread(buf, 1, 0x400, fp) without
+        // checking fp. The proc file belongs to the Galois kernel module, so fp == NULL and libc faults on the stream
+        // lock (qemu: PC in libc, r3 = 0, LR = libHdmiRx +0x5d88). The board version is only informational: report 0.
+        // GetBoardVersion is a static function: it exists in .symtab only, not in .dynsym.
+        // Second crash of the same family: kg2h_gpio_init() fails (no /dev/gpio), then KG2H_InitDevice() -> kg2h_gpio_set()
+        // -> ioctl on a dead fd fails -> kg2h_gpio_exit() does fclose(NULL) (qemu: PC in libc, r0 = 0, LR = libHdmiRx
+        // +0x3324). The whole GPIO line is a no-op here: set/exit/enable_irq/disable_irq just report success.
+        // (kg2h_gpio_poll is left alone: its only caller, kg2h_int_process_task, runs only after a successful gpio init.)
+        for (dir in listOf("system/vendor/lib", "system/lib")) {
+            val rel = "$dir/libHdmiRx.so"
+            val lib = File(root, rel)
+            if (!lib.isFile) continue
+            val keep = File(root, "system/.aemu-parked/" + rel.replace("/", "#"))
+            if (!keep.exists()) { keep.parentFile?.mkdirs(); lib.copyTo(keep) }
+            val n = ElfPatch.returnZero(lib, HDMIRX_NOOPS, includeSymtab = true)
+            if (n > 0) log("Berlin: $rel patched ($n func.: ${HDMIRX_NOOPS.joinToString()})")
+        }
+        // AlarmManagerService (system_server) sets the kernel time zone with settimeofday(&tv, &tz) right after
+        // /dev/alarm fails to open. The host's seccomp filter does not allow that syscall for an app process and kills
+        // the whole guest process with SIGSYS (zygote: "terminated by signal (31)", strace: settimeofday(...,{-180,0})
+        // followed by SIGCHLD si_status=31), so system_server dies at "SystemServer: Alarm Manager" on every boot.
+        // The guest can never change the host clock anyway: make glibc's settimeofday() report success.
+        for (rel in listOf("lib/libc-2.12.2.so")) {
+            val libc = File(root, rel)
+            if (!libc.isFile) continue
+            val keep = File(root, "system/.aemu-parked/" + rel.replace("/", "#"))
+            if (!keep.exists()) { keep.parentFile?.mkdirs(); libc.copyTo(keep) }
+            val n = ElfPatch.returnZero(libc, setOf("settimeofday", "__settimeofday"))
+            if (n > 0) log("Berlin: glibc settimeofday() no longer reaches the host ($n func.)")
+        }
+        // berlin_avservice (init.rc class early_start) is the one that finishes the A/V engine start-up and then creates
+        // this marker; HotplugHandler::Init() in av_settings polls access("/tmp/.PE_AV_Init.done") before it goes on,
+        // so without the marker av_settings stays alive but never registers "media.avsettings".
+        // /tmp is a symlink to /var/tmp in this image (init.rc mounts a tmpfs on /var at boot and makes /var/tmp):
+        // follow the link inside the guest tree, never on the host, and create the directory behind it
+        var rel = "tmp"
+        for (i in 0 until 8) {
+            val f = File(root, rel)
+            if (!isLink(f)) break
+            val t = Os.readlink(f.absolutePath)
+            rel = if (t.startsWith("/")) t.trimStart('/') else File(rel).parent.let { if (it == null) t else "$it/$t" }
+        }
+        val tmp = File(root, rel).apply { mkdirs() }
+        val marker = File(tmp, ".PE_AV_Init.done")
+        if (!marker.exists() && marker.createNewFile()) log("Berlin: /tmp/.PE_AV_Init.done created (in /$rel)")
+    }.onFailure { log("Berlin: vendor lib patch failed: ${it.message}") }
+
+    /**
+     * KitKat (Tegra) SurfaceFlinger dereferences the NULL HAL device (hwcomposer is parked) right after
+     * "Screen acquired" and dies with SIGSEGV at +0x1e77e (see [ElfPatch.skipNullDeviceHook]).
+     */
+    private fun surfaceFlingerGuard() = runCatching {
+        val lib = File(root, "system/lib/libsurfaceflinger.so")
+        if (lib.isFile) {
+            val keep = File(root, "system/.aemu-parked/system#lib#libsurfaceflinger.so")
+            if (!keep.exists()) { keep.parentFile?.mkdirs(); lib.copyTo(keep) }
+            if (ElfPatch.skipNullDeviceHook(lib) > 0) log("libsurfaceflinger: the missing HAL device hook is skipped")
+        }
+    }.onFailure { log("libsurfaceflinger: patch failed: ${it.message}") }
+
     /**
      * A failed Surface.unlockCanvasAndPost() throws IllegalArgumentException; on a system_server thread nothing
      * catches it, system_server kills itself and zygote exits (see ElfPatch.unlockAndPostNeverFails).
@@ -847,9 +1076,20 @@ class TreeFixer(
         lowMemoryKillerNodes()
         procNetNodes()
         javaIfInet6Redirect()
+        settingsCpuinfoRedirect()
         tungstenLedNodes()
         tungstenLedInitPatch()
         tungstenLedCountPatch()
+    }
+
+    /** ARMv7 /proc/cpuinfo in the layout of a Tegra K1 (Cortex-A15) tablet, 4 cores, ending with the board lines. */
+    private val GUEST_CPUINFO: String = buildString {
+        for (i in 0 until 4) {
+            append("processor\t: $i\nmodel name\t: ARMv7 Processor rev 3 (v7l)\nBogoMIPS\t: 38.40\n")
+            append("Features\t: swp half thumb fastmult vfp edsp neon vfpv3 tls vfpv4 idiva idivt vfpd32 lpae evtstrm\n")
+            append("CPU implementer\t: 0x41\nCPU architecture: 7\nCPU variant\t: 0x2\nCPU part\t: 0xc0f\nCPU revision\t: 3\n\n")
+        }
+        append("Hardware\t: Yellowstone\nRevision\t: 0000\nSerial\t\t: 0000000000000000\n")
     }
 
     /**
@@ -928,6 +1168,37 @@ class TreeFixer(
             }
         }
     }.onFailure { log("libcore: if_inet6 redirect failed: ${it.message}") }
+
+    /**
+     * Tango Settings > About: DeviceInfoSettings.getFormattedTNHWRevision() takes a substring after indexOf() over
+     * /proc/cpuinfo and dies with StringIndexOutOfBoundsException (index -1) because the host's arm64 cpuinfo has no
+     * Hardware/Revision/Serial lines. A cpuinfo file in the tree is not served for /proc (qemu keeps reading the host's
+     * file, as with if_inet6), so the path constant inside Settings' dex is swapped for /data/.cpuinf, which holds a
+     * Tegra-style cpuinfo ([GUEST_CPUINFO]). Settings only; other processes still see the host's file.
+     * Odex when the firmware has one, otherwise the dalvik-cache copy (created by the first boot).
+     */
+    private fun settingsCpuinfoRedirect() = runCatching {
+        if (img.api > 20) return@runCatching
+        val targets = listOf(
+            "system/priv-app/Settings.odex", "system/app/Settings.odex",
+            "data/dalvik-cache/system@priv-app@Settings.apk@classes.dex",
+            "data/dalvik-cache/system@app@Settings.apk@classes.dex",
+        ).map { File(root, it) }.filter { it.isFile }
+        if (targets.isEmpty()) return@runCatching
+        val node = File(root, "data/.cpuinf")
+        node.parentFile?.mkdirs()
+        if (isLink(node) || node.isDirectory) wipe(node)
+        if (!node.isFile || node.readText() != GUEST_CPUINFO) node.writeText(GUEST_CPUINFO)
+        Os.chmod(node.path, 0b110_100_100)
+        for (f in targets) {
+            val d = f.readBytes()
+            when (DexStringPatch.apply(d, "/proc/cpuinfo", "/data/.cpuinf")) {
+                1 -> { f.setWritable(true, true); f.writeBytes(d); log("settings: ${f.name} now reads cpuinfo from /data/.cpuinf") }
+                0 -> {}
+                else -> log("settings: /proc/cpuinfo string not found in ${f.name}, left as is")
+            }
+        }
+    }.onFailure { log("settings: cpuinfo redirect failed: ${it.message}") }
 
     /**
      * Nexus Q (Tungsten): LEDService's LEDController.nativeInit() opens the LED ring driver and throws
@@ -1360,6 +1631,35 @@ class TreeFixer(
         }
     }.onFailure { log("glass: could not re-enable network location: ${it.message}") }
 
+    /**
+     * Glass 4.4: selects the Glass remote IME in settings.db so that InputMethodManagerService does not take the
+     * "No IME selected" path that throws in its constructor (see [GlassImePolicy]). Needs a settings.db, which the
+     * first (failing) boot creates; returns true when a value was written, so the caller can retry the boot.
+     */
+    fun seedDefaultIme(): Boolean {
+        if (img.api < 19) return false
+        val installed = listOf("system/priv-app/GlassRemoteIme.apk", "system/app/GlassRemoteIme.apk").any { File(root, it).isFile }
+        if (!installed) return false
+        val db = File(root, "data/data/com.android.providers.settings/databases/settings.db")
+        if (!db.isFile) return false
+        return runCatching {
+            SQLiteDatabase.openDatabase(db.absolutePath, null, SQLiteDatabase.OPEN_READWRITE).use { d ->
+                val hasTable = d.rawQuery("SELECT name FROM sqlite_master WHERE type='table' AND name='secure'", null).use { it.count > 0 }
+                if (!hasTable) return@use false
+                fun get(name: String): String? = d.rawQuery("SELECT value FROM secure WHERE name=?", arrayOf(name)).use { if (it.moveToFirst()) it.getString(0) else null }
+                fun put(name: String, value: String) {
+                    val cv = android.content.ContentValues().apply { put("name", name); put("value", value) }
+                    if (d.update("secure", cv, "name=?", arrayOf(name)) == 0) d.insert("secure", null, cv)
+                }
+                val v = GlassImePolicy.valueToSeed(get("default_input_method"), true) ?: return@use false
+                put("default_input_method", v)
+                put("enabled_input_methods", GlassImePolicy.enabledWith(get("enabled_input_methods"), v))
+                log("glass: default input method set to $v (InputMethodManagerService no longer fails on first boot)")
+                true
+            }
+        }.onFailure { log("glass: could not set the default input method: ${it.message}") }.getOrDefault(false)
+    }
+
     private fun disableLegacyGoogleLogin() {
         val f = File(root, "data/system/users/0/package-restrictions.xml")
         if (!f.isFile) return
@@ -1466,6 +1766,16 @@ class TreeFixer(
      * miss. The host kernel resolves the absolute target, qemu does not remap symlink targets. Absolute links
      * are never exported (VmArchive) and the alias is rechecked on every boot.
      */
+    /**
+     * The alias sits in the guest's own /data/data (the guest's /data/user/0 is a link to it), under the name of a
+     * package that does not exist there, and the guest removes it while it boots (the first dex2oat run by installd
+     * and every program started after a zygote restart then abort in the linker with "unable to stat file for the
+     * executable"). GuestVm calls this while the system runs and before it restarts zygote to put it back.
+     */
+    fun ensureHostPathAlias() = hostPathAlias()
+
+    private var aliasMade = false
+
     private fun hostPathAlias() {
         if (img.api < 24) return
         runCatching {
@@ -1479,7 +1789,8 @@ class TreeFixer(
             if (cur == target) return
             if (cur != null || alias.exists()) wipe(alias)
             Os.symlink(target, alias.path)
-            log("linker: host path of the guest root aliased inside it")
+            log(if (aliasMade) "linker: host path of the guest root alias was removed by the guest, restored" else "linker: host path of the guest root aliased inside it")
+            aliasMade = true
         }.onFailure { log("host path alias failed: ${it.message}") }
     }
 

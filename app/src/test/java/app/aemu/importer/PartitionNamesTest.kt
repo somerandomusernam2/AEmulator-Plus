@@ -28,6 +28,31 @@ class PartitionNamesTest {
         for (n in listOf("oem", "oem.xml", "oemsbl.img", "system.img", "oem_config.bin")) assertFalse(n, PartitionNames.isOem(n))
     }
 
+    @Test fun abSlotPartitionDumpNames() {
+        // per-partition dump of an A/B device (Android Things, MT8516): only the active slot "_a" is used
+        assertTrue(PartitionNames.isSystem("system_a.bin"))
+        assertTrue(PartitionNames.isSystem("SYSTEM_A.IMG"))
+        assertTrue(PartitionNames.isBoot("boot_a.bin"))
+        assertTrue(PartitionNames.isBoot("boot_a.img"))
+        assertTrue(PartitionNames.isOem("oem_a.bin"))
+        assertTrue(PartitionNames.isVendor("vendor_a.bin"))
+        assertTrue(PartitionNames.isVendor("vendor_a.img"))
+        for (n in listOf("system_b.bin", "boot_b.bin", "oem_b.bin", "vendor_b.bin", "system_a", "boot_a")) {
+            assertFalse(n, PartitionNames.isSystem(n)); assertFalse(n, PartitionNames.isBoot(n))
+            assertFalse(n, PartitionNames.isOem(n)); assertFalse(n, PartitionNames.isVendor(n))
+        }
+        // other partitions of the same dump are never taken for one of the four
+        for (n in listOf("oem_bootloader_a.bin", "lk_a.bin", "tee_a.bin", "vbmeta_a.bin", "userdata.bin", "factory_bootloader.bin", "metadata.bin")) {
+            assertFalse(n, PartitionNames.isSystem(n)); assertFalse(n, PartitionNames.isBoot(n))
+            assertFalse(n, PartitionNames.isOem(n)); assertFalse(n, PartitionNames.isVendor(n))
+        }
+    }
+
+    @Test fun vendorImageNames() {
+        for (n in listOf("vendor.img", "vendor.ext4.img", "VENDOR.IMG")) assertTrue(n, PartitionNames.isVendor(n))
+        for (n in listOf("vendor", "vendor.xml", "vendor.new.dat", "vendor_config.bin")) assertFalse(n, PartitionNames.isVendor(n))
+    }
+
     @Test fun odinMd5MemberNames() {
         // GT-S5303 style Odin tar.md5: every member carries an extra ".md5"
         assertTrue(PartitionNames.isSystem(PartitionNames.stripOdinMd5("system.img.md5")))

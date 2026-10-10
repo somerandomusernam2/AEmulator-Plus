@@ -65,6 +65,10 @@ class Importer(
     private var bytes = 0L
     private var gotSystem = false
     private var gotOem = false
+    /** The system partition held the whole root file system (Android 7+ A/B "system-as-root": init, init*.rc, sepolicy, sbin/ at its top). */
+    private var systemAsRoot = false
+    /** boot image whose ramdisk is only the recovery ramdisk (A/B devices keep recovery in boot); used only if the system partition is not system-as-root. */
+    private var recoveryBoot: ByteArray? = null
     @Volatile var cancelled = false
 
     fun import(uri: Uri, name: String): GuestImage {
@@ -91,6 +95,7 @@ class Importer(
                     t.delete()
                 }
             }
+            useDeferredBoot()
             // build.prop is optional: some dumps/ports lack it, Analyzer infers the version from the tree
             if (!File(root, "system/framework").isDirectory && !File(root, "system/build.prop").isFile)
                 throw IOException("no Android system partition found in file")
@@ -163,6 +168,8 @@ class Importer(
             // ("005-recovery.img", "02_Recovery.img", "mmcblk0p15", ...).
             // oem: optional, never boot-critical. Matched before the sparse/ext4 probes below, which would take it for system.
             role == FirmwareToolset.Role.OEM || isOemName(name.replace('\\', '/').substringAfterLast('/')) -> importOem(src)
+            // optional /vendor partition (vendor.img, vendor_a.bin): matched before the ext4 probe, which would take it for system
+            isVendorName(name.replace('\\', '/').substringAfterLast('/')) -> importVendor(src)
             role == FirmwareToolset.Role.RECOVERY && src.size < 64_000_000 && isAndroidImage(h) ->
                 takeRecovery(streamOf(src), recoveryLabel(name, h))
             role == FirmwareToolset.Role.RECOVERY && src.size < 64_000_000 && isLz4Frame(h) ->
@@ -170,6 +177,7 @@ class Importer(
             SparseSource.probe(src) -> importImage(SparseSource(listOf(src)), "system")
             Ext4Reader.probe(src) -> importImage(src, "system")
             MotoImage.probe(src) -> importImage(src, "system")
+            UbiFsReader.probe(src) -> importImage(src, "system")
             Yaffs2Reader.probe(src) -> importImage(src, "system")
             // Compression signatures win over misleading suffixes (a gzip file named *.tgz.tar is not a plain tar)
             FirmwareContainers.compression(h) != null -> when (FirmwareContainers.compression(h)!!) {
@@ -282,6 +290,21 @@ class Importer(
     private fun isRecoveryName(base: String) = PartitionNames.isRecovery(base)
 
     private fun isOemName(base: String) = PartitionNames.isOem(base)
+
+    private fun isVendorName(base: String) = PartitionNames.isVendor(base)
+
+    /**
+     * The /vendor partition (A/B devices such as Android Things on MT8516 mount it from fstab) is read like system and
+     * lands in the guest's /vendor. It is optional for importing, so a failure is logged and the partition skipped.
+     */
+    private fun importVendor(src: RandomSource) {
+        try {
+            importImage(if (SparseSource.probe(src)) SparseSource(listOf(src)) else src, "vendor")
+        } catch (t: Throwable) {
+            if (cancelled) throw t
+            log("vendor: skipped, cannot read the partition (${t.message ?: t.javaClass.simpleName})")
+        }
+    }
 
     /**
      * The OEM partition (/oem: carrier / OEM customisation, sometimes the Samsung/Huawei/Moto extras) is optional and
@@ -406,7 +429,7 @@ class Importer(
                 val h = head(e, 8)
                 if (String(h, Charsets.ISO_8859_1) == "ANDROID!" || (h[0].toInt() == 0x7f && h[1] == 'E'.code.toByte())) continue
                 val s = slice(e)
-                if (SparseSource.probe(s) || Ext4Reader.probe(s) || Yaffs2Reader.probe(s)) fsEntries.add(e)
+                if (SparseSource.probe(s) || Ext4Reader.probe(s) || Yaffs2Reader.probe(s) || UbiFsReader.probe(s)) fsEntries.add(e)
             }
             fsEntries.firstOrNull { looksLikeSystem(slice(it)) }
         }
@@ -497,7 +520,7 @@ class Importer(
             val h = head(p, 8)
             if (String(h, Charsets.ISO_8859_1) == "ANDROID!" || (h[0].toInt() == 0x7f && h[1] == 'E'.code.toByte())) return@filter false
             val s = slice(p)
-            SparseSource.probe(s) || Ext4Reader.probe(s) || Yaffs2Reader.probe(s)
+            SparseSource.probe(s) || Ext4Reader.probe(s) || Yaffs2Reader.probe(s) || UbiFsReader.probe(s)
         }
         val systemPacket = fsParts.firstOrNull { it.id == HuaweiApp.ID_SYSTEM }
             ?: fsParts.firstOrNull { looksLikeSystem(slice(it)) }
@@ -518,7 +541,8 @@ class Importer(
     private fun looksLikeSystem(src: RandomSource): Boolean = runCatching {
         var found = false
         val s = if (SparseSource.probe(src)) SparseSource(listOf(src)) else MotoImage.unwrap(src)
-        if (Yaffs2Reader.probe(s)) Yaffs2Reader(s).walk { path, _ -> if (path == "build.prop" || path == "framework") found = true }
+        if (UbiFsReader.probe(s)) UbiFsReader(s).walk { path, _ -> if (path == "build.prop" || path == "framework") found = true }
+        else if (Yaffs2Reader.probe(s)) Yaffs2Reader(s).walk { path, _ -> if (path == "build.prop" || path == "framework") found = true }
         else if (Ext4Reader.probe(s)) Ext4Reader(s).walk { path, _ -> if (path == "build.prop" || path == "framework") found = true }
         found
     }.getOrDefault(false)
@@ -624,6 +648,12 @@ class Importer(
                     zip.getInputStream(e).use { writeFile(systemRel(sysRoot, n)!!, it, e.unixMode.takeIf { m -> m != 0 }) }
                     gotSystem = true
                 }
+                // whole-disk image with a GPT inside the archive (Android Things iot_rpi3.img: 4.5 GB, deflated):
+                // read once as a stream, only the boot / oem / system / gapps slots are kept
+                base.endsWith(".img", true) && e.size > (16L shl 20) && GptDisk.probe(zipEntryHead(zip, e, 4104)) -> {
+                    val ok = zip.getInputStream(e).use { importGptStream(it, base) }
+                    if (!ok) log("$base: partition table unreadable, skipped")
+                }
                 base.equals("system.yaffs2.img", true) -> withEntrySource(zip, e) { importImage(it, "system") }
                 base.endsWith(".yaffs2.img", true) -> {} // CWM user-data/cache backups are not firmware.
                 // boot.img at any depth; the shallowest valid one is taken after the loop
@@ -632,8 +662,7 @@ class Importer(
                 isOemName(base) -> withEntrySource(zip, e) { importOem(it) }
                 isSystemImageName(base) ->
                     withEntrySource(zip, e) { importImage(if (SparseSource.probe(it)) SparseSource(listOf(it)) else it, "system") }
-                base.matches(Regex("(?i)vendor(\\.ext4)?\\.img")) ->
-                    withEntrySource(zip, e) { runCatching { importImage(if (SparseSource.probe(it)) SparseSource(listOf(it)) else it, "vendor") } }
+                isVendorName(base) -> withEntrySource(zip, e) { importVendor(it) }
                 base.lowercase().endsWith(".zip") && (base.startsWith("image-") || depth == 0 && e.size > 50_000_000) ||
                     base.lowercase().endsWith(".rar") || base.lowercase().endsWith(".7z") -> {
                     handleNestedZip(spillEntry(zip, e), base, depth)
@@ -672,7 +701,7 @@ class Importer(
         }
         // Split boot dumps (kernel + ramdisk.gz, or an unpacked initrd/ folder) carry no boot.img: take the ramdisk directly,
         // otherwise init.rc, /sbin/healthd and friends never reach the tree and system_server dies in BatteryService.
-        if (ramdisk == null) takeLooseRamdisk(zip, entries, wrap, sysRoot)
+        if (ramdisk == null && !systemAsRoot) takeLooseRamdisk(zip, entries, wrap, sysRoot)
         for (partition in listOf("system", "vendor")) {
             if (partition == "system" && gotSystem) continue
             val dataE = entries.firstOrNull { it.name.matches(Regex("(?i)(.*/)?$partition\\.new\\.dat(\\.br)?")) } ?: continue
@@ -819,6 +848,7 @@ class Importer(
                     isBootName(base) -> takeBoot(entryStream.readBytes())
                     isRecoveryName(base) && e.size < 64_000_000 -> takeRecovery(entryStream, base)
                     isOemName(base) -> nested.add(spill(entryStream, base) to "oem")
+                    isVendorName(base) -> nested.add(spill(entryStream, base) to "vendor")
                     base.equals("system.yaffs2.img", true) ||
                         isSystemImageName(base) -> {
                         nested.add(spill(entryStream, base) to "system")
@@ -865,6 +895,7 @@ class Importer(
                         val src = ChannelSource(c)
                         if (kind == "system") importImage(if (SparseSource.probe(src)) SparseSource(listOf(src)) else src, "system")
                         else if (kind == "oem") importOem(src)
+                        else if (kind == "vendor") importVendor(src)
                         else handle(src, c, f.name, depth + 1)
                     }
                 } finally { f.delete() }
@@ -873,11 +904,29 @@ class Importer(
         }
     }
 
+    /**
+     * Android Things /gapps (Google Mobile Services, mounted nofail): /system/priv-app/PrebuiltGmsCoreThings and friends
+     * are symlinks into it. Optional like /oem: a failure is logged and the partition skipped.
+     */
+    private fun importGapps(src: RandomSource) {
+        val dir = File(root, "gapps")
+        val existed = dir.exists()
+        try {
+            importImage(if (SparseSource.probe(src)) SparseSource(listOf(src)) else src, "gapps")
+        } catch (t: Throwable) {
+            if (cancelled) throw t
+            log("gapps: skipped, cannot read the partition (${t.message ?: t.javaClass.simpleName})")
+            symlinks.removeAll { it.second.startsWith("/gapps/") }
+            if (!existed) deleteTree(dir)
+        }
+    }
+
     private fun applyGptPart(kind: GptDisk.Kind, src: RandomSource) {
         when (kind) {
             GptDisk.Kind.BOOT -> takeBoot(readAllFrom(src))
             GptDisk.Kind.RECOVERY -> takeRecovery(streamOf(src), "recovery.img")
             GptDisk.Kind.OEM -> importOem(src)
+            GptDisk.Kind.GAPPS -> importGapps(src)
             GptDisk.Kind.SYSTEM -> {
                 importImage(if (SparseSource.probe(src)) SparseSource(listOf(src)) else src, "system")
                 gotSystem = true
@@ -1276,16 +1325,22 @@ class Importer(
         // Motorola signed images carry a signature header in front of the ext4 (see MotoImage)
         val src = MotoImage.unwrap(source)
         if (src !== source) log("image $mount: Motorola signature header skipped, ${src.size shr 20} MB filesystem")
+        if (UbiFsReader.probe(src)) { importUbifs(src, mount); return }
         if (Yaffs2Reader.probe(src)) { importYaffs2(src, mount); return }
         if (!Ext4Reader.probe(src)) { importOtherFilesystem(src, mount, keep = keepStockImage && mount == "system" && src === source); return }
         val fs = Ext4Reader(src)
+        // Android 7+ A/B ("system-as-root"): the partition IS the root file system, /system is a folder in it.
+        // Its top level (init*.rc, sepolicy, sbin/, default.prop...) is the ramdisk, so it goes to the guest root as is.
+        val asRoot = mount == "system" && AbLayout.isSystemAsRoot(fs)
+        if (asRoot) { systemAsRoot = true; log("image system: system-as-root layout (root file system in the partition)") }
         onProgress("Reading image $mount (ext4, block ${fs.blockSize})", -1f)
         var n = 0
         // what is needed to rebuild this image later from the files (block-based OTAs work on the image)
-        val cap = if (mount == "system") SystemLayout.Capture(fs, src) else null
+        val cap = if (mount == "system" && !asRoot) SystemLayout.Capture(fs, src) else null
         fs.walk { path, node ->
             if (cancelled) throw IOException("cancelled")
-            val rel = "$mount/$path"
+            if (asRoot && node.isFile && AbLayout.skipRootFile(path)) return@walk
+            val rel = if (asRoot) path else "$mount/$path"
             val f = FirmwareContainers.destination(root, rel)
             when {
                 node.isDir -> { f.mkdirs(); cap?.dir(path, node.perm) }
@@ -1326,7 +1381,7 @@ class Importer(
             FirmwareToolset.detect(headFile)
         } finally { headFile.delete() }
         if (kind != "SQUASHFS" && kind != "RFS")
-            throw IOException("unrecognized filesystem for $mount (expected ext4, YAFFS2, SquashFS or RFS)")
+            throw IOException("unrecognized filesystem for $mount (expected ext4, YAFFS2, UBIFS, SquashFS or RFS)")
         val fsName = if (kind == "SQUASHFS") "SquashFS" else "RFS"
         onProgress("Reading image $mount ($fsName)", -1f)
         val dir = File(tmp, "fs-${System.nanoTime()}").apply { mkdirs() }
@@ -1408,6 +1463,45 @@ class Importer(
         fs.warnings.forEach { log("YAFFS2 $mount: $it") }
     }
 
+    /**
+     * UBI image with a UBIFS volume (NAND devices, e.g. MediaTek MT65xx/MT657x phones): the same tree walk as YAFFS2.
+     * See [UbiFsReader] for the supported compression types (none, LZO, zlib, zstd and the MediaTek LZ4K).
+     */
+    private fun importUbifs(src: RandomSource, mount: String) {
+        onProgress("Reading image $mount (UBIFS)", -1f)
+        val fs = UbiFsReader(src) { if (cancelled) throw IOException("cancelled") }
+        log("UBIFS $mount: ${fs.summary}")
+        var n = 0
+        fs.walk { path, node ->
+            val rel = "$mount/$path"
+            val f = FirmwareContainers.destination(root, rel)
+            when (node.type) {
+                3 -> { if (!f.isDirectory && !f.mkdirs()) throw IOException("cannot create $rel") }
+                2 -> {
+                    val target = if (node.target.startsWith("/")) node.target.trimStart('/')
+                        else rel.substringBeforeLast('/') + "/" + node.target
+                    val normalized = java.nio.file.Paths.get(target).normalize().toString()
+                    if (node.target.isEmpty() || normalized == ".." || normalized.startsWith("../"))
+                        throw IOException("UBIFS symlink escapes guest root")
+                    symlinks.add(node.target to "/$rel")
+                }
+                1 -> {
+                    f.parentFile?.mkdirs()
+                    // Links are only created by finishTree, after all file bytes.
+                    if (isLink(f)) throw IOException("UBIFS destination is a symlink")
+                    f.outputStream().buffered(1 shl 20).use { fs.copy(node, it) }
+                    applyMode(f, fs.fileMode(node) and 0xfff)
+                    files++; bytes += f.length()
+                }
+                else -> {} // Guest /dev is created by the VM; never mknod on the host.
+            }
+            if (++n % 150 == 0) onProgress("$mount: ${path.substringAfterLast('/')}", -1f)
+        }
+        if (mount == "system") gotSystem = true
+        log("UBIFS $mount: $n objects")
+        fs.warnings.forEach { log("UBIFS $mount: $it") }
+    }
+
     // "ramdisk.img" is how Google's SDK system images (clockwork_sdk, sysimg_*) ship the root fs: a gzip'd cpio next to system.img
     private val LOOSE_RAMDISK = Regex("(?i)(ramdisk|initrd|initramfs)(\\.cpio)?(\\.(gz|xz|lzma|lz4|img))?")
 
@@ -1452,14 +1546,71 @@ class Importer(
         }
     }
 
-    private fun takeBoot(raw: ByteArray) {
-        if (ramdisk != null) return
-        val data = BootImage.stripHtcSignature(raw)
-        val rd = runCatching { BootImage.ramdisk(data) }.getOrNull()
-        if (rd.isNullOrEmpty()) { log("boot: ramdisk not recognized"); return }
+    /** After all containers are read: the recovery-only boot ramdisk is the fallback ramdisk of a non-system-as-root firmware. */
+    private fun useDeferredBoot() {
+        val data = recoveryBoot ?: return
+        recoveryBoot = null
+        if (systemAsRoot || ramdisk != null) { log("boot: recovery ramdisk ignored (the root file system comes from the system partition)"); return }
+        val rd = runCatching { BootImage.ramdisk(data) }.getOrNull()?.takeIf { it.isNotEmpty() } ?: return
         ramdisk = rd
         File(paths.dir, "boot.img").writeBytes(data)
         log("boot: ramdisk, ${rd.size} files")
+    }
+
+    private fun takeBoot(raw: ByteArray) {
+        if (ramdisk != null) return
+        val data = BootImage.stripHtcSignature(raw)
+        val rd = runCatching { BootImage.ramdisk(data) }.getOrNull()?.takeIf { it.isNotEmpty() } ?: squashRamdisk(data)
+        if (rd.isNullOrEmpty()) { log("boot: ramdisk not recognized"); return }
+        if (AbLayout.isRecoveryRamdisk(rd)) {
+            // A/B boot = kernel + recovery ramdisk; the real init.rc / sbin/ are in the system partition (system-as-root)
+            recoveryBoot = data
+            log("boot: recovery ramdisk (A/B boot image), ${rd.size} files; kept aside")
+            return
+        }
+        ramdisk = rd
+        File(paths.dir, "boot.img").writeBytes(data)
+        log("boot: ramdisk, ${rd.size} files")
+    }
+
+    /**
+     * Google TV (Marvell Berlin, e.g. Hisense GX1200V) ships boot.img as a plain SquashFS root file system, not an
+     * "ANDROID!" image: init*.rc, sbin/ and the glibc userland (lib/ld-linux.so.3, libc, libpthread, ...) that the
+     * firmware's native binaries are linked against ("interpreter /lib/ld-linux.so.3"). Without it every guest
+     * program dies at once with "Could not open '/lib/ld-linux.so.3'". Returns the same entry list finishTree takes
+     * from a boot.img ramdisk, or null if [raw] is not a SquashFS root file system.
+     */
+    private fun squashRamdisk(raw: ByteArray): List<BootImage.CpioEntry>? {
+        if (raw.size < 96) return null
+        val magic = String(raw, 0, 4, Charsets.ISO_8859_1)
+        if (magic != "hsqs" && magic != "sqsh") return null
+        val tmp = File(paths.dir, "boot-rootfs.sqfs")
+        return try {
+            tmp.writeBytes(raw)
+            val out = ArrayList<BootImage.CpioEntry>()
+            var total = 0L
+            var curMode = 0
+            var cur: java.io.ByteArrayOutputStream? = null
+            FirmwareToolset.walkSquashFs(tmp, { log(it) }, object : FirmwareToolset.SquashVisitor {
+                override fun dir(path: String, mode: Int) { out.add(BootImage.CpioEntry(path, 0x4000 or (mode and 0xfff), ByteArray(0))) }
+                override fun link(path: String, target: String) { out.add(BootImage.CpioEntry(path, 0xA000 or 0x1ff, target.toByteArray())) }
+                override fun file(path: String, mode: Int, size: Long): java.io.OutputStream? {
+                    if (size > MAX_RAMDISK_FILE) { log("boot rootfs: skipped $path (${size shr 20} MB)"); return null }
+                    total += size
+                    if (total > MAX_RAMDISK) throw IOException("boot rootfs too large")
+                    curMode = mode
+                    return java.io.ByteArrayOutputStream(size.toInt().coerceAtLeast(16)).also { cur = it }
+                }
+                override fun fileEnd(path: String) {
+                    cur?.let { out.add(BootImage.CpioEntry(path, 0x8000 or (curMode and 0xfff), it.toByteArray())) }
+                    cur = null
+                }
+            })
+            if (out.none { it.name == "init.rc" }) { log("boot: SquashFS has no init.rc, not a root file system"); null }
+            else { log("boot: SquashFS root file system, ${out.size} entries (glibc userland: ${out.count { it.name.startsWith("lib/") }} files in /lib)"); out }
+        } catch (ex: Exception) {
+            log("boot: SquashFS root file system: ${ex.message}, skipped"); null
+        } finally { tmp.delete() }
     }
 
     // ------------------------------------------------------------------ файлы, ссылки, права

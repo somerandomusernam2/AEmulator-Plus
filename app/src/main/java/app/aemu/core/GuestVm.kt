@@ -48,6 +48,7 @@ class GuestVm(val ctx: Context, val img: GuestImage, val lowPowerBoot: Boolean =
     /** Guest reported boot completion; this does not prove that its launcher rendered. */
     @Volatile private var everBooted = false
     @Volatile private var zygoteRestarts = 0
+    @Volatile private var imeRetried = false
         private set
     @Volatile var failure: String? = null
         private set
@@ -588,8 +589,9 @@ class GuestVm(val ctx: Context, val img: GuestImage, val lowPowerBoot: Boolean =
 
         bootAt = System.currentTimeMillis()
         bootDoneAt = 0
-        everBooted = false; zygoteRestarts = 0
+        everBooted = false; zygoteRestarts = 0; imeRetried = false
         bootAnimCheckRunning.set(false); bootAnimFixes = 0
+        touchWizMediaStarted = false
         noteBoot.interrupted()
         pendingNote = ImageStore.get(ctx, img.id)?.oneTimeNote ?: img.oneTimeNote
         setState(State.BOOTING)
@@ -601,13 +603,24 @@ class GuestVm(val ctx: Context, val img: GuestImage, val lowPowerBoot: Boolean =
         if (!waitFor("binder socket", 15_000) { paths.binderSock.exists() }) error("binderd failed to start")
 
         // 5. службы гостя по плану из init.rc прошивки
-        val plan = img.services.filter { it.name !in InitPlan.NEVER_START }.ifEmpty { InitPlan.fallback(img, paths.root) }
+        val basePlan = bootServices.filter { it.name !in InitPlan.NEVER_START }.ifEmpty { InitPlan.fallback(img, paths.root) }
+        // Samsung 2.x boot logo + PowerOn sound (playlogos1); images imported earlier have no such entry in their saved plan
+        val plan = if (File(paths.bin, BootMediaServices.LEGACY_LOGO_OFF).exists()) basePlan
+                   else BootMediaServices.withLegacyLogo(basePlan, paths.root, img.api)
+        if (plan.any { it.name == BootMediaServices.LEGACY_LOGO }) log("boot logo: playlogos1 will run (Samsung 2.x boot animation and sound)")
         var glDone = false
         for (svc in plan) {
             if (stopping) return
             // GL-мост должен ждать гостя до SurfaceFlinger/zygote
             if (!glDone && (svc.name == "surfaceflinger" || svc.name == "zygote" || svc.name == "bootanim")) {
                 glUp(); glDone = true
+            }
+            // Samsung: native SensorService/libsensorhub wait for "sensorhubservice" forever; a placeholder binder ends the wait
+            if (svc.name == "zygote" && engine == Engine.KK && File(paths.root, "system/framework/aemu-sensorhub.jar").isFile) {
+                synchronized(procs) { procs.remove("aemu-sensorhub") }?.let { runCatching { it.destroyForcibly() } }
+                startService(GuestService("aemu-sensorhub", listOf("/system/bin/app_process",
+                    "-Djava.class.path=/system/framework/aemu-sensorhub.jar", "/system/bin",
+                    "app.aemu.stub.SensorHubStub", "sensorhubservice"), optional = true))
             }
             // 4.2+: заглушка bluetooth_manager до зиготы (system_server с ro.kernel.qemu=1 свою не поднимает)
             if (svc.name == "zygote" && img.api >= 9 && engine == Engine.KK && File(paths.root, "system/framework/aemu-stubs.jar").isFile) {
@@ -626,11 +639,14 @@ class GuestVm(val ctx: Context, val img: GuestImage, val lowPowerBoot: Boolean =
                 startService(GuestService("aemu-net", listOf("/system/bin/app_process",
                     "-Djava.class.path=/system/framework/aemu-stubs.jar", "/system/bin", "app.aemu.stub.NetStub"), optional = true))
             }
+            if (svc.name == BootMediaServices.LEGACY_LOGO) { LegacyLogoPatch.apply(paths.root, ::log); LegacyLogoPatch.provideHeadsetState(paths.root, ::log) }
             startService(svc)
             svc.waitSocket?.let { sock -> waitFor("socket $sock", 20_000) { paths.socket(sock).exists() } }
             if (svc.delayMs > 0) Thread.sleep(svc.delayMs)
+            if (svc.name == "surfaceflinger") startTouchWizBootMedia()
         }
         if (!glDone) glUp()
+        startTouchWizBootMedia() // no-op if already started above (e.g. a plan without surfaceflinger)
         log("system started: ${alive().joinToString()}")
         if (SetupWizardOption.runHelper(settings.skipSetupWizard,
                 File(paths.root, "data/system/aemu-setup-skip.properties").isFile)) {
@@ -712,6 +728,26 @@ class GuestVm(val ctx: Context, val img: GuestImage, val lowPowerBoot: Boolean =
 
     val glInApp: Boolean get() = engine == Engine.KK && GlBridge.running()
 
+    /**
+     * The boot plan saved with the image. Images imported before InitPlan learned to ignore MediaTek's
+     * advanced_meta_init.rc (the META-mode copy of init.rc) carry its service definitions instead of the real ones —
+     * netd then got only its "netd" socket, no "dnsproxyd", and exited at once. Such an image gets its plan rebuilt
+     * from the rc files in the tree on every boot, so it does not have to be imported again.
+     */
+    private val bootServices: List<GuestService> by lazy {
+        runCatching {
+            if (!File(paths.root, "advanced_meta_init.rc").isFile) return@runCatching img.services
+            val files = (paths.root.listFiles()?.filter { it.isFile && it.name.endsWith(".rc") }
+                ?.sortedBy { if (it.name == "init.rc") 0 else 1 } ?: emptyList()) +
+                (File(paths.root, "system/etc/init").listFiles()?.filter { it.name.endsWith(".rc") } ?: emptyList())
+            val fresh = InitPlan.plan(InitPlan.parse(files), img.api, paths.root)
+            if (fresh.isEmpty()) img.services else {
+                if (fresh != img.services) log("init plan rebuilt without advanced_meta_init.rc (${fresh.size} services)")
+                fresh
+            }
+        }.getOrDefault(img.services)
+    }
+
     private fun startService(svc: GuestService, propsFile: File? = null) {
         if (!File(paths.root, svc.argv.first().removePrefix("/")).isFile) {
             log("· ${svc.name}: ${svc.argv.first()} missing, skipping")
@@ -726,7 +762,9 @@ class GuestVm(val ctx: Context, val img: GuestImage, val lowPowerBoot: Boolean =
         val argv = if (svc.name == "zygote" && !settings.jit && img.runtime == "dalvik")
             svc.argv.take(1) + "-Xint:fast" + svc.argv.drop(1) else svc.argv
         // отладка: файл run/strace.<служба> включает трассировку системных вызовов qemu
-        if (File(paths.bin, "strace.${svc.name}").exists()) extra["QEMU_STRACE"] = "1"
+        // TEMPORARY (Berlin bring-up): always trace zygote, system_server dies with signal 31 at "Alarm Manager" and nothing
+        // else says which syscall it was. Remove once that is solved.
+        if (File(paths.bin, "strace.${svc.name}").exists() || svc.name == "zygote") extra["QEMU_STRACE"] = "1"
         spawn(svc.name, guestRunner.cmdline(argv, props), guestRunner.env(extra))
     }
 
@@ -759,6 +797,15 @@ class GuestVm(val ctx: Context, val img: GuestImage, val lowPowerBoot: Boolean =
     }
 
     private fun alive(): List<String> = synchronized(procs) { procs.filterValues { it.isAlive }.keys.toList() }
+
+    /**
+     * Pixel format the boot logo uses in fb0 (0 = RGB565, 1 = RGBA_8888, 2 = BGRA_8888). The emulated fb0 is two 32-bit
+     * pages and Samsung's fb is BGRA, so 2 is the default; run/logo-format (a single digit) overrides it for testing.
+     */
+    val logoFormat: Int get() = runCatching { File(paths.bin, "logo-format").readText().trim().toInt() }.getOrNull()?.takeIf { it in 0..2 } ?: 2
+
+    /** True while Samsung's playlogos1 paints the boot animation into fb0 (the UI then shows fb0 instead of the GL surface). */
+    fun legacyLogoRunning(): Boolean = bootDoneAt == 0L && synchronized(procs) { procs[BootMediaServices.LEGACY_LOGO]?.isAlive == true }
 
     private fun waitFor(what: String, ms: Long, cond: () -> Boolean): Boolean {
         val until = SystemClock.uptimeMillis() + ms
@@ -803,8 +850,30 @@ class GuestVm(val ctx: Context, val img: GuestImage, val lowPowerBoot: Boolean =
         }
     }
 
+    @Volatile private var touchWizMediaStarted = false
+
+    /**
+     * TouchWiz only: if /system/bin has samsungani (boot animation) and/or playsound (boot sound), run them during
+     * boot. Missing binaries are skipped without an error, and nothing here can fail the boot.
+     */
+    private fun startTouchWizBootMedia() {
+        if (touchWizMediaStarted || stopping || recoveryMode || lowPowerBoot) return
+        touchWizMediaStarted = true
+        runCatching {
+            for (name in BootMediaServices.touchWizBootMedia(paths.root, img.skin)) {
+                // below 4.1 the animation never quits on its own (see onCtl), so don't force it there
+                if (name == "samsungani" && img.api < 16) { log("TouchWiz boot media: samsungani skipped on API ${img.api}"); continue }
+                val key = if (name == "playsound") name else "bootanim"
+                if (synchronized(procs) { procs[key]?.isAlive == true }) continue
+                val def = BootMediaServices.resolve(paths.root, name) ?: continue
+                Thread { runCatching { startService(def) } }.start()
+                log("TouchWiz boot media: $name started")
+            }
+        }.onFailure { log("TouchWiz boot media: ${it.message}") }
+    }
+
     private fun onCtl(start: Boolean, svc: String) {
-        val plan = img.services.filter { it.name !in InitPlan.NEVER_START }.ifEmpty { InitPlan.fallback(img, paths.root) }
+        val plan = bootServices.filter { it.name !in InitPlan.NEVER_START }.ifEmpty { InitPlan.fallback(img, paths.root) }
         if (svc == "bootanim" || svc == "bootanimation" || svc == "samsungani") {
             if (!start) {
                 // 4.x sets service.bootanim.exit first and the animation quits on its own, closing its audio.
@@ -835,7 +904,7 @@ class GuestVm(val ctx: Context, val img: GuestImage, val lowPowerBoot: Boolean =
             return
         }
         val def = plan.firstOrNull { it.name == svc } ?: InitPlan.optional(svc, img, paths.root)
-        if (svc == "playsound" && start && bootDoneAt != 0L) return
+        if (svc == "playsound" && start && (bootDoneAt != 0L || synchronized(procs) { procs["playsound"]?.isAlive == true })) return
         if (def == null) { log("ctl.${if (start) "start" else "stop"} $svc: no such service"); return }
         synchronized(procs) { procs.remove(svc) }?.destroyForcibly()
         if (start) Thread { runCatching { startService(def) } }.start()
@@ -879,6 +948,15 @@ class GuestVm(val ctx: Context, val img: GuestImage, val lowPowerBoot: Boolean =
 
     private fun watchdog() {
         runCatching { power.writeText(""); power.setWritable(true, false) }
+        // 7.0+: the guest deletes the host-path alias of the root that the linker stats at start-up (see TreeFixer);
+        // a program started without it aborts, so it is checked far more often than the supervision loop below
+        if (img.api >= 24) Thread({
+            val fixer = TreeFixer(ctx, paths, img, ::log)
+            while (!stopping) {
+                runCatching { fixer.ensureHostPathAlias() }
+                try { Thread.sleep(200) } catch (_: InterruptedException) { break }
+            }
+        }, "host-path-alias").apply { isDaemon = true; start() }
         Thread({
             var restarts = HashMap<String, Int>()
             while (!stopping) {
@@ -896,6 +974,15 @@ class GuestVm(val ctx: Context, val img: GuestImage, val lowPowerBoot: Boolean =
                     // a clean exit (code 0) is the normal end of the animation; anything else is a crash or a kill
                     if (name == "bootanim" && code != 0) checkDeadBootAnimLayer(code)
                     if (name == "zygote") {
+                        // Glass 4.4 first boot: IMMS fails without a selected IME; settings.db now exists, so seed it and boot again once
+                        if (state != State.FAILED && !everBooted && !imeRetried && guestLogHas(GlassImePolicy.FAILURE_MARK)) {
+                            imeRetried = true
+                            if (TreeFixer(ctx, paths, img, ::log).seedDefaultIme()) {
+                                log("✖ system_server failed in InputMethodManagerService, default input method set, starting the system again")
+                                restartZygote()
+                                continue
+                            }
+                        }
                         if (state != State.FAILED && (!everBooted || zygoteRestarts >= 6)) {
                             failure = "zygote exited (code $code)" + if (code == 137) " — SIGKILL (cause not established)" else ""
                             if (code == 137 && guestLogHas("No original dex files found"))
@@ -1046,6 +1133,7 @@ class GuestVm(val ctx: Context, val img: GuestImage, val lowPowerBoot: Boolean =
 
     private fun restartZygote() {
         val z = img.services.firstOrNull { it.name == "zygote" } ?: return
+        if (img.api >= 24) runCatching { TreeFixer(ctx, paths, img, ::log).ensureHostPathAlias() }
         bootDoneAt = 0
         setState(State.BOOTING)
         paths.socket("zygote").delete()
@@ -1079,7 +1167,7 @@ class GuestVm(val ctx: Context, val img: GuestImage, val lowPowerBoot: Boolean =
             val pid = d.name.toIntOrNull() ?: return@forEach
             val cmd = runCatching { String(File(d, "cmdline").readBytes(), Charsets.ISO_8859_1) }.getOrNull() ?: return@forEach
             // app_process с aemu-stubs.jar — наша заглушка bluetooth_manager, не приложение зиготы
-            if (cmd.contains(marker) && cmd.contains("/system/bin/app_process") && !cmd.contains("aemu-stubs.jar") && !cmd.contains("aemu-bt.jar")) {
+            if (cmd.contains(marker) && cmd.contains("/system/bin/app_process") && !cmd.contains("aemu-stubs.jar") && !cmd.contains("aemu-bt.jar") && !cmd.contains("aemu-sensorhub.jar")) {
                 runCatching { AProcess.sendSignal(pid, 9) }; n++
             }
         }

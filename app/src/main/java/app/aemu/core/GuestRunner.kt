@@ -62,8 +62,9 @@ class GuestRunner(
         for ((k, v) in img.exports) if (k !in EXPORTS_SKIP) e[k] = v
         e["PATH"] = img.exports["PATH"] ?: "/sbin:/vendor/bin:/system/sbin:/system/bin:/system/xbin"
         e["DHD_ENV_LD_LIBRARY_PATH"] = img.exports["LD_LIBRARY_PATH"] ?: "/vendor/lib:/system/lib"
-        // ashmem через memfd (движок) + наша прослойка от запрещённых в песочнице вызовов (mount, reboot…)
-        e["DHD_ENV_LD_PRELOAD"] = "/system/lib/libashmemshim.so:/system/lib/libaemushim.so"
+        // ashmem через memfd (движок) + наша прослойка от запрещённых в песочнице вызовов (mount, reboot…).
+        // glibc firmware (Google TV) cannot load the bionic-linked libaemushim.so (DT_NEEDED libc.so): ashmem shim only.
+        e["DHD_ENV_LD_PRELOAD"] = GuestPreload.value(GuestPreload.isGlibcFirmware(paths.root))
         e["ANDROID_ROOT"] = img.exports["ANDROID_ROOT"] ?: "/system"
         e["ANDROID_DATA"] = img.exports["ANDROID_DATA"] ?: "/data"
         e["ANDROID_ASSETS"] = img.exports["ANDROID_ASSETS"] ?: "/system/app"
@@ -140,6 +141,29 @@ class GuestRunner(
     }
 
     companion object {
+        /** PATH for an interactive/adb shell: /system/bin and /system/xbin first (the firmware's /sbin-first PATH breaks pm/am) */
+        fun shellPath(path: String?): String {
+            val rest = (path ?: "").split(':').filter { it.isNotEmpty() && it != "/system/bin" && it != "/system/xbin" }
+            return (listOf("/system/bin", "/system/xbin") + rest).joinToString(":")
+        }
+
+        /**
+         * qemu cannot exec a script (even with #!: "Error while loading .../bin/pm: Exec format error"), so typing
+         * `pm`, `am`, `input`... in the shell failed. Shell functions run them through `sh <script>` instead.
+         * Only for files that are really scripts (no ELF magic) and only in the shell the user types into.
+         */
+        fun scriptFns(root: File): String {
+            val sb = StringBuilder()
+            for (n in listOf("am", "pm", "input", "monkey", "svc", "ime", "bmgr", "wm", "content", "settings")) {
+                val f = File(root, "system/bin/$n")
+                if (!f.isFile) continue
+                val head = runCatching { f.inputStream().use { s -> ByteArray(4).also { b -> s.read(b) } } }.getOrNull() ?: continue
+                if (head[0] == 0x7f.toByte() && head[1] == 'E'.code.toByte()) continue
+                sb.append(n).append("() { /system/bin/sh /system/bin/").append(n).append(" \"\$@\"; }; ")
+            }
+            return sb.toString()
+        }
+
         private val EXPORTS_SKIP = setOf("PATH", "LD_LIBRARY_PATH", "BOOTCLASSPATH", "LD_PRELOAD")
     }
 }

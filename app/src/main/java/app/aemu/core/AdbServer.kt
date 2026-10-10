@@ -193,11 +193,13 @@ class AdbServer(private val vm: GuestVm) {
     /** guest sh under qemu; stdout+stderr merged (legacy shell protocol has no separate stderr) */
     private fun shell(s: Stream, cmd: String, interactive: Boolean) {
         val r = vm.guestRunner
-        val argv = if (interactive) listOf("/system/bin/sh", "-i") else listOf("/system/bin/sh", "-c", cmd)
+        val argv = if (interactive) listOf("/system/bin/sh", "-i") else listOf("/system/bin/sh", "-c", GuestRunner.scriptFns(vm.paths.root) + cmd)
         val pb = ProcessBuilder(r.cmdline(argv)).directory(vm.paths.bin).redirectErrorStream(true)
         pb.environment().clear()
         pb.environment().putAll(r.env(mapOf("HOME" to "/data/local/tmp", "TERM" to "dumb")))
+        pb.environment()["PATH"] = GuestRunner.shellPath(pb.environment()["PATH"])
         val p = pb.start()
+        if (interactive) runCatching { p.outputStream.write((GuestRunner.scriptFns(vm.paths.root) + "\n").toByteArray()); p.outputStream.flush() }
         val pump = thread(isDaemon = true) {
             runCatching {
                 val buf = ByteArray(8192)

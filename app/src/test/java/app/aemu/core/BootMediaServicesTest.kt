@@ -32,4 +32,29 @@ class BootMediaServicesTest {
         assertNull(BootMediaServices.resolve(root, "playsound"))
         assertNull(BootMediaServices.resolve(root, "charger"))
     }
+    @Test fun touchWizRunsOnlyPresentBootMedia() = fixture { root ->
+        assertEquals(listOf("samsungani", "playsound"), BootMediaServices.touchWizBootMedia(root, "TouchWiz"))
+        File(root, "system/bin/playsound").delete()
+        assertEquals(listOf("samsungani"), BootMediaServices.touchWizBootMedia(root, "TouchWiz"))
+        File(root, "system/bin/samsungani").delete()
+        assertTrue(BootMediaServices.touchWizBootMedia(root, "TouchWiz").isEmpty())
+    }
+    @Test fun otherRomsGetNoProactiveBootMedia() = fixture { root ->
+        assertTrue(BootMediaServices.touchWizBootMedia(root, "AOSP").isEmpty())
+        assertTrue(BootMediaServices.touchWizBootMedia(root, "MIUI").isEmpty())
+    }
+    @Test fun samsungLegacyLogoRunsBeforeZygote() {
+        val root = Files.createTempDirectory("legacy-logo").toFile()
+        try {
+            File(root, "system/bin").mkdirs()
+            File(root, "system/bin/playlogos1").writeText("elf")
+            File(root, "init.rc").writeText("service playlogos1 /system/bin/playlogos1\n    user root\n    oneshot\n")
+            val base = listOf(GuestService("mediaserver", listOf("/system/bin/mediaserver")), GuestService("zygote", listOf("/system/bin/app_process")))
+            val plan = BootMediaServices.withLegacyLogo(base, root, 8)
+            assertEquals(listOf("mediaserver", "playlogos1", "zygote"), plan.map { it.name })
+            assertFalse(plan[1].restart)
+            assertEquals(plan, BootMediaServices.withLegacyLogo(plan, root, 8))
+            assertEquals(base, BootMediaServices.withLegacyLogo(base, root, 19))
+        } finally { root.deleteRecursively() }
+    }
 }

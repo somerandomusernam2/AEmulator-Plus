@@ -41,7 +41,9 @@ object InitPlan {
         val exports = LinkedHashMap<String, String>()
         val condExports = LinkedHashMap<String, String>()
         // режимы, в которые эмулятор не грузится: заводской, зарядка, восстановление
-        val skip = Regex("""(?i)^(factory_init|meta_init|init[.]charging|init[.]recovery|lpm|fota|FWUpgradeInit).*[.]rc$""")
+        // (MediaTek: advanced_meta_init.rc is the META/engineering-mode copy of init.rc; it redefines zygote, netd, installd,
+        // keystore, vold… with other sockets and must never override the normal definitions)
+        val skip = Regex("""(?i)^(factory_init|(advanced_)?meta_init|init[.]charging|init[.]recovery|lpm|fota|FWUpgradeInit).*[.]rc$""")
         val dirs = ArrayList<String>()
         val setprops = LinkedHashMap<String, String>()
         for (f in files) {
@@ -143,7 +145,8 @@ object InitPlan {
         }.map { sv -> GuestService(sv.name, sv.argv, sv.sockets.toMap(), delayMs = 200, optional = true) }
         val z = out.indexOfFirst { it.name == "zygote" }.let { if (it < 0) out.size else it }
         out.addAll(z, extras)
-        return out
+        // Samsung 2.x boot logo + sound (playlogos1 is a oneshot, so the filter above never picks it up)
+        return BootMediaServices.withLegacyLogo(out, root, api)
     }
 
     /** Службы init, которые не запускаем: их роль играет хост, или они лезут в железо. */
@@ -154,7 +157,7 @@ object InitPlan {
         "ueventd", "vold", "rild", "ril-daemon", "adbd", "debuggerd", "debuggerd64", "console", "dbus", "bluetoothd",
         "btld", "wpa_supplicant", "p2p_supplicant", "dhcpcd", "racoon", "mtpd", "qemud", "goldfish-setup", "goldfish-logcat",
         "dumpstate", "flash_recovery", "recovery", "redbend_ua", "sreadaheadd", "lpmkey", "playlpm", "charger", "macloader",
-        "mfgloader", "wlandutservice", "bt_dut_cmd", "bootanim", "samsungani", "playsound", "sdcard", "fuse_sdcard0",
+        "mfgloader", "wlandutservice", "bt_dut_cmd", "bootanim", "samsungani", "playsound", BootMediaServices.LEGACY_LOGO, "sdcard", "fuse_sdcard0",
         "healthd", "logd", "lmkd", "watchdogd", "ril-daemon1", "ril-daemon2", "fota", "gpsd", "sensors", "akmd",
         "rmt_storage", "qmuxd", "netmgrd", "thermald", "mpdecision", "thermal-engine", "time_daemon", "diag", "common_time", "tf_daemon",
     )
@@ -206,7 +209,7 @@ object InitPlan {
 
     /** Служба, которую гость может попросить через ctl.start (например bootanim). */
     fun optional(name: String, img: GuestImage, root: File): GuestService? = when (name) {
-        "bootanim", "bootanimation", "samsungani", "playsound" -> BootMediaServices.resolve(root, name)
+        "bootanim", "bootanimation", "samsungani", "playsound", BootMediaServices.LEGACY_LOGO -> BootMediaServices.resolve(root, name)
         else -> null
     }
 

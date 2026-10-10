@@ -18,11 +18,11 @@ object ElfPatch {
     private const val THUMB_RET0 = 0x47702000         // movs r0, #0 ; bx lr
 
     /** Адрес → смещение в файле, для каждой функции из списка. null — не ELF32 ARM или символа нет. */
-    fun symbols(f: File, names: Set<String>): Map<String, Long>? =
-        runCatching { f.readBytes() }.getOrNull()?.let { symbolsIn(it, names) }
+    fun symbols(f: File, names: Set<String>, includeSymtab: Boolean = false): Map<String, Long>? =
+        runCatching { f.readBytes() }.getOrNull()?.let { symbolsIn(it, names, includeSymtab) }
 
     /** The same for the bytes of an ELF file. */
-    fun symbolsIn(d: ByteArray, names: Set<String>): Map<String, Long>? {
+    fun symbolsIn(d: ByteArray, names: Set<String>, includeSymtab: Boolean = false): Map<String, Long>? {
         if (d.size < 52 || d[0] != 0x7f.toByte() || d[1] != 'E'.code.toByte() || d[4] != 1.toByte()) return null
         val b = ByteBuffer.wrap(d).order(ByteOrder.LITTLE_ENDIAN)
         if (b.getShort(18).toInt() != 40) return null // EM_ARM
@@ -32,7 +32,9 @@ object ElfPatch {
         val out = HashMap<String, Long>()
         for (i in 0 until shnum) {
             val sh = shoff + i * shentsize
-            if (b.getInt(sh + 4) != 11) continue // SHT_DYNSYM
+            val shType = b.getInt(sh + 4)
+            // SHT_DYNSYM; with includeSymtab also SHT_SYMTAB (vendor libs keep their static functions only there)
+            if (shType != 11 && !(includeSymtab && shType == 2)) continue
             val symOff = b.getInt(sh + 16); val symSize = b.getInt(sh + 20); val link = b.getInt(sh + 24)
             val strOff = b.getInt(shoff + link * shentsize + 16)
             var s = symOff
@@ -64,6 +66,159 @@ object ElfPatch {
         return out
     }
 
+    /**
+     * Rewrites a DT_NEEDED entry of a 32-bit ARM ELF file in place ([to] must not be longer than [from]; the string is
+     * overwritten and NUL-terminated, the bytes after it are left alone in case another string shares the tail).
+     * Returns the number of entries changed.
+     */
+    fun redirectNeeded(f: File, from: String, to: String): Int {
+        if (to.length > from.length || f.length() < 64 || f.length() > 64L shl 20) return 0
+        val d = runCatching { f.readBytes() }.getOrNull() ?: return 0
+        if (d[0] != 0x7f.toByte() || d[1] != 'E'.code.toByte() || d[4] != 1.toByte()) return 0
+        val b = ByteBuffer.wrap(d).order(ByteOrder.LITTLE_ENDIAN)
+        if (b.getShort(18).toInt() != 40) return 0
+        val phoff = b.getInt(28); val phentsize = b.getShort(42).toInt() and 0xffff; val phnum = b.getShort(44).toInt() and 0xffff
+        if (phoff <= 0 || phentsize < 32 || phoff + phnum * phentsize > d.size) return 0
+        class Load(val off: Long, val va: Long, val size: Long)
+        val loads = ArrayList<Load>()
+        var dynOff = -1L; var dynSize = 0L
+        for (i in 0 until phnum) {
+            val ph = phoff + i * phentsize
+            val off = b.getInt(ph + 4).toLong() and 0xffffffffL
+            when (b.getInt(ph)) {
+                1 -> loads.add(Load(off, b.getInt(ph + 8).toLong() and 0xffffffffL, b.getInt(ph + 16).toLong() and 0xffffffffL))
+                2 -> { dynOff = off; dynSize = b.getInt(ph + 16).toLong() and 0xffffffffL }
+            }
+        }
+        if (dynOff < 0 || dynOff + dynSize > d.size) return 0
+        fun toFile(va: Long): Long? = loads.firstOrNull { va >= it.va && va < it.va + it.size }?.let { it.off + va - it.va }
+        var strVa = -1L
+        val needed = ArrayList<Long>()
+        var e = dynOff
+        while (e + 8 <= dynOff + dynSize) {
+            val tag = b.getInt(e.toInt()); val v = b.getInt(e.toInt() + 4).toLong() and 0xffffffffL
+            if (tag == 0) break
+            if (tag == 5) strVa = v
+            if (tag == 1) needed.add(v)
+            e += 8
+        }
+        val strOff = toFile(strVa) ?: return 0
+        val want = from.toByteArray(Charsets.US_ASCII)
+        val hits = ArrayList<Long>()
+        for (n in needed) {
+            val p = strOff + n
+            if (p < 0 || p + want.size + 1 > d.size) continue
+            var same = d[(p + want.size).toInt()] == 0.toByte()
+            for (k in want.indices) if (d[(p + k).toInt()] != want[k]) { same = false; break }
+            if (same) hits.add(p)
+        }
+        if (hits.isEmpty()) return 0
+        if (!f.canWrite()) f.setWritable(true, true)
+        val repl = to.toByteArray(Charsets.US_ASCII) + byteArrayOf(0)
+        RandomAccessFile(f, "rw").use { raf -> for (p in hits) { raf.seek(p); raf.write(repl) } }
+        return hits.size
+    }
+
+    /**
+     * Cache-hint instructions the emulated CPU refuses (SIGILL on the first memcpy of every process).
+     *
+     * MediaTek's bionic memcpy starts with `pld [r1]` / `pldw [r0]` pairs. Two things in them upset qemu-user:
+     * PLDW (the 0xf590xxxx form, R bit clear) needs the v7 multiprocessing extension, and qemu also insists that
+     * bits 15:12 of every PLD/PLDW are 1111, while this firmware's assembler left them 0000 (real silicon ignores
+     * both). The hint has no architectural effect, so the words are rewritten into a plain valid
+     * `pld [Rn, #imm]`: R bit set, bits 15:12 = 1111 (0xf5900000 -> 0xf5d0f000).
+     *
+     * The bit pattern alone cannot tell ARM code from Thumb-2: a 4-aligned word whose upper halfword is 0xf5xx is
+     * also the first half of a Thumb `bl`/`blx`, and clustered calls satisfy any "another hint nearby" test. Rewriting
+     * those flips bit 6 of the call or turns the preceding 16-bit instruction into the prefix of a `bl`
+     * (`e638 f5de` -> `f638 f5de`, a call to nowhere): libart.so died in every ART process right after its options
+     * were logged. A word is therefore only touched when another PLD/PLDW word sits within 16 bytes AND the
+     * instructions on at least one side look like ARM code (mostly condition field 0xE, "always"); Thumb-2 streams fail
+     * that test. Only 4-aligned words inside executable segments of 32-bit ARM ELF files are considered.
+     * Returns the number of words changed (already fixed files give 0).
+     */
+    fun fixPldHints(f: File): Int {
+        if (f.length() < 64 || f.length() > 64L shl 20) return 0
+        val d = runCatching { f.readBytes() }.getOrNull() ?: return 0
+        val fixes = pldHintOffsets(d)
+        if (fixes.isEmpty()) return 0
+        val b = ByteBuffer.wrap(d).order(ByteOrder.LITTLE_ENDIAN)
+        if (!f.canWrite()) f.setWritable(true, true)
+        RandomAccessFile(f, "rw").use { raf ->
+            for (o in fixes) {
+                val w = b.getInt(o) or 0x0040f000
+                raf.seek(o.toLong()); raf.write(ByteBuffer.allocate(4).order(ByteOrder.LITTLE_ENDIAN).putInt(w).array())
+            }
+        }
+        return fixes.size
+    }
+
+    /** File offsets of the words [fixPldHints] rewrites in the bytes [d] of an ELF file (none unless it is a 32-bit ARM ELF). */
+    fun pldHintOffsets(d: ByteArray): List<Int> {
+        if (d.size < 64 || d[0] != 0x7f.toByte() || d[1] != 'E'.code.toByte() || d[4] != 1.toByte()) return emptyList()
+        val b = ByteBuffer.wrap(d).order(ByteOrder.LITTLE_ENDIAN)
+        if (b.getShort(18).toInt() != 40) return emptyList()
+        val phoff = b.getInt(28); val phentsize = b.getShort(42).toInt() and 0xffff; val phnum = b.getShort(44).toInt() and 0xffff
+        if (phoff <= 0 || phentsize < 32 || phoff + phnum * phentsize > d.size) return emptyList()
+        val fixes = ArrayList<Int>()
+        for (i in 0 until phnum) {
+            val ph = phoff + i * phentsize
+            if (b.getInt(ph) != 1 || (b.getInt(ph + 24) and 1) == 0) continue // PT_LOAD with PF_X
+            val start = (b.getInt(ph + 4) + 3) and 3.inv()
+            val segEnd = minOf(b.getInt(ph + 4) + b.getInt(ph + 16), d.size)
+            if (start < 0 || segEnd - start < 4) continue
+            val end = minOf(segEnd, d.size - 3)
+            var o = start
+            while (o < end) {
+                val w = b.getInt(o)
+                if (pldNeedsFix(w) && pldNear(b, o, start, segEnd) && armAround(b, o, start, segEnd)) fixes.add(o)
+                o += 4
+            }
+        }
+        return fixes
+    }
+
+    /** ARM PLD/PLDW with a base register other than pc (the literal form is left alone). */
+    private fun pldHint(w: Int) = (w and 0xff300000.toInt()) == 0xf5100000.toInt() && ((w ushr 16) and 0xf) != 15
+
+    /** A hint qemu rejects: PLDW (R bit clear) or a PLD whose bits 15:12 are not 1111. */
+    private fun pldNeedsFix(w: Int) = pldHint(w) && ((w and 0x00400000) == 0 || ((w ushr 12) and 0xf) != 0xf)
+
+    /** Another PLD/PLDW word within 16 bytes of [o], inside the segment that spans [lo] up to [hi]. */
+    private fun pldNear(b: ByteBuffer, o: Int, lo: Int, hi: Int): Boolean {
+        for (k in -4..4) {
+            if (k == 0) continue
+            val q = o + k * 4
+            if (q >= lo && q + 4 <= hi && pldHint(b.getInt(q))) return true
+        }
+        return false
+    }
+
+    /**
+     * True when the words on at least one side of [o] look like ARM code: of the next (or previous) six non-hint words,
+     * at least two thirds carry condition field 0xE ("always"). Thumb-2 streams have that top nibble about one word in
+     * seven, so they do not pass; the other side may be the tail of an unrelated function, hence "at least one side".
+     */
+    private fun armAround(b: ByteBuffer, o: Int, lo: Int, hi: Int): Boolean {
+        for (step in intArrayOf(-4, 4)) {
+            var q = o + step
+            var seen = 0
+            var always = 0
+            var steps = 0
+            while (q >= lo && q + 4 <= hi && seen < 6 && steps < 12) {
+                val w = b.getInt(q)
+                if (!pldHint(w)) {
+                    seen++
+                    if ((w ushr 28) == 0xe) always++
+                }
+                q += step
+                steps++
+            }
+            if (seen >= 4 && always * 3 >= seen * 2) return true
+        }
+        return false
+    }
+
     /** The bytes returnZero() writes over a function entry: 4 for Thumb (bit 40 of [v]), 8 for ARM. */
     fun retZeroBytes(v: Long): ByteArray {
         val thumb = (v shr 40) and 1L == 1L
@@ -74,8 +229,8 @@ object ElfPatch {
     }
 
     /** Сделать функции «return 0». Возвращает число изменённых (уже исправленные не считаются). */
-    fun returnZero(f: File, names: Set<String>): Int {
-        val syms = symbols(f, names) ?: return 0
+    fun returnZero(f: File, names: Set<String>, includeSymtab: Boolean = false): Int {
+        val syms = symbols(f, names, includeSymtab) ?: return 0
         var n = 0
         RandomAccessFile(f, "rw").use { raf ->
             for ((_, v) in syms) {
@@ -299,5 +454,47 @@ object ElfPatch {
             }
         }
         return null
+    }
+
+    /**
+     * Thumb context of the crash in libsurfaceflinger.so (KitKat, Tegra/Tango build, SIGSEGV addr 0x68 at +0x1e77e):
+     *
+     *     blx  r1               ; 4788   (vtable call just before)
+     *     ldr  r0, [r5, #8]     ; 68a8   optional HAL device pointer, NULL: "hwcomposer module not found"
+     *     ldr  r3, [r0, #0x68]  ; 6e83   <- reads the hook from the NULL device
+     *     cbz  r3, skip         ; b113
+     *     mov  r1, r6 ; mov r2, r4 ; blx r3
+     *
+     * hwcomposer.* is parked on purpose (see TreeFixer.sanitize), so the device is always NULL here. The hook is
+     * optional (guarded by cbz r3), so "ldr r3,[r0,#0x68]" becomes "movs r3,#0" and the call is skipped.
+     */
+    private val SF_HOOK_CONTEXT = byteArrayOf(
+        0x88.toByte(), 0x47, 0xa8.toByte(), 0x68, 0x83.toByte(), 0x6e, 0x13, 0xb1.toByte(),
+        0x31, 0x46, 0x22, 0x46, 0x98.toByte(), 0x47,
+    )
+    private const val SF_HOOK_LOAD_AT = 4 // index of "6e83" inside SF_HOOK_CONTEXT
+    private val THUMB_MOVS_R3_0 = byteArrayOf(0x00, 0x23)
+
+    /** File offsets of the "ldr r3,[r0,#0x68]" words [skipNullDeviceHook] rewrites; only a single, exact match counts. */
+    fun skipNullDeviceHookOffsets(d: ByteArray): List<Int> {
+        if (d.size < 52 || d[0] != 0x7f.toByte() || d[1] != 'E'.code.toByte() || d[4] != 1.toByte()) return emptyList()
+        val hits = ArrayList<Int>()
+        var i = 0
+        val last = d.size - SF_HOOK_CONTEXT.size
+        while (i <= last) {
+            var ok = true
+            for (k in SF_HOOK_CONTEXT.indices) if (d[i + k] != SF_HOOK_CONTEXT[k]) { ok = false; break }
+            if (ok) hits.add(i + SF_HOOK_LOAD_AT)
+            i += 2
+        }
+        return if (hits.size == 1) hits else emptyList()
+    }
+
+    /** libsurfaceflinger: do not call the optional hook of the missing HAL device. 1 when patched, 0 otherwise. */
+    fun skipNullDeviceHook(f: File): Int {
+        val d = runCatching { f.readBytes() }.getOrNull() ?: return 0
+        val at = skipNullDeviceHookOffsets(d).firstOrNull() ?: return 0
+        RandomAccessFile(f, "rw").use { raf -> raf.seek(at.toLong()); raf.write(THUMB_MOVS_R3_0) }
+        return 1
     }
 }
