@@ -87,3 +87,16 @@ Release notes link the exact tagged checkout, this document and the audit.
 GitHub's tag source archives include the source tracked in that checkout, but
 cannot supply components absent from Git. Preserve license notices and make
 required source/build materials available when redistributing your own build.
+
+## Native engine assets split by architecture
+
+Each layer directory of the native arm64 engine (`assets/engines/n64-<api>`, `n64-<api>-own`, `n64-<api>-gsi`,
+`n64-gl`) may keep its guest files in `arm32/` and `arm64/` subdirectories next to (or instead of) plain files.
+Names are the flattened guest paths as before (`vendor#lib64#libfoo.so`).
+
+- Files that exist in only one place are installed as usual.
+- If the same name is in both `arm32/` and `arm64/` (the same path in the guest), the firmware decides: a
+  32-bit-only firmware (no `system/lib64/libc.so`, no `app_process64`) takes `arm32/`, any other takes `arm64/`.
+- Precedence inside one layer: plain files, then the other architecture's folder, then the firmware's own.
+  Later layers (`n64-gl` < `n64-<api>` < `-own`/`-gsi`) still win over earlier ones.
+- On a 32-bit-only firmware 64-bit ELF files are still never installed, as before.

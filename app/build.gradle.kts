@@ -1,4 +1,5 @@
 import java.util.Properties
+import java.security.MessageDigest
 
 plugins {
     id("com.android.application")
@@ -21,9 +22,33 @@ val signProps = Properties().apply {
 }
 val canSign = signProps.getProperty("storeFile")?.let { rootProject.file(it).isFile } == true
 
+// Engine guest files: every kernel carries its own copy of most of them (473 MB, 110 MB of it different, all stored
+// uncompressed because of their names). The APK gets each content once, compressed, as assets/blobs/<sha1>, plus
+// assets/engines.idx ("path<TAB>sha1<TAB>size"); the app reads them through core/EngineAssets.kt
+val engineSrc = file("src/main/assets/engines")
+val engineOut = layout.buildDirectory.dir("generated/engineAssets")
+val packEngines = tasks.register("packEngines") {
+    inputs.dir(engineSrc)
+    outputs.dir(engineOut)
+    doLast {
+        val o = engineOut.get().asFile
+        o.deleteRecursively()
+        File(o, "blobs").mkdirs()
+        val idx = StringBuilder()
+        engineSrc.walkTopDown().filter { it.isFile }.sortedBy { it.invariantSeparatorsPath }.forEach { f ->
+            val sha = MessageDigest.getInstance("SHA-1").digest(f.readBytes()).joinToString("") { "%02x".format(it) }
+            val b = File(o, "blobs/$sha")
+            if (!b.exists()) f.copyTo(b)
+            val rel = f.relativeTo(engineSrc).path.replace('\\', '/')
+            idx.append("engines/$rel\t$sha\t${f.length()}\n")
+        }
+        File(o, "engines.idx").writeText(idx.toString())
+    }
+}
+tasks.named("preBuild") { dependsOn(packEngines) }
+
 android {
     namespace = "app.aemu"
-    sourceSets.getByName("main").assets.srcDir(legalAssetsDir)
     compileSdk = 36
 
     defaultConfig {
@@ -32,8 +57,8 @@ android {
         // 28: гостевые бинарники запускаются из каталога данных приложения (W^X для targetSdk>=29)
         //noinspection ExpiredTargetSdkVersion
         targetSdk = 28
-        versionCode = 33
-        versionName = "0.0.0.2.15" // <AEmulator base>.<Plus release>
+        versionCode = 34
+        versionName = "0.0.0.3.1" // <AEmulator base>.<Plus release>
         ndk { abiFilters += listOf("arm64-v8a") }
     }
 
@@ -57,6 +82,8 @@ android {
             if (canSign) signingConfig = signingConfigs.getByName("release")
         }
     }
+
+    sourceSets["main"].assets.setSrcDirs(listOf(engineOut, legalAssetsDir))
 
     packaging {
         // исполняемые файлы движка лежат как lib*.so и должны распаковываться на диск
@@ -109,9 +136,10 @@ tasks.named("preBuild") { dependsOn(copyLegalNotices) }
 
 tasks.register<Copy>("copyReleaseApks") {
     dependsOn("assembleRelease")
+    val v = android.defaultConfig.versionName
     from(layout.buildDirectory.dir("outputs/apk/release")) {
         include("*.apk")
         rename { "AEmulator-Plus-app.aemu.plus.apk" }
     }
-    into(rootProject.layout.projectDirectory.dir("release-apks"))
+    into(rootProject.layout.projectDirectory.dir("release-apks/$v"))
 }

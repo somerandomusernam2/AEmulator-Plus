@@ -26,18 +26,36 @@ class Analyzer(private val ctx: Context, private val paths: VmPaths, private val
         val buildText = if (noBuildProp) synthBuildProp().also { if (persistBuildProp) buildFile.writeText(it) }
             else buildFile.readText(Charsets.UTF_8)
         val build = PropArea.parseProps(buildText)
-        val deflt = File(root, "default.prop").takeIf { it.isFile }?.let { PropArea.parseProps(it.readText()) } ?: LinkedHashMap()
+        // (8.0+ system-as-root and system-only images keep the ramdisk's default.prop as /system/etc/prop.default)
+        val deflt = listOf("default.prop", "system/etc/prop.default").map { File(root, it) }.firstOrNull { it.isFile }
+            ?.let { PropArea.parseProps(it.readText()) } ?: LinkedHashMap()
         val all = LinkedHashMap<String, String>().apply { putAll(deflt); build.forEach { (k, v) -> if (!(k.startsWith("ro.") && containsKey(k))) put(k, v) } }
 
         val api = effectiveApi(all["ro.build.version.sdk"]?.toIntOrNull(), all["ro.build.version.codename"], all["ro.build.version.release"])
         val release = all["ro.build.version.release"] ?: "?"
-        val brand = (all["ro.product.brand"] ?: all["ro.product.manufacturer"] ?: "").replaceFirstChar { it.uppercase() }
-        val model = all["ro.product.model"] ?: all["ro.product.device"] ?: "Android"
-        val skin = formFactorSkin(all, api) ?: skin(all)
+        // who made it: a generic system image (10+, "missi" of Xiaomi) leaves the brand, the model and the skin's
+        // version to the product, vendor and odm partitions. Only for the name shown; the rest reads what init reads.
+        val ident = LinkedHashMap(all)
+        // (at import product and system_ext are still under system/; the skin's own partitions: mi_ext, my_*, vgc)
+        val skinParts = root.listFiles()?.filter { it.isDirectory && it.name.matches(Regex("mi_ext|my_[a-z]+|vgc|prism|optics")) }
+            ?.flatMap { listOf("${it.name}/etc/build.prop", "${it.name}/build.prop") } ?: emptyList()
+        for (n in skinParts + listOf("product/etc/build.prop", "product/build.prop", "system/product/etc/build.prop", "system/product/build.prop",
+            "odm/etc/build.prop", "odm/build.prop", "vendor/build.prop",
+            "system_ext/etc/build.prop", "system_ext/build.prop", "system/system_ext/etc/build.prop", "system/system_ext/build.prop")) runCatching {
+            File(root, n).takeIf { it.isFile }?.let { f -> PropArea.parseProps(f.readText()).forEach { (k, v) -> ident.putIfAbsent(k, v) } }
+        }
+        fun product(what: String) = ident["ro.product.$what"]
+            ?: listOf("product", "odm", "vendor", "system").firstNotNullOfOrNull { ident["ro.product.$it.$what"]?.takeIf { v -> v.isNotEmpty() } }
+        val brand = (product("brand") ?: product("manufacturer") ?: "").replaceFirstChar { it.uppercase() }
+        val model = product("model") ?: product("device") ?: "Android"
+        for (what in listOf("brand", "manufacturer")) product(what)?.let { ident.putIfAbsent("ro.product.$what", it) }
+        // form factor first (Glass/Wear/TV), then the skin; both read the merged identity props
+        val skin = formFactorSkin(ident, api) ?: skin(ident)
         val abi = all["ro.product.cpu.abi"] ?: "armeabi-v7a"
 
         // init.rc и его import’ы лежат в корне рамдиска
         val rcFiles = (root.listFiles()?.filter { it.isFile && it.name.endsWith(".rc") }?.sortedBy { if (it.name == "init.rc") 0 else 1 } ?: emptyList()) +
+            InitPlan.hwRcFiles(root, all) +
             (File(root, "system/etc/init").listFiles()?.filter { it.name.endsWith(".rc") } ?: emptyList())
         val rc = InitPlan.parse(rcFiles, all)
         // деревья из стендов HTC несут готовые dhd.bootclasspath / dhd.exports / dhd.dirs
@@ -71,7 +89,7 @@ class Analyzer(private val ctx: Context, private val paths: VmPaths, private val
         if (rcFiles.isEmpty() && dhdBcp == null) warnings += ImportWarnings.NO_BOOT_IMG
         if (api >= 19 && plan.none { it.name == "healthd" })
             warnings += ImportWarnings.NO_HEALTHD
-        if (abi.startsWith("arm64")) warnings += ImportWarnings.ARM64
+        if (abi.startsWith("arm64") && api != 23) warnings += ImportWarnings.ARM64
         if (abi.startsWith("x86") || abi.startsWith("mips")) warnings += ImportWarnings.notArm(abi)
         if (api >= 21) warnings += ImportWarnings.experimental(release)
 
@@ -81,6 +99,13 @@ class Analyzer(private val ctx: Context, private val paths: VmPaths, private val
             engine == Engine.GB || api < 14 -> VmSettings(width = 480, height = 800, density = 240, fbHz = 60, touchHz = 60)
             // 540×960 — лучший баланс скорости и чёткости под эмуляцией; поменять можно в настройках
             density <= 160 -> VmSettings(width = 480, height = 800, density = 240)
+            // a firmware made for a QHD panel (560 dpi and up) may have no layout that fits an hdpi screen: the Galaxy
+            // S6 launcher on 5.x gets a zero-wide item at 540×960/240 and dies in a loop; 720×1280/320 is the smallest
+            // screen it was checked on
+            density >= 560 -> VmSettings(width = 720, height = 1280, density = 320)
+            // MIUI's live icons (Calendar, Weather: fancy_icons in the icon theme) have pictures for 440/480 only and
+            // draw nothing at 240; its phones are xxhdpi, so it gets the phone's own screen
+            skin.startsWith("MIUI") && api >= 21 -> VmSettings(width = 1080, height = 1920, density = 480)
             else -> VmSettings(width = 540, height = 960, density = 240)
         }
 
@@ -118,7 +143,7 @@ class Analyzer(private val ctx: Context, private val paths: VmPaths, private val
     }
 
     companion object {
-        const val VERSION = 15
+        const val VERSION = 16
 
         /**
          * Form-factor tag from ro.build.characteristics: if the line contains "tv" it is Google TV below API 18 and
@@ -177,10 +202,17 @@ class Analyzer(private val ctx: Context, private val paths: VmPaths, private val
 
         fun guessApi(rel: String?): Int = when {
             rel == null -> 19
-            rel.startsWith("2.2") -> 8; rel.startsWith("2.3") -> 10; rel.startsWith("4.0") -> 15
-            rel.startsWith("4.1") -> 16; rel.startsWith("4.2") -> 17; rel.startsWith("4.3") -> 18
+            rel.startsWith("1.0") -> 1; rel.startsWith("1.1") -> 2; rel.startsWith("1.5") -> 3; rel.startsWith("1.6") -> 4
+            rel.startsWith("2.0") -> 5; rel.startsWith("2.1") -> 7; rel.startsWith("2.2") -> 8; rel.startsWith("2.3") -> 10
+            rel.startsWith("3.0") -> 11; rel.startsWith("3.1") -> 12; rel.startsWith("3.2") -> 13
+            rel.startsWith("4.0") -> 15; rel.startsWith("4.1") -> 16; rel.startsWith("4.2") -> 17; rel.startsWith("4.3") -> 18
             rel.startsWith("4.4") -> 19; rel.startsWith("5.0") -> 21; rel.startsWith("5.1") -> 22
-            rel.startsWith("6") -> 23; rel.startsWith("7.0") || rel == "N" -> 24; rel.startsWith("7") -> 25; else -> 19
+            rel.startsWith("6") -> 23; rel.startsWith("7.0") || rel == "N" -> 24; rel.startsWith("7") -> 25
+            rel.startsWith("8.0") -> 26; rel.startsWith("8.1") -> 27; rel.startsWith("8") -> 26
+            rel.startsWith("9") -> 28; rel.startsWith("10") -> 29; rel.startsWith("11") -> 30
+            rel.startsWith("12") -> 31; rel.startsWith("13") -> 33; rel.startsWith("14") -> 34
+            rel.startsWith("15") -> 35; rel.startsWith("16") -> 36; rel.startsWith("17") -> 37
+            else -> 19
         }
 
         /** Пересчитывает профиль образа новым анализатором, сохраняя настройки пользователя. */
@@ -202,11 +234,14 @@ class Analyzer(private val ctx: Context, private val paths: VmPaths, private val
     private fun synthBuildProp(): String {
         fun has(path: String) = File(root, path).exists()
         val (api, rel) = when {
+            has("system/apex") || has("apex") -> 29 to "10"
+            has("system/bin/hwservicemanager") || has("system/etc/vintf") -> 26 to "8.0"
             has("system/framework/arm64") || has("system/lib64") -> if (has("system/etc/init")) 24 to "7.0" else 23 to "6.0"
             has("system/framework/arm/boot.oat") || has("system/framework/arm") -> if (has("system/lib/libandroid_runtime.so") && has("system/bin/fingerprintd")) 23 to "6.0" else 21 to "5.0"
             has("system/framework/core-libart.jar") -> 19 to "4.4"
             has("system/lib/libGLESv3.so") || has("system/bin/sdcard") -> 18 to "4.3"
             has("system/lib/libskia.so") && has("system/framework/android.policy.jar") && has("system/lib/libhwui.so") -> 16 to "4.1"
+            has("system/framework/core.jar") -> 10 to "2.3"
             else -> 10 to "2.3"
         }
         return "# generated by AEmulator: firmware had no build.prop\nro.build.version.sdk=$api\nro.build.version.release=$rel\n" +
@@ -217,7 +252,24 @@ class Analyzer(private val ctx: Context, private val paths: VmPaths, private val
     private fun skin(p: Map<String, String>): String {
         val man = (p["ro.product.manufacturer"] ?: p["ro.product.brand"] ?: "").lowercase()
         fun has(path: String) = File(root, path).exists()
+        // A brand name alone proves nothing (a custom ROM keeps the donor's ro.product.brand), so a vendor skin that
+        // is guessed from the maker needs a sign in the build fingerprint: its brand segment ("Infinix/X657/...").
+        val fpBrand = (p["ro.build.fingerprint"] ?: "").substringBefore('/').lowercase()
+        val api = p["ro.build.version.sdk"]?.toIntOrNull() ?: guessApi(p["ro.build.version.release"])
         return when {
+            // HyperOS keeps the ro.miui.* props of MIUI, so it is checked first
+            p.containsKey("ro.mi.os.version.name") || p.containsKey("ro.mi.os.version.code") -> "HyperOS " + (p["ro.mi.os.version.name"] ?: "")
+            // Infinix: 4.x plain AOSP, 5.x XUI, 6.0+ XOS; Tecno: 4.x–5.x AOSP, 6.0+ HiOS
+            fpBrand.contains("infinix") -> when { api >= 23 -> "XOS"; api >= 21 -> "XUI"; else -> "AOSP" }
+            fpBrand.contains("tecno") -> if (api >= 23) "HiOS" else "AOSP"
+            // ro.build.version.oneui is a number: 60100 = One UI 6.1
+            p.containsKey("ro.build.version.oneui") || p.containsKey("ro.build.version.sep") ->
+                "One UI " + (p["ro.build.version.oneui"]?.toIntOrNull()?.let { "${it / 10000}.${it / 100 % 100}" } ?: "")
+            p.containsKey("ro.build.version.realmeui") -> "realme UI " + (p["ro.build.version.realmeui"] ?: "").removePrefix("V")
+            p.containsKey("ro.build.version.oplusrom") -> "ColorOS " + (p["ro.build.version.oplusrom"] ?: "").removePrefix("V")
+            p.containsKey("ro.vivo.os.version") || p.containsKey("ro.vivo.os.name") ->
+                p["ro.vivo.os.build.display.id"]?.takeIf { it.isNotBlank() }
+                    ?: ((if (p["ro.vivo.os.name"]?.contains("Funtouch", true) == true) "Funtouch OS " else "OriginOS ") + (p["ro.vivo.os.version"] ?: ""))
             p.containsKey("ro.miui.ui.version.name") || p.containsKey("ro.miui.ui.version.code") || has("system/app/MiuiHome.apk") || has("system/app/MiuiHome") -> "MIUI " + (p["ro.miui.ui.version.name"] ?: "")
             p.containsKey("ro.cm.version") -> "CyanogenMod ${p["ro.cm.version"]?.substringBefore('-')}"
             p.containsKey("ro.lineage.version") -> "LineageOS"
@@ -287,7 +339,8 @@ class Analyzer(private val ctx: Context, private val paths: VmPaths, private val
             api <= 10 -> listOf("core.jar", "bouncycastle.jar", "ext.jar", "framework.jar", "android.policy.jar", "services.jar", "core-junit.jar")
             api <= 18 -> listOf("core.jar", "core-junit.jar", "bouncycastle.jar", "ext.jar", "framework.jar", "framework2.jar", "telephony-common.jar", "voip-common.jar", "mms-common.jar", "android.policy.jar", "services.jar", "apache-xml.jar", "webviewchromium.jar")
             api <= 20 -> listOf("core.jar", "conscrypt.jar", "okhttp.jar", "core-junit.jar", "bouncycastle.jar", "ext.jar", "framework.jar", "framework2.jar", "telephony-common.jar", "voip-common.jar", "mms-common.jar", "android.policy.jar", "services.jar", "apache-xml.jar", "webviewchromium.jar")
-            else -> listOf("core-libart.jar", "conscrypt.jar", "okhttp.jar", "core-junit.jar", "bouncycastle.jar", "ext.jar", "framework.jar", "telephony-common.jar", "voip-common.jar", "ims-common.jar", "mms-common.jar", "android.policy.jar", "apache-xml.jar")
+            api in 21..25 -> listOf("core-libart.jar", "conscrypt.jar", "okhttp.jar", "core-junit.jar", "bouncycastle.jar", "ext.jar", "framework.jar", "telephony-common.jar", "voip-common.jar", "ims-common.jar", "mms-common.jar", "android.policy.jar", "apache-xml.jar")
+            else -> listOf("core-oj.jar", "core-libart.jar", "conscrypt.jar", "okhttp.jar", "bouncycastle.jar", "apache-xml.jar", "ext.jar", "framework.jar", "telephony-common.jar", "voip-common.jar", "ims-common.jar", "android.hidl.base-V1.0-java.jar", "android.hidl.manager-V1.0-java.jar")
         }.filter { it in names }
         val vendorHints = listOf("twframework", "secframework", "sec_", "com.htc.", "HTC", "com.motorola", "com.lge", "lge", "semc", "com.sonyericsson", "miui", "com.qualcomm.qcrilhook", "qcom.fmradio", "framework-miui", "framework-ext", "cm.jar")
         val vendor = names.filter { n -> n.endsWith(".jar") && n !in aosp && vendorHints.any { n.startsWith(it) || n.contains(it) } && n != "services.jar" }
@@ -330,7 +383,7 @@ class Analyzer(private val ctx: Context, private val paths: VmPaths, private val
         base["persist.sys.usb.config"] = "none"
         base["DEVICE_PROVISIONED"] = "1"
         if (!base.containsKey("dalvik.vm.heapsize")) base["dalvik.vm.heapsize"] = if (api >= 14) "256m" else "64m"
-        PropArea.create(paths.propsTemplate).use { a ->
+        PropArea.create(paths.propsTemplate, api).use { a ->
             var dropped = 0
             for ((k, v) in base) if (!a.put(k, v)) dropped++
             if (dropped > 0) android.util.Log.w("aemu", "props dropped: $dropped")

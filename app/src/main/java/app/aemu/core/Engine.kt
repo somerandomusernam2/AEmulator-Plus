@@ -8,6 +8,15 @@ package app.aemu.core
  *      живут в отдельных процессах-«слотах» приложения.
  * KK — Android 4.x и новее: GL-мост работает прямо в процессе приложения и рисует в Surface.
  */
+/**
+ * A firmware with no 64-bit side at all: no 64-bit libc and no app_process64 (Wear OS and older phone builds, armeabi-v7a).
+ * On the native arm64 engine every program of such a firmware goes through qemu-arm, and the engine's own 64-bit
+ * files have no 64-bit libraries to run against.
+ */
+fun isPure32Tree(root: java.io.File): Boolean =
+    // (libc, not the directory: the engine makes system/lib64/egl for its own drivers on some releases)
+    !java.io.File(root, "system/lib64/libc.so").isFile && !java.io.File(root, "system/bin/app_process64").isFile
+
 enum class Engine(
     val id: String,
     val title: String,
@@ -39,6 +48,17 @@ enum class Engine(
         glserverd = "libglserverd_kk.so",
         runner = "libdhdrun_kk.so",
         guestGles = "libGLES.so",
+    ),
+    /** arm64 firmware on an arm64 phone: the guest's own code runs natively (native/guest64), no translator. */
+    N64(
+        id = "n64",
+        title = "Native arm64",
+        qemu = "",      // per Android generation: see Kernel64
+        qemuXperiaPlay = "",
+        binderd = "",
+        glserverd = "",
+        runner = "",
+        guestGles = "",
     );
 
     /**

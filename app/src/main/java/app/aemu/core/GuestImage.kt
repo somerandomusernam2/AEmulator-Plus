@@ -34,6 +34,8 @@ data class VmSettings(
     val trackballDpad: Boolean = false,
     val trackballStepDp: Int = 18,
     val keepScreenOn: Boolean = true,
+    /** the guest phone's notification LED drawn above its screen (0.0.0.3) */
+    val showLed: Boolean = true,
     val vibration: Boolean = true,
     val hostBattery: Boolean = true,
     /** Explicit host-camera opt-in; applies at the next full VM boot. */
@@ -57,6 +59,14 @@ data class VmSettings(
     val ramMb: Int = 0,
     /** emulate the radio (RIL); off = tablet-like firmware without telephony */
     val radio: Boolean = true,
+    /** hardware 32-bit (AArch32 EL0) bypass without translator on supported CPUs */
+    val native32: Boolean = false,
+    /**
+     * A 32-bit-only firmware of Android 8.0+ (armeabi-v7a, e.g. Wear OS 9) runs on the native arm64 engine with qemu-arm
+     * translating its programs. The universal engine's binder daemon speaks binder protocol 7, but 8.0+ userspace
+     * wants 8 (the 64-bit binder structs): servicemanager exits at once and nothing else comes up.
+     */
+    val translate32: Boolean = true,
     /** IMEI reported by the fake modem; blank = default sample IMEI */
     val imei: String = "",
     /** ro.serialno / ro.boot.serialno reported to the guest; blank = default sample serial */
@@ -104,6 +114,10 @@ data class VmSettings(
     val wifiSignal: Int = WifiEmu.MAX_BARS,
     /** A scan also lists a few other (locked) networks nearby. */
     val wifiNeighbors: Boolean = true,
+    /** Guest thermal_zone17 shows the phone's real sensor; off (default) = a constant cool 30 C (see [ThermalSysfs]). */
+    val thermalPassthrough: Boolean = false,
+    /** Value of thermal_zone17/temp in millidegrees set by the user; null = follow [thermalPassthrough]. */
+    val thermalTemp: Int? = null,
 ) {
     fun toJson(): JSONObject = JSONObject()
         .put("width", width).put("height", height).put("density", density)
@@ -114,7 +128,7 @@ data class VmSettings(
         .put("navButtons", NavControls.encode(NavControls.parse(navButtons)))
         .put("trackball", trackball).put("trackballDpad", trackballDpad)
         .put("trackballStepDp", trackballStepDp.coerceIn(4, 48))
-        .put("keepScreenOn", keepScreenOn).put("mtMode", mtMode).put("legacyEngine", legacyEngine)
+        .put("keepScreenOn", keepScreenOn).put("showLed", showLed).put("native32", native32).put("translate32", translate32).put("mtMode", mtMode).put("legacyEngine", legacyEngine)
         .put("vibration", vibration)
         .put("hostBattery", hostBattery)
         .put("camera", camera)
@@ -128,8 +142,12 @@ data class VmSettings(
         .put("wifi", wifi).put("wifiSsid", wifiSsid).put("wifiPassword", wifiPassword)
         .put("sim", sim.toJson()).put("sim2", sim2.toJson()).put("dualSim", dualSim)
         .put("wifiSignal", wifiSignal).put("wifiNeighbors", wifiNeighbors)
+        .put("thermalPassthrough", thermalPassthrough).put("thermalTemp", thermalTemp ?: JSONObject.NULL)
 
     companion object {
+        const val NAV_DEFAULT = "back,home,recents,menu"
+        val NAV_ALL = listOf("back", "home", "recents", "menu", "search", "voldown", "volup", "power", "dpad")
+
         /** Luhn-valid sample IMEI from the standard; the guest has no real modem */
         const val DEFAULT_IMEI = "490154203237518"
 
@@ -239,6 +257,7 @@ data class VmSettings(
                 trackballDpad = o.optBoolean("trackballDpad", false),
                 trackballStepDp = o.optInt("trackballStepDp", 18).coerceIn(4, 48),
                 keepScreenOn = o.optBoolean("keepScreenOn", d.keepScreenOn),
+                showLed = o.optBoolean("showLed", d.showLed),
                 vibration = o.optBoolean("vibration", d.vibration),
                 hostBattery = o.optBoolean("hostBattery", d.hostBattery),
                 camera = o.optBoolean("camera", d.camera),
@@ -254,6 +273,8 @@ data class VmSettings(
                 legacyEngine = o.optBoolean("legacyEngine", false),
                 ramMb = o.optInt("ramMb", 0),
                 radio = o.optBoolean("radio", true),
+                native32 = o.optBoolean("native32", false),
+                translate32 = o.optBoolean("translate32", true),
                 imei = o.optString("imei", ""),
                 serial = cleanSerial(o.optString("serial", "")),
                 kernel = cleanKernel(o.optString("kernel", "")),
@@ -278,6 +299,8 @@ data class VmSettings(
                 dualSim = o.optBoolean("dualSim", false),
                 wifiSignal = o.optInt("wifiSignal", d.wifiSignal).coerceIn(1, WifiEmu.MAX_BARS),
                 wifiNeighbors = o.optBoolean("wifiNeighbors", d.wifiNeighbors),
+                thermalPassthrough = o.optBoolean("thermalPassthrough", d.thermalPassthrough),
+                thermalTemp = if (o.has("thermalTemp") && !o.isNull("thermalTemp")) o.optInt("thermalTemp").coerceIn(ThermalSysfs.MIN_MILLI_C, ThermalSysfs.MAX_MILLI_C) else null,
             )
         }
     }
@@ -297,9 +320,11 @@ data class GuestService(
     val restart: Boolean = false,
     /** вендорский демон: если упадёт — не страшно */
     val optional: Boolean = false,
+    /** not started at boot: the guest asks for it with ctl.start (a service outside init's started classes) */
+    val onDemand: Boolean = false,
 ) {
     fun toJson(): JSONObject = JSONObject()
-        .put("optional", optional)
+        .put("optional", optional).put("onDemand", onDemand)
         .put("name", name)
         .put("argv", JSONArray(argv))
         .put("sockets", JSONObject(sockets as Map<*, *>))
@@ -321,6 +346,7 @@ data class GuestService(
                 delayMs = o.optLong("delayMs", 0),
                 restart = o.optBoolean("restart", false),
                 optional = o.optBoolean("optional", false),
+                onDemand = o.optBoolean("onDemand", false),
             )
         }
     }
@@ -371,7 +397,12 @@ data class GuestImage(
     fun sensorsOff(s: VmSettings): Boolean = SensorHalApi.sensorsOff(s.disableSensors, api, skin, brand, model)
 
     /** Движок с учётом выбора пользователя. */
-    fun effective(): GuestImage = copy(engine = if (settings.legacyEngine && api < 14) Engine.GB else Engine.KK)
+    fun effective(): GuestImage = copy(engine = when {
+        abi == "arm64-v8a" -> Engine.N64
+        settings.legacyEngine && api < 14 -> Engine.GB
+        settings.translate32 && api >= 26 && abi.startsWith("armeabi") -> Engine.N64
+        else -> Engine.KK
+    })
 
     fun toJson(): JSONObject = JSONObject()
         .put("id", id).put("name", name).put("release", release).put("api", api)

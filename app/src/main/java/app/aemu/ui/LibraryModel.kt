@@ -41,6 +41,8 @@ class LibraryModel(app: Application) : AndroidViewModel(app) {
     private fun failureText(t: Throwable): String =
         if (t.message == "cancelled") lctx.getString(R.string.import_cancelled) else t.userMessage(lctx)
 
+    @Volatile private var cloneCancelled = false
+
     init { refresh() }
 
     fun refresh() {
@@ -72,7 +74,7 @@ class LibraryModel(app: Application) : AndroidViewModel(app) {
                 val img = if (name.endsWith(".aessvm", true)) raw else raw.copy(settings = raw.settings.copy(gpu = d.gpu, jit = d.jit, netProxy = d.netProxy,
                     showNavBar = d.showNavBar, navButtons = d.navButtons, trackball = d.trackball,
                     trackballDpad = d.trackballDpad, trackballStepDp = d.trackballStepDp,
-                    keepScreenOn = d.keepScreenOn))
+                    keepScreenOn = d.keepScreenOn, showLed = d.showLed))
                 if (img != raw) ImageStore.save(ctx, img)
                 _import.value = _import.value.copy(active = false, done = img, step = lctx.getString(R.string.import_ready), progress = 1f)
             } catch (t: Throwable) {
@@ -84,13 +86,14 @@ class LibraryModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
-    fun clone(src: GuestImage, name: String, copyData: Boolean) {
+    fun clone(src: GuestImage, name: String, copyData: Boolean, customSettings: app.aemu.core.VmSettings? = null) {
         if (_import.value.active) return
         val ctx = getApplication<Application>()
+        cloneCancelled = false
         _import.value = ImportState(active = true, file = name, step = lctx.getString(R.string.import_copying))
         viewModelScope.launch(Dispatchers.IO) {
             try {
-                val img = ImageStore.clone(ctx, src, name, copyData) { s -> _import.value = _import.value.copy(step = lctx.getString(R.string.import_copying_x, s)) }
+                val img = ImageStore.clone(ctx, src, name, copyData, customSettings, { cloneCancelled }) { s -> _import.value = _import.value.copy(step = lctx.getString(R.string.import_copying_x, s)) }
                 _import.value = _import.value.copy(active = false, done = img, step = lctx.getString(R.string.import_ready), progress = 1f)
             } catch (t: Throwable) {
                 _import.value = _import.value.copy(active = false, error = failureText(t))
@@ -98,7 +101,21 @@ class LibraryModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
-    fun cancelImport() { importer?.cancelled = true }
+    fun cancelImport() { importer?.cancelled = true; cloneCancelled = true }
+
+    /** A machine is running (they live in the :vm process); its files must not be changed under it. */
+    fun vmRunning(): Boolean {
+        val ctx = getApplication<Application>()
+        val am = ctx.getSystemService(android.app.ActivityManager::class.java)
+        return am.runningAppProcesses.orEmpty().any { it.processName == ctx.packageName + ":vm" }
+    }
+
+    fun resetData(img: GuestImage) {
+        viewModelScope.launch(Dispatchers.IO) {
+            ImageStore.resetData(getApplication(), img.id)
+            refresh()
+        }
+    }
     fun dismissImport() { _import.value = ImportState() }
 
     fun delete(img: GuestImage) {
@@ -108,19 +125,13 @@ class LibraryModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
-    fun rename(img: GuestImage, name: String) = save(img.copy(name = name))
+    fun rename(img: GuestImage, name: String) = update(img) { it.copy(name = name) }
 
-    fun updateSettings(img: GuestImage, s: VmSettings) {
-        viewModelScope.launch(Dispatchers.IO) {
-            val current = ImageStore.get(getApplication(), img.id) ?: return@launch
-            ImageStore.save(getApplication(), current.copy(settings = s))
-            refresh()
-        }
-    }
+    fun updateSettings(img: GuestImage, s: VmSettings) = update(img) { it.copy(settings = s) }
 
-    private fun save(img: GuestImage) {
+    private fun update(img: GuestImage, f: (GuestImage) -> GuestImage) {
         viewModelScope.launch(Dispatchers.IO) {
-            ImageStore.save(getApplication(), img)
+            ImageStore.update(getApplication(), img.id, f)
             refresh()
         }
     }

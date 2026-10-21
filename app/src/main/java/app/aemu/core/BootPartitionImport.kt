@@ -33,7 +33,23 @@ internal object BootPartitionImport {
             val bytes = (ctx.contentResolver.openInputStream(uri) ?: localizedError("Cannot open boot image", R.string.err_cannot_open_boot_image)).use {
                 BootPartitionSource.read(it, name, ctx.cacheDir)
             }
-            val entries = BootImage.ramdisk(bytes) ?: localizedError("No supported boot ramdisk found", R.string.err_no_supported_boot_ramdisk_found)
+            val parsed = BootImage.ramdisk(bytes)
+            if (parsed == null && BootImage.isKernelOnly(bytes)) {
+                // GKI boot (Android 13+): kernel only. Nothing to unpack; keep it as the VM's boot.img and read its kernel version.
+                val target = File(paths.dir, "boot.img")
+                target.writeBytes(BootImage.trimmed(bytes))
+                try {
+                    val refreshed = old.copy(settings = BootImage.withKernelBanner(old.settings, bytes), sizeBytes = ImageStore.du(paths.dir))
+                    val record = android.util.AtomicFile(paths.meta)
+                    val output = record.startWrite()
+                    try {
+                        output.write(refreshed.toJson().toString(2).toByteArray(Charsets.UTF_8))
+                        record.finishWrite(output)
+                    } catch (t: Throwable) { record.failWrite(output); throw t }
+                } catch (t: Throwable) { Files.deleteIfExists(target.toPath()); throw t }
+                return@use
+            }
+            val entries = parsed ?: localizedError("No supported boot ramdisk found", R.string.err_no_supported_boot_ramdisk_found)
             require(entries.any { it.name == "init.rc" && it.mode and 0xf000 == 0x8000 && it.data.isNotEmpty() }) { "Boot ramdisk has no init.rc" }
             val selected = validate(entries)
             val created = ArrayList<File>()

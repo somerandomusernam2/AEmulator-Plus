@@ -72,6 +72,7 @@ __attribute__((visibility("default"))) void glPixelStorei(GLenum pname, GLint pa
 }
 
 static void va_bind_note(GLenum target, unsigned buffer);
+static void va_context(void *ctx);
 static void img_forget_bound(void);
 
 __attribute__((visibility("default"))) void glBindBuffer(GLenum target, unsigned buffer) {
@@ -255,13 +256,31 @@ static int ctx_version(void *ctx) {
     for (int i = 0; i < MAXCTX; i++) if (g_ctx[i] == ctx) return g_ctxver[i];
     return 2;
 }
+/* the calling thread's id, kept per thread: a gettid system call on every GL call costs more than the call itself
+   under the translator (a quarter of the GL thread's time on 7.1) */
+extern int pthread_key_create(unsigned *key, void (*destructor)(void *));
+extern void *pthread_getspecific(unsigned key);
+extern int pthread_setspecific(unsigned key, const void *value);
+static unsigned g_tidkey;
+static volatile int g_tidkey_state;   /* 0 none, 1 being made, 2 ready */
+static int my_tid(void) {
+    if (g_tidkey_state != 2) {
+        if (__sync_bool_compare_and_swap(&g_tidkey_state, 0, 1)) {
+            if (pthread_key_create(&g_tidkey, 0) != 0) { g_tidkey_state = 0; return (int)syscall(224 /* gettid */); }
+            g_tidkey_state = 2;
+        } else return (int)syscall(224);
+    }
+    int t = (int)(long)pthread_getspecific(g_tidkey);
+    if (t == 0) { t = (int)syscall(224); pthread_setspecific(g_tidkey, (void *)(long)t); }
+    return t;
+}
 static int es1_current(void) {
-    int tid = (int)syscall(224 /* gettid */);
+    int tid = my_tid();
     for (int i = 0; i < MAXTHR; i++) if (g_tid[i] == tid) return g_thrver[i] < 2;
     return 0;
 }
 static void thread_set(int ver) {
-    int tid = (int)syscall(224);
+    int tid = my_tid();
     int free = -1;
     for (int i = 0; i < MAXTHR; i++) {
         if (g_tid[i] == tid) { g_thrver[i] = (unsigned char)ver; return; }
@@ -270,10 +289,37 @@ static void thread_set(int ver) {
     if (free >= 0) { g_thrver[free] = (unsigned char)ver; g_tid[free] = tid; }
 }
 
+/*
+ * Samsung's SurfaceFlinger (Galaxy S5, 4.4) sets the viewport and the projection only on its hardware composer path.
+ * Without a composer it never does: the context keeps the viewport of the 1x1 start-up pbuffer and an identity
+ * projection, the whole screen is composed into one pixel (black screen with a live system behind it). Until
+ * SurfaceFlinger calls glViewport itself, binding a surface does what AOSP's DisplayDevice::makeCurrent does.
+ */
+typedef void (*ViewportFn)(GLint, GLint, GLsizei, GLsizei);
+typedef unsigned (*QuerySurfaceFn)(void *dpy, void *surface, GLint attr, GLint *value);
+static int g_vp_set;
+__attribute__((visibility("default"))) void glViewport(GLint x, GLint y, GLsizei w, GLsizei h) {
+    g_vp_set = 1;
+    ((ViewportFn)aemu_split_resolve(IDX_glViewport))(x, y, w, h);
+}
+
 typedef unsigned (*MakeCurrentFn)(void *dpy, void *draw, void *read, void *ctx);
 __attribute__((visibility("default"))) unsigned eglMakeCurrent(void *dpy, void *draw, void *read, void *ctx) {
     unsigned r = ((MakeCurrentFn)aemu_split_resolve(IDX_eglMakeCurrent))(dpy, draw, read, ctx);
-    if (r) thread_set(ctx ? ctx_version(ctx) : 2);
+    if (r && draw && ctx && !g_vp_set && is_surfaceflinger()) {
+        GLint w = 0, h = 0;
+        QuerySurfaceFn q = (QuerySurfaceFn)aemu_split_resolve(IDX_eglQuerySurface);
+        if (q(dpy, draw, 0x3057 /* EGL_WIDTH */, &w) && q(dpy, draw, 0x3056 /* EGL_HEIGHT */, &h) && w > 0 && h > 0) {
+            ((ViewportFn)aemu_split_resolve(IDX_glViewport))(0, 0, w, h);
+            ((ViewportFn)aemu_split_resolve(IDX_glScissor))(0, 0, w, h);
+            void (*mode)(GLenum) = (void (*)(GLenum))aemu_split_resolve(IDX_glMatrixMode);
+            mode(0x1701 /* GL_PROJECTION */);
+            ((void (*)(void))aemu_split_resolve(IDX_glLoadIdentity))();
+            ((void (*)(float, float, float, float, float, float))aemu_split_resolve(IDX_glOrthof))(0, (float)w, 0, (float)h, 0, 1);
+            mode(0x1700 /* GL_MODELVIEW */);
+        }
+    }
+    if (r) { thread_set(ctx ? ctx_version(ctx) : 2); va_context(ctx); }
     return r;
 }
 
@@ -289,11 +335,18 @@ __attribute__((visibility("default"))) unsigned eglMakeCurrent(void *dpy, void *
 #define GL_STREAM_DRAW 0x88E0
 #define MAXATTR 16
 struct va_attr { const void *ptr; GLint size; GLenum type; unsigned char norm, enabled, client; GLsizei stride; };
-struct va_state { int tid; unsigned array_buf, elem_buf; struct va_attr a[MAXATTR]; };
+struct va_state {
+    int tid; unsigned array_buf, elem_buf; struct va_attr a[MAXATTR];
+    void *ctx;                          /* context the scratch VBO belongs to */
+    unsigned sbuf;                      /* scratch VBO for client arrays, kept between draws */
+    unsigned char *shadow; unsigned long shadow_len, shadow_cap;   /* bytes last sent into sbuf */
+    long host_off[MAXATTR];             /* 1 + offset in sbuf the host attribute points at, 0 = not on sbuf */
+    unsigned split_buf;                 /* per-draw buffer of va_upload_split */
+};
 static struct va_state g_va[64];
 
 static struct va_state *va_cur(void) {
-    int tid = (int)syscall(224 /* gettid */);
+    int tid = my_tid();
     int free = -1;
     for (int i = 0; i < 64; i++) {
         if (g_va[i].tid == tid) return &g_va[i];
@@ -326,6 +379,7 @@ __attribute__((visibility("default"))) void glVertexAttribPointer(unsigned idx, 
         struct va_attr *a = &v->a[idx];
         a->ptr = ptr; a->size = size; a->type = type; a->norm = norm; a->stride = stride;
         a->client = v->array_buf == 0 && ptr != 0;
+        v->host_off[idx] = 0;
     }
     ((AttribPtrFn)aemu_split_resolve(IDX_glVertexAttribPointer))(idx, size, type, norm, stride, ptr);
 }
@@ -346,11 +400,19 @@ static int type_size(GLenum t) {
     }
 }
 
-/* uploads client arrays for vertices [0, nverts); returns the scratch buffer name or 0 if nothing to do */
-static unsigned va_upload(struct va_state *v, long nverts) {
-    static int on = -1;
-    if (on < 0) { const char *e = getenv("AEMU_GL_CLIENT_ARRAYS"); on = !(e && e[0] == '0'); }
-    if (!on || nverts <= 0 || es1_current()) return 0;
+static int same_bytes(const unsigned char *a, const unsigned char *b, unsigned long n) {
+    if (!a) return 0;
+    if (!(((unsigned long)a | (unsigned long)b | n) & 3)) {
+        const unsigned *x = (const unsigned *)a, *y = (const unsigned *)b;
+        for (unsigned long i = 0; i < n / 4; i++) if (x[i] != y[i]) return 0;
+        return 1;
+    }
+    for (unsigned long i = 0; i < n; i++) if (a[i] != b[i]) return 0;
+    return 1;
+}
+
+/* the old way, for client arrays far apart in memory: each array copied into a per-draw buffer; returns 2 */
+static int va_upload_split(struct va_state *v, long nverts) {
     long total = 0, off[MAXATTR];
     for (int i = 0; i < MAXATTR; i++) {
         struct va_attr *a = &v->a[i];
@@ -385,31 +447,102 @@ static unsigned va_upload(struct va_state *v, long nverts) {
         struct va_attr *a = &v->a[i];
         ap((unsigned)i, a->size, a->type, a->norm, a->stride, (const void *)off[i]);
     }
-    return buf;
+    v->split_buf = buf;
+    return 2;
 }
 
-static void va_restore(struct va_state *v, unsigned buf) {
+static void va_restore_split(struct va_state *v) {
     BindBufferFn bind = (BindBufferFn)aemu_split_resolve(IDX_glBindBuffer);
     AttribPtrFn ap = (AttribPtrFn)aemu_split_resolve(IDX_glVertexAttribPointer);
     bind(GL_ARRAY_BUFFER, 0);
     for (int i = 0; i < MAXATTR; i++) {
         struct va_attr *a = &v->a[i];
-        if (a->enabled && a->client) ap((unsigned)i, a->size, a->type, a->norm, a->stride, a->ptr);
+        if (a->enabled && a->client) { ap((unsigned)i, a->size, a->type, a->norm, a->stride, a->ptr); v->host_off[i] = 0; }
     }
     bind(GL_ARRAY_BUFFER, v->array_buf);
-    ((GenBuffersFn)aemu_split_resolve(IDX_glDeleteBuffers))(1, &buf);  /* same signature as glGenBuffers */
+    ((GenBuffersFn)aemu_split_resolve(IDX_glDeleteBuffers))(1, &v->split_buf);  /* same signature as glGenBuffers */
+    v->split_buf = 0;
+}
+
+/* a thread's scratch VBO belongs to the context current when it was made */
+static void va_context(void *ctx) {
+    struct va_state *v = va_cur();
+    if (v->ctx == ctx) return;
+    v->ctx = ctx; v->sbuf = 0; v->shadow_len = 0;
+    for (int i = 0; i < MAXATTR; i++) v->host_off[i] = 0;
+}
+
+/* Uploads client arrays for vertices [0, nverts) into the thread's scratch VBO and points the attributes
+ * at it; returns 1 if it did. Interleaved arrays share one span of client memory, so the span is sent once;
+ * the VBO stays alive between draws and is re-filled only when the bytes differ from the last upload, and
+ * attribute pointers are re-sent only when they moved (per-draw GenBuffers/BufferData/DeleteBuffers and
+ * 2x pointers made every client-array draw a dozen bridge calls). */
+static int va_upload(struct va_state *v, long nverts) {
+    static int on = -1;
+    if (on < 0) { const char *e = getenv("AEMU_GL_CLIENT_ARRAYS"); on = !(e && e[0] == '0'); }
+    if (!on || nverts <= 0 || es1_current()) return 0;
+    unsigned long lo = ~0UL, hi = 0, sum = 0;
+    for (int i = 0; i < MAXATTR; i++) {
+        struct va_attr *a = &v->a[i];
+        if (!a->enabled || !a->client) continue;
+        long esz = (long)a->size * type_size(a->type);
+        long stride = a->stride ? a->stride : esz;
+        unsigned long p = (unsigned long)a->ptr, n = (unsigned long)(stride * (nverts - 1) + esz);
+        if (p < lo) lo = p;
+        if (p + n > hi) hi = p + n;
+        sum += n;
+    }
+    if (!sum) return 0;
+    unsigned long len = hi - lo;
+    if (len > sum * 4 + 4096) return va_upload_split(v, nverts);   /* far-apart arrays: copy each */
+    BindBufferFn bind = (BindBufferFn)aemu_split_resolve(IDX_glBindBuffer);
+    AttribPtrFn ap = (AttribPtrFn)aemu_split_resolve(IDX_glVertexAttribPointer);
+    if (!v->sbuf) {
+        ((GenBuffersFn)aemu_split_resolve(IDX_glGenBuffers))(1, &v->sbuf);
+        if (!v->sbuf) return 0;
+        v->shadow_len = 0;
+    }
+    bind(GL_ARRAY_BUFFER, v->sbuf);
+    if (v->shadow_len != len || !same_bytes(v->shadow, (const unsigned char *)lo, len)) {
+        ((BufferDataFn)aemu_split_resolve(IDX_glBufferData))(GL_ARRAY_BUFFER, (long)len, (const void *)lo, GL_STREAM_DRAW);
+        if (v->shadow_cap < len) {
+            free(v->shadow);
+            v->shadow_cap = len < 4096 ? 4096 : len;
+            v->shadow = (unsigned char *)malloc((unsigned)v->shadow_cap);
+            if (!v->shadow) v->shadow_cap = 0;
+        }
+        if (v->shadow) { copy_bytes(v->shadow, (const unsigned char *)lo, len); v->shadow_len = len; }
+        else v->shadow_len = 0;
+    }
+    for (int i = 0; i < MAXATTR; i++) {
+        struct va_attr *a = &v->a[i];
+        if (!a->enabled || !a->client) continue;
+        long off = (long)((unsigned long)a->ptr - lo);
+        if (v->host_off[i] != off + 1) {
+            ap((unsigned)i, a->size, a->type, a->norm, a->stride, (const void *)off);
+            v->host_off[i] = off + 1;
+        }
+    }
+    return 1;
+}
+
+/* after the draw only the app's GL_ARRAY_BUFFER binding is put back; the attributes stay on the scratch
+ * VBO (they are client arrays, so the next draw goes through va_upload again) */
+static void va_restore(struct va_state *v, int used) {
+    if (used == 2) { va_restore_split(v); return; }
+    ((BindBufferFn)aemu_split_resolve(IDX_glBindBuffer))(GL_ARRAY_BUFFER, v->array_buf);
 }
 
 __attribute__((visibility("default"))) void glDrawArrays(GLenum mode, GLint first, GLsizei count) {
     struct va_state *v = va_cur();
-    unsigned buf = count > 0 ? va_upload(v, (long)first + count) : 0;
+    int buf = count > 0 ? va_upload(v, (long)first + count) : 0;
     ((DrawArraysFn)aemu_split_resolve(IDX_glDrawArrays))(mode, first, count);
     if (buf) va_restore(v, buf);
 }
 
 __attribute__((visibility("default"))) void glDrawElements(GLenum mode, GLsizei count, GLenum type, const void *indices) {
     struct va_state *v = va_cur();
-    unsigned buf = 0;
+    int buf = 0;
     /* vertex count is only known when the indices are in client memory too */
     if (count > 0 && v->elem_buf == 0 && indices) {
         long maxi = 0;
@@ -522,10 +655,21 @@ __attribute__((visibility("default"))) void *eglCreateImageKHR(void *dpy, void *
     if (img || target != 0x3140 /* EGL_NATIVE_BUFFER_ANDROID */ || !buf) return img;
     int *usage = (int *)((char *)buf + 48);
     int old = *usage;
-    if (!(old & 0xff)) return img;
+    if (old & 0xff) {
+        *usage = old & ~0xff;
+        img = f(dpy, ctx, target, buf, attribs);
+        *usage = old;
+        if (img) return img;
+    }
+    /* RGBX_8888 buffers (a GLSurfaceView's default 7.x window) are refused too: the memory is laid out as RGBA_8888
+     * and SurfaceFlinger draws an RGBX layer opaque anyway, so the image is made as RGBA (ANativeWindowBuffer.format) */
+    int *format = (int *)((char *)buf + 44);
+    if (*format != 2 /* HAL_PIXEL_FORMAT_RGBX_8888 */) return img;
+    *format = 1;
     *usage = old & ~0xff;
     img = f(dpy, ctx, target, buf, attribs);
     *usage = old;
+    *format = 2;
     return img;
 }
 

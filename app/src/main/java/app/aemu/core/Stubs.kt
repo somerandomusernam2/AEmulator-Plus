@@ -178,7 +178,12 @@ class RilStub(
             val b = ByteBuffer.wrap(body).order(ByteOrder.LITTLE_ENDIAN)
             val request = b.getInt()
             val serial = b.getInt()
-            val (err, payload) = runCatching { handle(request, b) }.getOrElse { E_GENERIC_FAILURE to ByteArray(0) }
+            // Qualcomm's own requests travel as OEM_HOOK_RAW with a "QOEMHOOK" header. The telephony of CAF
+            // builds treats a failure as "this modem has no such request" and goes on; a success with a
+            // made-up payload is parsed and crashes com.android.phone (MIUI 7 on 5.0: modem capability)
+            val (err, payload) = runCatching {
+                if (request == RIL_REQUEST_OEM_HOOK_RAW && isQcomHook(body)) E_GENERIC_FAILURE to ByteArray(0) else handle(request, b)
+            }.getOrElse { E_GENERIC_FAILURE to ByteArray(0) }
             val resp = ByteArrayOutputStream()
             resp.write(le(0)); resp.write(le(serial)); resp.write(le(err)); resp.write(payload)
             frame(o, resp.toByteArray())
@@ -213,6 +218,11 @@ class RilStub(
             val err = if (request == RIL_REQUEST_RADIO_POWER || data != null) 0 else E_RADIO_NOT_AVAILABLE
             frame(o, le(0) + le(serial) + le(err) + (data ?: ByteArray(0)))
         }
+    }
+
+    private fun isQcomHook(body: ByteArray): Boolean {
+        val tag = "QOEMHOOK".toByteArray()
+        return body.size >= 12 + tag.size && tag.indices.all { body[12 + it] == tag[it] }
     }
 
     private fun handle(req: Int, args: ByteBuffer): Pair<Int, ByteArray> {
@@ -399,6 +409,7 @@ class RilStub(
         private const val RIL_REQUEST_SEND_SMS_EXPECT_MORE = 26
         private const val RIL_REQUEST_SETUP_DATA_CALL = 27
         private const val RIL_REQUEST_SIM_IO = 28
+        private const val RIL_REQUEST_OEM_HOOK_RAW = 59
         private const val RIL_REQUEST_GET_IMEI = 38
         private const val RIL_REQUEST_GET_IMEISV = 39
         private const val RIL_REQUEST_QUERY_FACILITY_LOCK = 42
@@ -425,7 +436,17 @@ class VoldStub(
     sockName: String = "vold",
     /** остальные тома прошивки (съёмные карты, USB): сообщаем о них как о «нет носителя» */
     private val others: List<String> = emptyList(),
+    private val api: Int = 19,
+    /** Called with the Environment state string ("mounted", "unmounted"…) whenever the card state changes. Android up to
+     *  2.1 (API <= 7) has no MountService<->vold state query: Environment.getExternalStorageState() reads the
+     *  EXTERNAL_STORAGE_STATE property, which the real mountd / vold sets (the emulator runs neither, so it must). */
+    private val onStorageState: ((String) -> Unit)? = null,
 ) {
+    /** 1.0-2.1: plain "command[:argument]\0" lines instead of vold2's numbered replies. mountd (1.0-1.5, socket
+     *  "mountd") speaks media_* events, the old vold (1.6-2.1) volume_* ones. */
+    private val legacy = api in 1..7
+    private val legacyMountd = legacy && sockName == "mountd"
+    private val evtPrefix = if (legacyMountd) "media_" else "volume_"
     @Volatile var state = MOUNTED
     private val label = mountPoint.substringAfterLast('/').ifEmpty { "sdcard" }
     private val clients = Collections.synchronizedList(ArrayList<LocalSocket>())
@@ -438,6 +459,12 @@ class VoldStub(
     private fun serveOne(c: LocalSocket) {
         clients.add(c)
         try {
+            // mountd tells the framework the card is mounted as soon as it connects (the event the daemon sent at boot
+            // went nowhere: nobody was listening yet)
+            if (legacyMountd && state == MOUNTED) {
+                publish(MOUNTED_PROP)
+                runCatching { send(c.outputStream, listOf("${evtPrefix}mounted:$mountPoint")) }
+            }
             val out = c.outputStream
             val ins = c.inputStream
             val buf = ByteArray(4096)
@@ -458,7 +485,37 @@ class VoldStub(
         }
     }
 
+    /** the old (API 1-7) protocol: the command is "name" or "name:path", the events are "name:path" */
+    private fun answerLegacy(cmd: String, out: OutputStream) {
+        val name = cmd.substringBefore(':').trim()
+        when (name) {
+            "mount_volume", "mount_media" -> {
+                state = MOUNTED
+                publish(MOUNTED_PROP)
+                send(out, listOf("${evtPrefix}mounted:$mountPoint"))
+            }
+            "eject_media" -> {
+                state = IDLE
+                publish(UNMOUNTED_PROP)
+                send(out, listOf("${evtPrefix}unmounted:$mountPoint"))
+            }
+            // no USB cable, no mass storage
+            "send_ums_status", "send_status" -> send(out, listOf("ums_disconnected", "ums_disabled"))
+            "enable_ums", "disable_ums" -> send(out, listOf("ums_disabled"))
+            "format_media" -> {
+                // nothing to format: the card is a host folder; report it mounted again
+                state = MOUNTED
+                publish(MOUNTED_PROP)
+                send(out, listOf("${evtPrefix}unmounted:$mountPoint", "${evtPrefix}mounted:$mountPoint"))
+            }
+            else -> log("vold: legacy command ignored: $cmd")
+        }
+    }
+
+    private fun publish(envState: String) { runCatching { onStorageState?.invoke(envState) } }
+
     private fun answer(cmd: String, out: OutputStream) {
+        if (legacy) { answerLegacy(cmd, out); return }
         val parts = cmd.trim().split(Regex("\\s+"))
         val seq = parts.getOrNull(0)?.toIntOrNull()
         val args = if (seq != null) parts.drop(1) else parts
@@ -466,6 +523,22 @@ class VoldStub(
         val sub = args.getOrElse(1) { "" }
         var after: (() -> Unit)? = null
         val reply: List<String> = when {
+            // 6.0 vold: volumes are announced as events. One emulated volume over the shared folder; MountService
+            // asks to mount it and gets its paths (/storage/emulated/<user>, kept in /data/media).
+            api >= 23 && head == "volume" && sub == "reset" -> {
+                after = { event("650 emulated 2 \"\" \"\"", "651 emulated 0") }
+                listOf("200 Command succeeded")
+            }
+            api >= 23 && head == "volume" && sub == "mount" -> {
+                val id = args.getOrElse(2) { "emulated" }
+                after = { event("651 $id 1", "656 $id /data/media", "655 $id /storage/emulated", "651 $id 2") }
+                listOf("200 Command succeeded")
+            }
+            api >= 23 && head == "volume" && sub == "unmount" -> {
+                val id = args.getOrElse(2) { "emulated" }
+                after = { event("651 $id 5", "651 $id 0") }
+                listOf("200 Command succeeded")
+            }
             // с томами из storage_list (4.x) сообщаем только о них: основное хранилище там эмулируемое,
             // а незнакомый путь MountService Samsung считает ошибкой и обрывает список
             head == "volume" && sub == "list" -> (if (others.isEmpty()) listOf("110 $label $mountPoint $state")
@@ -499,7 +572,13 @@ class VoldStub(
         return "$code $seq${line.substring(sp)}"
     }
 
+    private fun event(vararg msgs: String) {
+        val list = synchronized(clients) { ArrayList(clients) }
+        for (c in list) runCatching { send(c.outputStream, msgs.toList()) }
+    }
+
     fun announce(from: Int, to: Int) {
+        if (api >= 23) return
         val msg = "605 Volume $label $mountPoint state changed from $from (${name(from)}) to $to (${name(to)})"
         val list = synchronized(clients) { ArrayList(clients) }
         for (c in list) runCatching { send(c.outputStream, listOf(msg)) }
@@ -507,6 +586,12 @@ class VoldStub(
 
     fun rescan() {
         state = MOUNTED
+        if (legacy) {
+            publish(MOUNTED_PROP)
+            val list = synchronized(clients) { ArrayList(clients) }
+            for (c in list) runCatching { send(c.outputStream, listOf("${evtPrefix}mounted:$mountPoint")) }
+            return
+        }
         announce(IDLE, MOUNTED)
     }
 
@@ -526,6 +611,10 @@ class VoldStub(
     companion object {
         const val IDLE = 1
         const val MOUNTED = 4
+        const val MOUNTED_PROP = "mounted"
+        const val UNMOUNTED_PROP = "unmounted"
+        /** the property Environment.getExternalStorageState() reads on Android 1.0-2.1 */
+        const val STATE_PROP = "EXTERNAL_STORAGE_STATE"
     }
 }
 

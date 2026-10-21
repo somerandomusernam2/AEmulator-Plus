@@ -46,6 +46,12 @@ class InputService(private val paths: VmPaths, private val log: (String) -> Unit
     @Volatile var mtMode = 0
     /** MMI/FTM: minui and the touch probe of one process each keep their own event0 descriptor, so one pid may own several clients. */
     @Volatile var multiPerPid = false
+    /**
+     * Events for a guest whose input_event has a 16-byte timeval (24 bytes per event). That is the native arm64 engine
+     * with a 64-bit firmware only: a 32-bit-only firmware (armeabi-v7a) also runs on that engine, but every program of
+     * it, system_server's EventHub included, runs in qemu-arm and reads the 16-byte struct (see [wideFor]).
+     */
+    @Volatile var wide = false
     @Volatile var sent = 0L
         private set
     val connected: Int get() = clients.size
@@ -142,7 +148,7 @@ class InputService(private val paths: VmPaths, private val log: (String) -> Unit
 
     @Synchronized
     fun trackball(dx: Int = 0, dy: Int = 0, button: Boolean? = null) {
-        val bytes = TrackballEvents.frame(dx, dy, button, System.nanoTime())
+        val bytes = widen(TrackballEvents.frame(dx, dy, button, System.nanoTime()))
         if (bytes.isEmpty()) return
         val dead = ArrayList<Client>()
         for (c in trackballClients) {
@@ -393,6 +399,37 @@ class InputService(private val paths: VmPaths, private val log: (String) -> Unit
         }.start()
     }
 
+    fun home(down: Boolean) {
+        // One key only: 102 and 172 both map to HOME (TreeFixer), and the second down while the first is held reads
+        // as a key repeat, i.e. a long press: TouchWiz 4 opened recents on every tap of Home
+        key(KEY_HOME, down)
+    }
+
+    /**
+     * Recent apps. Handles AOSP (APP_SWITCH 580/187), MIUI (Menu on hardware keys),
+     * TouchWiz (Galaxy S5 recents key 254 / S3-S4 long Home chord), HTC Sense, and Sony Xperia.
+     */
+    fun recents(api: Int, skin: String) {
+        Thread {
+            when {
+                skin.contains("MIUI", true) && api < 21 -> {
+                    key(KEY_MENU, true); Thread.sleep(80); key(KEY_MENU, false)
+                }
+                skin.contains("TouchWiz", true) && api in 14..18 -> {
+                    home(true); Thread.sleep(600); home(false)
+                }
+                api >= 11 -> {
+                    // One key only: 580, 187 and 254 all map to APP_SWITCH (TreeFixer), and each press toggles
+                    // recents, so sending all three opened it and closed it again at once
+                    key(KEY_APPSELECT, true); Thread.sleep(80); key(KEY_APPSELECT, false)
+                }
+                else -> {
+                    home(true); Thread.sleep(600); home(false)
+                }
+            }
+        }.start()
+    }
+
     fun tap(x: Int, y: Int) {
         touch(listOf(P(1, x, y)), true)
         Thread.sleep(60)
@@ -419,6 +456,12 @@ class InputService(private val paths: VmPaths, private val log: (String) -> Unit
         b.putInt(value)
     }
 
+    /** A 64-bit guest (native arm64 engine) reads struct input_event with a 16-byte timeval: 24 bytes per event. */
+    private fun widen(a: ByteArray): ByteArray = if (!wide) a else ByteArray(a.size / EV * 24).also { o ->
+        val src = ByteBuffer.wrap(a).order(ByteOrder.LITTLE_ENDIAN); val dst = ByteBuffer.wrap(o).order(ByteOrder.LITTLE_ENDIAN)
+        repeat(a.size / EV) { dst.putLong(src.int.toLong()); dst.putLong(src.int.toLong()); dst.putShort(src.short); dst.putShort(src.short); dst.putInt(src.int) }
+    }
+
     private fun flush(b: ByteBuffer) {
         if (b.position() == 0) return
         val a = ByteArray(b.position())
@@ -431,9 +474,10 @@ class InputService(private val paths: VmPaths, private val log: (String) -> Unit
                 if (!full) sink = null
             }
         }
+        val w = widen(a)
         record(a)
         var prune = false
-        for (c in clients) { c.post(a); if (c.dead) prune = true }
+        for (c in clients) { c.post(w); if (c.dead) prune = true }
         if (prune) clients.removeAll { it.dead }
         sent += a.size / EV
     }
@@ -455,6 +499,9 @@ class InputService(private val paths: VmPaths, private val log: (String) -> Unit
     fun clientInfo(): String = clients.joinToString { "pid ${it.pid}${if (it.dropped > 0) " (dropped ${it.dropped} frames: guest does not read this descriptor)" else ""}" }
 
     companion object {
+        /** True when the guest's struct input_event is the 24-byte 64-bit one. */
+        fun wideFor(engine: Engine, pure32Tree: Boolean): Boolean = engine == Engine.N64 && !pure32Tree
+
         private const val EV = 16
         private const val EV_SYN = 0
         private const val EV_KEY = 1
@@ -484,6 +531,9 @@ class InputService(private val paths: VmPaths, private val log: (String) -> Unit
         const val KEY_APPSELECT = 580
         const val KEY_ENTER = 28
         const val KEY_UP = 103
+        const val KEY_LEFT = 105
+        const val KEY_RIGHT = 106
         const val KEY_DOWN = 108
+        const val KEY_CENTER = 232
     }
 }

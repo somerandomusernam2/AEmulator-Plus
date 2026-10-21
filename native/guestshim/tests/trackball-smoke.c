@@ -6,7 +6,7 @@ static int test_errno;
 int *__errno(void) { return &test_errno; }
 AemuFile *fdopen(int fd, const char *mode) { (void)fd; (void)mode; return 0; }
 #define CHECK(c) do { if (!(c)) return __LINE__; } while (0)
-static int has(unsigned char *b, unsigned bit) { return b[bit / 8] & (1 << (bit % 8)); }
+static int bit_set(unsigned char *b, unsigned bit) { return b[bit / 8] & (1 << (bit % 8)); }
 struct test_pollfd { int fd; short events, revents; };
 static int test_main(void) {
     struct tb_sockaddr addr;
@@ -28,9 +28,9 @@ static int test_main(void) {
     CHECK(ioctl(fd, 0x80404506, name) > 0 && tb_equal(name, "AEmulator Trackball"));
     unsigned char bits[96];
     CHECK(ioctl(fd, 0x80604521, bits) == 96);
-    CHECK(has(bits, 272) && !has(bits, 330) && !has(bits, 103));
-    CHECK(ioctl(fd, 0x80084522, bits) == 8 && has(bits, 0) && has(bits, 1));
-    CHECK(ioctl(fd, 0x80084520, bits) == 8 && has(bits, 0) && has(bits, 1) && has(bits, 2) && !has(bits, 3));
+    CHECK(bit_set(bits, 272) && !bit_set(bits, 330) && !bit_set(bits, 103));
+    CHECK(ioctl(fd, 0x80084522, bits) == 8 && bit_set(bits, 0) && bit_set(bits, 1));
+    CHECK(ioctl(fd, 0x80084520, bits) == 8 && bit_set(bits, 0) && bit_set(bits, 1) && bit_set(bits, 2) && !bit_set(bits, 3));
     CHECK(ioctl(fd, 0x80604523, bits) == 96);
     for (unsigned i = 0; i < 96; i++) CHECK(bits[i] == 0); // no absolute/touch axes
     CHECK(ioctl(fd, 0x80184540, bits) == -1 && test_errno == 25); // unsupported ABS info

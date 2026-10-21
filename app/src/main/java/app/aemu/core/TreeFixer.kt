@@ -28,8 +28,21 @@ class TreeFixer(
 ) {
     private val root get() = paths.root
     private val engine get() = img.engine
+    private val kernel get() = Kernel64.forApi(img.api)
 
     // ---------------------------------------------------------------- однократно после импорта
+
+    /** android.hardware.graphics.allocator@2.0-impl.so / android.hardware.graphics.composer@2.1-impl.so (HIDL passthrough impls) */
+    private fun isGraphicsHidlImpl(name: String) =
+        Regex("^android\\.hardware\\.graphics\\.(allocator|composer)@[0-9.]+-impl\\.so$").matches(name)
+
+    /**
+     * Any HIDL passthrough implementation of the firmware (android.hardware.audio@4.0-impl.so, ...keymaster@3.0-impl.so,
+     * ...light@2.0-impl.so, ...camera.provider@2.4-impl.so and so on). They are not hardware modules: the HAL service
+     * dlopen()s them by name, and without one it dies with "Could not get passthrough implementation".
+     */
+    private fun isHidlImpl(name: String) =
+        Regex("^android\\.(hardware|hidl)\\.[A-Za-z0-9_.]+@[0-9.]+-impl[A-Za-z0-9_.-]*\\.so$").matches(name)
 
     fun sanitize() {
         val parked = File(root, "system/.aemu-parked").apply { mkdirs() }
@@ -55,6 +68,16 @@ class TreeFixer(
                 val variant = name.removeSuffix(".so").substringAfter('.', "")
                 val isDefault = variant == "default" || variant == "goldfish"
                 when {
+                    // HIDL passthrough implementations (android.hidl.memory@1.0-impl.so: 32-bit audioserver maps its
+                    // effect buffers through it) are not hardware modules
+                    name.contains('@') && dir == "system/lib/hw" -> {}
+                    // A firmware with no 64-bit side: the engine's arm64 graphics impls cannot replace these, so the
+                    // firmware's own 32-bit allocator/composer impls are the only ones there will ever be
+                    // (the same goes for every other impl: audio, keymaster, gatekeeper, light, power, memtrack, thermal,
+                    // sensors, camera provider... the engine ships its arm64 impls only, and a 32-bit HAL service
+                    // cannot load those; parked, the services found no impl at all and system_server/audioserver/
+                    // cameraserver/keystore waited for them forever)
+                    isPure32Tree(root) && (isGraphicsHidlImpl(name) || isHidlImpl(name)) -> {}
                     // родной gralloc.default прошивки работает с fb0, который эмулирует qemu, — оставляем
                     cls == "gralloc" && isDefault -> {}
                     // звук даёт движок
@@ -120,7 +143,7 @@ class TreeFixer(
         installSensorHal()
         File(root, "system/framework/aemu-setup.jar").let { dst ->
             dst.parentFile?.mkdirs()
-            ctx.assets.open("engines/common/aemu-setup.jar").use { src -> dst.outputStream().use { src.copyTo(it) } }
+            EngineAssets.open(ctx, "engines/common/aemu-setup.jar").use { src -> dst.outputStream().use { src.copyTo(it) } }
             dst.setReadable(true, false)
         }
         installCameraHal()
@@ -128,6 +151,7 @@ class TreeFixer(
         fixThemeXml()
         parkWhetstone()
         parkPlayReady()
+        parkQcomServices()
         swapMtkAudioHal()
         // glibc (Google TV) firmware: the engine's GL shims are bionic libraries (NEEDED libdl.so / libc.so) and cannot
         // be loaded by a glibc userland ("load_driver(libGLES_android.so): libdl.so: cannot open shared object file",
@@ -140,16 +164,30 @@ class TreeFixer(
         runCatching {
             if (GuestRootAliases.ensureEtc(root)) log("init: restored /etc -> /system/etc alias")
         }.onFailure { log("init: could not prepare /etc alias: ${it.message}") }
+        miuiSdkFiles()
         makeUserZeroLink()
         makeDevNodes()
+        rootLinks()
+        fixApex()
+        guestOverlay()
+        bpfMapNotes()
+        aconfigStorage()
+        kernelPolicyUnread()
         makeSysNodes()
+        ThermalSysfs.apply(root, img.settings, log)
         makeProcMounts()
         vendorAudioPolicy()
+        resolvConf()
+        caCerts()
         audioPolicy()
         audioOpenSlot()
         seedSamsungCsc()
         qemuAudioPolicy()
         qtaguid()
+        if (engine == Engine.N64 && kernel.webView64) for (dir in listOf("product/app", "system/app", "system/product/app", "system_ext/app"))
+            File(root, dir).listFiles().orEmpty().filter { it.isDirectory && it.name.contains("webview", true) }
+                .flatMap { it.listFiles().orEmpty().filter { f -> f.isFile && f.name.endsWith(".apk") } }
+                .forEach { WebView64.prefer64(it, log) }
         vendorChecks()
         flattenedLinks()
         shellLink()
@@ -170,6 +208,7 @@ class TreeFixer(
         glassLocationProvider()
         seedDefaultIme()
         lockWearRotation()
+        keyLayout()
         for (n in LOGS) File(root, "dev/log/$n").let { if (!it.isFile) { it.parentFile?.mkdirs(); it.createNewFile() } }
         makeFb()
     }
@@ -407,7 +446,7 @@ class TreeFixer(
             // AudioFlinger asks libhardware for module class "libaudio"/"primary" here, and libhardware rejects a module
             // whose id differs ("load: id=libaudio != hmi->id=audio"). The same asset serves the AOSP-style loader
             // (hw/audio.primary.default.so, id "audio"), so only this copy gets the id changed.
-            val raw = ctx.assets.open(asset).use { it.readBytes() }
+            val raw = EngineAssets.open(ctx, asset).use { it.readBytes() }
             val hal = HalModuleId.retarget(raw, MTK_HAL_MODULE_ID)
             if (hal == null) log("audio: cannot set the HAL module id to $MTK_HAL_MODULE_ID, AudioFlinger will refuse it")
             val bytes = hal ?: raw
@@ -480,6 +519,817 @@ class TreeFixer(
         if (moved) log("DRM: PlayReady plugin set aside (drmserver crashed in it)")
     }.onFailure { log("DRM: could not set aside the PlayReady plugin: ${it.message}") }
 
+    /**
+     * qemu names the input device "dhd-touch"; with no layout of that name the guest falls back to the firmware's
+     * Generic.kl / qwerty.kl, where vendors map the codes differently (4.x Generic.kl: 102 = MOVE_HOME, 580 often
+     * unmapped), so Home and Recents did nothing on many firmwares. A layout under the device's own name is looked up
+     * first by every version from 2.3 on and gives the navigation bar the same codes everywhere.
+     */
+    private fun keyLayout() {
+        val f = File(root, "system/usr/keylayout/dhd-touch.kl")
+        val vf = File(root, "vendor/usr/keylayout/dhd-touch.kl")
+        val text = buildString {
+            append("# AEmulator: navigation bar and hardware keys of the emulator\n")
+            append("key ${InputService.KEY_HOME} HOME WAKE\n")
+            append("key 172 HOME WAKE\n")
+            append("key ${InputService.KEY_BACK} BACK WAKE_DROPPED\n")
+            append("key ${InputService.KEY_MENU} MENU WAKE_DROPPED\n")
+            append("key ${InputService.KEY_SEARCH} SEARCH WAKE_DROPPED\n")
+            append("key ${InputService.KEY_POWER} POWER WAKE\n")
+            append("key ${InputService.KEY_VOLUMEDOWN} VOLUME_DOWN WAKE\n")
+            append("key ${InputService.KEY_VOLUMEUP} VOLUME_UP WAKE\n")
+            append("key 113 VOLUME_MUTE\n")
+            append("key 212 CAMERA\n")
+            append("key 103 DPAD_UP\nkey 108 DPAD_DOWN\nkey 105 DPAD_LEFT\nkey 106 DPAD_RIGHT\nkey 232 DPAD_CENTER\n")
+            // APP_SWITCH exists from 3.0; older layouts reject unknown labels and drop the whole file
+            if (img.api >= 11) {
+                append("key ${InputService.KEY_APPSELECT} APP_SWITCH\n")
+                append("key 254 APP_SWITCH\n")
+                append("key 187 APP_SWITCH\n")
+            }
+        }.let {
+            // 5.0 dropped the WAKE flags from the layout syntax: an unknown flag makes the guest reject the whole file
+            if (img.api >= 21) it.replace(" WAKE_DROPPED", "").replace(" WAKE", "") else it
+        }
+        val targets = listOf(
+            f, vf,
+            File(root, "system/usr/keylayout/Vendor_18d1_Product_0001.kl"),
+            File(root, "system/usr/keylayout/AEmulator_Touchscreen.kl")
+        )
+        for (target in targets) {
+            if (target == vf && !File(root, "vendor/usr/keylayout").isDirectory) continue
+            if (runCatching { target.readText() }.getOrNull() != text) {
+                runCatching { target.parentFile?.mkdirs(); target.writeText(text); target.setReadable(true, false) }
+                    .onFailure { log("key layout (${target.name}): ${it.message}") }
+            }
+        }
+        // In Generic.kl and qwerty.kl: ensure HOME, BACK, MENU, and APP_SWITCH are properly mapped
+        for (dir in listOf(File(root, "system/usr/keylayout"), File(root, "vendor/usr/keylayout"))) {
+            if (!dir.isDirectory) continue
+            for (name in listOf("Generic.kl", "qwerty.kl")) {
+                val kl = File(dir, name)
+                if (kl.isFile) runCatching {
+                    var s = kl.readText()
+                    var changed = false
+                    if (s.contains("key 102   MOVE_HOME")) {
+                        s = s.replace("key 102   MOVE_HOME", "key 102   HOME")
+                        changed = true
+                    } else if (s.contains("key 102 MOVE_HOME")) {
+                        s = s.replace("key 102 MOVE_HOME", "key 102 HOME")
+                        changed = true
+                    }
+                    if (!s.contains("APP_SWITCH") && img.api >= 11) {
+                        s += "\n# AEmulator navigation recents keys\nkey 580 APP_SWITCH\nkey 187 APP_SWITCH\nkey 254 APP_SWITCH\n"
+                        changed = true
+                    }
+                    if (changed) kl.writeText(s)
+                }
+            }
+        }
+    }
+
+    /**
+     * Qualcomm builds: QTI permissions, DPM, the location stack, the RIL message tunnel and Dirac audio bind to modem,
+     * DSP and data-path daemons that do not exist here; their apps crash in a loop and drag system_server with them.
+     */
+    private fun parkQcomServices() {
+        val parked = File(root, "system/.aemu-parked")
+        var n = 0
+        // 4.x keeps apps as bare app/Name.apk (+ .odex) instead of app/Name/
+        for (rel in QCOM_PARK.flatMap { if (it.endsWith(".xml")) listOf(it) else listOf(it, "$it.apk", "$it.odex") }) {
+            val f = File(root, rel)
+            if (!f.exists() && !isLink(f)) continue
+            parked.mkdirs()
+            val dst = File(parked, rel.replace('/', '#'))
+            if (dst.exists()) ImageStore.wipe(dst)
+            if (f.renameTo(dst)) n++
+        }
+        if (n > 0) log("Qualcomm: vendor services set aside: $n")
+    }
+
+    /** Native arm64 engine: its HALs and libraries are arm64 files from assets/engines/n64-<kernel> (each kernel has its own copy), named "a#b#c" for a/b/c. */
+    /** the firmware's libgui checks queued buffers for the handle of Samsung's Exynos gralloc */
+    /** some 64-bit HAL of this class is in place (the board's own ones are set aside after import) */
+    private fun hasHal(cls: String) = listOf("system/lib64/hw", "vendor/lib64/hw", "system/vendor/lib64/hw")
+        .any { d -> File(root, d).list()?.any { it.startsWith("$cls.") && it.endsWith(".so") } == true }
+
+    private fun contains(f: File, text: String): Boolean = runCatching {
+        f.isFile && String(f.readBytes(), Charsets.ISO_8859_1).contains(text)
+    }.getOrDefault(false)
+
+    private fun exynosLibgui(lib: String): Boolean = runCatching {
+        String(File(root, "system/$lib/libgui.so").readBytes(), Charsets.ISO_8859_1).contains("invalid gralloc handle (at %p)")
+    }.getOrDefault(false)
+
+    private fun installNative64() {
+        // engines/n64-<kernel>: AOSP's own SurfaceFlinger for that release. The vendors' ones (MIUI's blur, Qualcomm's
+        // ExSurfaceFlinger) need the GPU's GLES 2 and show no windows on the software renderer. For a Treble release
+        // (8.0+) it is the vendor side: the graphics and keymaster HAL services over the plain framebuffer, and the
+        // manifest that lists exactly them (a HAL that is listed but not running is waited for without end).
+        // engines/n64-gl: SwiftShader, the same for every release.
+        var copied = 0
+        // the GPU bridge for 32-bit programs (native/glroute): libEGL takes it before the software renderer, and it
+        // sends the toolkit's drawing on to that renderer; without the GPU option it is not there at all
+        kernel.gpuBridge32?.let { name ->
+            val on = img.settings.gpu && File(root, "system/bin/app_process32").isFile
+            for ((asset, to) in listOf((if (kernel.gpuBridge32Open) "libGLES_aemu.so" else "libGLES_route.so") to name, "libGLES_split.so" to "libGLES_split.so", "libGLES.so" to "libGLES_bridge.so")) {
+                val f = File(root, "system/lib/egl/$to")
+                if (on) runCatching {
+                    val len = EngineAssets.size(ctx, "engines/kk/$asset")
+                    if (isLink(f) || !f.isFile || f.length() != len) {
+                        f.delete()
+                        EngineAssets.open(ctx, "engines/kk/$asset").use { i -> f.outputStream().use { o -> i.copyTo(o) } }
+                        f.setReadable(true, false); f.setExecutable(true, false); copied++
+                    }
+                } else if (to != name || !isLink(f)) f.delete()
+            }
+        }
+        // 10+ over the 8.1 vendor side: the codec service there is 8.1's, and its minijail takes one @include in a
+        // policy; the system image's policy has a second one (code coverage, empty in a release build), and the
+        // service gives up on it. That line goes.
+        if (kernel.oneIncludePolicy) File(root, "system/etc/seccomp_policy/mediacodec.policy").let { f ->
+            runCatching {
+                val lines = f.readLines()
+                // (11 also names a constant that minijail's table of 8.1 does not have)
+                val kept = lines.filterNot { it.startsWith("@include") && "code_coverage" in it }.map { it.replace("MREMAP_MAYMOVE", "1") }
+                if (kept != lines) f.writeText(kept.joinToString("\n", postfix = "\n"))
+            }
+        }
+        // A system image with no vendor side of its own (a GSI): libselinux of 8.x opens the platform's and the
+        // vendor's context files together once the platform's one is there, and hwservicemanager aborts without
+        // the second. The vendor adds no rules here.
+        if (kernel.treble) for (n in listOf("hwservice", "file", "property", "seapp", "service")) {
+            val vendor = File(root, "vendor/etc/selinux/nonplat_${n}_contexts")
+            if (File(root, "system/etc/selinux/plat_${n}_contexts").isFile && !vendor.exists() &&
+                !File(root, "vendor/etc/selinux/vendor_${n}_contexts").exists()) runCatching {
+                vendor.parentFile?.mkdirs()
+                vendor.writeText("")
+                vendor.setReadable(true, false)
+            }
+        }
+        // (a firmware with its own vendor side: vendor/build.prop is its file, the engine ships none)
+        val ownVendor = kernel.treble && File(root, "vendor/build.prop").isFile
+        val layers = ArrayList<String>(kernel.assets)
+        if (ownVendor || kernel.treble && kernel.ownVendorUnderGsi) layers += kernel.ownVendorAssets
+        if (kernel.treble && !ownVendor) layers += kernel.gsiAssets
+        val files = LinkedHashMap<String, String>()         // file name to the asset it comes from: later layers win
+        // A layer may be split into arm32/ and arm64/ (see EngineAssets): the files of both go in, and where both have
+        // the same path the one for the firmware's architecture is taken (a 32-bit-only firmware: arm32, any other: arm64)
+        val guest64 = !isPure32Tree(root)
+        for (dir in layers) for ((n, asset) in runCatching { EngineAssets.layerFiles(ctx, dir, guest64) }.getOrNull().orEmpty()) files[n] = asset
+        // ...and what such a firmware keeps its own of comes back from where an earlier start put it aside
+        if (ownVendor) for (n in kernel.firmwareOwn) {
+            val parked = File(root, "system/.aemu-parked/$n")
+            val own = File(root, n.replace('#', '/'))
+            if (parked.isFile) { own.delete(); if (parked.renameTo(own)) log("${own.name}: the firmware's own file is back") }
+            if (own.isFile) files.remove(n)
+        }
+        if (ownVendor) for (n in kernel.firmwareAside) {
+            val own = File(root, n.replace('#', '/'))
+            val parked = File(root, "system/.aemu-parked/$n")
+            if (own.isFile && !parked.exists()) { parked.parentFile?.mkdirs(); if (own.renameTo(parked)) log("${own.name}: the firmware's own file is set aside") }
+        }
+        // A firmware with no 64-bit side keeps ITS OWN HAL manifests. The engine's manifest and the setting aside of the
+        // fragments exist so that the engine's HAL services (all 64-bit, none of which is installed on such a firmware)
+        // take the place of the board's. Here the board's services are the ones that run, and the service manager refuses
+        // to register an AIDL service that no manifest declares (addService fails with EX_ILLEGAL_ARGUMENT, "status=-3":
+        // boot, drm, gatekeeper, cas, camera provider, memtrack, usb... all abort), and SurfaceFlinger finds no declared
+        // graphics mapper/allocator ("Failed to load matching allocator for mapper version 2").
+        val keepFirmwareVintf = ownVendor && isPure32Tree(root)
+        if (keepFirmwareVintf) {
+            for (parked in File(root, "system/.aemu-parked").listFiles().orEmpty()) {
+                if (!parked.isFile) continue
+                val rel = parked.name.replace('#', '/')
+                val vintf = rel == "vendor/etc/vintf/manifest.xml" || rel.startsWith("vendor/etc/vintf/manifest/") ||
+                    rel.startsWith("odm/etc/vintf/manifest/")
+                if (!vintf) continue
+                val own = File(root, rel)
+                if (rel == "vendor/etc/vintf/manifest.xml") own.delete() else if (own.exists()) continue
+                own.parentFile?.mkdirs()
+                if (parked.renameTo(own)) { own.setReadable(true, false); log("${own.name}: the firmware's own HAL manifest is back (32-bit firmware)") }
+            }
+            files.remove("vendor#etc#vintf#manifest.xml")
+        }
+        if (ownVendor && !keepFirmwareVintf && kernel.manifestFragmentsAside && "vendor#etc#vintf#manifest.xml" in files) {
+            for (f in File(root, "vendor/etc/vintf/manifest").listFiles().orEmpty()) {
+                val parked = File(root, "system/.aemu-parked/vendor#etc#vintf#manifest#${f.name}")
+                if (kernel.manifestFragmentsKept.any { it in f.name }) continue
+                if (f.isFile && !parked.exists()) { parked.parentFile?.mkdirs(); if (f.renameTo(parked)) log("${f.name}: the firmware's own file is set aside") }
+            }
+        }
+        // the odm partition adds fragments of its own for the board's HALs, none of which run here; a declared HAL
+        // that never registers is waited for, and one unreadable fragment voids the whole device manifest (ColorOS
+        // links network_manifest.xml into /proc/oplusManifest, which only its kernel has)
+        if (ownVendor && !keepFirmwareVintf && kernel.odmManifestFragmentsAside && "vendor#etc#vintf#manifest.xml" in files) {
+            for (f in File(root, "odm/etc/vintf/manifest").listFiles().orEmpty()) {
+                val parked = File(root, "system/.aemu-parked/odm#etc#vintf#manifest#${f.name}")
+                val link = java.nio.file.Files.isSymbolicLink(f.toPath())
+                if ((f.isFile || link) && !parked.exists()) { parked.parentFile?.mkdirs(); if (f.renameTo(parked)) log("odm ${f.name}: the firmware's own file is set aside") }
+            }
+        }
+        // (a fragment this kernel keeps, set aside by an earlier build of the app, goes back)
+        if (ownVendor) for (parked in File(root, "system/.aemu-parked").listFiles().orEmpty()) {
+            val name = parked.name.removePrefix("vendor#etc#vintf#manifest#")
+            if (name != parked.name && kernel.manifestFragmentsKept.any { it in name }) {
+                val own = File(root, "vendor/etc/vintf/manifest/$name")
+                if (!own.exists() && parked.renameTo(own)) log("$name: the firmware's own file is back")
+            }
+        }
+        // a file this kernel no longer ships (the kernels part ways: 7.x keeps the firmware's own SurfaceFlinger)
+        // goes back from where it was kept aside
+        val shipped = files.keys
+        val anyKernel = Kernel64.entries.flatMap { k -> listOf("engines/n64-${k.tag}", k.ownVendorAssets).flatMap { runCatching { EngineAssets.layerNames(ctx, it) }.getOrNull().orEmpty() } }.toSet()
+        for (parked in File(root, "system/.aemu-parked").listFiles().orEmpty()) {
+            if (!parked.isFile || parked.name !in anyKernel || parked.name in shipped) continue
+            val dst = File(root, parked.name.replace('#', '/'))
+            dst.delete()
+            if (parked.renameTo(dst)) log("${dst.name}: the firmware's own file is back")
+        }
+        // Samsung's libgui (see the gralloc rule below) is not the library AOSP's SurfaceFlinger was built against:
+        // the consumer side of the buffer queue is laid out differently and the first queued frame crashes in it.
+        // Such firmware keeps its own SurfaceFlinger.
+        val ownSf = kernel.exynosHandles && exynosLibgui("lib64")
+        // The sound trigger service of the engine only hosts the firmware's own implementation; where there is none (a
+        // generic system image) it exits at once, and its manifest entry makes system_server wait for it forever.
+        val soundTriggerImpl = File(root, "vendor/lib64/hw").list().orEmpty().any { it.startsWith("android.hardware.soundtrigger@") && it.endsWith("-impl.so") }
+        // A firmware with no 64-bit side (Wear OS 9, armeabi-v7a only): the engine's 64-bit programs and libraries have no
+        // 64-bit linker namespace or system libraries to run against, and a 64-bit file laid over a 32-bit program of
+        // the firmware (SurfaceFlinger, a HAL service) would replace something that works with something that cannot
+        // start. Only the engine's 32-bit files (and the ones that are no ELF: jars, manifests, policies) go in.
+        val pure32 = isPure32Tree(root)
+        if (pure32) log("32-bit firmware: the engine's 64-bit files are not installed")
+        // ...so its own 32-bit graphics HAL impls, which the import set aside on the assumption that the engine's arm64
+        // ones take over, have to be back: without them the allocator and composer services find no passthrough
+        // implementation and SurfaceFlinger aborts ("EGLContext creation failed")
+        if (pure32) for (parked in File(root, "system/.aemu-parked").listFiles().orEmpty()) {
+            val rel = parked.name.replace('#', '/')
+            val dir = rel.substringBeforeLast('/')
+            val base = rel.substringAfterLast('/')
+            if (!parked.isFile || dir !in setOf("vendor/lib/hw", "system/vendor/lib/hw") || !(isGraphicsHidlImpl(base) || isHidlImpl(base))) continue
+            // (what the kernel sets aside on purpose, Qualcomm's secure-world impls, stays aside)
+            if (parked.name in kernel.firmwareAside) continue
+            val own = File(root, rel)
+            if (own.exists()) continue
+            own.parentFile?.mkdirs()
+            if (parked.renameTo(own)) { own.setReadable(true, false); log("${own.name}: the firmware's own 32-bit file is back") }
+        }
+        // The 32-bit installd of such a firmware gets ENOSYS from the phone's kernel for every extended-attribute call and
+        // gives up on every app's data directory (installd: "Failed before getfilecon ... Function not implemented"),
+        // so SettingsProvider has no database and system_server dies. A preloaded library answers those calls.
+        if (pure32) {
+            val asset = "engines/common/libaemuxattr.so"
+            // /system/lib for programs under /system, /vendor/lib for programs under /vendor: the vendor linker namespace
+            // (permitted_paths=/odm:/vendor) refuses a library from /system/lib
+            runCatching {
+                val size = EngineAssets.size(ctx, asset)
+                for (guestPath in listOf(GuestPreload.XATTR, GuestPreload.XATTR_VENDOR)) {
+                    val dst = File(root, guestPath.removePrefix("/"))
+                    if (dst.isFile && dst.length() == size && sameContent(asset, dst)) continue
+                    dst.parentFile?.mkdirs()
+                    if (isLink(dst)) Os.remove(dst.absolutePath)
+                    EngineAssets.open(ctx, asset).use { i -> dst.outputStream().use { o -> i.copyTo(o) } }
+                    dst.setReadable(true, false); dst.setExecutable(true, false)
+                    log("xattr: libaemuxattr.so installed at $guestPath (the kernel refuses extended attributes)")
+                }
+            }.onFailure { log("xattr: libaemuxattr.so missing from the engine set: ${it.message}") }
+        }
+        fun is64BitElf(asset: String): Boolean = runCatching {
+            EngineAssets.open(ctx, asset).use { i ->
+                val h = ByteArray(5)
+                i.read(h) == 5 && h[0] == 0x7f.toByte() && h[1] == 'E'.code.toByte() && h[2] == 'L'.code.toByte() && h[3] == 'F'.code.toByte() && h[4] == 2.toByte()
+            }
+        }.getOrDefault(false)
+        for ((n, asset) in files) {
+            if (pure32 && is64BitElf(asset)) continue
+            if (!soundTriggerImpl && "aemu-soundtrigger" in n) { File(root, n.replace('#', '/')).delete(); continue }
+            if (ownSf && (n == "system#bin#surfaceflinger" || n == "system#lib64#libsurfaceflinger.so")) {
+                val parked = File(root, "system/.aemu-parked/$n")
+                val own = File(root, n.replace('#', '/'))
+                if (parked.isFile) { own.delete(); if (parked.renameTo(own)) log("${own.name}: the firmware's own file is back") }
+                continue
+            }
+            // (the 32-bit driver goes next to the 64-bit one: a Treble firmware's libEGL loads drivers in the vendor
+            // namespace of the linker, which does not reach /system/lib/egl - "couldn't find an OpenGL ES
+            // implementation" in every 32-bit app of MIUI 10)
+            val eglDir32 = kernel.eglDir.replace("/lib64/", "/lib/")
+            val dst = File(root, n.replace('#', '/').let {
+                when {
+                    it.startsWith("system/lib64/egl/") -> kernel.eglDir + it.removePrefix("system/lib64/egl")
+                    it.startsWith("system/lib/egl/") -> eglDir32 + it.removePrefix("system/lib/egl")
+                    else -> it
+                }
+            })
+            val size = runCatching { EngineAssets.size(ctx, asset) }.getOrDefault(-1L)
+            if (dst.isFile && size >= 0 && dst.length() == size && sameContent(asset, dst)) continue
+            runCatching {
+                dst.parentFile?.mkdirs()
+                if (isLink(dst)) Os.remove(dst.absolutePath)
+                else if (dst.isFile) {          // the firmware's own file is kept aside
+                    val parked = File(root, "system/.aemu-parked/$n")
+                    parked.parentFile?.mkdirs()
+                    if (!parked.exists()) dst.renameTo(parked)
+                }
+                EngineAssets.open(ctx, asset).use { i -> dst.outputStream().use { o -> i.copyTo(o) } }
+                dst.setReadable(true, false); dst.setExecutable(true, false)
+                copied++
+            }.onFailure { log("$n: ${it.message}") }
+        }
+        // SwiftShader's libEGL finds its GLES libraries by their own names, so the name this release's libEGL asks
+        // for is a link to them
+        if (kernel.eglName != "swiftshader") listOf(kernel.eglDir, "system/lib/egl").flatMap { File(root, it).listFiles().orEmpty().toList() }.filter { it.name.endsWith("_swiftshader.so") }.forEach { f ->
+            val link = File(f.parentFile, f.name.replace("_swiftshader.so", "_${kernel.eglName}.so"))
+            if (!isLink(link)) { link.delete(); runCatching { Os.symlink(f.name, link.path) } }
+        }
+        // 8.0's 32-bit libEGL looks for the "emulation" driver in system/lib/egl only, where the engine's 32-bit
+        // SwiftShader is not (it goes with the other EGL drivers to vendor/lib/egl): links there, under SwiftShader's
+        // own names too, by which its libEGL opens its GLES libraries
+        // (a firmware with no 64-bit side needs the links under SwiftShader's own names on any release: its libEGL opens
+        // libGLESv2_swiftshader.so and libGLESv1_CM_swiftshader.so by the fixed directory /system/lib/egl, and with
+        // nothing there it has no GLES library of its own: eglCreateContext returns no context and SurfaceFlinger aborts
+        // with "EGLContext creation failed")
+        if (kernel.emulationDir != null || pure32) File(root, "vendor/lib/egl").listFiles().orEmpty().filter { it.name.endsWith("_swiftshader.so") }.forEach { f ->
+            for (n in listOfNotNull(f.name, f.name.replace("_swiftshader.so", "_emulation.so").takeIf { kernel.emulationDir != null })) {
+                val link = File(root, "system/lib/egl/$n")
+                link.parentFile?.mkdirs()
+                if (!isLink(link)) { link.delete(); runCatching { Os.symlink("../../../vendor/lib/egl/${f.name}", link.path) } }
+            }
+        }
+        // 8.0's libEGL loads the "emulation" driver (the GPU bridge) from system/lib64/egl through the sphal namespace
+        // (android_load_sphal_library), which a Treble firmware's ld.config.txt restricts to /vendor: dlopen fails
+        // ("is not accessible for the namespace sphal"), no driver is found and SurfaceFlinger aborts ("couldn't find
+        // an OpenGL ES implementation"). The folder is added to the namespace's permitted paths.
+        if (kernel.emulationDir != null) File(root, "system/etc").listFiles().orEmpty()
+            .filter { it.isFile && it.name.startsWith("ld.config") && it.name.endsWith(".txt") }.forEach { f ->
+                runCatching {
+                    val text = f.readText()
+                    var changed = false
+                    val out = text.lines().joinToString("\n") { line ->
+                        val m = Regex("^(\\s*namespace\\.sphal\\.permitted\\.paths\\s*[+]?=\\s*)(.*)$").matchEntire(line)
+                        if (m == null) return@joinToString line
+                        val value = m.groupValues[2].trim()
+                        val lib = if (value.contains("\${LIB}")) "\${LIB}" else "lib64"
+                        val extra = "/system/$lib/egl"
+                        if (value.split(':').contains(extra)) line
+                        else { changed = true; m.groupValues[1] + value + ":" + extra }
+                    }
+                    if (changed) { f.writeText(out); log("linker: ${f.name}: /system/lib64/egl added to the sphal namespace"); copied++ }
+                }.onFailure { log("linker: ${f.name} not patched: ${it.message}") }
+            }
+        // 8.0 has no android.hidl.base@1.0.so (the base interface is inside libhidlbase.so until 8.1), but the engine's
+        // own vendor libraries (broadcastradio@1.1, camera.device@1.0-impl) are built against 8.1 and name it as a
+        // dependency: the linker fails on it in system_server (libandroid_servers) and in the audio HAL, zygote is
+        // killed after it. An empty library of that name satisfies the dependency; the symbols come from libhidlbase.so.
+        if (kernel.tag == "26") {
+            val stub = File(root, "vendor/lib64/android.hidl.base@1.0.so")
+            // an earlier build wrote a stub without section headers, which the linker rejects: replace it
+            val staleStub = stub.isFile && stub.length() < 1024 && runCatching {
+                stub.inputStream().use { ins -> val h = ByteArray(64); ins.read(h) == 64 && h[60] == 0.toByte() && h[61] == 0.toByte() }
+            }.getOrDefault(false)
+            if ((!stub.exists() || staleStub) && !File(root, "system/lib64/android.hidl.base@1.0.so").exists()) runCatching {
+                stub.parentFile?.mkdirs()
+                stub.writeBytes(android.util.Base64.decode(HIDL_BASE_STUB, android.util.Base64.DEFAULT))
+                stub.setReadable(true, false); stub.setExecutable(true, false)
+                log("hidl: empty android.hidl.base@1.0.so added (8.0 has it inside libhidlbase.so)")
+                copied++
+            }.onFailure { log("hidl: android.hidl.base@1.0.so not added: ${it.message}") }
+        }
+        // A vendor libEGL that still reads egl.cfg (MediaTek on 5.x: "0 1 mtk") asks for the driver by the tag written
+        // there, whatever is in the folder: the file names SwiftShader instead (a link under the vendor's tag would
+        // load a second copy of each library on 5.x, and SwiftShader's EGL and GLES would not see each other).
+        // 32-bit programs find no driver of that name and stay on the software renderer of the first line.
+        if (kernel.eglCfgTags) {
+            val cfg = File(root, "system/lib/egl/egl.cfg")
+            val rom = File(root, "system/lib/egl/egl.cfg.rom")
+            if (cfg.isFile) runCatching {
+                val lines = cfg.readLines()
+                val out = lines.map { l ->
+                    val t = l.trim().split(Regex("\\s+"))
+                    if (t.size == 3 && !l.trim().startsWith("#") && t[2] != "android") "${t[0]} ${t[1]} swiftshader" else l
+                }
+                if (out != lines) {
+                    if (!rom.isFile) cfg.copyTo(rom)
+                    cfg.writeText(out.joinToString("\n", postfix = "\n"))
+                    log("egl.cfg: the vendor's driver tag replaced with SwiftShader")
+                }
+            }
+        }
+        // Samsung's ART empties /data/dalvik-cache at every start when the cache holds no copy of the boot image
+        // ("PruneDalvikCache : File Not Exist"): every app is then compiled again on every boot, minutes of
+        // "Optimising app N of M". A phone has that copy from relocating the image at first boot; here the image
+        // stays where it was built for (-Xnorelocate), so the firmware's own files are linked into the cache.
+        if (kernel.bootImageInCache) for ((lib, isa) in listOf("lib64" to "arm64", "lib" to "arm")) runCatching {
+            if (!contains(File(root, "system/$lib/libart.so"), "PruneDalvikCache : File Not Exist")) return@runCatching
+            for (ext in listOf("art", "oat")) {
+                val src = File(root, "system/framework/$isa/boot.$ext")
+                val dst = File(root, "data/dalvik-cache/$isa/system@framework@boot.$ext")
+                if (!src.isFile || (dst.isFile && dst.length() == src.length())) continue
+                dst.parentFile?.mkdirs()
+                dst.delete()
+                runCatching { Os.link(src.absolutePath, dst.absolutePath) }.onFailure { src.copyTo(dst, overwrite = true) }
+                dst.setReadable(true, false)
+                log("dalvik-cache/$isa: boot.$ext of the firmware linked in")
+            }
+        }
+        // Samsung's libgui on Exynos (TouchWiz) takes every queued buffer for one of its own gralloc and writes into
+        // the handle; with the default gralloc's handle it writes through a null pointer and SurfaceFlinger dies on
+        // the first frame. Where libgui has that check, the kernel's gralloc of the same buffers and Samsung's
+        // handle layout goes in front of the firmware's default one (kept next to it as libgralloc_rom.so).
+        // Qualcomm's SurfaceFlinger reads its gralloc's flags out of every layer's handle: the same way, the kernel's
+        // gralloc with Qualcomm's handle layout goes in front where the firmware's SurfaceFlinger is that one.
+        val qcomSf = kernel.qcomHandles && runCatching {
+            String(File(root, "system/lib64/libsurfaceflinger.so").readBytes(), Charsets.ISO_8859_1).contains("ExSurfaceFlinger")
+        }.getOrDefault(false)
+        for ((on, name) in listOf(kernel.exynosHandles to "exynos", kernel.qcomHandles to "qcom")) if (on) for (lib in listOf("lib64", "lib")) runCatching {
+            // (a Treble release keeps its gralloc on the vendor side)
+            val side = if (kernel.treble) "vendor" else "system"
+            val wrap = File(root, "$side/$lib/libgralloc_$name.so")
+            val hw = File(root, "$side/$lib/hw/gralloc.default.so")
+            val rom = File(root, "$side/$lib/libgralloc_rom.so")
+            val gui = File(root, "system/$lib/libgui.so")
+            if (!wrap.isFile || !hw.isFile || !gui.isFile) return@runCatching
+            val inPlace = hw.length() == wrap.length() && hw.readBytes().contentEquals(wrap.readBytes())
+            val wanted = if (name == "exynos") exynosLibgui(lib) else qcomSf
+            if (wanted && !inPlace) {
+                if (!rom.isFile) hw.renameTo(rom)
+                wrap.copyTo(hw, overwrite = true)
+                hw.setReadable(true, false)
+                log("$lib: gralloc with ${if (name == "exynos") "Samsung" else "Qualcomm"}'s handle layout in front of the firmware's")
+            } else if (!wanted && inPlace && rom.isFile) {
+                hw.delete(); rom.renameTo(hw)
+            }
+        }
+        // Qualcomm's 32-bit libc of 5.1 looks for the main thread's stack in /proc/self/task/<tid>/maps, a file qemu-arm
+        // does not describe to its guest: the program reads the translator's own stack, cut to 32 bits, and ART
+        // aborts ("stack variable above the stack end") in patchoat and in the 32-bit zygote. /proc/self/maps is the
+        // same list, and that one qemu-arm answers itself; the name in the library is shortened to it.
+        if (kernel.taskMapsIsSelfMaps) {
+            val libc = File(root, "system/lib/libc.so")
+            if (libc.isFile) runCatching {
+                val d = libc.readBytes()
+                val a = "/proc/self/task/%d/maps".toByteArray() + 0
+                val b = "/proc/self/maps".toByteArray()
+                val at = (0..d.size - a.size).firstOrNull { i -> a.indices.all { d[i + it] == a[it] } }
+                if (at != null) {
+                    a.indices.forEach { d[at + it] = if (it < b.size) b[it] else 0 }
+                    libc.writeBytes(d)
+                    log("libc.so (32-bit): the main thread's stack is read from /proc/self/maps")
+                }
+            }
+        }
+        // mediaserver of a 6.0 arm64 firmware is a 32-bit program (it runs through qemu-arm): camera and sound
+        // reach the phone through the same 32-bit HALs as on the other engines
+        if (File(root, "system/bin/mediaserver").let { it.isFile && !isElf64(it) }) {
+            // Samsung's audio_format_t is 64 bits wide (5.1: "%lld not supported", 6.0: "%llx not valid"): its AudioFlinger takes a format from the HAL in two registers
+            val audioHal = if (kernel.wideAudioFormat && contains(File(root, "system/lib/libaudioflinger.so"), "HAL format %ll"))
+                "engines/kk/audio.primary.fmt64.so" else "engines/kk/audio.primary.aosp.so"
+            // a kernel may bring its own build of the 32-bit camera HAL (7.1: a newer module API for Camera.openLegacy)
+            val cameraHal = kernel.assets.reversed().firstNotNullOfOrNull { EngineAssets.layerAsset(ctx, it, "system#lib#hw#camera.default.so", EngineAssets.ARM32) }
+                ?: "engines/common/camera.default.so"
+            for ((asset, to) in listOf(cameraHal to "system/lib/hw/camera.default.so",
+                audioHal to "system/lib/hw/audio.primary.default.so")) {
+                val dst = File(root, to)
+                val size = runCatching { EngineAssets.size(ctx, asset) }.getOrDefault(-1L)
+                if (dst.isFile && size >= 0 && dst.length() == size && sameContent(asset, dst)) continue
+                runCatching {
+                    dst.parentFile?.mkdirs()
+                    val parked = File(root, "system/.aemu-parked/${to.replace('/', '#')}")
+                    parked.parentFile?.mkdirs()
+                    if (dst.isFile && !parked.exists()) dst.renameTo(parked)
+                    EngineAssets.open(ctx, asset).use { i -> dst.outputStream().use { o -> i.copyTo(o) } }
+                    dst.setReadable(true, false); copied++
+                }.onFailure { log("$to: ${it.message}") }
+            }
+        }
+        // the Java stubs (bluetooth manager, network, tool runner) are dex code: the same jar as for 32-bit guests
+        runCatching {
+            // (read whole: a jar is stored compressed in the package, and such an asset has no length to ask for)
+            val jar = File(root, "system/framework/aemu-stubs.jar")
+            val bytes = EngineAssets.open(ctx, "engines/kk/aemu-stubs.jar").use { it.readBytes() }
+            if (!jar.isFile || !jar.readBytes().contentEquals(bytes)) {
+                jar.writeBytes(bytes)
+                jar.setReadable(true, false); copied++
+            }
+        }.onFailure { log("aemu-stubs.jar: ${it.message}") }
+        if (copied > 0) log("engine n64 files updated: $copied")
+        // qemu-arm (the firmware's 32-bit programs) asks for the lowest mappable address; the phone hides the real file
+        runCatching { File(root, "proc/sys/vm").mkdirs(); File(root, "proc/sys/vm/mmap_min_addr").writeText("65536") }
+        runCatching { File(root, "proc/.one/1").mkdirs(); File(root, "proc/.task1").mkdirs(); File(root, "proc/.task1/none").writeText("") }     // what a 32-bit program sees as /proc/self/task
+        // the vendor's HALs drive hardware this phone does not have (ION, MDP, the SoC's audio DSP): with them
+        // aside, the loader falls back to the *.default ones
+        var parked = 0
+        for (dir in listOf("system/lib64/hw", "system/vendor/lib64/hw", "system/lib/hw", "system/vendor/lib/hw")) {
+            File(root, dir).listFiles()?.forEach { f ->
+                val id = f.name.substringBefore('.')
+                // (Qualcomm ships its location HAL as gps.default.so: no GPS at all is better than its modem worker)
+                if (!f.isFile || (f.name.endsWith(".default.so") && id != "gps") || id !in VENDOR_HALS) return@forEach
+                val dst = File(root, "system/.aemu-parked/${f.relativeTo(root).path.replace('/', '#')}")
+                dst.parentFile?.mkdirs()
+                if (dst.exists()) dst.delete()
+                if (f.renameTo(dst)) parked++
+            }
+        }
+        // Treble: the firmware's /vendor keeps its legacy keystore HAL module (keystore.<board>.so, Qualcomm's one over the
+        // secure world) next to the keymaster HIDL impl. The impl asks hw_get_module_by_class("keystore") first and takes the
+        // board's module by the board properties; opening it fails here, the impl returns nothing ("Could not get
+        // passthrough implementation") and keystore waits for the keymaster service for ever. Without a module the impl
+        // makes the software keymaster itself (a keystore.default.so stays, it is the neutral one).
+        if (kernel.treble) {
+            val seen = ArrayList<String>()
+            for (dir in listOf("vendor/lib64/hw", "vendor/lib/hw", "system/lib64/hw", "system/lib/hw")) {
+                File(root, dir).listFiles()?.forEach { f ->
+                    if (!f.isFile || !(f.name.startsWith("keystore.") || f.name.startsWith("android.hardware.keymaster"))) return@forEach
+                    seen += "$dir/${f.name}"
+                    // (8.0: the system's keystore.default.so is the one module there is, and the 8.1 impl does not make its
+                    // software keymaster as long as it finds a module; it fails on this one without a word)
+                    if (!f.name.startsWith("keystore.") || (f.name.endsWith(".default.so") && kernel.tag != "26") || isLink(f)) return@forEach
+                    val dst = File(root, "system/.aemu-parked/${f.relativeTo(root).path.replace('/', '#')}")
+                    dst.parentFile?.mkdirs()
+                    if (dst.exists()) dst.delete()
+                    if (f.renameTo(dst)) { parked++; log("${f.name}: the firmware's keystore module is set aside") }
+                }
+            }
+            log("keymaster: hw modules seen: ${seen.ifEmpty { listOf("none") }.joinToString(", ")}")
+            // a HIDL passthrough impl that cannot be dlopen()ed is skipped without a word ("Could not get passthrough
+            // implementation"): say which of its libraries (all the way down) the linker would not find
+            for (rel in listOf("vendor/lib64/hw/android.hardware.keymaster@3.0-impl.so", "system/lib64/hw/keystore.default.so",
+                "vendor/bin/hw/android.hardware.keymaster@3.0-service", "vendor/lib64/hw/android.hardware.gatekeeper@1.0-impl.so",
+                "vendor/lib64/hw/android.hardware.light@2.0-impl.so")) logMissingLibs(rel)
+            logUnresolvedSymbols("vendor/lib64/hw/android.hardware.keymaster@3.0-impl.so", "HIDL_FETCH_IKeymasterDevice")
+            logUnresolvedSymbols("system/lib64/hw/keystore.default.so")
+        }
+        // ...and so does what declares that hardware to the framework: system_server takes "the feature is there but
+        // its HAL is not" as fatal for the whole group of services it was starting (8.x: the window manager is in it)
+        for (dir in listOf("system/etc/permissions", "vendor/etc/permissions")) for (hw in listOf("consumerir", "fingerprint", "nfc", "nfc.hce", "nfc.hcef")) {
+            val f = File(root, "$dir/android.hardware.$hw.xml")
+            val dst = File(root, "system/.aemu-parked/${f.relativeTo(root).path.replace('/', '#')}")
+            // which ones is the kernel's call: where the firmware's own HAL loads, the declaration has to be there
+            val absent = hw in kernel.absentFeatures || (hw == "consumerir" && kernel.irFollowsHal && !hasHal("consumerir"))
+            if (!absent) { if (dst.isFile && !f.exists()) dst.renameTo(f); continue }
+            if (!f.isFile) continue
+            dst.parentFile?.mkdirs()
+            if (dst.exists()) dst.delete()
+            if (f.renameTo(dst)) parked++
+        }
+        // Bluetooth is declared in the core hardware list along with everything else, so it cannot be parked as a file:
+        // it is declared unavailable instead. 10: with the feature there, system_server turns the adapter on and the
+        // Bluetooth app dies in a loop on the missing HCI HAL; without it the engine's own manager stub answers.
+        File(root, "system/etc/permissions/aemu-absent.xml").let { f ->
+            // HDMI-CEC: a Treble firmware that ships a CEC HAL (the Google TV Streamer's MediaTek one needs
+            // libmtkcechal.so, which no tree has: "CANNOT LINK EXECUTABLE") makes system_server start
+            // HdmiControlService, which then throws a NullPointerException in onStart (HdmiControlService.java:711,
+            // mhl controller) and takes the whole of system_server down. The emulator has no CEC line, so the feature
+            // is declared unavailable and the service is not started at all.
+            val cecHal = listOf("vendor/bin/hw", "system/vendor/bin/hw", "system/bin/hw").any { d ->
+                File(root, d).listFiles()?.any { it.name.startsWith("android.hardware.tv.hdmi.cec") } == true
+            }
+            // Thread (14+, a service of the tethering/connectivity module): ThreadNetworkService opens an IPv6 multicast
+            // socket for its TUN interface and the setsockopt answers ENOPROTOOPT, which throws out of
+            // ConnectivityServiceInitializer.onBootPhase(500) and ends system_server. There is no Thread radio, so the
+            // feature is declared unavailable and the service is never created.
+            val thread = File(root, "apex/com.android.tethering").isDirectory
+            val un = kernel.absentFeatures.filter { it.startsWith("bluetooth") } +
+                (if (cecHal) listOf("hdmi.cec") else emptyList()) + (if (thread) listOf("thread_network") else emptyList())
+            if (un.isEmpty()) f.delete()
+            else f.writeText("<permissions>" + un.joinToString("") { "<unavailable-feature name=\"android.hardware.$it\" />" } + "</permissions>")
+        }
+        // Qualcomm location core loads its modem (QMI) back end by name and crashes inside it without a modem;
+        // with the back end gone it keeps its built-in do-nothing one
+        for (rel in listOf("system/lib64/libloc_api_v02.so", "system/vendor/lib64/libloc_api_v02.so", "system/lib/libloc_api_v02.so", "system/vendor/lib/libloc_api_v02.so")) {
+            val f = File(root, rel)
+            if (!f.isFile) continue
+            val dst = File(root, "system/.aemu-parked/${rel.replace('/', '#')}")
+            dst.parentFile?.mkdirs()
+            if (f.renameTo(dst)) parked++
+        }
+        // the vendor's RenderScript driver goes straight to its GPU; without it libRS computes on the CPU
+        for (dir in listOf("system/lib64", "system/vendor/lib64", "system/lib", "system/vendor/lib")) {
+            File(root, dir).listFiles()?.filter { it.name.startsWith("libRSDriver_") }?.forEach { f ->
+                val dst = File(root, "system/.aemu-parked/${f.relativeTo(root).path.replace('/', '#')}")
+                dst.parentFile?.mkdirs()
+                if (f.renameTo(dst)) parked++
+            }
+        }
+        // GLES 1/2/3 comes from SwiftShader (engines/n64-<api>): libEGL scans egl/ for lib<API>_*.so, so the GPU
+        // vendor's drivers step aside. The 32-bit side keeps the stock software renderer under the exact name libGLES.so.
+        if (File(root, kernel.eglLib).isFile) {
+            for (dir in listOf("system/lib64/egl", "system/vendor/lib64/egl", "system/vendor/lib/egl").filter { !kernel.treble || it != "system/lib64/egl" }) {
+                File(root, dir).listFiles()?.forEach { f ->
+                    if (!f.isFile || isLink(f) || kernel.isOwnSuffix(f.name) || f.name == "libGLES_android.so") return@forEach
+                    val dst = File(root, "system/.aemu-parked/${f.relativeTo(root).path.replace('/', '#')}")
+                    dst.parentFile?.mkdirs()
+                    if (dst.exists()) dst.delete()
+                    if (f.renameTo(dst)) parked++
+                }
+            }
+            val egl32 = File(root, "system/lib/egl")
+            // an image that ran on the 4.4 engine before has our GL shim under the renderer's name
+            File(egl32, "libGLES_android.so.sw").let { sw ->
+                if (sw.isFile) { File(egl32, "libGLES_android.so").delete(); sw.renameTo(File(egl32, "libGLES_android.so")) }
+            }
+            val bridge32 = img.settings.gpu && kernel.gpuBridge32 != null
+            if (File(egl32, "libGLES_android.so").isFile && !bridge32) {
+                for (n in listOf("libGLES_aemu.so", "libGLES_bridge.so", "libEGL_aemu.so", "libGLESv1_CM_aemu.so", "libGLESv2_aemu.so", "libGLES.so"))
+                    File(egl32, n).let { if (isLink(it)) Os.remove(it.absolutePath) else it.delete() }
+                // a kernel that ships SwiftShader for 32-bit programs too: libEGL takes libGLES.so before anything
+                // else in the directory, so the software renderer does not get that name
+                if (!File(egl32, "libGLESv2_swiftshader.so").isFile) runCatching { Os.symlink("libGLES_android.so", File(egl32, "libGLES.so").path) }
+            }
+        }
+        if (parked > 0) log("vendor HALs set aside: $parked")
+        parkSensorsHalOfPure32Treble()
+        disableTeeKeyMint()
+        dropHalsWithoutService()
+    }
+
+    /**
+     * KeyMint services that talk to a TEE: MediaTek's android.hardware.security.keymint@3.0-service.tee
+     * opens the OP-TEE/Trustonic client device in main(), finds none (TEEC_InitializeContext 0xFFFF0008, "TEE system is
+     * not initialized") and aborts with "Could not initialize TeeKeymaster for KeyMint (0)". The firmware's own VINTF
+     * manifest (kept as it is on a 32-bit Treble firmware) still declares IKeyMintDevice/default, so keystore2 takes the
+     * "genuine KeyMint service" path, gets NAME_NOT_FOUND, panics ("Cannot connect to Keymint") and the framework never
+     * gets a keystore: system_server dies in LockSettingsService, no boot.
+     *
+     * Without a declared KeyMint keystore2 uses its own software KeyMint instead (the km_compat path that the generic
+     * images already boot with). So the TEE service goes aside and the declarations of what it registers (KeyMint, shared
+     * secret, secure clock) are taken out of every device manifest. Runs on every start: an engine manifest that comes
+     * back overwrites the edit and is edited again. There is no TEE here, so nothing is lost by this.
+     */
+    private fun disableTeeKeyMint() {
+        if (!kernel.treble) return
+        val teeService = Regex("^android\\.hardware\\.security\\.keymint@[0-9.]+-service(\\..*)?$")
+        var parkedBins = 0
+        val seenBins = HashSet<String>()
+        for (dir in listOf("vendor/bin/hw", "system/vendor/bin/hw", "odm/bin/hw")) {
+            File(root, dir).listFiles()?.forEach { f ->
+                if (!teeService.matches(f.name) || (!f.isFile && !isLink(f))) return@forEach
+                if (!seenBins.add(runCatching { f.canonicalPath }.getOrDefault(f.path))) return@forEach
+                val dst = File(root, "system/.aemu-parked/${f.relativeTo(root).path.replace('/', '#')}")
+                dst.parentFile?.mkdirs()
+                if (dst.exists() || isLink(dst)) dst.delete()
+                if (f.renameTo(dst)) { parkedBins++; log("${f.name}: TEE KeyMint service set aside (no TEE here; keystore2 uses its software KeyMint)") }
+            }
+        }
+        // the declaration in the manifests is what keystore2 reads, so it goes whether the program was set aside now or earlier
+        val hal = Regex("[ \\t]*<hal\\b[^>]*>.*?</hal>[ \\t]*\\r?\\n?", RegexOption.DOT_MATCHES_ALL)
+        val name = Regex("<name>\\s*([^<\\s]+)\\s*</name>")
+        val dropNames = setOf("android.hardware.security.keymint", "android.hardware.security.sharedsecret", "android.hardware.security.secureclock")
+        val stillThere = listOf("vendor/bin/hw", "system/vendor/bin/hw", "odm/bin/hw").any { d ->
+            File(root, d).list().orEmpty().any { teeService.matches(it) } }
+        if (stillThere) return   // (a KeyMint program that could not be moved: leave the manifests as they are)
+        val files = listOf("vendor/etc/vintf/manifest.xml", "vendor/manifest.xml", "system/vendor/manifest.xml", "system/vendor/etc/vintf/manifest.xml",
+            "odm/etc/vintf/manifest.xml").map { File(root, it) } +
+            listOf("vendor/etc/vintf/manifest", "system/vendor/etc/vintf/manifest", "odm/etc/vintf/manifest").flatMap { d ->
+                File(root, d).listFiles()?.filter { it.name.endsWith(".xml") }.orEmpty()
+            }
+        val seen = HashSet<String>()
+        var edited = 0
+        for (f in files) {
+            if (!f.isFile || !seen.add(runCatching { f.canonicalPath }.getOrDefault(f.path))) continue
+            runCatching {
+                val text = f.readText()
+                val removed = ArrayList<String>()
+                val out = hal.replace(text) { m ->
+                    val n = name.find(m.value)?.groupValues?.get(1)
+                    if (n != null && n in dropNames) { removed += n; "" } else m.value
+                }
+                if (removed.isNotEmpty()) {
+                    f.setWritable(true)
+                    f.writeText(out)
+                    edited++
+                    log("${f.relativeTo(root).path}: KeyMint declarations dropped (${removed.distinct().joinToString()})")
+                }
+            }.onFailure { log("${f.name}: KeyMint declarations not checked: ${it.message}") }
+        }
+        if (parkedBins > 0 || edited > 0) log("keymint: TEE KeyMint disabled (service $parkedBins, manifests $edited)")
+    }
+
+    /**
+     * A 32-bit-only Treble firmware (8.x over the board's own vendor side) has no way to serve android.hardware.sensors
+     * here: the engine's arm64 sensors HAL cannot be installed next to 32-bit programs, and the firmware's own one is a
+     * vendor "multihal" (android.hardware.sensors@1.0-impl-mediatek.so) that finds no sensors module once sanitize() has
+     * set the board's sensors.<soc>.so aside, so HIDL_FETCH_ISensors("default") returns null, the service exits with 1
+     * every time ("required HAL 0 failed, giving up") and system_server's SensorService waits for the HAL that the
+     * manifest promises for ever ("Waited one second for android.hardware.sensors@1.0::ISensors/default"): no boot.
+     *
+     * The service programs go aside; dropHalsWithoutService() then sees a declared HAL with an rc service whose program is
+     * not there and takes the entry out of the manifests, so SensorService finds no HAL and runs without sensors.
+     * Runs on every start (the manifest comes back with the engine's files and goes again).
+     */
+    private fun parkSensorsHalOfPure32Treble() {
+        if (!kernel.treble || !isPure32Tree(root)) return
+        var n = 0
+        for (dir in listOf("vendor/bin/hw", "system/vendor/bin/hw", "system/bin/hw")) {
+            File(root, dir).listFiles()?.forEach { f ->
+                if (!f.name.startsWith("android.hardware.sensors@") || "-service" !in f.name) return@forEach
+                if (!f.isFile && !isLink(f)) return@forEach
+                val dst = File(root, "system/.aemu-parked/${f.relativeTo(root).path.replace('/', '#')}")
+                dst.parentFile?.mkdirs()
+                if (dst.exists() || isLink(dst)) dst.delete()
+                if (f.renameTo(dst)) n++
+            }
+        }
+        if (n > 0) log("sensors: no sensors HAL for a 32-bit Treble firmware, its service is set aside ($n); the guest runs without sensors")
+    }
+
+    /**
+     * A HAL the vendor manifest declares whose init service cannot start (its rc file names a /bin/hw/ program that
+     * is not in the tree) never registers, and everything that asks for it waits for ever: cameraserver logs
+     * "Waited one second for android.hardware.camera.provider@2.4::ICameraProvider/legacy/0" and the boot never
+     * finishes. The engine's manifest lists the camera provider whether or not the firmware has one, so such an entry
+     * is taken out of the manifests; the clients then see no HAL and report no camera.
+     *
+     * Only an entry with rc evidence goes: its package has a service in an rc file, the program of that service is
+     * missing, and no other program of the same package is in the tree (configstore@1.0 and keymaster@3.0 are served by
+     * the present 1.1 and "-qti" programs, and passthrough HALs such as the graphics mapper have no service at all).
+     * Runs on every start, so a later engine that ships the program gets its entry back with the engine's manifest.
+     */
+    private fun dropHalsWithoutService() {
+        val binDirs = listOf("vendor/bin/hw", "system/vendor/bin/hw", "system/bin/hw")
+        val present = binDirs.flatMap { d -> File(root, d).list().orEmpty().toList() }
+        val rcDirs = listOf("vendor/etc/init", "system/vendor/etc/init", "system/etc/init", "")
+        // package (android.hardware.camera.provider) -> programs its rc services run that are not there
+        val missing = HashMap<String, MutableSet<String>>()
+        for (d in rcDirs) for (rc in File(root, d).listFiles().orEmpty()) {
+            if (!rc.isFile || !rc.name.endsWith(".rc")) continue
+            for (raw in runCatching { rc.readLines() }.getOrDefault(emptyList())) {
+                val w = raw.trim().split(Regex("\\s+"))
+                if (w.size < 3 || w[0] != "service" || "/bin/hw/" !in w[2]) continue
+                if (File(root, w[2].removePrefix("/")).exists() || File(root, "system" + w[2]).exists()) continue
+                val bin = w[2].substringAfterLast('/')
+                val pkg = bin.substringBefore('@').takeIf { '@' in bin } ?: continue
+                missing.getOrPut(pkg) { HashSet() }.add(bin)
+            }
+        }
+        if (missing.isEmpty()) return
+        // (a board's services are not all named "<package>@<version>-service": the AIDL ones are "<package>-service...",
+        // "<package>.service.<vendor>" or "<package>-V1-...", and a package with such a program in the tree is not dead)
+        val dead = missing.keys.filter { pkg -> present.none { it.startsWith("$pkg@") || it.startsWith("$pkg-") || it.startsWith("$pkg.") } }.toSet()
+        if (dead.isEmpty()) return
+        val hal = Regex("[ \\t]*<hal\\b[^>]*>.*?</hal>[ \\t]*\\r?\\n?", RegexOption.DOT_MATCHES_ALL)
+        val name = Regex("<name>\\s*([^<\\s]+)\\s*</name>")
+        val seen = HashSet<String>()
+        val files = listOf("vendor/etc/vintf/manifest.xml", "vendor/manifest.xml", "system/vendor/manifest.xml", "system/vendor/etc/vintf/manifest.xml")
+            .map { File(root, it) } +
+            listOf("vendor/etc/vintf/manifest", "system/vendor/etc/vintf/manifest").flatMap { d ->
+                File(root, d).listFiles()?.filter { it.name.endsWith(".xml") }.orEmpty()
+            }
+        for (f in files) {
+            if (!f.isFile || !seen.add(runCatching { f.canonicalPath }.getOrDefault(f.path))) continue
+            runCatching {
+                val text = f.readText()
+                val removed = ArrayList<String>()
+                val out = hal.replace(text) { m ->
+                    val n = name.find(m.value)?.groupValues?.get(1)
+                    if (n != null && n in dead) { removed += n; "" } else m.value
+                }
+                if (removed.isNotEmpty()) {
+                    f.setWritable(true)
+                    f.writeText(out)
+                    log("${f.relativeTo(root).path}: HAL without a service dropped: ${removed.distinct().joinToString()}")
+                }
+            }.onFailure { log("${f.name}: HAL entries not checked: ${it.message}") }
+        }
+    }
+
+    /** [rel] and every library it names (all the way down) that the usual 64-bit directories have, plus the names none of them has. */
+    private fun libClosure(rel: String): Pair<List<File>, List<String>>? {
+        val f = File(root, rel)
+        if (!f.isFile) return null
+        val dirs = listOf("vendor/lib64", "vendor/lib64/hw", "system/lib64", "system/lib64/hw", "system/lib64/vndk", "system/lib64/vndk-sp",
+            "system/lib64/vndk-26", "system/lib64/vndk-sp-26", "system/lib64/vndk-27", "system/lib64/vndk-sp-27").map { File(root, it) }
+        val seen = HashSet<String>(); val missing = ArrayList<String>(); val files = arrayListOf(f); val queue = ArrayDeque<File>(); queue.add(f)
+        var steps = 0
+        while (queue.isNotEmpty() && steps++ < 300) {
+            val cur = queue.removeFirst()
+            for (lib in ElfPatch.needed64(cur).orEmpty()) {
+                if (!seen.add(lib)) continue
+                val hit = dirs.map { File(it, lib) }.firstOrNull { it.isFile }
+                if (hit == null) missing += "$lib (from ${cur.name})" else { queue.add(hit); files += hit }
+            }
+        }
+        return files to missing
+    }
+
+    /** Logs the libraries (transitively) that an ELF64 file of the tree names and that none of the usual 64-bit directories has. */
+    private fun logMissingLibs(rel: String) {
+        val (files, missing) = libClosure(rel) ?: run { log("deps: $rel: not in the tree"); return }
+        log("deps: ${files[0].name}: " + if (missing.isEmpty()) "every library found (${files.size - 1})" else "NOT FOUND " + missing.joinToString(", "))
+    }
+
+    /** Logs what a dlopen() of [rel] would stop on at load time: a symbol that its own libraries (all of them, with their needs) do not define. */
+    private fun logUnresolvedSymbols(rel: String, entry: String? = null) {
+        val (files, _) = libClosure(rel) ?: return
+        val syms = files.map { it to ElfPatch.dynSyms64(it) }
+        val defined = HashSet<String>(); for ((_, s) in syms) if (s != null) defined += s.defined
+        val unresolved = ArrayList<String>()
+        for ((file, s) in syms) if (s != null) for (u in s.undefined) if (u !in defined) unresolved += "$u (${file.name})"
+        val head = files[0].name + (if (entry != null) (if (syms[0].second?.defined?.contains(entry) == true) ": exports $entry" else ": does NOT export $entry") else "")
+        log("symbols: $head; " + if (unresolved.isEmpty()) "every symbol resolves" else "UNRESOLVED ${unresolved.size}: " + unresolved.sorted().take(25).joinToString(", "))
+    }
+
+    private val VENDOR_HALS = setOf("gralloc", "hwcomposer", "copybit", "lights", "sensors", "audio", "power", "memtrack",
+        "camera", "gps", "fingerprint", "gxfingerprint", "consumerir", "bluetooth", "nfc", "vibrator", "keystore", "gatekeeper")
+
     private fun installCameraHal() {
         val enabled = img.settings.camera && engine == Engine.KK && img.api in 14..25
         // video: the camera app records the camcorder profile's size, which the bridge has to deliver (640x480)
@@ -506,7 +1356,7 @@ class TreeFixer(
                 if (isLink(destination)) Os.remove(destination.absolutePath)
             }
             destination.parentFile?.mkdirs()
-            ctx.assets.open(asset).use { input -> destination.outputStream().use { input.copyTo(it) } }
+            EngineAssets.open(ctx, asset).use { input -> destination.outputStream().use { input.copyTo(it) } }
             destination.setReadable(true, false); destination.setExecutable(true, false)
             log("camera: standard HAL1 host-camera bridge installed")
             if (CameraHalFallback.configure(root, destination, img.api <= 20)) log("camera: legacy default HAL fallback installed")
@@ -539,7 +1389,7 @@ class TreeFixer(
         for (name in listOf("sensors.aemu_host.so", "sensors.default.so")) {
             val file = File(root, "system/lib/hw/$name")
             file.parentFile?.mkdirs()
-            ctx.assets.open("engines/common/sensors.aemu_host.so").use { input -> file.outputStream().use { input.copyTo(it) } }
+            EngineAssets.open(ctx, "engines/common/sensors.aemu_host.so").use { input -> file.outputStream().use { input.copyTo(it) } }
             file.setReadable(true, false)
         }
         log("motion: installed legacy host sensor HAL")
@@ -554,8 +1404,6 @@ class TreeFixer(
                 "libGLES.so" to "system/lib/egl/libGLES_bridge.so",
                 "audio.primary.default.so" to "system/lib/hw/audio.primary.default.so",
                 "gralloc.default.so" to "system/lib/hw/gralloc.default.so",
-                "fbpaint" to "system/bin/fbpaint",
-                "netprobe" to "system/bin/netprobe",
                 "aemu-stubs.jar" to "system/framework/aemu-stubs.jar",
                 "aemu-bt.jar" to "system/framework/aemu-bt.jar",
                 "aemu-wifi.jar" to "system/framework/aemu-wifi.jar",
@@ -565,8 +1413,22 @@ class TreeFixer(
                 "libashmemshim.so" to "system/lib/libashmemshim.so",
                 "libGLES_dhd.so" to "system/lib/egl/libGLES_dhd.so",
                 "gralloc.default.so" to "system/lib/hw/gralloc.default.so",
-                "fbpaint" to "system/bin/fbpaint",
             )
+            Engine.N64 -> return installNative64()
+        }
+        File(root, "system/bin/fbpaint").delete()
+        // a static network debugging tool shipped by older versions; nothing runs it
+        File(root, "system/bin/netprobe").delete()
+        // Widevine L3 aborts on its first session under the translator (6.0: right after "Could not read
+        // /data/mediadrm/IDM0/ay64.dat"); up to 6.0 it lives in mediaserver, which takes camera and audio down with it.
+        // Without the plugin MediaDrm says Widevine is not supported and players fall back to clear content.
+        if (engine == Engine.KK) for (d in listOf("system/vendor/lib/mediadrm", "vendor/lib/mediadrm")) {
+            val wv = File(root, "$d/libwvdrmengine.so")
+            if (wv.isFile && !isLink(wv)) {
+                val parked = File(root, "system/.aemu-parked/${d.replace('/', '#')}#libwvdrmengine.so")
+                parked.parentFile?.mkdirs(); parked.delete()
+                if (wv.renameTo(parked)) log("Widevine plugin set aside (aborts under the translator)")
+            }
         }
         // образы, подготовленные старой версией: вернуть родной gralloc.default из «парковки»
         val parkedGralloc = File(root, "system/.aemu-parked/system#lib#hw#gralloc.default.so")
@@ -606,7 +1468,7 @@ class TreeFixer(
             ?.let { runCatching { it.readBytes() }.getOrNull() }
         val replacingFirmwareGralloc = eclairGralloc || ionParkedGralloc.isFile
         val engineGralloc = if (replacedGralloc == null) null
-            else runCatching { ctx.assets.open("engines/${engine.id}/gralloc.default.so").use { it.readBytes() } }.getOrNull()
+            else runCatching { EngineAssets.open(ctx, "engines/${engine.id}/gralloc.default.so").use { it.readBytes() } }.getOrNull()
         val grallocVariant = GtiGralloc.applies(replacedGralloc, engineGralloc)
         if (replacedGralloc != null && engineGralloc != null)
             log("gralloc: firmware ${GrallocProbe.verdict(replacedGralloc)}, engine ${GrallocProbe.verdict(engineGralloc)} -> " +
@@ -626,7 +1488,8 @@ class TreeFixer(
                 runCatching { Os.symlink("libGLES_android.so", sw.path) }
         }
         for ((from, to) in (copies + nougat).filter { !noBridge || !it.second.startsWith("system/lib/egl/libGLES_") } +
-            listOf("@libaemushim.so" to "system/lib/libaemushim.so", "@libaemurlimit.so" to GuestPreload.RLIMIT.removePrefix("/")) +
+            listOf("@libaemushim.so" to "system/lib/libaemushim.so", "@libaemurlimit.so" to GuestPreload.RLIMIT.removePrefix("/"),
+                "@lights.default.so" to "system/lib/hw/lights.default.so") +
             // glibc (Google TV) firmware: fake /dev/shm_cache and /dev/shm_noncache so av_settings & co. can start
             (if (GuestPreload.isGlibcFirmware(root)) listOf("@libshmshim.so" to GuestPreload.SHMSHIM.removePrefix("/")) else emptyList())) {
             val dst = File(root, to)
@@ -675,7 +1538,7 @@ class TreeFixer(
                 else -> from
             }
             val asset = if (name.startsWith("@")) "engines/common/${name.drop(1)}" else "engines/${engine.id}/$name"
-            val size = runCatching { ctx.assets.openFd(asset).use { it.length } }.getOrDefault(-1L)
+            val size = runCatching { EngineAssets.size(ctx, asset) }.getOrDefault(-1L)
             // одинаковый размер ещё не значит тот же файл (правки движка на месте, варианты HAL) — сверяем CRC
             if (dst.isFile && size >= 0 && dst.length() == size && sameContent(asset, dst)) continue
             if (mtkHw) runCatching {
@@ -687,7 +1550,7 @@ class TreeFixer(
             runCatching {
                 dst.parentFile?.mkdirs()
                 if (isLink(dst)) Os.remove(dst.absolutePath)
-                ctx.assets.open(asset).use { i -> dst.outputStream().use { o -> i.copyTo(o) } }
+                EngineAssets.open(ctx, asset).use { i -> dst.outputStream().use { o -> i.copyTo(o) } }
                 dst.setReadable(true, false)
                 dst.setExecutable(true, false)
                 copied++
@@ -695,6 +1558,32 @@ class TreeFixer(
                 if (name == GtiGralloc.ASSET) log("gralloc: Eclair-behaviour variant installed (same-process buffers are not re-mapped or unmapped)")
             }.onFailure { log("${from.removePrefix("@")} missing from engine set: ${it.message}") }
         }
+        // Replicate camera.default.so into vendor/lib/hw and 64-bit libraries for modern cameraserver and apps
+        val cam32 = File(root, "system/lib/hw/camera.default.so")
+        val vcam32 = File(root, "vendor/lib/hw/camera.default.so")
+        if (cam32.isFile && File(root, "vendor/lib/hw").isDirectory && (!vcam32.exists() || vcam32.length() != cam32.length())) {
+            runCatching { cam32.copyTo(vcam32, overwrite = true) }
+        }
+        if (File(root, "system/lib64").isDirectory) {
+            val cam64 = File(root, "system/lib64/hw/camera.default.so")
+            val vcam64 = File(root, "vendor/lib64/hw/camera.default.so")
+            runCatching {
+                // a kernel of the native engine may bring its own build of the HAL
+                val asset64 = (if (engine == Engine.N64) kernel.assets.reversed() else emptyList())
+                    .firstNotNullOfOrNull { EngineAssets.layerAsset(ctx, it, "system#lib64#hw#camera.default.so", EngineAssets.ARM64) }
+                    ?: "engines/common/camera.default64.so"
+                val size64 = EngineAssets.size(ctx, asset64)
+                if (!cam64.exists() || cam64.length() != size64) {
+                    cam64.parentFile?.mkdirs()
+                    EngineAssets.open(ctx, asset64).use { i -> cam64.outputStream().use { o -> i.copyTo(o) } }
+                    cam64.setReadable(true, false)
+                }
+                if (File(root, "vendor/lib64/hw").isDirectory && (!vcam64.exists() || vcam64.length() != cam64.length())) {
+                    cam64.copyTo(vcam64, overwrite = true)
+                }
+            }
+        }
+        linkerLibRange()
         // вендорские драйверы RenderScript (Adreno, Mali…) лезут в GPU; без них libRS берёт процессорный
         for (dir in listOf("system/lib", "vendor/lib", "system/vendor/lib")) {
             File(root, dir).listFiles()?.filter { it.name.startsWith("libRSDriver_") }?.forEach { f ->
@@ -705,7 +1594,7 @@ class TreeFixer(
         }
         // netfilter в эмуляторе нет: iptables всегда падает, а netd 4.x (Samsung) считает это фатальным
         // для NetworkManagementService/ConnectivityService — ставим пустую программу, родную прячем
-        val trueSize = runCatching { ctx.assets.openFd("engines/common/aemu_true.so").use { it.length } }.getOrDefault(-1L)
+        val trueSize = runCatching { EngineAssets.size(ctx, "engines/common/aemu_true.so") }.getOrDefault(-1L)
         // MIUI: invoke-as runs FirewallService's iptables loop as root; under qemu that shell never sees its
         // children exit, so ConnectivityService (and the whole boot) hangs in CommandLineUtils.waitFor
         val fakes = listOf("bin/iptables", "bin/ip6tables") + if (img.skin.contains("MIUI", true)) listOf("xbin/invoke-as") else emptyList()
@@ -717,7 +1606,7 @@ class TreeFixer(
                 val parked = File(root, "system/.aemu-parked/system#${rel.replace('/', '#')}")
                 parked.parentFile?.mkdirs()
                 if (isLink(f)) Os.remove(f.absolutePath) else if (!parked.exists()) f.renameTo(parked) else f.delete()
-                ctx.assets.open("engines/common/aemu_true.so").use { i -> f.outputStream().use { o -> i.copyTo(o) } }
+                EngineAssets.open(ctx, "engines/common/aemu_true.so").use { i -> f.outputStream().use { o -> i.copyTo(o) } }
                 f.setReadable(true, false); f.setExecutable(true, false)
                 copied++
             }.onFailure { log("$n not replaced: ${it.message}") }
@@ -734,12 +1623,67 @@ class TreeFixer(
                 runCatching {
                     File(root, "system/.aemu-parked").mkdirs()
                     cam.copyTo(File(root, "system/.aemu-parked/system#lib#libcamera.so"), overwrite = true)
-                    ctx.assets.open("engines/gb/libcamera.so").use { i -> cam.outputStream().use { o -> i.copyTo(o) } }
+                    EngineAssets.open(ctx, "engines/gb/libcamera.so").use { i -> cam.outputStream().use { o -> i.copyTo(o) } }
                     stamp.writeText("1")
                 }
             }
         }
+        // 2.3, Qualcomm: the camera HAL needs the modem (ONCRPC) and quits mediaserver without it — a HAL with no cameras.
+        // Only for the HAL_* interface of 2.3 (API 9-10): the stub exports nothing else. Samsung's 2.1/2.2 (and 2.3 with
+        // libseccameraadaptor) link libcameraservice against the C symbol openCameraHardware, which the stub lacks, so
+        // mediaserver dies at link time ("cannot locate 'openCameraHardware'") — those keep their own libcamera.so.
+        fun needsLegacyCameraSymbol(): Boolean = listOf("libcameraservice.so", "libseccameraadaptor.so").any { n ->
+            val f = File(root, "system/lib/$n")
+            f.isFile && runCatching { String(f.readBytes(), Charsets.ISO_8859_1).contains("openCameraHardware") }.getOrDefault(false)
+        }
+        val stubOk = img.api in 9..10 && !htc && !needsLegacyCameraSymbol()
+        // a stub that an earlier build put on a firmware it does not fit: put the stock library back
+        if (!stubOk && !htc && parkedCam.isFile && !stamp.isFile) runCatching {
+            val noneSize = EngineAssets.size(ctx, "engines/common/libcamera.none.so")
+            if (noneSize > 0 && cam.length() == noneSize) {
+                cam.delete(); parkedCam.renameTo(cam)
+                log("camera: stock libcamera.so restored (the empty HAL does not fit this firmware)")
+                copied++
+            }
+        }
+        if (stubOk && cam.isFile && !parkedCam.exists() && cam.length() > 4096) {
+            val text = runCatching { String(cam.readBytes(), Charsets.ISO_8859_1) }.getOrDefault("")
+            if (listOf("libcald", "liboemcamera", "oncrpc").any { text.contains(it) }) runCatching {
+                File(root, "system/.aemu-parked").mkdirs()
+                cam.copyTo(parkedCam, overwrite = true)
+                EngineAssets.open(ctx, "engines/common/libcamera.none.so").use { i -> cam.outputStream().use { o -> i.copyTo(o) } }
+                log("camera: the firmware's 2.3 HAL needs the modem, replaced with an empty one (stock kept)")
+                copied++
+            }
+        }
         if (copied > 0) log("engine ${engine.id} files updated: $copied")
+    }
+
+    /**
+     * The 2.x linker gives libraries that are not prelinked addresses from a fixed range of its own. AOSP's is
+     * 0x80000000 - 0x90000000; Sony's 2.3 (Xperia 2011) uses 0x40000000 - 0x50000000, which is exactly where the
+     * stand's qemu keeps the guest stack and its own mappings: nothing fits ("cannot map library
+     * 'libashmemshim.so'. no vspace available", every service exits with 255). The range is a constant in the
+     * linker — base, size, 1 MB step — and is moved to 0x90000000, which Sony's prelink map leaves free.
+     */
+    private fun linkerLibRange() {
+        if (img.api > 10) return
+        val f = File(root, "system/bin/linker")
+        if (!f.isFile || f.length() > 4_000_000) return
+        runCatching {
+            val d = f.readBytes()
+            val b = java.nio.ByteBuffer.wrap(d).order(java.nio.ByteOrder.LITTLE_ENDIAN)
+            var off = 0
+            while (off + 12 <= d.size) {
+                if (b.getInt(off) == 0x40000000 && b.getInt(off + 4) == 0x10000000 && b.getInt(off + 8) == 0x100000) {
+                    b.putInt(off, 0x90000000.toInt())
+                    f.writeBytes(d)
+                    log("linker: range for non-prelinked libraries moved from 0x40000000 to 0x90000000")
+                    break
+                }
+                off += 4
+            }
+        }
     }
 
     /** Направляет загрузчик EGL прошивки на GL-мост (или на программный растеризатор). */
@@ -752,6 +1696,7 @@ class TreeFixer(
         if (isLink(cfg)) runCatching { Os.remove(cfg.absolutePath) }.onFailure { log("egl.cfg: symlink removal failed: ${it.message}"); cfg.delete() }
         if (!cfgRom.isFile && cfg.isFile) cfg.copyTo(cfgRom, overwrite = true)
         when (engine) {
+            Engine.N64 -> {}
             Engine.GB -> cfg.writeText(if (gpu) "0 0 dhd\n" else "0 0 android\n")
             Engine.KK -> {
                 // сам мост лежит как libGLES_bridge.so; все имена, которые ищут загрузчики EGL (libGLES.so у 4.4,
@@ -762,15 +1707,18 @@ class TreeFixer(
                 val swOff = File(dir, "libGLES_android.so.sw")
                 val names = listOf("libGLES.so", "libGLES_aemu.so", "libGLES_android.so", "libEGL_aemu.so", "libGLESv1_CM_aemu.so", "libGLESv2_aemu.so")
                 if (gpu && bridge.isFile) {
-                    if (!swOff.isFile && sw.isFile && sw.length() != splitSize()) sw.renameTo(swOff)
+                    if (!swOff.isFile && sw.isFile && sw.length() != splitSize() && sw.length() != assetSize(OPEN_GL)) sw.renameTo(swOff)
+                    // test switch: a file "glopen" in the image's directory puts the open bridge (native/glbridge,
+                    // armv7) on those names; it stands in front of the shim, which keeps the compositor and hwui
+                    val open = openGl32()
+                    val asset = if (open) OPEN_GL else "engines/kk/libGLES_split.so"
+                    val all = names + (if (img.api >= 24) listOf("libGLES_emulation.so") else emptyList())
                     runCatching {
-                        for (n in names) {
-                            val f = File(dir, n)
-                            if (f.isFile && f.length() == splitSize()) continue
-                            ctx.assets.open("engines/kk/libGLES_split.so").use { i -> f.outputStream().use { o -> i.copyTo(o) } }
-                            f.setReadable(true, false); f.setExecutable(true, false)
-                        }
+                        for (n in all) installAsset(asset, File(dir, n))
+                        val shim = File(dir, "libGLES_split.so")
+                        if (open) installAsset("engines/kk/libGLES_split.so", shim) else shim.delete()
                     }.onFailure { log("GL: shim failed to install: ${it.message}") }
+                    if (open) log("GL: open bridge in front of the 4.4 engine's one (glopen)")
                     // часть загрузчиков (Samsung 4.3) берут последнюю строку, остальные — строку с impl=1
                     cfg.writeText("0 0 android\n0 1 aemu\n")
                 } else {
@@ -783,13 +1731,17 @@ class TreeFixer(
         }
     }
 
+    private fun isElf64(f: File): Boolean = runCatching {
+        f.inputStream().use { i -> val b = ByteArray(5); i.read(b) == 5 && b[4] == 2.toByte() }
+    }.getOrDefault(false)
+
     private fun sameContent(asset: String, f: File): Boolean = runCatching {
         fun crc(i: java.io.InputStream): Long {
             val c = java.util.zip.CRC32(); val b = ByteArray(1 shl 16)
             while (true) { val n = i.read(b); if (n < 0) break; c.update(b, 0, n) }
             return c.value
         }
-        ctx.assets.open(asset).use { crc(it) } == f.inputStream().use { crc(it) }
+        EngineAssets.open(ctx, asset).use { crc(it) } == f.inputStream().use { crc(it) }
     }.getOrDefault(false)
 
     /** Пустые таблицы xt_qtaguid, на которые гостевая прослойка подменяет /proc/net/xt_qtaguid/… */
@@ -1195,8 +2147,38 @@ class TreeFixer(
             if (!keep.exists()) { keep.parentFile?.mkdirs(); lib.copyTo(keep) }
             val n = ElfPatch.returnZero(lib, setOf("is_selinux_enabled", "is_selinux_mls_enabled"))
             if (n > 0) log("SELinux: libselinux reports disabled ($n func.)")
+            // A firmware with no 64-bit side runs the firmware's own 32-bit installd. With no SELinux in the guest its
+            // restorecon / setfilecon calls end in ENOSYS ("Failed before getfilecon ... Function not implemented",
+            // "Failed to restorecon"), installd then removes the app's /data/user_de/0/<pkg> directory again, and the first
+            // system provider (SettingsProvider: settings.db, "Data directory doesn't exist") cannot start, so
+            // system_server dies and zygote goes with it. There are no labels to apply: the calls succeed and do nothing.
+            if (isPure32Tree(root)) {
+                val r = ElfPatch.returnZero(lib, setOf("selinux_android_restorecon", "selinux_android_restorecon_pkgdir",
+                    "selinux_android_setfilecon", "selinux_android_setcon", "selinux_android_setcontext"))
+                if (r > 0) log("SELinux: restorecon/setfilecon of libselinux do nothing ($r func.)")
+                xattrNoop()
+            }
         }
     }.onFailure { log("SELinux: failed to patch libselinux: ${it.message}") }
+
+    /**
+     * The phone's kernel answers every extended-attribute syscall with ENOSYS, and the 32-bit installd of a firmware with
+     * no 64-bit side treats that as fatal: "Failed before getfilecon ... Function not implemented", it deletes
+     * /data/user_de/0/<pkg> for every package, SettingsProvider has no database directory and system_server dies.
+     * LD_PRELOAD of libaemuxattr.so does not reach these programs on the native engine (its runner does not pass the
+     * guest environment on), so the guest libc's own wrappers are made to succeed: a get reports a one-byte value, a set
+     * does nothing. Nothing in the guest relies on labels or user.* attributes here (SELinux is off).
+     */
+    private fun xattrNoop() = runCatching {
+        val libc = File(root, "system/lib/libc.so")
+        if (!libc.isFile) return@runCatching
+        // a set does nothing. A get must report a NON-EMPTY value: libselinux turns an empty attribute into errno
+        // ENOTSUP ("Operation not supported on transport endpoint") and installd's lgetfilecon() then fails again.
+        // One byte is enough: libselinux hands the caller a zero-filled buffer, so the label reads as "".
+        val sets = ElfPatch.returnZero(libc, setOf("setxattr", "lsetxattr", "fsetxattr"))
+        val gets = ElfPatch.returnValue(libc, setOf("getxattr", "lgetxattr", "fgetxattr"), 1)
+        if (sets + gets > 0) log("xattr: libc get/set xattr calls succeed without the kernel (${sets + gets} func.)")
+    }.onFailure { log("xattr: failed to patch libc: ${it.message}") }
 
     private fun qtaguid() = runCatching {
         val d = File(root, "data/.aemu_qtaguid").apply { mkdirs() }
@@ -1209,9 +2191,35 @@ class TreeFixer(
             "iface_stat_all" to "",
         )
         for ((n, text) in files) File(d, n).apply { writeText(text); setReadable(true, false) }
+        // the native arm64 engine shows the image's own /proc files to the guest: the same empty tables in place,
+        // with the control file whose presence is what "the kernel does traffic accounting" means to the framework
+        if (engine == Engine.N64 && kernel.trafficAccounting) {
+            val p = File(root, "proc/net/xt_qtaguid").apply { mkdirs() }
+            for ((n, text) in files + ("ctrl" to "")) File(p, n).writeText(text)
+            File(root, "proc/net/xt_quota").mkdirs()           // netd writes its data-usage alert threshold here
+            File(root, "proc/net/xt_quota/globalAlert").writeText("")
+        }
+        if (engine == Engine.N64) for ((n, text) in kernel.procFiles) File(root, "proc/$n").let {
+            it.parentFile?.mkdirs()
+            if (n.endsWith(".gz")) {            // (the kernel's configuration: the text, gzipped as the kernel gives it)
+                val gz = java.io.ByteArrayOutputStream().also { o -> java.util.zip.GZIPOutputStream(o).use { z -> z.write(text.toByteArray()) } }.toByteArray()
+                if (!it.isFile || !it.readBytes().contentEquals(gz)) it.writeBytes(gz)
+            } else if (!it.isFile || it.readText() != text) it.writeText(text)
+        }
     }
 
-    private fun splitSize(): Long = runCatching { ctx.assets.openFd("engines/kk/libGLES_split.so").use { it.length } }.getOrDefault(-1L)
+    private fun assetSize(a: String): Long = runCatching { EngineAssets.size(ctx, a) }.getOrDefault(-1L)
+    private fun installAsset(a: String, f: File) {
+        if (f.isFile && !isLink(f) && f.length() == assetSize(a)) return
+        f.delete()
+        EngineAssets.open(ctx, a).use { i -> f.outputStream().use { o -> i.copyTo(o) } }
+        f.setReadable(true, false); f.setExecutable(true, false)
+    }
+    /** the open GLES bridge for the 32-bit engine is asked for (file "glopen" in the image's directory) */
+    private fun openGl32(): Boolean = engine == Engine.KK && File(paths.dir, "glopen").isFile &&
+        assetSize(OPEN_GL) > 0
+
+    private fun splitSize(): Long = runCatching { EngineAssets.size(ctx, "engines/kk/libGLES_split.so") }.getOrDefault(-1L)
 
     private fun makeDataDirs() {
         var made = 0
@@ -1252,6 +2260,28 @@ class TreeFixer(
         if (sb.isNotEmpty()) { paths.owners.appendText(sb.toString()); log("data: /data and /data/data set to system 0771") }
     }.onFailure { log("data: could not fix /data access: ${it.message}") }
 
+    /**
+     * MIUI on Android 5: /system/framework/miuisdk.jar and miuisystem.jar are links into /data/miui, and both are
+     * on the BOOTCLASSPATH. The phone's own init fills /data/miui from /system/app at boot; without the files
+     * dex2oat skips the two jars and aborts while building the boot image ("Check failed: method != NULL
+     * android.content.MiuiIntent.<init>"), zygote never starts.
+     */
+    private fun miuiSdkFiles() {
+        for ((jar, apk) in listOf("miuisdk" to "system/app/miui/miui.apk", "miuisystem" to "system/app/miuisystem/miuisystem.apk")) {
+            val link = File(root, "system/framework/$jar.jar")
+            val target = runCatching { Os.readlink(link.absolutePath) }.getOrNull() ?: continue
+            if (!target.endsWith("data/miui/$jar.apk")) continue
+            val src = File(root, apk).takeIf { it.isFile } ?: File(root, "system/app/${apk.substringAfterLast('/')}").takeIf { it.isFile } ?: continue
+            val dst = File(root, "data/miui/$jar.apk")
+            if (dst.isFile && dst.length() == src.length()) continue
+            runCatching {
+                dst.parentFile?.mkdirs()
+                src.copyTo(dst, overwrite = true)
+                log("MIUI: /data/miui/$jar.apk restored from /$apk")
+            }
+        }
+    }
+
     private fun makeUserZeroLink() {
         if (img.api < 14) return // ICS installd creates /data/user/0 too; an absolute link points at the host /data
         // 7.0+: vold prepares the device-encrypted per-user dirs; without it installd cannot create app DE storage
@@ -1281,9 +2311,360 @@ class TreeFixer(
         File(root, "dev/input/event0").let { if (!it.isFile) { it.parentFile?.mkdirs(); it.createNewFile() } }
         File(root, "dev/socket").mkdirs()
         File(root, "dev/graphics").mkdirs()
+        // a directory in the file's place: open() fails with EISDIR whatever the flags
+        if (engine == Engine.N64 && kernel.noQemuPipe) File(root, "dev/qemu_pipe").let { if (!it.isDirectory) { it.delete(); it.mkdirs() } }
         AudioOut(paths, log).makeFifo()
         File(root, "dev/binder").takeIf { it.isDirectory }?.let { wipe(it) }
+        File(root, "dev/hwbinder").takeIf { it.isDirectory }?.let { wipe(it) }
+        File(root, "dev/vndbinder").takeIf { it.isDirectory }?.let { wipe(it) }
+        for (n in listOf("binder", "hwbinder", "vndbinder", "ashmem")) {
+            File(root, "dev/$n").let { if (!it.exists()) { it.parentFile?.mkdirs(); it.createNewFile() } }
+        }
         File(root, "dev/cpuctl").takeIf { it.exists() }?.let { wipe(it) }
+    }
+
+    /**
+     * Android 10–17 (API 29+): core libraries and runtimes (Bionic libc/libdl/libm, ART, ICU) are packaged in APEX
+     * modules. In non-root container emulation without loopback APEX mounts, the dynamic linker and ART fail immediately
+     * unless APEX directories and symlinks are populated.
+     */
+    /**
+     * Android 10+: the runtime (the linker, the C library, ART) and other system modules live in APEX packages, which
+     * apexd mounts at /apex/<module name>. A "flattened" package is a plain directory /system/apex/<name>[.debug|...].
+     * The directory itself is moved to /apex/<module name> and a link is left where it was: the linker allows a
+     * library by its real path, which has to start with /apex/ as under a mount (through a link at /apex it came
+     * out as /system/apex/... and nothing could load libc). Packages that are file system images (*.apex) are not
+     * unpacked yet.
+     */
+    private fun fixApex() {
+        // (system_ext: where a generic system image keeps the VNDK snapshots of older vendor releases, and flattened
+        // copies of the packages it also ships as files)
+        val sources = listOf("system/apex", "system/system_ext/apex", "system/product/apex").map { File(root, it) }.filter { it.isDirectory }
+        if (sources.isEmpty()) return
+        val apexDir = File(root, "apex").apply { mkdirs() }
+        // an earlier version of the engine built com.android.runtime and com.android.art here out of links to /system/lib
+        // (a real module, moved or unpacked here, has its manifest)
+        for (n in listOf("com.android.art", "com.android.runtime")) File(apexDir, n).let {
+            if (it.isDirectory && !isLink(it) && !File(it, "apex_manifest.json").exists() && !File(it, "apex_manifest.pb").exists()) wipe(it)
+        }
+        for (arch in listOf("lib", "lib64")) File(root, "system/$arch/bionic").let { if (isLink(it) && runCatching { Os.readlink(it.path) }.getOrNull() == ".") Os.remove(it.path) }
+        apexDir.listFiles()?.filter { isLink(it) && runCatching { Os.readlink(it.path) }.getOrNull()?.startsWith("../system/apex/") == true }?.forEach { Os.remove(it.path) }
+        var moved = 0
+        var unpacked = 0
+        for (dir in sources) {
+            val up = "../".repeat(dir.relativeTo(root).path.count { it == '/' } + 1)
+            // 11+: packages as files, each a zip with a file system image (see ApexUnpacker)
+            if (dir.listFiles()?.any { it.isFile && (it.name.endsWith(".apex") || it.name.endsWith(".capex")) } == true) unpacked += ApexUnpacker.unpackAll(root, dir, log)
+            dir.listFiles()?.filter { it.isDirectory && !isLink(it) }?.forEach { pkg ->
+                val name = moduleName(pkg)
+                val home = File(apexDir, name)
+                runCatching {
+                    if (home.exists() || isLink(home)) return@forEach      // a second package of the same module: the first one stays
+                    if (!pkg.renameTo(home)) error("cannot move")
+                    Os.symlink("${up}apex/$name", pkg.path); moved++
+                }.onFailure { log("apex $name: ${it.message}") }
+            }
+        }
+        // 12: a generic image's flattened copies share libraries with /system through relative links
+        // (lib64/libbase.so -> ../../../../lib64/libbase.so), which a move to /apex leaves pointing nowhere: they
+        // are made to point at the same file from the new place (also for a package moved by an earlier version)
+        var relinked = 0
+        for (dir in sources) dir.listFiles()?.filter { isLink(it) }?.forEach { was ->
+            val home = File(apexDir, runCatching { Os.readlink(was.path) }.getOrNull()?.substringAfterLast('/') ?: return@forEach)
+            if (!home.isDirectory || isLink(home)) return@forEach
+            fun walk(d: File) {
+                d.listFiles()?.forEach { f ->
+                    if (!isLink(f)) { if (f.isDirectory) walk(f); return@forEach }
+                    val t = runCatching { Os.readlink(f.path) }.getOrNull() ?: return@forEach
+                    if (t.startsWith("/") || File(d, t).exists()) return@forEach
+                    val old = File(File(was.parentFile, home.name + "/" + d.relativeTo(home).path), t).normalize()
+                    if (!old.exists() || !old.path.startsWith(root.path + "/")) return@forEach
+                    runCatching { Os.remove(f.path); Os.symlink(old.relativeTo(d).path, f.path); relinked++ }
+                }
+            }
+            walk(home)
+        }
+        // 12+: a module may hold libraries for the other ones (lib64/<library>/<hash>/<library>), which reach them
+        // through /apex/sharedlibs - links apexd makes when it mounts such a module
+        var shared = 0
+        apexDir.listFiles()?.filter { it.isDirectory && !isLink(it) && it.name != "sharedlibs" }?.forEach { mod ->
+            for (lib in listOf("lib", "lib64")) File(mod, lib).listFiles()?.filter { it.isDirectory && !isLink(it) && it.name.endsWith(".so") }?.forEach { d ->
+                d.listFiles()?.filter { it.isDirectory }?.forEach { hash ->
+                    val link = File(apexDir, "sharedlibs/$lib/${d.name}/${hash.name}")
+                    if (link.exists() || isLink(link)) return@forEach
+                    link.parentFile?.mkdirs()
+                    runCatching { Os.symlink("../../../${mod.name}/$lib/${d.name}/${hash.name}", link.path); shared++ }
+                }
+            }
+        }
+        if (shared > 0) log("APEX shared libraries linked: $shared")
+        if (relinked > 0) log("APEX links to /system set right: $relinked")
+        if (moved > 0) log("APEX modules put in place: $moved")
+        if (unpacked > 0) log("APEX packages unpacked: $unpacked")
+    }
+
+    /** the module a flattened package directory holds: the name in its manifest (json up to 10, protobuf from 11) */
+    private fun moduleName(pkg: File): String {
+        runCatching { Regex("\"name\"\\s*:\\s*\"([^\"]+)\"").find(File(pkg, "apex_manifest.json").readText())?.groupValues?.get(1) }.getOrNull()?.let { return it }
+        runCatching {
+            val pb = File(pkg, "apex_manifest.pb").readBytes()
+            if (pb.size > 2 && pb[0].toInt() == 0x0A && pb[1] in 1..127 && 2 + pb[1] <= pb.size) return String(pb, 2, pb[1].toInt(), Charsets.UTF_8)
+        }
+        return pkg.name.removeSuffix(".debug").removeSuffix(".release")
+    }
+
+    /**
+     * A system image of 9+ carries the product (and later system_ext) partition inside as /system/product, and its
+     * root directory links /product to it. The package manager scans /product/priv-app: without the link SystemUI,
+     * the launcher and Settings do not exist for it and the boot never leaves the animation.
+     */
+    private fun rootLinks() {
+        for (n in listOf("product", "system_ext")) {
+            val link = File(root, n)
+            if (engine == Engine.N64 && kernel.partitionsAtRoot) {
+                val inSystem = File(root, "system/$n")
+                if (isLink(inSystem) || !inSystem.isDirectory) continue
+                if (isLink(link) || link.isDirectory && link.list().isNullOrEmpty()) link.delete()
+                if (link.exists() || !inSystem.renameTo(link)) continue
+                runCatching { Os.symlink("../$n", inSystem.path); log("/$n is a directory of the root, /system/$n links to it") }
+                continue
+            }
+            if (!File(root, "system/$n").isDirectory || isLink(link)) continue
+            // (a system-as-root image brings an empty directory there, the partition's mount point)
+            if (link.isDirectory && link.list().isNullOrEmpty()) link.delete()
+            if (link.exists()) continue
+            runCatching { Os.symlink("system/$n", link.path); log("/$n -> /system/$n") }
+        }
+    }
+
+    /**
+     * Notes for the eBPF stand-in of the kernel (Kernel64.bpfMapNotes): one file per map of the firmware eBPF objects,
+     * named as the map is pinned (map_<object>_<map>), holding its type, key size and value size. They are the first
+     * three words of each definition in the "maps" section of the object; the symbols of that section name the maps.
+     * 17: the section is ".android_maps", a definition carries the path it is pinned at (the note takes that name).
+     * An object built for libbpf (*.bpf, 16+) has its maps in ".maps", described in BTF: see [btfMapNotes].
+     */
+    private fun bpfMapNotes() {
+        if (engine != Engine.N64 || !kernel.bpfMapNotes) return
+        val dir = File(root, "dev/.aemu-bpf")
+        if (dir.isDirectory) return
+        val tmp = File(root, "dev/.aemu-bpf.tmp").apply { deleteRecursively(); mkdirs() }
+        val objects = (listOf(File(root, "system/etc/bpf")) + (File(root, "apex").listFiles()?.map { File(it, "etc/bpf") } ?: emptyList()))
+            .flatMap { d -> d.walkTopDown().maxDepth(3).filter { it.isFile && (it.name.endsWith(".o") || it.name.endsWith(".bpf")) }.toList() }
+        var n = 0
+        for (o in objects) runCatching {
+            val b = java.nio.ByteBuffer.wrap(o.readBytes()).order(java.nio.ByteOrder.LITTLE_ENDIAN)
+            if (b.getInt(0) != 0x464c457f || b.get(4).toInt() != 2) return@runCatching
+            val shoff = b.getLong(0x28).toInt(); val shnum = b.getShort(0x3c).toInt(); val shstr = b.getShort(0x3e).toInt()
+            fun sh(i: Int) = shoff + i * 64
+            fun str(tab: Int, off: Int): String {
+                var p = b.getLong(sh(tab) + 0x18).toInt() + off
+                val sb = StringBuilder()
+                while (b.get(p).toInt() != 0) sb.append(b.get(p++).toInt().toChar())
+                return sb.toString()
+            }
+            if (o.name.endsWith(".bpf")) {
+                val find = { name: String -> (0 until shnum).firstOrNull { str(shstr, b.getInt(sh(it))) == name } }
+                val btf = find(".BTF") ?: return@runCatching
+                val sec = find(".maps") ?: return@runCatching
+                val symtab = (0 until shnum).firstOrNull { b.getInt(sh(it) + 4) == 2 } ?: return@runCatching
+                val strtab = b.getInt(sh(symtab) + 0x28)
+                val symOff = b.getLong(sh(symtab) + 0x18).toInt(); val symCount = (b.getLong(sh(symtab) + 0x20) / 24).toInt()
+                val names = (0 until symCount).map { symOff + it * 24 }.filter { (b.getShort(it + 6).toInt() and 0xffff) == sec }.map { str(strtab, b.getInt(it)) }.toSet()
+                val at = b.getLong(sh(btf) + 0x18).toInt(); val size = b.getLong(sh(btf) + 0x20).toInt()
+                for ((name, note) in btfMapNotes(java.nio.ByteBuffer.wrap(b.array(), at, size).slice().order(java.nio.ByteOrder.LITTLE_ENDIAN), names)) {
+                    val out = java.nio.ByteBuffer.allocate(12).order(java.nio.ByteOrder.LITTLE_ENDIAN)
+                    note.forEach { out.putInt(it) }
+                    File(tmp, "map_${o.name.removeSuffix(".bpf")}_$name").writeBytes(out.array())
+                    n++
+                }
+                return@runCatching
+            }
+            val maps = (0 until shnum).firstOrNull { str(shstr, b.getInt(sh(it))) == "maps" }
+                ?: (0 until shnum).firstOrNull { str(shstr, b.getInt(sh(it))) == ".android_maps" } ?: return@runCatching
+            val pinned = str(shstr, b.getInt(sh(maps))) == ".android_maps"
+            val symtab = (0 until shnum).firstOrNull { b.getInt(sh(it) + 4) == 2 } ?: return@runCatching
+            val strtab = b.getInt(sh(symtab) + 0x28)
+            val symOff = b.getLong(sh(symtab) + 0x18).toInt(); val symCount = (b.getLong(sh(symtab) + 0x20) / 24).toInt()
+            val mapsOff = b.getLong(sh(maps) + 0x18).toInt(); val mapsSize = b.getLong(sh(maps) + 0x20)
+            val obj = o.name.removeSuffix(".o").substringBefore('@')
+            for (i in 0 until symCount) {
+                val s = symOff + i * 24
+                if ((b.getShort(s + 6).toInt() and 0xffff) != maps) continue
+                val name = str(strtab, b.getInt(s))
+                val at = b.getLong(s + 8)
+                if (name.isEmpty() || at + 12 > mapsSize) continue
+                val note = java.nio.ByteBuffer.allocate(12).order(java.nio.ByteOrder.LITTLE_ENDIAN)
+                for (k in 0 until 3) note.putInt(b.getInt(mapsOff + at.toInt() + k * 4))
+                var file = "map_${obj}_$name"
+                if (pinned) {       // struct bpf_map_def: 12 words, create_location[n], pin_location[n], name_idx
+                    val size = b.getLong(s + 16)
+                    val n = ((size - 52) / 2).toInt()
+                    if (n <= 0 || at + size > mapsSize) continue
+                    val path = StringBuilder()
+                    var q = mapsOff + at.toInt() + 48 + n
+                    val end = q + n
+                    while (q < end && b.get(q).toInt() != 0) path.append(b.get(q++).toInt().toChar())
+                    if (path.isNotEmpty()) file = path.substring(path.lastIndexOf('/') + 1)
+                }
+                File(tmp, file).writeBytes(note.array())
+                n++
+            }
+        }
+        if (tmp.renameTo(dir)) log("eBPF: $n map notes from ${objects.size} objects")
+    }
+
+    /**
+     * Files the firmware lacks, supplied by the person: everything under <app external files>/guest-overlay-<image id>/
+     * (and guest-overlay/ for all images) is copied into the guest tree at the same relative path, e.g.
+     * guest-overlay-v87x75/vendor/lib/libms12.so. A file is replaced only when its size differs, so a boot costs nothing
+     * once they are in place. (The Dolby MS12 libraries of the MediaTek audio HAL are not in every firmware dump: the
+     * HAL's linker stops on "libms12.so not found" and audioserver waits for the HAL for ever.)
+     */
+    private fun guestOverlay() {
+        val base = ctx.getExternalFilesDir(null) ?: return
+        val rootPath = root.canonicalFile.toPath()
+        var n = 0
+        for (dir in listOf(File(base, "guest-overlay"), File(base, "guest-overlay-${img.id}"))) {
+            if (!dir.isDirectory) continue
+            dir.walkTopDown().filter { it.isFile }.forEach { f ->
+                runCatching {
+                    val rel = f.relativeTo(dir).path
+                    val dst = File(root, rel).canonicalFile
+                    if (!dst.toPath().startsWith(rootPath) || dst == root.canonicalFile) { log("overlay: $rel is outside the tree, skipped"); return@forEach }
+                    if (dst.isFile && dst.length() == f.length()) return@forEach
+                    dst.parentFile?.mkdirs()
+                    f.copyTo(dst, true)
+                    dst.setReadable(true, false); dst.setExecutable(true, false)
+                    n++
+                    log("overlay: $rel (${f.length()} bytes)")
+                }.onFailure { log("overlay: ${f.name}: ${it.message}") }
+            }
+        }
+        if (n > 0) log("overlay: $n files added to the guest tree")
+    }
+
+    /** The kernel policy version the framework compatibility matrices ask for becomes 0 (Kernel64.kernelPolicyUnread). */
+    private fun kernelPolicyUnread() {
+        if (engine != Engine.N64 || !kernel.kernelPolicyUnread) return
+        val asked = Regex("<kernel-sepolicy-version>\\s*[1-9][0-9]*\\s*</kernel-sepolicy-version>")
+        for (part in listOf("system", "system_ext", "product")) {
+            for (f in File(root, "$part/etc/vintf").listFiles() ?: continue) {
+                if (!f.isFile || !f.name.startsWith("compatibility_matrix") || !f.name.endsWith(".xml")) continue
+                val text = runCatching { f.readText() }.getOrNull() ?: continue
+                if (!asked.containsMatchIn(text)) continue
+                runCatching { f.setWritable(true); f.writeText(asked.replace(text, "<kernel-sepolicy-version>0</kernel-sepolicy-version>")) }
+                    .onSuccess { log("build check: ${f.name} no longer asks for a kernel policy version") }
+            }
+        }
+    }
+
+    /**
+     * The aconfig flag storage (Kernel64.aconfigStorage), as aconfigd leaves it: /metadata/aconfig/maps/<container>.
+     * package.map and .flag.map, /metadata/aconfig/boot/<container>.val and .info, copied from <partition>/etc/aconfig
+     * and from each module's etc. A container is a partition or a module, by name.
+     */
+    private fun aconfigStorage() {
+        if (engine != Engine.N64 || !kernel.aconfigStorage) return
+        val maps = File(root, "metadata/aconfig/maps").apply { mkdirs() }
+        val boot = File(root, "metadata/aconfig/boot").apply { mkdirs() }
+        val sources = listOf("system", "system_ext", "product", "vendor").map { it to File(root, "$it/etc/aconfig") } +
+            (File(root, "apex").listFiles()?.filter { it.isDirectory && it.name != "sharedlibs" }?.map { it.name to File(it, "etc") } ?: emptyList())
+        var n = 0
+        for ((container, dir) in sources) {
+            val pkg = File(dir, "package.map"); val flag = File(dir, "flag.map"); val value = File(dir, "flag.val")
+            if (!pkg.isFile || !flag.isFile || !value.isFile) continue
+            val out = File(boot, "$container.val")
+            if (out.isFile && out.length() == value.length() && out.lastModified() >= value.lastModified()) continue
+            runCatching {
+                pkg.copyTo(File(maps, "$container.package.map"), true)
+                flag.copyTo(File(maps, "$container.flag.map"), true)
+                File(dir, "flag.info").takeIf { it.isFile }?.copyTo(File(boot, "$container.info"), true)
+                value.copyTo(out, true)
+                for (f in listOf(File(maps, "$container.package.map"), File(maps, "$container.flag.map"), File(boot, "$container.info"), out)) f.setReadable(true, false)
+                n++
+            }.onFailure { log("aconfig $container: ${it.message}") }
+        }
+        if (n > 0) log("aconfig: the flag storage of $n containers")
+    }
+
+    /**
+     * The maps of a libbpf object, from its BTF: a map is a variable of the given [names] whose type is a struct with
+     * the members libbpf's macros make - "type", "key_size", "value_size" as pointers to an array of that many
+     * elements, "key" and "value" as pointers to the type itself. Returns type, key size, value size per map.
+     */
+    private fun btfMapNotes(b: java.nio.ByteBuffer, names: Set<String>): Map<String, IntArray> {
+        if (b.limit() < 24 || (b.getShort(0).toInt() and 0xffff) != 0xeb9f) return emptyMap()
+        val hdr = b.getInt(4); val typeOff = hdr + b.getInt(8); val typeLen = b.getInt(12); val strOff = hdr + b.getInt(16)
+        fun str(off: Int): String { val sb = StringBuilder(); var p = strOff + off; while (p < b.limit() && b.get(p).toInt() != 0) sb.append(b.get(p++).toInt().toChar()); return sb.toString() }
+        val types = ArrayList<Int>().apply { add(-1) }      // id -> offset; id 0 is void
+        var p = typeOff
+        while (p + 12 <= typeOff + typeLen) {
+            types.add(p)
+            val info = b.getInt(p + 4); val vlen = info and 0xffff
+            p += 12 + when ((info ushr 24) and 0x1f) { 1, 14, 17 -> 4; 3 -> 12; 4, 5, 15, 19 -> vlen * 12; 6, 13 -> vlen * 8; else -> 0 }
+        }
+        fun kind(id: Int) = if (id <= 0 || id >= types.size) 0 else (b.getInt(types[id] + 4) ushr 24) and 0x1f
+        fun ref(id: Int) = b.getInt(types[id] + 8)
+        fun sizeOf(id: Int, depth: Int = 0): Int = when (if (depth > 16) 0 else kind(id)) {
+            1, 4, 5, 6, 16, 19 -> ref(id)
+            2 -> 8
+            3 -> sizeOf(b.getInt(types[id] + 12), depth + 1) * b.getInt(types[id] + 20)
+            8, 9, 10, 11, 14, 18 -> sizeOf(ref(id), depth + 1)
+            else -> 0
+        }
+        fun count(id: Int): Int = if (kind(id) == 2 && kind(ref(id)) == 3) b.getInt(types[ref(id)] + 20) else 0
+        val out = HashMap<String, IntArray>()
+        for (id in 1 until types.size) {
+            if (kind(id) != 14) continue
+            val name = str(b.getInt(types[id]))
+            var t = ref(id)
+            while (kind(t) in listOf(8, 9, 10, 11)) t = ref(t)
+            if (name !in names || kind(t) != 4) continue
+            val note = IntArray(3)
+            for (m in 0 until (b.getInt(types[t] + 4) and 0xffff)) {
+                val e = types[t] + 12 + m * 12
+                val type = b.getInt(e + 4)
+                when (str(b.getInt(e))) {
+                    "type" -> note[0] = count(type)
+                    "key_size" -> note[1] = count(type)
+                    "value_size" -> note[2] = count(type)
+                    "key" -> if (kind(type) == 2) note[1] = sizeOf(ref(type))
+                    "value" -> if (kind(type) == 2) note[2] = sizeOf(ref(type))
+                }
+            }
+            if (note[0] != 0) out[name] = note
+        }
+        return out
+    }
+
+    /** Version (field 2) of an apex_manifest.pb, or 0. */
+    private fun apexVersion(f: File): Long {
+        val d = runCatching { f.readBytes() }.getOrNull() ?: return 0
+        var i = 0
+        while (i < d.size) {
+            val tag = d[i++].toInt() and 0xff
+            var v = 0L; var s = 0
+            fun varint(): Long { v = 0; s = 0; while (i < d.size) { val b = d[i++].toInt() and 0xff; v = v or ((b and 0x7f).toLong() shl s); s += 7; if (b < 0x80) break }; return v }
+            when (tag and 7) {
+                0 -> { val x = varint(); if (tag ushr 3 == 2) return x }
+                2 -> { val n = varint().toInt(); i += n }
+                else -> return 0
+            }
+        }
+        return 0
+    }
+
+    /** True when the image's system library [lib] contains [marker] (a feature test on the firmware itself); no library: true. */
+    private fun libKnows(lib: String, marker: String): Boolean {
+        val f = listOf("system/lib64/$lib", "system/lib/$lib").map { File(root, it) }.firstOrNull { it.isFile } ?: return true
+        val m = marker.toByteArray()
+        val d = runCatching { f.readBytes() }.getOrNull() ?: return true
+        outer@ for (i in 0..d.size - m.size) {
+            for (j in m.indices) if (d[i + j] != m[j]) continue@outer
+            return true
+        }
+        return false
     }
 
     private fun makeSysNodes() {
@@ -1327,6 +2708,33 @@ class TreeFixer(
                 File(lo, n).let { f -> if (!f.isFile || f.length() == 0L) f.writeText(v + "\n"); f.setReadable(true, false) }
             }.onFailure { log("sysfs: cannot create /sys/class/net/lo/$n: ${it.message}") }
         }
+        // one directory per core: apps size their thread pools by counting cpuN here (MIUI File Manager of 13 saw one
+        // core, and its only pool thread waited for the tasks it had queued behind itself)
+        for (n in 0 until cpus) File(cpu, "cpu$n/online").let { if (!it.isFile) { it.parentFile?.mkdirs(); it.writeText("1\n") } }
+        if (engine == Engine.N64 && kernel.cgroup2Root) {
+            File(root, "sys/fs/cgroup").mkdirs()
+            for (d in kernel.cgroupUidParents) File(root, "sys/fs/cgroup/$d").mkdirs()
+            // libprocessgroup's file: version 1, one controller {version 2, mounted, name[16], path[32]}
+            // (15: the record gained max_activation_depth after the flags - 0, the engine has no controllers to switch on
+            // in child groups - and netd leaves with "cgroup.rc file has invalid size, expected 68")
+            // (early 15 builds, e.g. HyperOS 2, still have the 64-byte record: the reader of the file, libcgrouprc, knows the
+            // MaxActivationDepth field only from the later ones on, so the record is sized by that, not by the API level)
+            val depth = kernel.cgroupRcDepth && libKnows("libcgrouprc.so", "MaxActivationDepth")
+            val b = java.nio.ByteBuffer.allocate(8 + (if (depth) 60 else 56)).order(java.nio.ByteOrder.LITTLE_ENDIAN)
+            b.putInt(1).putInt(1).putInt(2).putInt(1)
+            if (depth) b.putInt(0)
+            b.put("cgroup2".toByteArray().copyOf(16)).put("/sys/fs/cgroup".toByteArray().copyOf(32))
+            File(root, "dev/cgroup_info").let { it.mkdirs(); File(it, "cgroup.rc").writeBytes(b.array()) }
+        }
+        // owner the connectivity module expects on clatd's directory (the runner answers its stat with it):
+        // clat from the 2025 module on, root before
+        if (engine == Engine.N64) {
+            val v = apexVersion(File(root, "apex/com.android.tethering/apex_manifest.pb"))
+            File(root, "dev").mkdirs(); File(root, "dev/.aemu-clat-uid").writeText(if (v >= 360000000L) "1029" else "0")
+        }
+        if (engine == Engine.N64) for ((n, text) in kernel.sysFiles) File(root, "sys/$n").let {
+            if (!it.exists()) { it.parentFile?.mkdirs(); it.writeText(text) }
+        }
         val base = File(root, "sys/class/power_supply")
         val bat = mapOf(
             "battery/type" to "Battery", "battery/status" to "Full", "battery/health" to "Good",
@@ -1369,10 +2777,23 @@ class TreeFixer(
             val sleep = File(dir, "wait_for_fb_sleep")
             if (!sleep.exists()) android.system.Os.mkfifo(sleep.absolutePath, "666".toInt(8))
         }
+        // libsuspend with early suspend (4.2/4.3, Samsung's 4.4) waits in autosuspend_enable() for that sleep event
+        // under PowerManagerService's lock: the first screen timeout hung system_server. A state node it cannot open
+        // for writing makes it fall back to autosleep, which does not wait
+        runCatching {
+            val lib = File(root, "system/lib/libsuspend.so")
+            if (lib.isFile && contains(lib, "wait_for_fb_sleep")) File(power, "state").setWritable(false, false)
+        }
         // подсветка экрана: LightsService пишет сюда яркость
         val bl = File(root, "sys/class/leds/lcd-backlight").apply { mkdirs() }
         File(bl, "brightness").let { if (!it.isFile) it.writeText("255\n") }
         File(bl, "max_brightness").let { if (!it.isFile) it.writeText("255\n") }
+        // Samsung's flip cover sensor (Galaxy S4/S5...): unreadable means "cover closed" to TouchWiz, and it hides
+        // the status bar, the lock screen and recents behind the S View cover screen
+        if (img.brand.equals("Samsung", true) || img.skin.contains("TouchWiz", true)) {
+            val key = File(root, "sys/class/sec/sec_key").apply { mkdirs() }
+            File(key, "hall_detect").let { if (!it.isFile) it.writeText("OPEN\n") }
+        }
         lowMemoryKillerNodes()
         procNetNodes()
         javaIfInet6Redirect()
@@ -1761,6 +3182,39 @@ class TreeFixer(
         if (f.takeIf { it.isFile }?.readText() != text) f.writeText(text)
     }
 
+    /** DNS fallback for native binaries, web engines and tools: /etc/resolv.conf and /system/etc/resolv.conf */
+    /**
+     * Old firmwares lack today's root certificates (ISRG, GlobalSign R46…): HTTPS sites failed with
+     * CERT_AUTHORITY_INVALID (-202). The phone's own roots are added; the names are the same subject_hash_old.N.
+     */
+    private fun caCerts() = runCatching {
+        val dst = File(root, "system/etc/security/cacerts")
+        if (!dst.isDirectory) return@runCatching
+        val src = listOf("/apex/com.android.conscrypt/cacerts", "/system/etc/security/cacerts").map(::File).firstOrNull { it.isDirectory } ?: return@runCatching
+        val have = dst.listFiles().orEmpty().mapNotNull { runCatching { it.readText() }.getOrNull() }.toHashSet()
+        var added = 0
+        for (f in src.listFiles().orEmpty()) {
+            val text = runCatching { f.readText() }.getOrNull() ?: continue
+            if (text in have) continue
+            val hash = f.name.substringBefore('.')
+            val out = (0..9).map { File(dst, "$hash.$it") }.firstOrNull { !it.exists() } ?: continue
+            out.writeText(text); out.setReadable(true, false); have += text; added++
+        }
+        if (added > 0) log("certificates: $added roots added from the phone")
+    }
+
+    private fun resolvConf() {
+        val conf = "nameserver 8.8.8.8\nnameserver 1.1.1.1\nnameserver 9.9.9.9\n"
+        runCatching {
+            val f1 = File(root, "system/etc/resolv.conf")
+            f1.parentFile?.mkdirs()
+            if (!f1.exists() || f1.length() == 0L) f1.writeText(conf)
+            val f2 = File(root, "etc/resolv.conf")
+            f2.parentFile?.mkdirs()
+            if (!f2.exists() || f2.length() == 0L) f2.writeText(conf)
+        }
+    }
+
     /**
      * Звук обслуживает наш HAL (один выход на динамик, 48 кГц), поэтому audio_policy.conf пишем
      * канонический: лишние выходы прошивок (hdmi с dynamic-параметрами, deep_buffer, a2dp, usb)
@@ -1804,6 +3258,58 @@ class TreeFixer(
                 |""".trimMargin()
             if (cur.takeIf { it.isFile }?.readText() != text) cur.writeText(text)
         }.onFailure { log("audio: failed to write audio_policy.conf: ${it.message}") }
+        // 8.0+ reads audio_policy_configuration.xml (odm, vendor, then system) and never the .conf: a phone's one
+        // (deep buffer, offload, voice ports) makes the policy ask the engine's HAL for streams it cannot open, and
+        // audioserver dies on the first sound. The same single output goes to vendor/etc, read before system/etc.
+        val xml = File(root, "vendor/etc/audio_policy_configuration.xml")
+        if (img.engine == Engine.N64 && kernel.audioPolicyXml && File(root, "system/etc/audio_policy_configuration.xml").isFile && File(root, "vendor/etc").isDirectory) runCatching {
+            val own = File(root, "system/.aemu-parked/vendor#etc#audio_policy_configuration.xml")
+            if (xml.isFile && !own.exists() && !xml.readText().contains("AEmulator")) { own.parentFile?.mkdirs(); xml.renameTo(own) }
+            val text = """
+                |<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+                |<!-- AEmulator: the one module is the engine's audio HAL -->
+                |<audioPolicyConfiguration version="1.0" xmlns:xi="http://www.w3.org/2001/XInclude">
+                |    <globalConfiguration speaker_drc_enabled="false"/>
+                |    <modules>
+                |        <module name="primary" halVersion="2.0">
+                |            <attachedDevices>
+                |                <item>Speaker</item>
+                |                <item>Built-In Mic</item>
+                |            </attachedDevices>
+                |            <defaultOutputDevice>Speaker</defaultOutputDevice>
+                |            <mixPorts>
+                |                <mixPort name="primary output" role="source" flags="AUDIO_OUTPUT_FLAG_PRIMARY">
+                |                    <profile name="" format="AUDIO_FORMAT_PCM_16_BIT" samplingRates="48000" channelMasks="AUDIO_CHANNEL_OUT_STEREO"/>
+                |                </mixPort>
+                |                <mixPort name="primary input" role="sink">
+                |                    <profile name="" format="AUDIO_FORMAT_PCM_16_BIT" samplingRates="8000,16000,44100,48000" channelMasks="AUDIO_CHANNEL_IN_MONO,AUDIO_CHANNEL_IN_STEREO"/>
+                |                </mixPort>
+                |            </mixPorts>
+                |            <devicePorts>
+                |                <devicePort tagName="Speaker" type="AUDIO_DEVICE_OUT_SPEAKER" role="sink"/>
+                |                <devicePort tagName="Built-In Mic" type="AUDIO_DEVICE_IN_BUILTIN_MIC" role="source"/>
+                |            </devicePorts>
+                |            <routes>
+                |                <route type="mix" sink="Speaker" sources="primary output"/>
+                |                <route type="mix" sink="primary input" sources="Built-In Mic"/>
+                |            </routes>
+                |        </module>
+                |    </modules>
+                |    <xi:include href="/system/etc/audio_policy_volumes_drc.xml"/>
+                |    <xi:include href="/system/etc/default_volume_tables.xml"/>
+                |</audioPolicyConfiguration>
+                |""".trimMargin()
+            if (xml.takeIf { it.isFile }?.readText() != text) { xml.writeText(text); xml.setReadable(true, false) }
+        }.onFailure { log("audio: failed to write audio_policy_configuration.xml: ${it.message}") }
+        // AudioFlinger reads vendor/etc/audio_effects.conf before the system one. A vendor's list adds effects for its own
+        // amplifier and DSP (Motorola's speaker protection crashed 7.1's audioserver on a null calibration, so AudioFlinger
+        // was never published); the engine's HAL is a plain speaker, so the system's AOSP effects are used instead.
+        val fx = File(root, "vendor/etc/audio_effects.conf")
+        if (img.engine != Engine.N64 && fx.isFile && File(root, "system/etc/audio_effects.conf").isFile) runCatching {
+            val own = File(root, "system/.aemu-parked/vendor#etc#audio_effects.conf")
+            own.parentFile?.mkdirs()
+            if (fx.renameTo(own)) log("audio: vendor audio_effects.conf parked, AOSP effects used")
+        }
     }
 
     /** Кадровый буфер — обычный файл, qemu отвечает на ioctl FBIOGET_* от гостя. */
@@ -1825,7 +3331,7 @@ class TreeFixer(
      * Владельцы файлов приложений в /data/data: ядро телефона не даёт менять uid, поэтому qemu
      * подставляет их по таблице dhd.owners (dev, ino → uid, gid). Берём uid из packages.xml.
      */
-    private fun seedOwners() {
+    fun seedOwners() {
         val stamp = File(root, "dhd.owners.seeded")
         val done = if (stamp.isFile) stamp.readLines().filter { it.isNotBlank() }.toMutableSet() else mutableSetOf()
         val pkgXml = File(root, "data/system/packages.xml")
@@ -1833,13 +3339,21 @@ class TreeFixer(
         if (!pkgXml.isFile || !dataDir.isDirectory) return
         runCatching {
             val text = pkgXml.readText()
-            val re = Regex("<package name=\"([^\"]+)\"[^>]*?\\s(?:shared)?[Uu]serId=\"(\\d+)\"")
+            val sharedUsers = HashMap<String, Int>()
+            val suRe = Regex("<shared-user name=\"([^\"]+)\"[^>]*?\\suserId=\"(\\d+)\"")
+            for (m in suRe.findAll(text)) {
+                sharedUsers[m.groupValues[1]] = m.groupValues[2].toInt()
+            }
             val sb = StringBuilder()
             var rows = 0
             var pkgs = 0
-            for (m in re.findAll(text)) {
+            val pkgRe = Regex("<package name=\"([^\"]+)\"[^>]*?>")
+            for (m in pkgRe.findAll(text)) {
+                val tag = m.value
                 val name = m.groupValues[1]
-                val uid = m.groupValues[2].toIntOrNull() ?: continue
+                val uid = Regex("\\suserId=\"(\\d+)\"").find(tag)?.groupValues?.get(1)?.toIntOrNull()
+                    ?: Regex("\\ssharedUserId=\"([^\"]+)\"").find(tag)?.groupValues?.get(1)?.let { sharedUsers[it] }
+                    ?: continue
                 val d = File(dataDir, name)
                 if (!d.isDirectory) continue
                 val key = "$name $uid"
@@ -1849,6 +3363,11 @@ class TreeFixer(
                 val todo = ArrayDeque<File>().apply { add(d) }
                 while (todo.isNotEmpty()) {
                     val f = todo.removeFirst()
+                    runCatching {
+                        f.setReadable(true, false)
+                        f.setWritable(true, false)
+                        if (f.isDirectory) f.setExecutable(true, false)
+                    }
                     val st = runCatching { Os.lstat(f.absolutePath) }.getOrNull() ?: continue
                     sb.append(String.format("%016x %016x %08x %08x\n", st.st_dev, st.st_ino, uid, uid))
                     rows++
@@ -1992,7 +3511,12 @@ class TreeFixer(
     }
 
     fun noScreenSleep() {
-        val db = settingsDb() ?: return
+val db = settingsDb()
+        if (db == null) {
+            // Android 6.0+ keeps the settings as XML files instead of a database
+            if (img.api >= 23 && kernel.xmlSettings) { xmlSettings(); disableLegacyGoogleLogin() }
+            return
+        }
         runCatching {
             SQLiteDatabase.openDatabase(db.absolutePath, null, SQLiteDatabase.OPEN_READWRITE).use { d ->
                 fun put(table: String, name: String, value: String) {
@@ -2116,6 +3640,37 @@ class TreeFixer(
                 true
             }
         }.onFailure { log("glass: could not set the default input method: ${it.message}") }.getOrDefault(false)
+    }
+
+    /**
+     * 6.0 keeps the settings as XML files, one per table (data/system/users/0/settings_<table>.xml). The same values
+     * as for the database: the screen stays on, and the device counts as set up, without which the setup wizard
+     * stays the home screen.
+     */
+    private fun xmlSettings() {
+        val values = listOf(
+            Triple("system", "screen_off_timeout", "2147483647"),
+            Triple("global", "stay_on_while_plugged_in", "7"),
+            Triple("global", "package_verifier_enable", "0"),
+        ) + (if (img.settings.skipSetupWizard) listOf(
+            Triple("global", "device_provisioned", "1"),
+            Triple("secure", "user_setup_complete", "1"),
+        ) else emptyList()) + listOf(
+            Triple("secure", "install_non_market_apps", "1"),
+        )
+        for ((table, list) in values.groupBy { it.first }) {
+            val f = File(root, "data/system/users/0/settings_$table.xml")
+            var xml = runCatching { f.readText() }.getOrNull() ?: continue
+            if (!xml.contains("</settings>")) continue
+            val before = xml
+            for ((_, name, value) in list) {
+                val m = Regex("(<setting id=\"[0-9]+\" name=\"${Regex.escape(name)}\" value=\")[^\"]*\"").find(xml)
+                if (m != null) { xml = xml.replaceRange(m.range, m.groupValues[1] + value + "\""); continue }
+                val id = (Regex("<setting id=\"([0-9]+)\"").findAll(xml).maxOfOrNull { it.groupValues[1].toInt() } ?: 0) + 1
+                xml = xml.replace("</settings>", "  <setting id=\"$id\" name=\"$name\" value=\"$value\" package=\"android\" />\n</settings>")
+            }
+            if (xml != before) runCatching { f.writeText(xml) }.onFailure { log("settings_$table.xml: ${it.message}") }
+        }
     }
 
     private fun disableLegacyGoogleLogin() {
@@ -2360,6 +3915,23 @@ class TreeFixer(
         /** hw_module_t.id that MediaTek's AudioFlinger requests for libaudio.primary.default.so. */
         private const val MTK_HAL_MODULE_ID = "libaudio"
 
+        private const val OPEN_GL = "engines/kk/libGLES_aemu.so"
+        /** Мастера первого запуска: Samsung, Google, AOSP, MIUI, HTC, Sony */
+        val SETUP_WIZARDS = listOf(
+            "com.sec.android.app.SecSetupWizard", "com.google.android.setupwizard", "com.android.provision",
+            "com.miui.provision", "com.htc.setupwizard", "com.sonyericsson.setupwizard", "com.sonymobile.setupwizard",
+            // вход в Google-аккаунт на 2.x–4.x больше не работает (старые протоколы входа Google закрыл):
+            // его экран не рисуется, запрещает «Домой», и «Контакты» при первом запуске запирают в нём систему
+            "com.google.android.gsf.login",
+            // Samsung 4.4 (Galaxy S5): Quick connect dies without a Bluetooth address, the S View cover service
+            // without its cover font; both come back with a "has stopped" dialog over every screen
+            "com.samsung.android.sconnect", "com.sec.android.sviewcover",
+            // Samsung 6.0 (Galaxy S6): the TV beacon service parses the Bluetooth address at start and dies on an empty one
+            "com.samsung.android.beaconmanager",
+        )
+        /** the entries of [SETUP_WIZARDS] that take over the screen at first boot (the AOSP provisioner finishes by itself) */
+        val FIRST_RUN_WIZARDS = listOf("com.sec.android.app.SecSetupWizard", "com.google.android.setupwizard", "com.miui.provision",
+            "com.htc.setupwizard", "com.sonyericsson.setupwizard", "com.sonymobile.setupwizard")
         /** Прошивка MediaTek, где AudioFlinger связан с собственной звуковой библиотекой MTK (/dev/eac). */
         fun isMtkAudio(root: File): Boolean {
             if (File(root, "system/lib/libaudio.mtk.so").isFile) return true   // already swapped for our HAL
@@ -2460,13 +4032,27 @@ class TreeFixer(
 
         /** Temporary experiment: restore MyFaves instead of parking it (see parkAutoSmsApps). Set to false to park it again. */
         private const val TEMP_UNPARK_MYFAVES = true
+        val QCOM_PARK = listOf(
+            "system/etc/permissions/qti_permissions.xml",
+            "system/etc/permissions/com.qti.dpmframework.xml",
+            "system/priv-app/com.qualcomm.location",
+            "system/priv-app/qcrilmsgtunnel",
+            "system/priv-app/dpmserviceapp",
+            "system/priv-app/DiracAudioControlService",
+            "system/app/DiracManager",
+        )
         private val LOGS = listOf("main", "system", "radio") // events — канал, его делает EventsSink
         private val DATA_DIRS = listOf(
             "data", "data/app", "data/app-private", "data/app-lib", "data/app-asec", "data/data", "data/dalvik-cache",
             "data/local", "data/local/tmp", "data/misc", "data/misc/keystore", "data/misc/wifi", "data/misc/zoneinfo",
             "data/property", "data/system", "data/anr", "data/backup", "data/lost+found", "data/drm", "data/media",
             "data/resource-cache", "data/security", "data/tombstones", "cache", "cache/download", "cache/lost+found",
+            // what init.rc makes for the daemons (a system-only image comes without that file; installd leaves without misc/user)
+            "data/misc/user", "data/misc/systemkeys", "data/misc/vpn", "data/misc/net", "data/misc/shared_relro", "data/misc/media", "data/misc/gatekeeper",
             "mnt", "mnt/asec", "mnt/obb", "mnt/secure", "mnt/secure/asec", "mnt/shell", "mnt/media_rw", "storage",
         )
     }
 }
+
+/** an ELF64 AArch64 shared object with the soname android.hidl.base@1.0.so and no symbols (848 bytes). It has to carry section headers with a valid e_shstrndx: bionic refuses to load an ELF without them ("has invalid e_shstrndx") */
+private const val HIDL_BASE_STUB = "f0VMRgIBAQAAAAAAAAAAAAMAtwABAAAAAAAAAAAAAABAAAAAAAAAANABAAAAAAAAAAAAAEAAOAADAEAABgAFAAEAAAAGAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAoAEAAAAAAACgAQAAAAAAAAAQAAAAAAAAAgAAAAYAAAAwAQAAAAAAADABAAAAAAAAMAEAAAAAAABwAAAAAAAAAHAAAAAAAAAACAAAAAAAAABR5XRkBgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAQAAAAAAAAAAEAAAABAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAYW5kcm9pZC5oaWRsLmJhc2VAMS4wLnNvAAAAAAAAAAQAAAAAAAAA6AAAAAAAAAAFAAAAAAAAABABAAAAAAAABgAAAAAAAAD4AAAAAAAAAAoAAAAAAAAAGgAAAAAAAAALAAAAAAAAABgAAAAAAAAADgAAAAAAAAABAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAALmhhc2gALmR5bnN5bQAuZHluc3RyAC5keW5hbWljAC5zaHN0cnRhYgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAQAAAAUAAAACAAAAAAAAAOgAAAAAAAAA6AAAAAAAAAAQAAAAAAAAAAIAAAAAAAAACAAAAAAAAAAEAAAAAAAAAAcAAAALAAAAAgAAAAAAAAD4AAAAAAAAAPgAAAAAAAAAGAAAAAAAAAADAAAAAQAAAAgAAAAAAAAAGAAAAAAAAAAPAAAAAwAAAAIAAAAAAAAAEAEAAAAAAAAQAQAAAAAAABoAAAAAAAAAAAAAAAAAAAABAAAAAAAAAAAAAAAAAAAAFwAAAAYAAAADAAAAAAAAADABAAAAAAAAMAEAAAAAAABwAAAAAAAAAAMAAAAAAAAACAAAAAAAAAAQAAAAAAAAACAAAAADAAAAAAAAAAAAAAAAAAAAAAAAAKABAAAAAAAAKgAAAAAAAAAAAAAAAAAAAAEAAAAAAAAAAAAAAAAAAAA="

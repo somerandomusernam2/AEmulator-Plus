@@ -45,7 +45,7 @@ class GuestLmk(private val root: File, private val lowRam: Boolean, private val 
         running = false
         runCatching { server?.close() }; runCatching { bound?.close() }
         // разбудить читателя FIFO
-        runCatching { File(fifo.absolutePath).appendText("\n") }
+        UnixServer.poke(File(fifo.absolutePath), "\n")
         adj.clear()
     }
 
@@ -147,7 +147,11 @@ class GuestLmk(private val root: File, private val lowRam: Boolean, private val 
             val avail = memAvailableMb()
             // RSS overcounts shared zygote pages, so the budget check is approximate (upper bound)
             val overBudget = ramMb > 0 && adj.keys.sumOf { rssMb(it).coerceAtLeast(0) } > ramMb * 2
-            if (avail >= minHost && cached.size <= maxCached && !overBudget) continue
+            // The count and the budget only matter when the phone runs short: with plenty free, killing a cached
+            // service just makes the activity manager start it again (MIUI keeps 11-14 of them: a kill every 5 s,
+            // providers gone under their clients, the CPU busy with restarts)
+            val tight = avail < minHost * 2
+            if (avail >= minHost && !(tight && (cached.size > maxCached || overBudget))) continue
             // Soft pressure (host free below minHost, but the guest holds only a few cached processes): killing them just
             // makes ActivityManager respawn gms/launcher helpers every few seconds, which starves system_server and
             // crash-loops the Wear home app. Below KEEP_CACHED only a real shortage (avail < HARD_HOST_MB) justifies a kill.

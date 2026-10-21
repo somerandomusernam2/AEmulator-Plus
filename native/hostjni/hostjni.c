@@ -2,11 +2,25 @@
 // Закрытый libglbridge делает freopen() поверх fd 2, которым на Android 10+ владеет unique_fd,
 // и fdsan роняет всё приложение. Переводим fdsan в режим «предупредить один раз».
 #include <jni.h>
-#include <android/fdsan.h>
+#include <dlfcn.h>
+#include <sys/resource.h>
+
+#ifndef ANDROID_FDSAN_ERROR_LEVEL_DISABLED
+enum android_fdsan_error_level {
+    ANDROID_FDSAN_ERROR_LEVEL_DISABLED = 0,
+    ANDROID_FDSAN_ERROR_LEVEL_WARN_ONCE,
+    ANDROID_FDSAN_ERROR_LEVEL_WARN_ALWAYS,
+    ANDROID_FDSAN_ERROR_LEVEL_FATAL,
+};
+#endif
 
 JNIEXPORT void JNICALL Java_app_aemu_core_HostNative_relaxFdsan(JNIEnv *env, jclass cls) {
     (void)env; (void)cls;
-    android_fdsan_set_error_level(ANDROID_FDSAN_ERROR_LEVEL_DISABLED);
+    enum android_fdsan_error_level (*set_level)(enum android_fdsan_error_level) =
+        (enum android_fdsan_error_level (*)(enum android_fdsan_error_level))dlsym(RTLD_DEFAULT, "android_fdsan_set_error_level");
+    if (set_level) {
+        set_level(ANDROID_FDSAN_ERROR_LEVEL_DISABLED);
+    }
 }
 
 // Гостевые процессы наследуют RLIMIT_STACK процесса :vm (у приложения он огромный). bionic 6.0 считает

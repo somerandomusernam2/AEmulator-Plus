@@ -69,6 +69,7 @@ public final class FirmwareToolset {
         if (starts(h, "HTCIMAGE")) return "NBH";
         if (h.length >= 4 && u32(h,0) == 0xED26FF3AL) return "SPARSE";
         if (h.length >= 4 && (u32(h,0) == 0x414C5030L || starts(h, "LP\u00fe\u00ff"))) return "SUPER";
+        if (Lp.hasGeometry(f)) return "SUPER";
         if (h.length >= 4 && (u32(h,0) == 0x73717368L || u32(h,0) == 0x68737173L)) return "SQUASHFS";
         if (looksRfs(h)) return "RFS";
         String n = f.getName().toLowerCase(Locale.US);
@@ -1348,18 +1349,79 @@ public final class FirmwareToolset {
                 File out = new File(work, "payload"); out.mkdirs();
                 List<Artifact> result = new ArrayList<>();
                 long blockSize = 4096;
+                boolean hasSuper = false;
+                for (Partition p : parts) if (p.name != null && "super".equals(partStem(p.name))) hasSuper = true;
+                Map<String, File> images = new LinkedHashMap<>();   // partition stem -> unpacked image
+                Map<String, Partition> byStem = new HashMap<>();
+                for (Partition p : parts) if (p.name != null && !p.name.isEmpty()) byStem.putIfAbsent(partStem(p.name), p);
                 for (Partition p : parts) {
                     if (p.name == null || p.name.isEmpty() || p.dstBytes <= 0) continue;
-                    File dst = safeResolve(out, safe(p.name) + ".img");
-                    dst.getParentFile().mkdirs();
-                    try (RandomAccessFile w = new RandomAccessFile(dst, "rw")) {
-                        w.setLength(p.dstBytes);
-                        for (Operation op : p.ops) applyOperation(r, dataBase, blockSize, w, op, log);
+                    // only what the importer uses is unpacked (bootloader, radio, vbmeta, dtbo, init_boot, vendor_boot,
+                    // userdata ... are not); with a super partition its own system / vendor are the ones that count
+                    String stem = partStem(p.name);
+                    if (!wantedPartition(stem) || (hasSuper && (stem.equals("system") || stem.equals("vendor")))) {
+                        log.accept("payload: skipped " + p.name); continue;
                     }
-                    if (dst.isFile()) { result.add(new Artifact(dst, roleFor(dst.getName()))); log.accept("payload: " + dst.getName()); }
+                    File dst = unpackPartition(r, dataBase, blockSize, out, p, log);
+                    if (dst != null) images.put(stem, dst);
                 }
+                // Retrofit dynamic partitions (Android 10 OTA with ota-retrofit-dynamic-partitions=yes): the payload's "system",
+                // "vendor" and "product" are the block devices of a virtual super partition, not file systems. The liblp metadata
+                // sits 4 KiB into the first of them and says where each logical partition (system, vendor, product ...) lies,
+                // possibly spread over several of those devices. Those logical partitions are what the importer needs.
+                File lpCarrier = null;
+                for (File img : images.values()) if (Lp.hasGeometry(img)) { lpCarrier = img; break; }
+                if (lpCarrier != null) {
+                    Lp.Meta meta = Lp.read(lpCarrier, 0);
+                    // block devices that were not unpacked yet (a payload partition the importer would not use on its own)
+                    for (Lp.Dev d : meta.devs) {
+                        String ds = partStem(d.name);
+                        Partition dp = byStem.get(ds);
+                        if (!images.containsKey(ds) && dp != null && dp.dstBytes > 0) {
+                            File dst = unpackPartition(r, dataBase, blockSize, out, dp, log);
+                            if (dst != null) images.put(ds, dst);
+                        }
+                    }
+                    Map<String, File> devFiles = new HashMap<>();
+                    for (Lp.Dev d : meta.devs) devFiles.put(d.name, images.get(partStem(d.name)));
+                    File lpDir = new File(out, "lp"); lpDir.mkdirs();
+                    List<File> built = Lp.assemble(meta, devFiles, lpCarrier, lpDir, log);
+                    // the block devices are consumed: they are not partitions the importer could read, and they take the disk space
+                    for (Lp.Dev d : meta.devs) {
+                        File f2 = images.remove(partStem(d.name));
+                        if (f2 != null && f2.isFile()) f2.delete();
+                    }
+                    if (lpCarrier.isFile()) { lpCarrier.delete(); }
+                    for (File f3 : built) { result.add(new Artifact(f3, roleFor(f3.getName()))); log.accept("payload: logical " + f3.getName()); }
+                }
+                for (File f4 : images.values()) if (f4.isFile()) { result.add(new Artifact(f4, roleFor(f4.getName()))); log.accept("payload: " + f4.getName()); }
                 if (result.isEmpty()) throw new IOException("payload contains no extractable partitions");
                 return result;
+            }
+        }
+        static File unpackPartition(RandomAccessFile r, long dataBase, long blockSize, File out, Partition p, Consumer<String> log) throws Exception {
+            File dst = safeResolve(out, safe(p.name) + ".img");
+            dst.getParentFile().mkdirs();
+            try (RandomAccessFile w = new RandomAccessFile(dst, "rw")) {
+                w.setLength(p.dstBytes);
+                for (Operation op : p.ops) applyOperation(r, dataBase, blockSize, w, op, log);
+            }
+            return dst.isFile() ? dst : null;
+        }
+        /** Partition name without slot suffix, lower case. */
+        static String partStem(String n) {
+            String x = n.toLowerCase(Locale.US);
+            if (x.endsWith("_a") || x.endsWith("_b")) x = x.substring(0, x.length() - 2);
+            return x;
+        }
+        /** The partitions the importer consumes: boot, recovery, system, vendor, oem, super and the optional product-like ones. */
+        static boolean wantedPartition(String stem) {
+            switch (stem) {
+                case "boot": case "recovery": case "system": case "vendor": case "oem": case "super":
+                case "product": case "system_ext": case "odm": case "mi_ext": case "vgc": case "prism": case "optics":
+                    return true;
+                default:
+                    return stem.matches("my_[a-z0-9]+");
             }
         }
         static List<Partition> parseManifest(byte[] b) throws IOException {
@@ -1390,7 +1452,7 @@ public final class FirmwareToolset {
             InputStream in;
             if(o.type==0){r.seek(base+o.dataOffset);in=new InputStream(){long rem=o.dataLength;public int read(){return -1;}public int read(byte[]b,int off,int len)throws IOException{if(rem<=0)return -1;int k=(int)Math.min(rem,len);r.readFully(b,off,k);rem-=k;return k;}};}
             else {if(o.dataLength>Integer.MAX_VALUE)throw new IOException("compressed payload op too large");r.seek(base+o.dataOffset);byte[]enc=new byte[(int)o.dataLength];r.readFully(enc);in=o.type==1?new BZip2CompressorInputStream(new ByteArrayInputStream(enc)):new XZCompressorInputStream(new ByteArrayInputStream(enc));}
-            try(in){byte[]buf=new byte[1<<20];for(Extent e:o.dst){long rem=e.num*bs;out.seek(e.start*bs);while(rem>0){int k=(int)Math.min(rem,buf.length);readFull(in,buf,k);out.write(buf,0,k);rem-=k;}}}
+            try(in){byte[]buf=new byte[1<<20];for(Extent e:o.dst){long rem=e.num*bs;out.seek(e.start*bs);while(rem>0){int k=(int)Math.min(rem,buf.length);int got=readUpTo(in,buf,k);if(got<k)Arrays.fill(buf,got,k,(byte)0);out.write(buf,0,k);rem-=k;}}}
         }
         static long readBe64(RandomAccessFile r)throws IOException{return ((long)readBe32(r)<<32)|(readBe32(r)&0xffffffffL);}
         static long readBe32(RandomAccessFile r)throws IOException{return ((r.readUnsignedByte()<<24)|(r.readUnsignedByte()<<16)|(r.readUnsignedByte()<<8)|r.readUnsignedByte())&0xffffffffL;}
@@ -1411,29 +1473,151 @@ public final class FirmwareToolset {
         }
     }
 
-    // ===== Android dynamic super.img ==========================================
-    static final class SuperImage {
-        static final long HEADER=0x414C5030L, GEOM=0x616C4467L, SECTOR=512;
-        static List<Artifact> extract(File f,File work,Consumer<String>log)throws Exception{
-            try(RandomAccessFile r=new RandomAccessFile(f,"r")){
-                byte[] g=new byte[64];r.readFully(g);if(u32(g,0)!=GEOM)throw new IOException("not super geometry");
-                long metaMax=u32(g,40), slots=u32(g,44);if(metaMax<=0||slots<=0||metaMax>128*1024*1024L)throw new IOException("invalid super geometry");
-                long metaBase=8192; byte[] h=readAt(r,metaBase,256);if(u32(h,0)!=HEADER) {h=readAt(r,metaBase+metaMax*slots,256);metaBase+=metaMax*slots;}
-                if(u32(h,0)!=HEADER)throw new IOException("super metadata header not found");
-                int hs=(int)u32(h,8), tablesSize=(int)u32(h,44); if(hs<100||hs>256||tablesSize<=0||metaBase+hs+tablesSize>r.length())throw new IOException("invalid super metadata");
-                TableDesc part=desc(h,80), ext=desc(h,92), blk=desc(h,116);
-                byte[] tables=readAt(r,metaBase+hs,tablesSize); List<BlkDev>devs=new ArrayList<>(); for(int i=0;i<blk.num;i++){int p=blk.off+i*blk.size;if(p+Math.max(64,blk.size)>tables.length)break;devs.add(new BlkDev(u64(tables,p),cstr(Arrays.copyOfRange(tables,p+24,Math.min(tables.length,p+60)))));}
-                File out=new File(work,"super");out.mkdirs();List<Part>parts=new ArrayList<>();for(int i=0;i<part.num;i++){int p=part.off+i*part.size;if(p+Math.max(52,part.size)>tables.length)break;String name=cstr(Arrays.copyOfRange(tables,p,Math.min(tables.length,p+36)));int first=(int)u32(tables,p+40), count=(int)u32(tables,p+44);parts.add(new Part(name,first,count));}
-                List<Ext>exts=new ArrayList<>();for(int i=0;i<ext.num;i++){int p=ext.off+i*ext.size;if(p+Math.max(24,ext.size)>tables.length)break;exts.add(new Ext(u64(tables,p),u32(tables,p+8),u64(tables,p+12),u32(tables,p+20)));}
-                List<Artifact>a=new ArrayList<>();for(Part partx:parts){File dst=new File(out,safe(partx.name)+".img");try(RandomAccessFile w=new RandomAccessFile(dst,"rw")){long size=0;for(int i=0;i<partx.count&&partx.first+i<exts.size();i++)size+=exts.get(partx.first+i).num*SECTOR;w.setLength(size);long outPos=0;for(int i=0;i<partx.count&&partx.first+i<exts.size();i++){Ext e=exts.get(partx.first+i);long n=e.num*SECTOR;if(e.type==0){w.seek(outPos);long phys=e.target*SECTOR;long left=n;while(left>0){int k=(int)Math.min(left,1<<20);byte[]buf=readAt(r,phys,k);w.write(buf);phys+=k;left-=k;}}outPos+=n;}}a.add(new Artifact(dst,roleFor(dst.getName())));log.accept("super: "+partx.name);}
-                return a;
+    // ===== Android dynamic partitions (liblp) ================================
+    /**
+     * liblp metadata: 4 KiB reserved, geometry (twice, 4 KiB each), then [slot count] metadata copies of "max size" bytes.
+     * A raw super.img, and the first block device of a retrofit super (Android 10 payload "system"), both start that way.
+     * Every logical partition is a list of extents on the metadata's block devices (LINEAR) or zeros (ZERO).
+     */
+    static final class Lp {
+        static final long HEADER = 0x414C5030L, GEOM = 0x616C4467L, SECTOR = 512;
+        static final class Dev { String name; long firstSector, size; }
+        static final class Ext { long sectors, target; int type, source; }
+        static final class Part { String name; long attrs; int first, count; }
+        static final class Meta { List<Dev> devs = new ArrayList<>(); List<Part> parts = new ArrayList<>(); List<Ext> exts = new ArrayList<>(); }
+
+        /** Where the geometry sits (4096 normally, 0 in a dump without the reserved area), or -1. */
+        static long geometryAt(RandomAccessFile r) throws IOException {
+            for (long at : new long[]{4096, 0}) {
+                if (r.length() < at + 52) continue;
+                if (u32(readAt(r, at, 4), 0) == GEOM) return at;
+            }
+            return -1;
+        }
+        static boolean hasGeometry(File f) {
+            try (RandomAccessFile r = new RandomAccessFile(f, "r")) { return geometryAt(r) >= 0; } catch (IOException e) { return false; }
+        }
+        static Meta read(File f, int slot) throws IOException {
+            try (RandomAccessFile r = new RandomAccessFile(f, "r")) {
+                long g = geometryAt(r);
+                if (g < 0) throw new IOException("not super geometry");
+                byte[] geo = readAt(r, g, 52);
+                long metaMax = u32(geo, 40), slots = u32(geo, 44);
+                if (metaMax <= 0 || slots <= 0 || metaMax > 128L * 1024 * 1024) throw new IOException("invalid super geometry");
+                IOException last = null;
+                // the requested slot first, then the others (a retrofit OTA may only have filled one of them)
+                for (int i = 0; i < slots; i++) {
+                    int sl = (int) ((slot + i) % slots);
+                    try { return readSlot(r, g + 8192 + sl * metaMax); } catch (IOException e) { last = e; }
+                }
+                throw last != null ? last : new IOException("super metadata header not found");
             }
         }
-        static TableDesc desc(byte[]h,int p){return new TableDesc((int)u32(h,p),(int)u32(h,p+4),(int)u32(h,p+8));}
-        static final class TableDesc{int off,num,size;TableDesc(int a,int b,int c){off=a;num=b;size=c;}}
-        static final class Part{String name;int first,count;Part(String n,int f,int c){name=n;first=f;count=c;}}
-        static final class Ext{long num;long type,target,source;Ext(long n,long t,long d,long s){num=n;type=t;target=d;source=s;}}
-        static final class BlkDev{long first;String name;BlkDev(long f,String n){first=f;name=n;}}
+        private static Meta readSlot(RandomAccessFile r, long at) throws IOException {
+            if (at + 256 > r.length()) throw new IOException("super metadata outside the image");
+            byte[] h = readAt(r, at, 256);
+            if (u32(h, 0) != HEADER) throw new IOException("super metadata header not found");
+            int hs = (int) u32(h, 8), tablesSize = (int) u32(h, 44);
+            if (hs < 128 || hs > 256 || tablesSize <= 0 || tablesSize > (16 << 20) || at + hs + tablesSize > r.length()) throw new IOException("invalid super metadata");
+            long[] part = desc(h, 80), ext = desc(h, 92), blk = desc(h, 116);
+            byte[] t = readAt(r, at + hs, tablesSize);
+            Meta m = new Meta();
+            for (int i = 0; i < blk[1]; i++) {
+                int p = (int) (blk[0] + i * blk[2]);
+                if (blk[2] < 64 || p + 64 > t.length) break;
+                Dev d = new Dev(); d.firstSector = u64(t, p); d.size = u64(t, p + 16); d.name = cstr(Arrays.copyOfRange(t, p + 24, p + 60));
+                m.devs.add(d);
+            }
+            for (int i = 0; i < part[1]; i++) {
+                int p = (int) (part[0] + i * part[2]);
+                if (part[2] < 52 || p + 52 > t.length) break;
+                Part x = new Part(); x.name = cstr(Arrays.copyOfRange(t, p, p + 36)); x.attrs = u32(t, p + 36); x.first = (int) u32(t, p + 40); x.count = (int) u32(t, p + 44);
+                m.parts.add(x);
+            }
+            for (int i = 0; i < ext[1]; i++) {
+                int p = (int) (ext[0] + i * ext[2]);
+                if (ext[2] < 24 || p + 24 > t.length) break;
+                Ext e = new Ext(); e.sectors = u64(t, p); e.type = (int) u32(t, p + 8); e.target = u64(t, p + 12); e.source = (int) u32(t, p + 20);
+                m.exts.add(e);
+            }
+            if (m.devs.isEmpty()) throw new IOException("super metadata lists no block devices");
+            return m;
+        }
+        private static long[] desc(byte[] h, int p) { return new long[]{u32(h, p), u32(h, p + 4), u32(h, p + 8)}; }
+
+        /** "system_a" -> "system": the slot suffix is not part of the name the importer matches. */
+        static String logicalStem(String n) {
+            String x = n; String l = x.toLowerCase(Locale.US);
+            if (l.endsWith("_a") || l.endsWith("_b")) x = x.substring(0, x.length() - 2);
+            return x;
+        }
+
+        /**
+         * Writes every non-empty logical partition of the active slot to [dir]/[name].img. [devFiles] maps the block device
+         * names of [meta] to the files holding them; a device that has no file leaves its partitions out; the device that
+         * is not named (a plain super.img) is [carrier].
+         */
+        static List<File> assemble(Meta meta, Map<String, File> devFiles, File carrier, File dir, Consumer<String> log) throws IOException {
+            List<File> out = new ArrayList<>();
+            Set<String> done = new HashSet<>();
+            RandomAccessFile[] devs = new RandomAccessFile[meta.devs.size()];
+            try {
+                for (int i = 0; i < devs.length; i++) {
+                    File f = devFiles.get(meta.devs.get(i).name);
+                    if (f == null && i == 0) f = carrier;
+                    if (f != null && f.isFile()) devs[i] = new RandomAccessFile(f, "r");
+                }
+                for (Part part : meta.parts) {
+                    String l = part.name.toLowerCase(Locale.US);
+                    if (l.endsWith("_b")) continue; // inactive slot of an A/B super
+                    long total = 0; boolean complete = part.count > 0 && part.first >= 0 && part.first + (long) part.count <= meta.exts.size();
+                    if (complete) for (int i = 0; i < part.count; i++) {
+                        Ext e = meta.exts.get(part.first + i); total += e.sectors * SECTOR;
+                        if (e.type == 0 && (e.source < 0 || e.source >= devs.length || devs[e.source] == null)) { complete = false; log.accept("super: " + part.name + " needs a block device that is not available, skipped"); }
+                    }
+                    if (!complete || total <= 0) continue;
+                    String stem = logicalStem(part.name);
+                    if (!done.add(stem.toLowerCase(Locale.US))) continue;
+                    File dst = new File(dir, safe(stem) + ".img");
+                    boolean empty = true;
+                    try (RandomAccessFile w = new RandomAccessFile(dst, "rw")) {
+                        w.setLength(total);
+                        long pos = 0; byte[] buf = new byte[1 << 20];
+                        for (int i = 0; i < part.count; i++) {
+                            Ext e = meta.exts.get(part.first + i); long n = e.sectors * SECTOR;
+                            if (e.type == 0) {
+                                RandomAccessFile src = devs[e.source];
+                                long from = e.target * SECTOR, left = n, at = pos;
+                                while (left > 0) {
+                                    int k = (int) Math.min(left, buf.length);
+                                    src.seek(from); src.readFully(buf, 0, k);
+                                    // zeros stay a hole in the output (setLength above): a super is mostly padding
+                                    boolean zero = true;
+                                    for (int j = 0; j < k; j++) if (buf[j] != 0) { zero = false; break; }
+                                    if (!zero) { empty = false; w.seek(at); w.write(buf, 0, k); }
+                                    from += k; at += k; left -= k;
+                                }
+                            }
+                            pos += n;
+                        }
+                    }
+                    // a logical partition that holds nothing (the OTA's "product" stub) is not an image
+                    if (empty) { dst.delete(); log.accept("super: " + part.name + " is empty, skipped"); continue; }
+                    out.add(dst); log.accept("super: " + part.name + " (" + (total >> 20) + " MiB)");
+                }
+            } finally { for (RandomAccessFile d : devs) if (d != null) try { d.close(); } catch (IOException ignored) { } }
+            return out;
+        }
+    }
+    static final class SuperImage {
+        static List<Artifact> extract(File f, File work, Consumer<String> log) throws Exception {
+            Lp.Meta meta = Lp.read(f, 0);
+            File out = new File(work, "super"); out.mkdirs();
+            List<Artifact> a = new ArrayList<>();
+            for (File x : Lp.assemble(meta, Collections.<String, File>emptyMap(), f, out, log)) a.add(new Artifact(x, roleFor(x.getName())));
+            if (a.isEmpty()) throw new IOException("super image holds no partitions");
+            return a;
+        }
     }
 
     static final class Vdat {
@@ -1471,6 +1655,7 @@ public final class FirmwareToolset {
     static void copy(InputStream in,OutputStream out)throws IOException{byte[]b=new byte[1<<20];int n;while((n=in.read(b))>0)out.write(b,0,n);}
     static void copy(File a,File b)throws IOException{try(InputStream in=new FileInputStream(a);OutputStream out=new FileOutputStream(b)){copy(in,out);}}
     static void skipRaf(RandomAccessFile r,long n)throws IOException{while(n>0){long k=r.skipBytes((int)Math.min(n,Integer.MAX_VALUE));if(k<=0){if(r.read()<0)throw new EOFException();k=1;}n-=k;}}
+    static int readUpTo(InputStream in,byte[]b,int n)throws IOException{int o=0;while(o<n){int k=in.read(b,o,n-o);if(k<0)break;o+=k;}return o;}
     static void readFull(InputStream in,byte[]b,int n)throws IOException{int o=0;while(o<n){int k=in.read(b,o,n-o);if(k<0)throw new EOFException();o+=k;}}
     static byte[] readAt(RandomAccessFile r,long p,int n)throws IOException{r.seek(p);byte[]b=new byte[n];r.readFully(b);return b;}
     static byte[] readBytes(RandomAccessFile r,int n)throws IOException{byte[]b=new byte[n];r.readFully(b);return b;}

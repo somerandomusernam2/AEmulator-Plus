@@ -43,9 +43,57 @@ object BootImage {
         return if (!at(0) && at(256)) img.copyOfRange(256, img.size) else img
     }
 
+    /**
+     * Header version of a GKI-era boot image: 3 or 4, or 0 for the legacy v0-v2 layout. Android 13+ devices (GKI 2.0) ship
+     * `boot` as kernel only (ramdisk_size 0, the ramdisk is in init_boot / vendor_boot). The v3/v4 header is not the old one:
+     * kernel_size @8, ramdisk_size @12, os_version @16, header_size @20, header_version @40, a fixed 4096 byte page.
+     * (Read with the legacy offsets, ramdisk_size would be os_version and the page size 0.)
+     */
+    private fun gkiVersion(img: ByteArray, bb: ByteBuffer): Int {
+        if (img.size < 4096 || String(img, 0, 8, Charsets.ISO_8859_1) != "ANDROID!") return 0
+        val version = bb.getInt(40)
+        val headerSize = bb.getInt(20)
+        return if ((version == 3 || version == 4) && headerSize in 1024..4096) version else 0
+    }
+
+    /** An "ANDROID!" image that carries a kernel but no ramdisk at all (GKI `boot`: the ramdisk lives in init_boot). */
+    fun isKernelOnly(raw: ByteArray): Boolean {
+        val img = stripHtcSignature(raw)
+        if (img.size < 64 || String(img, 0, 8, Charsets.ISO_8859_1) != "ANDROID!") return false
+        val bb = ByteBuffer.wrap(img).order(ByteOrder.LITTLE_ENDIAN)
+        val kernelSize = bb.getInt(8).toLong() and 0xffffffffL
+        val gki = gkiVersion(img, bb)
+        val ramdiskSize = (if (gki != 0) bb.getInt(12) else bb.getInt(16)).toLong() and 0xffffffffL
+        return kernelSize > 0 && ramdiskSize == 0L
+    }
+
+    /**
+     * A partition dump of a v3/v4 image is padded with zeros up to the partition size (64 MiB for `boot`): cut it back to what the
+     * header declares (header + kernel + ramdisk + boot signature, 4096 aligned). Anything else is returned unchanged.
+     */
+    fun trimmed(raw: ByteArray): ByteArray {
+        val img = stripHtcSignature(raw)
+        val bb = ByteBuffer.wrap(img).order(ByteOrder.LITTLE_ENDIAN)
+        val gki = gkiVersion(img, bb)
+        if (gki == 0) return raw
+        fun align(n: Long) = (n + 4095L) / 4096L * 4096L
+        val kernel = bb.getInt(8).toLong() and 0xffffffffL
+        val ramdisk = bb.getInt(12).toLong() and 0xffffffffL
+        val signature = if (gki >= 4 && img.size >= 1584) bb.getInt(1580).toLong() and 0xffffffffL else 0L
+        val end = 4096L + align(kernel) + align(ramdisk) + align(signature)
+        return if (end in 4097L until img.size.toLong()) img.copyOf(end.toInt()) else img
+    }
+
     fun ramdisk(raw: ByteArray): List<CpioEntry>? {
         val img = stripHtcSignature(raw)
         val bb = ByteBuffer.wrap(img).order(ByteOrder.LITTLE_ENDIAN)
+        if (gkiVersion(img, bb) != 0) {
+            val kernelSize = bb.getInt(8).toLong() and 0xffffffffL
+            val ramdiskSize = bb.getInt(12).toLong() and 0xffffffffL
+            val off = 4096L + (kernelSize + 4095L) / 4096L * 4096L
+            if (ramdiskSize < 6 || off + ramdiskSize > img.size) return null
+            return cpio(decompress(img.copyOfRange(off.toInt(), (off + ramdiskSize).toInt())) ?: return null)
+        }
         if (img.size > 64 && String(img, 0, 8, Charsets.ISO_8859_1) == "ANDROID!") {
             val kernelSize = bb.getInt(8).toLong() and 0xffffffffL
             val ramdiskSize = bb.getInt(16).toLong() and 0xffffffffL
@@ -291,7 +339,7 @@ object BootImage {
         if (img.size > 64 && String(img, 0, 8, Charsets.ISO_8859_1) == "ANDROID!") {
             val bb = ByteBuffer.wrap(img).order(ByteOrder.LITTLE_ENDIAN)
             val kernelSize = bb.getInt(8).toLong() and 0xffffffffL
-            val pageSize = bb.getInt(36).let { if (it in 2048..131072) it else 2048 }
+            val pageSize = if (gkiVersion(img, bb) != 0) 4096 else bb.getInt(36).let { if (it in 2048..131072) it else 2048 }
             if (kernelSize > 0 && pageSize + kernelSize <= img.size) { from = pageSize; to = (pageSize + kernelSize).toInt() }
         }
         val kernel = img.copyOfRange(from, to)

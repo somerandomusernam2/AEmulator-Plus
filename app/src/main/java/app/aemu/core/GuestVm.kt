@@ -21,6 +21,11 @@ import java.util.concurrent.CopyOnWriteArrayList
  * (MIUI installd dies in the LBE security hook on start). */
 private val ALWAYS_RESTART = setOf("mediaserver", "installd", "netd", "keystore")
 
+/** Native arm64 engine: vendor daemons that only poll hardware the phone does not have (modem, DSP, TrustZone). */
+private val N64_SKIP = setOf("audiod", "ATFWD-daemon", "imsqmidaemon", "loc_launcher", "cnd", "dpmd", "cnss-daemon",
+    "tftp_server", "qcom-system-daemon", "hvdcp_opti", "pm-service", "mtd", "mlipayd", "vsimd", "fdpp", "perfd", "ipacm",
+    "qti", "netmgrd", "port-bridge", "ims_rtp_daemon", "imsdatadaemon", "wcnss_service", "msm_irqbalance", "energy-awareness", "sscrpcd", "adsprpcd", "cdsprpcd", "audioadsprpcd")
+
 /**
  * Одна запущенная виртуальная машина. Живёт в процессе :vm (одна на процесс: GL-мост нельзя
  * поднять дважды), заменяет собой init: готовит дерево, поднимает службы хоста (свойства, ввод,
@@ -30,6 +35,7 @@ class GuestVm(val ctx: Context, val img: GuestImage, val lowPowerBoot: Boolean =
     enum class State { STOPPED, PREPARING, BOOTING, RUNNING, FAILED, STOPPING }
 
     val paths = VmPaths(ctx, img.id)
+    val kernel: Kernel64 get() = Kernel64.forApi(img.api)
     val settings = img.settings
     /** Factory-test (MMI/FTM) build: no Java framework, only a native test UI. Booted like the charging class. */
     val nativeBoot: Boolean by lazy { !lowPowerBoot && MmiBoot.frameworkless(paths.root) && MmiBoot.service(paths.root) != null }
@@ -50,12 +56,15 @@ class GuestVm(val ctx: Context, val img: GuestImage, val lowPowerBoot: Boolean =
     @Volatile private var everBooted = false
     @Volatile private var zygoteRestarts = 0
     @Volatile private var imeRetried = false
-        private set
+    // the boot animation has gone: the lock screen or the home screen is up (7.0+ reports boot_completed only after the user unlocks)
+    @Volatile var screenUpAt = 0L
+    /** Times of the zygote crashes: a system that keeps dying is stopped instead of being restarted forever. */
+    private val zygoteCrashes = ArrayDeque<Long>()
     /** Why the last start failed; the screen shows [Msg.text] in the chosen language, logs get the English wording. */
     @Volatile var failure: Msg? = null
         private set
     @Volatile var surface: Surface? = null
-        set(v) { field = v; if (engine == Engine.KK) GlBridge.surface(v) }
+        set(v) { field = v; if (engine == Engine.KK) GlBridge.surface(v) else if (engine == Engine.N64 && kernel.gpuBridge64) GlHost.surface(v) }
 
     private val lines = CopyOnWriteArrayList<String>()
     private val listeners = CopyOnWriteArrayList<(String) -> Unit>()
@@ -66,7 +75,10 @@ class GuestVm(val ctx: Context, val img: GuestImage, val lowPowerBoot: Boolean =
         val line = "${stamp()} $s"
         lines.add(line)
         while (lines.size > 2000) lines.removeAt(0)
-        runCatching { logFile.appendText(line + "\n") }
+        runCatching {
+            if (engine == Engine.N64 && kernel.syncLog) FileOutputStream(logFile, true).use { it.write((line + "\n").toByteArray()); it.fd.sync() }
+            else logFile.appendText(line + "\n")
+        }
         listeners.forEach { runCatching { it(line) } }
     }
     fun lines(): List<String> = lines.toList()
@@ -95,7 +107,7 @@ class GuestVm(val ctx: Context, val img: GuestImage, val lowPowerBoot: Boolean =
     fun resetBattery() = battery.reset(settings.hostBattery)
     val hostBatteryLevel get() = battery.latest?.percent ?: 80
     val hostBatteryCharging get() = battery.latest?.status in listOf(2, 5)
-    private val motion = MotionBridge(ctx, paths, { img.api in 9..25 && !recoveryMode && !nativeUi }, { settings.motionSensors }, { settings.gyroLock }, ::log)
+    private val motion = MotionBridge(ctx, paths, { img.api in 9..25 && engine != Engine.N64 && !recoveryMode && !nativeUi }, { settings.motionSensors }, { settings.gyroLock }, ::log)
     fun motionVisible(visible: Boolean) { motion.visible(visible) }
     fun simulateRotation() = motion.simulateRotation()
     val cameraSupported get() = engine == Engine.KK && img.api in 14..25 && !recoveryMode && !nativeUi
@@ -114,14 +126,24 @@ class GuestVm(val ctx: Context, val img: GuestImage, val lowPowerBoot: Boolean =
     val ril = RilStub(paths, ::log, img.settings.imei.ifBlank { VmSettings.DEFAULT_IMEI }, img.api,
         VmSettings.cleanBaseband(img.settings.baseband).ifBlank { VmSettings.DEFAULT_BASEBAND },
         img.settings.networkType, img.settings.sim)
-    val vold = VoldStub(paths, img.sdcardPath, ::log, others = img.volumes)
+    val vold = VoldStub(paths, img.sdcardPath, ::log, others = img.volumes, api = img.api, onStorageState = ::setStorageState)
+    /** Android 1.0-2.1 take the card state from this property (Settings > Storage shows "unknown" without it) */
+    private fun setStorageState(v: String) { if (img.api in 1..7) props.put(VoldStub.STATE_PROP, v) }
     var onFrame: (() -> Unit)? = null
     val frames = FrameBell(paths, ::log) { onFrame?.invoke() }
     private val events = EventsSink(paths, ::log)
     private val logd = LogdSink(paths, ::log)
+    /** notification / battery LED of the guest (lights HAL → /dev/aemu_lights) */
+    val lights = Lights(paths.root, ::log)
+    /** the phone's accelerometer and vibration motor for the guest */
+    val sensors = Sensors(ctx, paths.root, ::log)
+    /** the phone's microphone for the guest (audio HAL input → /dev/aemu_mic) */
+    val mic = AudioIn(ctx, paths.root, ::log)
+    /** the phone's cameras for the guest (camera HAL → /dev/socket/aemu_cam) */
+    val cameraFeed = CameraFeed(ctx, paths, ::log)
     @Volatile private var lmk: GuestLmk? = null
     val net = NetProxy(ctx, paths, ::log)
-    private val dns = DnsProxy(paths, img.api, ::log)
+    private val dns = DnsProxy(paths, img.api, ::log, img.engine == Engine.N64 && Kernel64.forApi(img.api).dnsLayoutProbe)
     /** Cupcake/Donut (API <= 4) have no multitouch: their EventHub only accepts ABS_X/ABS_Y/ABS_PRESSURE + BTN_TOUCH. */
     private fun singleTouchWanted(s: VmSettings) = s.mtMode == 4 || img.api <= 4
     private fun effectiveMtMode(s: VmSettings) = if (singleTouchWanted(s)) 4 else s.mtMode
@@ -130,6 +152,7 @@ class GuestVm(val ctx: Context, val img: GuestImage, val lowPowerBoot: Boolean =
 
     private val extraStubs = ArrayList<VoldStub>()
     private val procs = LinkedHashMap<String, Process>()
+    private val lazyStarts = HashMap<String, Int>()
     private val pgids = LinkedHashSet<Int>()
     @Volatile private var stopping = false
 
@@ -344,21 +367,22 @@ class GuestVm(val ctx: Context, val img: GuestImage, val lowPowerBoot: Boolean =
         runCatching { logFile.writeText("") }
         log("image \"${img.name}\": recovery mode")
         if (!RecoveryImage.installed(paths)) error("this firmware has no recovery installed")
-        val qemu = paths.nativeBin(Engine.KK.qemu)
-        if (!qemu.canExecute()) error("translator ${Engine.KK.qemu} is not executable")
+        val is64 = RecoveryImage.isElf64(paths)
+        val qemu = paths.nativeBin(if (is64) kernel.runner else Engine.KK.qemu)
+        if (!is64 && !(img.settings.native32 && CpuInfo.hasAArch32) && !qemu.canExecute()) error("translator ${Engine.KK.qemu} is not executable")
         killLeftovers()
         HostNative.limitStackSafe()
         TreeFixer(ctx, paths, img, ::log).fixup()   // framebuffer, input node
         battery.start()
         val sd = Sdcard.setup(ctx, paths, img, ::log)
-        val prep = RecoveryImage.prepare(paths, sd, ::log, img.api)
+        val prep = RecoveryImage.prepare(paths, sd, ::log, img.api, settings)
         input.sinkProtocolB = prep.touchProtocolB
         prep.format?.let { recoveryFormat = it; log("recovery framebuffer: ${when (it) { 0 -> "RGB565"; 2 -> "BGRA_8888"; else -> "32-bit RGBX" }}") }
         input.rateHz = settings.touchHz
         input.mtMode = settings.mtMode
         input.trackballEnabled = false // recovery does not load the Android evdev shim
         input.serve()
-        // recovery's minui opens /dev/input/event0 through openat(), which qemu does not emulate:
+        // recovery's minui opens /dev/input/event* through openat():
         // a FIFO there gets the raw input_event stream straight from InputService
         runCatching {
             val ev = File(RecoveryImage.dir(paths), "dev/input/event0")
@@ -366,6 +390,11 @@ class GuestVm(val ctx: Context, val img: GuestImage, val lowPowerBoot: Boolean =
             android.system.Os.mkfifo(ev.path, "600".toInt(8))
             val fd = android.system.Os.open(ev.path, android.system.OsConstants.O_RDWR or android.system.OsConstants.O_NONBLOCK, 0)
             input.sink = java.io.FileOutputStream(fd)
+            for (alt in listOf("event1", "event2", "event3")) {
+                val f = File(RecoveryImage.dir(paths), "dev/input/$alt")
+                f.delete()
+                runCatching { android.system.Os.symlink(ev.path, f.path) }
+            }
         }.onFailure { log("recovery: no input channel: ${it.message}") }
         val (w, h) = runCatching { File(paths.root, "dhd.fbgeom").readText().trim().split(Regex("\\s+")).map { it.toInt() } }
             .getOrNull()?.takeIf { it.size >= 2 }?.let { it[0] to it[1] } ?: (settings.width to settings.height)
@@ -373,7 +402,12 @@ class GuestVm(val ctx: Context, val img: GuestImage, val lowPowerBoot: Boolean =
         runCatching { File(r, "tmp/recovery.log").delete() }
         // debugging: run/recovery.strace traces the guest's system calls into run/recovery.trace
         val trace = if (File(paths.bin, "recovery.strace").exists()) listOf("-strace", "-D", File(paths.bin, "recovery.trace").absolutePath) else emptyList()
-        val pb = ProcessBuilder(listOf(qemu.absolutePath, "-L", r.absolutePath, "-0", "/sbin/recovery") + trace + File(r, "sbin/recovery").absolutePath)
+        val cmd = when {
+            img.settings.native32 && CpuInfo.hasAArch32 && !is64 -> listOf(File(r, "sbin/recovery").absolutePath)
+            is64 -> listOf(qemu.absolutePath, "/sbin/recovery", File(r, "sbin/recovery").absolutePath)
+            else -> listOf(qemu.absolutePath, "-L", r.absolutePath, "-0", "/sbin/recovery") + trace + File(r, "sbin/recovery").absolutePath
+        }
+        val pb = ProcessBuilder(cmd)
             .directory(r).redirectErrorStream(true).redirectOutput(File(paths.bin, "recovery.out"))
         pb.environment().clear()
         pb.environment().putAll(mapOf(
@@ -468,8 +502,23 @@ class GuestVm(val ctx: Context, val img: GuestImage, val lowPowerBoot: Boolean =
         if (!File(paths.root, "system/framework").isDirectory) error("firmware tree missing")
         if (MmiBoot.frameworkless(paths.root))
             error("this firmware has no Android framework (system/framework/framework.jar) and no native MMI/FTM test program to run instead")
-        val qemu = paths.nativeBin(engine.qemu)
-        if (!qemu.canExecute()) error("translator ${engine.qemu} is not executable")
+        val qemu = paths.nativeBin(if (engine == Engine.N64) kernel.runner else engine.qemu)
+        if (!qemu.canExecute()) error("translator ${qemu.name} is not executable")
+        if (engine == Engine.N64) log("· kernel ${kernel.tag} (${kernel.runner})")
+        // a 32-bit-only firmware on the native engine: every program of it, init's services included, runs in qemu-arm
+        if (engine == Engine.N64 && isPure32Tree(paths.root)) {
+            if (!paths.nativeBin("libqemu_arm.so").canExecute())
+                error("this firmware is 32-bit only and the native engine has no translator (libqemu_arm.so) in this build")
+            log("· 32-bit firmware: translated by qemu-arm on the native engine")
+        }
+        // the guest's SwiftShader (legacy, reads SwiftShader.ini from the process's directory, this one) finds one core
+        // on Android and draws every frame in a single thread: MIUI 8 at 1080×1920 flipped pages at 19 fps, 59 with 8.
+        // Every N64 kernel ships that build (n64-gl), and the guest's services and apps all run in this directory
+        // (run/SwiftShader.off: the old single thread, to compare)
+        if (engine == Engine.N64) runCatching {
+            if (File(paths.bin, "SwiftShader.off").exists()) File(paths.bin, "SwiftShader.ini").delete()
+            else File(paths.bin, "SwiftShader.ini").writeText("[Processor]\nThreadCount=${Runtime.getRuntime().availableProcessors().coerceIn(1, 8)}\n")
+        }
         killLeftovers()
         HostNative.limitStackSafe()
 
@@ -489,12 +538,45 @@ class GuestVm(val ctx: Context, val img: GuestImage, val lowPowerBoot: Boolean =
         overrides["ro.kernel.qemu"] = if (engine == Engine.GB) "0" else "1"
         overrides["ro.kernel.qemu.gles"] = if (s.gpu && (s.hwui || engine == Engine.GB)) "1" else "0"
         overrides["qemu.gles"] = if (s.gpu) "1" else "0"
+        if (engine == Engine.N64) {             // SwiftShader (GLES 2/3 on the CPU) where the engine has it for this release
+            // (8.0+ libEGL picks the driver by name: 1 is the emulator's host GPU pipe, 2 is SwiftShader)
+            // (there libEGL takes it from /vendor/lib64/egl, and without that directory puts the flag back to 0)
+            val ss = if (File(paths.root, kernel.eglLib).isFile) kernel.gles else "0"
+            // (32-bit programs read it as 0 through the runner: they only have the GLES 1 renderer)
+            overrides["ro.kernel.qemu.gles"] = ss; overrides["qemu.gles"] = ss
+        }
+        var glBridge = false
+        var glInfo = ""
+        if (engine == Engine.N64 && kernel.gpuBridge64 && s.gpu && File(paths.root, "${kernel.eglDir}/libGLES_aemu.so").isFile) {
+            val r = GlHost.start(paths.socket("aemu_gl").absolutePath)
+            log("GPU bridge: $r")
+            glBridge = r.startsWith("ok"); glInfo = r
+        }
+        // 32-bit engine, test switch "glopen" (TreeFixer put the open bridge in front of the engine's own): programs'
+        // contexts go to the same host renderer as on the 64-bit engine; the file's text is the mode (default 2: here the
+        // "software" driver under the bridge is the engine's own, which has no texture EGLImages, and WebView's
+        // threads share their tiles through those - in mode 1 they stay on it and a page draws only its background)
+        if (engine == Engine.KK && s.gpu && File(paths.dir, "glopen").isFile && File(paths.root, "system/lib/egl/libGLES_split.so").isFile) {
+            paths.socket("aemu_gl").parentFile?.mkdirs()
+            val r = GlHost.start(paths.socket("aemu_gl").absolutePath)
+            log("open GPU bridge (32-bit): $r")
+            if (r.startsWith("ok")) overrides["debug.aemu.gl"] = File(paths.dir, "glopen").readText().trim().takeIf { it.isNotEmpty() } ?: "2"
+        }
         // 7.0+ libEGL ignores egl.cfg and takes the first libGLES_*.so it finds; without the bridge: the software one
         if (img.api >= 24 && !s.gpu) {
             overrides["ro.hardware.egl"] = "android"
         }
+        // ro.boot.hardware comes from the boot loader on a phone (androidboot.hardware); ColorOS tells Qualcomm from
+        // MediaTek by it (OplusTelephonyManager: starts with "qcom" or "mt"), and with neither its Telecom has no SoC
+        // side at all: system_server dies in CallAudioManager. Named as the firmware's own init.<hardware>.rc is.
+        if (engine == Engine.N64 && kernel.bootHardwareProp) {
+            val hw = File(paths.root, "vendor/etc/init/hw").list().orEmpty().mapNotNull { Regex("^init[.](qcom|mt[0-9]+[a-z]*)[.]rc$").find(it)?.groupValues?.get(1) }.firstOrNull()
+            if (hw != null) overrides["ro.boot.hardware"] = hw
+        }
         overrides["ro.sf.lcd_density"] = s.density.toString()
         overrides["qemu.sf.lcd_density"] = s.density.toString()
+        // MIUI 10 forces the density of the phone's own panel from this one (440 on a 540-pixel screen)
+        if (listOf("system/build.prop", "vendor/build.prop").any { runCatching { File(paths.root, it).readText() }.getOrDefault("").contains("persist.miui.density_v2") }) overrides["persist.miui.density_v2"] = s.density.toString()
         // Panels mounted sideways (Galaxy Tab 10.1 GT-P7300: "ro.sf.hwrotation=90", fb 800x1280 on a landscape UI) make
         // SurfaceFlinger turn the whole UI inside the framebuffer. Here the framebuffer IS the screen the user sees at
         // the resolution they picked, so the rotation only shows up as a UI lying on its side: 1280x720 came up as a
@@ -508,7 +590,9 @@ class GuestVm(val ctx: Context, val img: GuestImage, val lowPowerBoot: Boolean =
             overrides["ro.sf.hwrotation"] = "0"
             log("display: ignoring the firmware's panel rotation ($hwRot°), the UI follows the framebuffer")
         }
-        overrides["ro.aemu.host"] = "qemu-user"
+        // Android 1.0-2.1: Environment.getExternalStorageState() reads this property (the real mountd/vold set it)
+        if (img.api in 1..7) overrides[VoldStub.STATE_PROP] = VoldStub.MOUNTED_PROP
+        overrides["ro.aemu.host"] = if (engine == Engine.N64) "native" else "qemu-user"
         // serial number from the image settings (blank = default); real devices expose it under both names
         val serial = VmSettings.cleanSerial(s.serial).ifBlank { VmSettings.DEFAULT_SERIAL }
         overrides["ro.serialno"] = serial
@@ -521,7 +605,31 @@ class GuestVm(val ctx: Context, val img: GuestImage, val lowPowerBoot: Boolean =
             log("props: ro.hardware=$it (from settings)")
         }
         if (s.camera && cameraSupported) overrides["ro.hardware.camera"] = "aemu_host"
-        if (img.api in 9..25) overrides["ro.hardware.sensors"] = "aemu_host"
+        if (img.api in 9..25 && engine != Engine.N64) overrides["ro.hardware.sensors"] = "aemu_host"
+        if (engine == Engine.N64) {
+            // the phone runs arm64 code only: the 32-bit zygote and its apps go through qemu-arm when it is there
+            if (isPure32Tree(paths.root)) {
+                // no 64-bit side at all: one 32-bit zygote. The firmware's own flat ABI lists stand where it has them; init of
+                // 10+ derives them from the partition's (ro.product.<partition>.cpu.abilist32...), which nothing does here, and
+                // app_process aborts on an empty ro.product.cpu.abilist32 ("Unable to determine ABI list")
+                overrides["ro.zygote"] = "zygote32"
+                val abi32 = pure32Abilist32()
+                overrides["ro.product.cpu.abilist32"] = abi32
+                overrides["ro.product.cpu.abilist"] = abi32
+                overrides["ro.product.cpu.abilist64"] = ""
+                log("props: 32-bit firmware, ro.product.cpu.abilist32=$abi32")
+            } else if (n64Has32) {
+                overrides["ro.zygote"] = "zygote64_32"
+                overrides["ro.product.cpu.abilist"] = "arm64-v8a,armeabi-v7a,armeabi"
+                overrides["ro.product.cpu.abilist64"] = "arm64-v8a"
+                overrides["ro.product.cpu.abilist32"] = "armeabi-v7a,armeabi"
+            } else {
+                overrides["ro.zygote"] = "zygote64"
+                overrides["ro.product.cpu.abilist"] = "arm64-v8a"
+                overrides["ro.product.cpu.abilist64"] = "arm64-v8a"
+                overrides["ro.product.cpu.abilist32"] = ""
+            }
+        }
         overrides["dalvik.vm.execution-mode"] = if (s.jit) "int:jit" else "int:fast"
         if (s.lowRam || s.ramMb in 1..768) overrides["ro.config.low_ram"] = "true"
         if (s.ramMb > 0) {
@@ -537,6 +645,9 @@ class GuestVm(val ctx: Context, val img: GuestImage, val lowPowerBoot: Boolean =
         if (!s.radio) overrides["ro.radio.noril"] = "true"
         else if (img.api <= 8) overrides["ro.radio.noril"] = ""
         if (!s.hwui) overrides["debug.hwui.renderer"] = "skia"
+        // the 64-bit engine has GLES only (bridge or SwiftShader), no Vulkan device: hwui of firmwares that default to
+        // Vulkan (HyperOS 2, MediaTek) aborts "Assertion failed: !gpuCount" in system_server's RenderThread
+        else if (engine == Engine.N64) overrides["debug.hwui.renderer"] = "skiagl"
         // PBO для текстур шрифтов (hwui 4.4+ на GLES3) ломают часть драйверов (Mali) — грузим текстуры напрямую
         if (HostInfo.gpu().contains("mali")) overrides["ro.hwui.use_gpu_pixel_buffers"] = "false"
         if (img.api in 19..20 && !isLpw39) overrides["persist.sys.dalvik.vm.lib"] = "libdvm.so"
@@ -547,12 +658,28 @@ class GuestVm(val ctx: Context, val img: GuestImage, val lowPowerBoot: Boolean =
         // зигота 4.4+ заранее открывает EGL; дети после fork наследуют соединение моста, и гостевая
         // библиотека моста уходит в бесконечную рекурсию (падение по стеку в каждом приложении)
         if (img.api >= 19) overrides["ro.zygote.disable_gl_preload"] = "1"
+        if (engine == Engine.N64) overrides.putAll(kernel.props)
+        if (glBridge) {
+            overrides["ro.hardware.egl"] = "aemu"
+            if (kernel.bridgeAsEmulation) {
+                overrides["ro.kernel.qemu.gles"] = "1"; overrides["qemu.gles"] = "1"
+                File(paths.root, "${kernel.eglDir}/libGLES_aemu.so").copyTo(File(paths.root, "${kernel.emulationDir ?: kernel.eglDir}/libGLES_emulation.so"), overwrite = true)
+            }
+            // which contexts go to the GPU (native/glbridge/guest.c, policy): 3 - everything, the compositor
+            // included; a file "glmode" in the image's directory sets another for a test (0: none, 1: programs' own
+            // contexts, 2: the window toolkit's as well)
+            overrides["debug.aemu.gl"] = File(paths.dir, "glmode").takeIf { it.isFile }?.readText()?.trim()?.takeIf { it.isNotEmpty() } ?: kernel.gpuBridgeMode
+            // GLES 3.0, or 3.1 when the phone's contexts have it (the renderer says "ES 3.1 to the guest")
+            overrides["ro.opengles.version"] = if (glInfo.contains("ES 3.1 to the guest")) "196609" else "196608"
+        }
         // ART first boot compiles every app with dex2oat under qemu (minutes, single-threaded): by default only
         // skip it (verify-none: ART verifies classes lazily when an app runs) and use several threads; "full compilation" in the settings keeps machine code
         if (img.api >= 21) {
+            // (the native arm64 engine too: dex2oat is a 32-bit program there and runs translated; the boot image is
+            // still compiled in full, it has its own filter)
             if (!s.fullDexopt) overrides["dalvik.vm.dex2oat-filter"] = "verify-none"
             // 7.0+: PackageManager picks the filter per reason from pm.dexopt.*
-            if (img.api >= 24 && !s.fullDexopt) for (r in listOf("first-boot", "boot", "install", "bg-dexopt", "ab-ota", "core-app", "forced-dexopt", "nsys-library"))
+            if (img.api >= 24 && !s.fullDexopt && engine != Engine.N64) for (r in listOf("first-boot", "boot", "install", "bg-dexopt", "ab-ota", "core-app", "forced-dexopt", "nsys-library"))
                 overrides["pm.dexopt.$r"] = "verify-none"
             overrides["dalvik.vm.dex2oat-flags"] = "-j" + Runtime.getRuntime().availableProcessors().coerceIn(2, 4)
             // ART (5.0+) relocates the boot image to a random address (patchoat), which fails under qemu
@@ -585,22 +712,74 @@ class GuestVm(val ctx: Context, val img: GuestImage, val lowPowerBoot: Boolean =
         // порты MIUI правят framework на smali так, что Dalvik-верификатор отвергает классы ядра
         // (зигота падает на VerifyError) — на телефонах они живут с выключенной проверкой байткода
         if (img.skin.contains("MIUI", true) && img.runtime == "dalvik") overrides["dalvik.vm.dexopt-flags"] = "v=n,o=a,m=y"
+        // Dalvik's first boot runs dexopt over every apk without an odex, one after another and translated (S III: 88
+        // apps, 104 s), and verification is most of it; like ART's verify-none above, unless "full compilation" is on
+        else if (img.runtime == "dalvik" && !s.fullDexopt) overrides["dalvik.vm.dexopt-flags"] = "v=n,o=a"
         // MediaTek: звук, камера, радио ждут «NVRAM готов» от nvram_daemon, которого у нас нет
         if (TreeFixer.isMtkAudio(paths.root) || File(paths.root, "system/bin/nvram_daemon").isFile) overrides["nvram_init"] = "Ready"
+        // TouchWiz 4.1+: TvOutService and Samsung EDS look for HDMI/MHL hardware and keep crashing or blocking boot
+        if (img.api >= 16 && (img.skin.contains("TouchWiz", true) || img.skin.contains("One UI", true))) {
+            overrides["ro.tvout.enable"] = "false"
+            overrides["ro.SecEDS.enable"] = "false"
+        }
         // своя панель кнопок у нас — экранную панель гостя (4.x) прячем, чтобы не дублировать
-        overrides["qemu.hw.mainkeys"] = if (s.showNavBar) "1" else "0"
+        overrides["qemu.hw.mainkeys"] = if (s.showNavBar && !(engine == Engine.N64 && kernel.navBarRequired)) "1" else "0"
         // отладка: run/props.extra — строки ключ=значение поверх всего остального
         File(paths.bin, "props.extra").takeIf { it.isFile }?.readLines()?.forEach { l ->
             val k = l.substringBefore('=').trim()
             if (k.isNotEmpty() && !k.startsWith("#") && l.contains('=')) overrides[k] = l.substringAfter('=').trim()
         }
+        // 12+: package lists and settings stay binary XML (the default). An image once started with this set to false
+        // (15.10, briefly) keeps the value in its saved properties, and 14 then cannot read its own text files
+        // ("illegal attribute name: :strings" in DevicePolicyManagerService): put back explicitly.
+        if (engine == Engine.N64) overrides["persist.sys.binary_xml"] = "true"
         overrides["net.dns1"] = "8.8.8.8"
         overrides["net.dns2"] = "1.1.1.1"
         // в прошивках старая база часовых поясов — передаём текущее смещение, а не название зоны
         overrides["persist.sys.timezone"] = gmtZone()
-        if (!props.prepare(overrides)) error("property area not ready")
+        // what init reads after /system/build.prop: the default properties of a system-only image (8.0+) and the
+        // vendor's own files (on a Treble image the vendor side is the engine's). Only what the image does not say.
+        val later = LinkedHashMap<String, String>()
+        for (n in listOf("system/etc/prop.default", "vendor/default.prop", "vendor/build.prop")) runCatching {
+            File(paths.root, n).takeIf { it.isFile }?.let { f -> PropArea.parseProps(f.readText()).forEach { (k, v) -> later.putIfAbsent(k, v) } }
+        }
+        // A firmware's own vendor built without VNDK (15+: no ro.vndk.version, the system has the unversioned LLNDK
+        // list) must keep it unset - linkerconfig then gives the vendor the current LLNDK set; with the engine's
+        // "34" it took VNDK 34's list and vendor libbinder lost libapexsupport.so.
+        val vndkLessVendor = File(paths.root, "vendor/build.prop").isFile && !later.containsKey("ro.vndk.version") &&
+            File(paths.root, "system/etc/llndk.libraries.txt").isFile
+        if (engine == Engine.N64) kernel.propDefaults.forEach { (k, v) ->
+            if (!(vndkLessVendor && k == "ro.vndk.version")) later.putIfAbsent(k, v)
+        }
+        if (engine == Engine.N64 && kernel.derivedIdentity) deriveIdentity(later)
+        // Without Treble's own check (it needs SELinux), system_server of 12 compares the partitions' fingerprints
+        // and shows "There's an internal problem with your device" when the vendor's is of another build - which it
+        // is on every phone updated from an earlier release.
+        // init reads the vendor's properties after the system's and a later value wins (but for ro.*): the generic
+        // system part of such a firmware says a 36 MB Java heap, the vendor's file has the phone's real sizes
+        if (engine == Engine.N64 && kernel.vendorHeapProps) runCatching {
+            PropArea.parseProps(File(paths.root, "vendor/build.prop").readText()).forEach { (k, v) ->
+                if (k.startsWith("dalvik.vm.heap")) overrides.putIfAbsent(k, v)
+            }
+        }
+        if (engine == Engine.N64 && kernel.mediaProfilesFallback) runCatching {
+            val etc = File(paths.root, "vendor/etc")
+            // (Qualcomm's libmedia opens _vendor, or the chip's name on bengal: _khaje, _scuba)
+            listOf("media_profiles_V1_0.xml", "media_profiles.xml").firstOrNull { File(etc, it).isFile }?.let { have ->
+                for (name in listOf("vendor", "khaje", "scuba")) File(etc, "media_profiles_$name.xml").let {
+                    if (!it.exists()) runCatching { android.system.Os.symlink(have, it.absolutePath) }
+                }
+            }
+        }
+        if (engine == Engine.N64 && kernel.oneFingerprint) runCatching {
+            PropArea.parseProps(File(paths.root, "system/build.prop").readText())["ro.system.build.fingerprint"]?.let { fp ->
+                overrides["ro.vendor.build.fingerprint"] = fp; overrides["ro.bootimage.build.fingerprint"] = fp
+            }
+        }
+        if (!props.prepare(overrides, later, if (engine == Engine.N64) kernel.propAreaSize else PropArea.SIZE)) error("property area not ready")
         // images imported before these defaults existed (or whose init.rc lacks them): ActivityManager needs every one of them
         if (img.api <= 15) for ((k, v) in app.aemu.importer.Analyzer.LMK_DEFAULTS) if (props.get(k).isNullOrEmpty()) props.put(k, v)
+        ensureMediaProfiles()
         fixer.skipPreBoot(props)
         // Do not let the older Sony migration un-provision data completed by the explicit option.
         if (SetupWizardOption.restoreSonyFlow(s.skipSetupWizard,
@@ -617,8 +796,10 @@ class GuestVm(val ctx: Context, val img: GuestImage, val lowPowerBoot: Boolean =
         input.mtMode = effectiveMtMode(s)
         input.detectHome(paths.root)
         input.trackballEnabled = settings.trackball
+        // 64-bit firmware on the native engine reads 24-byte events; a 32-bit-only one (qemu-arm) reads 16-byte ones
+        input.wide = InputService.wideFor(engine, isPure32Tree(paths.root))
         input.serve()
-        vibration.serve()
+        if (engine != Engine.N64) vibration.serve()   // 64-bit guests get vibration through Sensors
         motion.serve()
         if (s.camera && cameraSupported) camera.serve()
         if (s.microphone && microphoneSupported) microphone.serve()
@@ -626,6 +807,9 @@ class GuestVm(val ctx: Context, val img: GuestImage, val lowPowerBoot: Boolean =
         frames.serve()
         if (s.radio) ril.serve() else log("radio: emulation disabled in settings")
         vold.serve()
+        // 1.0-1.5: the framework talks to mountd, not vold; the real daemon is not started (InitPlan.SKIP)
+        if (img.api in 1..3) VoldStub(paths, img.sdcardPath, ::log, "mountd", api = img.api, onStorageState = ::setStorageState)
+            .also { it.serve(); extraStubs.add(it) }
         // у vold производителей бывают дополнительные сокеты (Samsung: usbstorage, enc_report) — отвечаем «ладно»
         runCatching {
             // 7.0+ keeps vold (with its cryptd socket) in /system/etc/init
@@ -656,6 +840,14 @@ class GuestVm(val ctx: Context, val img: GuestImage, val lowPowerBoot: Boolean =
         events.start()
         // LPW39 (L preview, API 20) already logs through logd's /dev/socket/logdw; without the host receiver every ART message is lost
         if (img.api >= 21 || isLpw39) logd.start()
+        lights.start()
+        if (engine == Engine.N64) { sensors.start(); mic.start(); cameraFeed.start() }
+        if (img.api >= 14) runCatching { dns.ensure() }
+        // the RAM the guest is told it has (its /proc/meminfo, scaled by the kernel): the framework sizes its background by it
+        if (engine == Engine.N64) runCatching {
+            val f = File(paths.root, "dev/.aemu-ram")
+            if (kernel.ramBudget) f.writeText((GuestRunner.guestRamMb(img.api, s.ramMb) * 1024L).toString()) else f.delete()
+        }
         lmk = GuestLmk(paths.root, s.lowRam, ::log, s.ramMb).also { it.start() }
         val netCfg = if (s.netProxy) net.start() else GuestRunner.NetConfig()
         runner.sdcardHost = sd
@@ -677,16 +869,45 @@ class GuestVm(val ctx: Context, val img: GuestImage, val lowPowerBoot: Boolean =
         touchWizMediaStarted = false
         noteBoot.interrupted()
         pendingNote = ImageStore.get(ctx, img.id)?.oneTimeNote ?: img.oneTimeNote
+        screenUpAt = 0; zygoteCrashes.clear()
         setState(State.BOOTING)
 
         // 4. binder
         paths.binderSock.delete()
+        paths.hwbinderSock.delete()
+        paths.vndbinderSock.delete()
         paths.creds.let { d -> d.listFiles()?.forEach { it.delete() }; d.mkdirs() }
         startBinder()
         if (!waitFor("binder socket", 15_000) { paths.binderSock.exists() }) error("binderd failed to start")
+        if (engine == Engine.N64 && kernel.treble) {
+            waitFor("hwbinder socket", 5_000) { paths.hwbinderSock.exists() }
+            waitFor("vndbinder socket", 5_000) { paths.vndbinderSock.exists() }
+        }
+
+        // 11+: the linker takes its library namespaces (which APEX module gives which library to whom) from
+        // /linkerconfig, written at every boot by the firmware's own generator; init runs it before any service
+        if (engine == Engine.N64 && File(paths.root, kernel.linkerConfigTool).isFile) runCatching {
+            apexInfoList()
+            File(paths.root, "linkerconfig").mkdirs()
+            // (a generator that writes the one-namespace configuration of a device before Treble for
+            // ro.treble.enabled=false - MIUI 12.5's does, and no vendor program finds its VNDK - reads "true" here)
+            val own = if (kernel.trebleLinkerConfig) props.privateCopy("linkerconfig", mapOf("ro.treble.enabled" to "true")) else null
+            val (code, out) = r.run(listOf("/" + kernel.linkerConfigTool, "--target", "/linkerconfig"), 30_000,
+                if (own != null) mapOf("AEMU64_PROPS_FILE" to own.absolutePath) else emptyMap())
+            if (code != 0 || !File(paths.root, "linkerconfig/ld.config.txt").isFile) log("linkerconfig: exit $code ${out.trim().let { if (it.length > 700) it.take(400) + " ... " + it.takeLast(300) else it }}")
+        }
+
+        r.derivedExports = emptyMap()
+        if (engine == Engine.N64 && File(paths.root, "apex/com.android.sdkext/bin/derive_classpath").isFile) runCatching {
+            val out = File(paths.root, "data/system/environ/classpath")
+            out.parentFile?.mkdirs(); out.delete()
+            val (code, msg) = r.run(listOf("/apex/com.android.sdkext/bin/derive_classpath", "/data/system/environ/classpath"), 30_000)
+            if (code != 0 || !out.isFile) log("derive_classpath: exit $code ${msg.trim().takeLast(300)}")
+            else r.derivedExports = out.readLines().mapNotNull { l -> l.trim().split(' ', limit = 3).takeIf { it.size == 3 && it[0] == "export" }?.let { it[1] to it[2] } }.toMap()
+        }
 
         // 5. службы гостя по плану из init.rc прошивки
-        val basePlan = bootServices.filter { it.name !in InitPlan.NEVER_START }.ifEmpty { InitPlan.fallback(img, paths.root) }
+        val basePlan = servicePlan().filter { it.name !in InitPlan.NEVER_START }.ifEmpty { InitPlan.fallback(img, paths.root) }
         // Samsung 2.x boot logo + PowerOn sound (playlogos1); images imported earlier have no such entry in their saved plan
         val plan = if (File(paths.bin, BootMediaServices.LEGACY_LOGO_OFF).exists()) basePlan
                    else BootMediaServices.withLegacyLogo(basePlan, paths.root, img.api)
@@ -696,8 +917,19 @@ class GuestVm(val ctx: Context, val img: GuestImage, val lowPowerBoot: Boolean =
         if (settings.wifi && wifiSupported && !wifiOn) log("wifi: ${WifiEmu.JAR_NAME} is not installed (build guest-wifi/build.sh), the guest keeps its normal network")
         WifiEmu.write(paths.root, settings, wifiOn)
         if (wifiOn) log("wifi: emulated network \"${settings.wifiSsid}\" (${if (WifiEmu.secured(settings)) "WPA2" else "open"})")
+        // (debugging, see Kernel64.syncLog: only the first N services are started, then the guest is left as it is)
+        val stopAfter = if (engine == Engine.N64 && kernel.syncLog) runCatching { File(paths.root, "dev/.aemu-stop-after").readText().trim().toInt() }.getOrNull() else null
+        if (stopAfter != null) log("stop-after $stopAfter of: " + plan.filter { !it.onDemand }.mapIndexed { i, s -> "$i ${s.name}" }.joinToString())
+        var started = 0
         for (svc in plan) {
             if (stopping) return
+            if (svc.onDemand) { props.put("init.svc.${svc.name}", "stopped"); continue }
+            if (stopAfter != null && started++ >= stopAfter) {
+                log("stop-after $stopAfter: holding before ${svc.name}")
+                Thread.sleep(60_000)
+                log("stop-after $stopAfter: 60 s passed, alive: ${alive().joinToString()}")
+                return
+            }
             // GL-мост должен ждать гостя до SurfaceFlinger/zygote
             if (!glDone && (svc.name == "surfaceflinger" || svc.name == "zygote" || svc.name == "bootanim")) {
                 glUp(); glDone = true
@@ -720,8 +952,11 @@ class GuestVm(val ctx: Context, val img: GuestImage, val lowPowerBoot: Boolean =
                     "-Djava.class.path=/system/framework/aemu-stubs.jar", "/system/bin",
                     "app.aemu.stub.BtStub", "bluetooth_a2dp"), optional = true))
             }
+            // 10+: the package manager requires apexd's binder service, which is there once apexd reports "ready"
+            if (svc.name == "zygote" && engine == Engine.N64 && plan.any { it.name == "apexd" })
+                waitFor("apexd", 15_000) { props.get("apexd.status") == "ready" }
             // 4.2+: заглушка bluetooth_manager до зиготы (system_server с ro.kernel.qemu=1 свою не поднимает)
-            if (svc.name == "zygote" && img.api >= 5 && engine == Engine.KK && File(paths.root, "system/framework/aemu-stubs.jar").isFile) {
+            if (svc.name == "zygote" && img.api >= (if (engine == Engine.N64) 9 else 5) && engine != Engine.GB && File(paths.root, "system/framework/aemu-stubs.jar").isFile) {
                 // 2.0–4.1 look up "bluetooth" instead; without it BluetoothAdapter is null and the vendor's code crashes. On
                 // 2.0/2.1 (API 5-7, Samsung GT-I5500) that is StatusBarService.readQuickPanelSetting, called from systemReady()
                 // in system_server: the NullPointerException kills it and zygote exits with 137.
@@ -747,11 +982,32 @@ class GuestVm(val ctx: Context, val img: GuestImage, val lowPowerBoot: Boolean =
                 startService(GuestService("aemu-wifi", listOf(appProcess,
                     "-Djava.class.path=/${WifiEmu.JAR_PATH}", "/system/bin", "app.aemu.stub.WifiStub"), optional = true))
             }
+            // (well before zygote: apexd of 10+ looks for vold first and only then registers its own service, which the
+            // package manager requires)
+            if (svc.name == "surfaceflinger" && engine == Engine.N64 && kernel.binderVold && File(paths.root, "system/framework/aemu-stubs.jar").isFile) {
+                synchronized(procs) { procs.remove("aemu-vold") }?.let { runCatching { it.destroyForcibly() } }
+                startService(GuestService("aemu-vold", listOf("/system/bin/app_process",
+                    "-Djava.class.path=/system/framework/aemu-stubs.jar", "/system/bin", "app.aemu.stub.VoldStub") + (if (kernel.volumeAtUserStart) listOf("userstart") else emptyList()), optional = true))
+            }
             // 5.0–7.x: a registered network, otherwise ConnectivityService says "no active network" and browsers stay offline
-            if (svc.name == "zygote" && img.api in 21..25 && !wifiOn && engine == Engine.KK && File(paths.root, "system/framework/aemu-stubs.jar").isFile) {
+            if (svc.name == "zygote" && !wifiOn && (if (engine == Engine.N64) kernel.registeredNetwork else img.api in 21..25) && engine != Engine.GB && File(paths.root, "system/framework/aemu-stubs.jar").isFile) {
                 synchronized(procs) { procs.remove("aemu-net") }?.let { runCatching { it.destroyForcibly() } }
                 startStub(GuestService("aemu-net", listOf(appProcess,
-                    "-Djava.class.path=/system/framework/aemu-stubs.jar", "/system/bin", "app.aemu.stub.NetStub"), optional = true))
+                    "-Djava.class.path=/system/framework/aemu-stubs.jar", "/system/bin", "app.aemu.stub.NetStub") + (if (engine == Engine.N64 && Kernel64.forApi(img.api).ethernetStandIn) listOf("ethernet") else emptyList()), optional = true))
+            }
+            if (svc.name == "zygote" && engine == Engine.N64 && kernel.apexStandIn && File(paths.root, "system/framework/aemu-stubs.jar").isFile) {
+                apexStandInList()
+                synchronized(procs) { procs.remove("aemu-apex") }?.let { runCatching { it.destroyForcibly() } }
+                startService(GuestService("aemu-apex", listOf("/system/bin/app_process",
+                    "-Djava.class.path=/system/framework/aemu-stubs.jar", "/system/bin", "app.aemu.stub.ApexStub"), optional = true))
+            }
+            // services the firmware's programs call unchecked and nothing here registers
+            if (svc.name == "zygote" && engine == Engine.N64 && File(paths.root, "system/framework/aemu-stubs.jar").isFile) {
+                val names = Kernel64.forApi(img.api).standInServices.filter { (name, user) ->
+                    runCatching { String(File(paths.root, user.substringBefore('#')).readBytes(), Charsets.ISO_8859_1).contains(user.substringAfter('#', name)) }.getOrDefault(false) }.keys
+                synchronized(procs) { procs.remove("aemu-standin") }?.let { runCatching { it.destroyForcibly() } }
+                if (names.isNotEmpty()) startService(GuestService("aemu-standin", listOf("/system/bin/app_process",
+                    "-Djava.class.path=/system/framework/aemu-stubs.jar", "/system/bin", "app.aemu.stub.StandIn") + names, optional = true))
             }
             if (svc.name == BootMediaServices.LEGACY_LOGO) { LegacyLogoPatch.apply(paths.root, ::log); LegacyLogoPatch.provideHeadsetState(paths.root, ::log) }
             if (svc.name == "zygote" && needsBatteryPropertiesGuard) ensureBatteryProperties(plan)
@@ -826,6 +1082,19 @@ class GuestVm(val ctx: Context, val img: GuestImage, val lowPowerBoot: Boolean =
         val sock = paths.binderSock.absolutePath
         when (engine) {
             Engine.KK -> spawn("binderd", listOf(paths.nativeBin(engine.binderd).absolutePath, "-s", sock), emptyMap())
+            Engine.N64 -> {
+                val env = LinkedHashMap<String, String>()
+                if (File(paths.bin, "binder.verbose").exists()) env["AEMU_BINDER_VERBOSE"] = "1"
+                // the version this firmware's libbinder was seen to insist on (see BinderProtocol); none yet: the daemon's own
+                BinderProtocol.saved(paths.bin)?.let { env[BinderProtocol.ENV] = it.toString(); log("· binder protocol $it (learned from this firmware)") }
+                val bin = paths.nativeBin(kernel.binderd).absolutePath
+                spawn("binderd", listOf(bin, sock), env)
+                if (kernel.treble) {
+                    spawn("hwbinderd", listOf(bin, paths.hwbinderSock.absolutePath), env)
+                    spawn("vndbinderd", listOf(bin, paths.vndbinderSock.absolutePath), env)
+                    log("· Treble hwbinder and vndbinder daemons started")
+                }
+            }
             Engine.GB -> if (File(paths.bin, "binderd.kk").exists()) {
                 // эксперимент: более новый binderd движка KK
                 spawn("binderd", listOf(paths.nativeBin(Engine.KK.binderd).absolutePath, "-s", sock), emptyMap())
@@ -842,6 +1111,15 @@ class GuestVm(val ctx: Context, val img: GuestImage, val lowPowerBoot: Boolean =
         paths.glSock.parentFile?.mkdirs()
         paths.glSock.delete()
         when (engine) {
+            Engine.N64 -> {
+                log("native arm64: graphics are served by the engine's own HALs")
+                // ...except for 32-bit programs, which draw through the 4.4 engine's GPU bridge (its frame file is not shown)
+                if (kernel.gpuBridge32 != null && n64Has32) {
+                    spawn("glserverd", listOf(paths.nativeBin(Engine.KK.glserverd).absolutePath,
+                        "-s", paths.glSock.absolutePath, "-fb", File(paths.bin, "gl32.fb").absolutePath, "-w", "$w", "-h", "$h"), glServerEnv())
+                    waitFor("GL bridge socket", 10_000) { paths.glSock.exists() }
+                }
+            }
             Engine.GB -> {
                 Slot.start(ctx, GlSlot::class.java,
                     listOf("glserverd", "-s", paths.glSock.absolutePath, "-fb", paths.fb.absolutePath, "-w", "$w", "-h", "$h"),
@@ -862,20 +1140,52 @@ class GuestVm(val ctx: Context, val img: GuestImage, val lowPowerBoot: Boolean =
                 log(if (img.api >= 21) "GPU bridge: standalone glserverd" else "in-app GPU bridge failed, falling back to standalone glserverd")
                 spawn("glserverd", listOf(paths.nativeBin(engine.glserverdFor(HostInfo.gpu())).absolutePath,
                     "-s", paths.glSock.absolutePath, "-fb", paths.fb.absolutePath,
-                    "-notify", paths.frameSock.absolutePath, "-w", "$w", "-h", "$h"), emptyMap())
+                    "-notify", paths.frameSock.absolutePath, "-w", "$w", "-h", "$h"), glServerEnv())
                 waitFor("GL bridge socket", 10_000) { paths.glSock.exists() }
             }
         }
     }
 
-    val glInApp: Boolean get() = engine == Engine.KK && GlBridge.running()
+    /** the 4.4 engine's GL server reads every GL call of a client with its own system calls; native/glbuf reads the
+     *  client sockets in large chunks instead (7.1 GLES 2/3 scenes were bound by those reads) */
+    private fun glServerEnv(): Map<String, String> {
+        val buf = paths.nativeBin("libglbuf.so")
+        return if (buf.isFile) mapOf("LD_PRELOAD" to buf.absolutePath) else emptyMap()
+    }
+
+    /** guest files this kernel ships (asset names) */
+    private val engineFiles: Set<String> by lazy { listOf("engines/n64-${kernel.tag}", kernel.gsiAssets).flatMap { runCatching { EngineAssets.layerNames(ctx, it) }.getOrNull().orEmpty() }.toSet() }
 
     /**
-     * The boot plan saved with the image. Images imported before InitPlan learned to ignore MediaTek's
-     * advanced_meta_init.rc (the META-mode copy of init.rc) carry its service definitions instead of the real ones —
-     * netd then got only its "netd" socket, no "dnsproxyd", and exited at once. Such an image gets its plan rebuilt
-     * from the rc files in the tree on every boot, so it does not have to be imported again.
+     * libmedia's MediaProfiles CHECK()s that the file media.settings.xml names can be opened, and aborts when it cannot:
+     * zygote dies in libmedia_jni's preload, mediaserver in its start (MediaProfiles.cpp: CHECK((fp = fopen(xml, "r")))).
+     * A vendor image can name a file its vendor partition does not have (a Wear 9 build: /vendor/etc/media_profiles_vendor.xml).
+     * The name then becomes a link to the firmware's own profiles; with none at all the property is emptied, and libmedia
+     * builds its built-in default.
      */
+    private fun ensureMediaProfiles() = runCatching {
+        val want = props.get("media.settings.xml")?.trim().orEmpty()
+        if (!want.startsWith("/")) return@runCatching
+        val f = File(paths.root, want.removePrefix("/"))
+        if (f.exists()) return@runCatching        // (a link to nothing is not "exists": below it is replaced)
+        val have = listOf("vendor/etc/media_profiles_V1_0.xml", "vendor/etc/media_profiles.xml",
+            "system/etc/media_profiles_V1_0.xml", "system/etc/media_profiles.xml").map { File(paths.root, it) }.firstOrNull { it.isFile }
+        if (have != null) {
+            f.parentFile?.mkdirs()
+            runCatching { android.system.Os.remove(f.absolutePath) }
+            android.system.Os.symlink(f.parentFile!!.toPath().relativize(have.toPath()).toString(), f.absolutePath)
+            log("media: $want was missing, now a link to ${have.relativeTo(paths.root).path}")
+        } else {
+            props.put("media.settings.xml", "")
+            log("media: $want was missing and the firmware has no media_profiles.xml: libmedia's defaults")
+        }
+    }
+
+    private val n64Has32: Boolean get() = paths.nativeBin("libqemu_arm.so").canExecute() &&
+            File(paths.root, "system/bin/app_process32").isFile
+
+    val glInApp: Boolean get() = engine == Engine.KK && GlBridge.running()
+
     /** LPW39: writes system/framework/aemu-imgclasses.zip holding a core-library-only copy of framework.jar's preloaded-classes. */
     private fun writeLpw39ImageClasses(): Boolean = runCatching {
         val fw = File(paths.root, "system/framework/framework.jar")
@@ -903,23 +1213,6 @@ class GuestVm(val ctx: Context, val img: GuestImage, val lowPowerBoot: Boolean =
      */
     private val isLpw39: Boolean by lazy { img.buildId.trim().equals("LPW39", ignoreCase = true) }
 
-    /** The saved/rebuilt plan with healthd forced back to its normal (service-publishing) mode. */
-    private val bootServices: List<GuestService> by lazy { rawBootServices.map { InitPlan.normalHealthd(it) } }
-
-    private val rawBootServices: List<GuestService> by lazy {
-        runCatching {
-            if (!File(paths.root, "advanced_meta_init.rc").isFile) return@runCatching img.services
-            val files = (paths.root.listFiles()?.filter { it.isFile && it.name.endsWith(".rc") }
-                ?.sortedBy { if (it.name == "init.rc") 0 else 1 } ?: emptyList()) +
-                (File(paths.root, "system/etc/init").listFiles()?.filter { it.name.endsWith(".rc") } ?: emptyList())
-            val fresh = InitPlan.plan(InitPlan.parse(files), img.api, paths.root)
-            if (fresh.isEmpty()) img.services else {
-                if (fresh != img.services) log("init plan rebuilt without advanced_meta_init.rc (${fresh.size} services)")
-                fresh
-            }
-        }.getOrDefault(img.services)
-    }
-
     /** app_process, or app_process32 on firmware that has only that. */
     private val appProcess: String get() = AppProcess.path(paths.root)
 
@@ -931,13 +1224,55 @@ class GuestVm(val ctx: Context, val img: GuestImage, val lowPowerBoot: Boolean =
         startService(svc)
     }
 
-    private fun startService(svc: GuestService, propsFile: File? = null) {
+    /**
+     * The services to start, read from the firmware's init.rc at every boot: the list stored at import was made by the
+     * rules of the version that imported it, and fixes to those rules must reach firmware imported earlier. (InitPlan
+     * ignores MediaTek's advanced_meta_init.rc, so images imported before that was learned need no re-import.)
+     */
+    private fun servicePlan(): List<GuestService> = (runCatching {
+        val root = paths.root
+        val props = HashMap<String, String>()
+        for (n in listOf("default.prop", "system/build.prop")) runCatching {
+            File(root, n).forEachLine { l -> val i = l.indexOf('='); if (i > 0 && !l.startsWith("#")) props[l.substring(0, i).trim()] = l.substring(i + 1).trim() }
+        }
+        val rcFiles = (root.listFiles()?.filter { it.isFile && it.name.endsWith(".rc") }?.sortedBy { if (it.name == "init.rc") 0 else 1 } ?: emptyList()) +
+            InitPlan.hwRcFiles(root, props) +
+            listOf("system/etc/init", "vendor/etc/init").flatMap { d -> File(root, d).listFiles()?.filter { it.name.endsWith(".rc") }?.sortedBy { it.name } ?: emptyList() } +
+            // 11+: a module's services are declared inside the module (the software codec service)
+            (File(root, "apex").listFiles()?.sortedBy { it.name }?.flatMap { m -> File(m, "etc").listFiles()?.filter { it.isFile && it.name.endsWith(".rc") }?.sortedBy { it.name } ?: emptyList() } ?: emptyList())
+        InitPlan.plan(InitPlan.parse(rcFiles, props), img.api, root).takeIf { p -> p.any { it.name == "zygote" } }
+    }.getOrNull() ?: img.services.ifEmpty { InitPlan.fallback(img, paths.root) }).map { InitPlan.normalHealthd(it) }
+
+
+    private fun startService(svc0: GuestService, propsFile: File? = null) {
+        // The second zygote is of the other word size than the first. A firmware that ships all three zygote rc files
+        // and does not name one (GSI 10: no ro.zygote) can leave both 64-bit in the plan - then 32-bit apps have no
+        // zygote and system_server dies at boot ("Unsupported zygote ABI: armeabi-v7a").
+        fun is64(path: String?): Boolean = path != null && runCatching {
+            File(paths.root, path.removePrefix("/")).inputStream().use { i -> ByteArray(5).also { i.read(it) }[4].toInt() == 2 }
+        }.getOrDefault(false)
+        val svc = if (svc0.name == "zygote_secondary" && is64(svc0.argv.firstOrNull()) &&
+            is64(img.services.firstOrNull { it.name == "zygote" }?.argv?.firstOrNull()) &&
+            File(paths.root, "system/bin/app_process32").isFile)
+            svc0.copy(argv = listOf("/system/bin/app_process32") + svc0.argv.drop(1)) else svc0
         if (!File(paths.root, svc.argv.first().removePrefix("/")).isFile) {
             log("· ${svc.name}: ${svc.argv.first()} missing, skipping")
             return
         }
+        // a TEE KeyMint (MediaTek/Trustonic/OP-TEE client) aborts at once without a secure world, and a keymint left declared
+        // in the manifests makes keystore2 panic: the program is never started, keystore2 runs its software KeyMint
+        if (engine == Engine.N64 && kernel.treble && Regex("^android\\.hardware\\.security\\.keymint@[0-9.]+-service(\\..*)?$")
+                .matches(svc.argv.first().substringAfterLast('/'))) {
+            log("· ${svc.name}: TEE KeyMint, skipped (keystore2 uses its software KeyMint)")
+            return
+        }
+        if (engine == Engine.N64 && ((svc.name == "zygote_secondary" && !n64Has32) || svc.argv.first().substringAfterLast('/') in N64_SKIP)) return
+        if (engine == Engine.N64 && !paths.nativeBin("libqemu_arm.so").canExecute() && !runsNatively(File(paths.root, svc.argv.first().removePrefix("/")))) {
+            log("· ${svc.name}: 32-bit program, skipped by the native arm64 engine")
+            return
+        }
         val extra = LinkedHashMap<String, String>()
-        for ((sock, mode) in svc.sockets) extra["DHD_SOCK_$sock"] = "${paths.socket(sock).absolutePath},$mode"
+        for ((sock, mode) in svc.sockets) extra["DHD_SOCK_$sock"] = "${paths.socket(sock).absolutePath},${if (engine == Engine.N64) mode else mode.substringBefore(',')}"
         if (svc.uid != 0) { extra["DHD_UID"] = svc.uid.toString(); extra["DHD_GID"] = svc.gid.toString() }
         var props = propsFile
         // звук: с ro.kernel.qemu=1 mediaserver берёт эмуляторный вывод в /dev/eac
@@ -949,8 +1284,31 @@ class GuestVm(val ctx: Context, val img: GuestImage, val lowPowerBoot: Boolean =
         // ("mediaserver,zygote"), or by the debugging file run/strace.<service>
         if (svc.name in VmSettings.straceNames(settings.straceServices) || File(paths.bin, "strace.${svc.name}").exists())
             extra["QEMU_STRACE"] = "1"
-        spawn(svc.name, guestRunner.cmdline(argv, props), guestRunner.env(extra))
+        if (engine == Engine.N64 && props != null) extra["AEMU64_PROPS_FILE"] = props.absolutePath
+        // (8.0, for as long as its keymaster HAL does not register: the linker's own account of every library the
+        // service loads, errors included, goes to the guest log in the diagnostics)
+        if (engine == Engine.N64 && kernel.tag == "26" && svc.name == "keymaster-3-0") extra["LD_DEBUG"] = "2"
+        // the engine's own 64-bit HAL service over a vendor's firmware: its libraries are the engine's copy of its VNDK
+        if (engine == Engine.N64) kernel.ownVndkDir?.let { dir ->
+            val name = svc.argv.first().removePrefix("/").replace('/', '#')
+            if (name.startsWith("vendor#bin#") && name !in kernel.firmwareOwn && File(paths.root, dir).isDirectory &&
+                name in engineFiles && runsNatively(File(paths.root, svc.argv.first().removePrefix("/")))) extra["AEMU64_LIBPATH"] = "/$dir"
+        }
+        if (engine == Engine.N64) kernel.ownLibDirs[svc.argv.first().removePrefix("/").replace('/', '#')]?.let { dir ->
+            // (several directories: "a:b", searched in that order)
+            val dirs = dir.split(':').filter { File(paths.root, it).isDirectory }
+            if (dirs.isNotEmpty()) extra["AEMU64_LIBPATH"] = dirs.joinToString(":") { "/$it" }
+        }
+        spawn(svc.name, guestRunner.cmdline(argv, props), guestRunner.env(extra, svc.argv.first()))
     }
+
+    /** a 64-bit ELF or a script */
+    private fun runsNatively(f: File): Boolean = runCatching {
+        f.inputStream().use { i ->
+            val b = ByteArray(5)
+            i.read(b) == 5 && ((b[0] == 0x7f.toByte() && b[4] == 2.toByte()) || b[0] == 0x23.toByte())
+        }
+    }.getOrDefault(false)
 
     private fun spawn(name: String, cmd: List<String>, env: Map<String, String>) {
         val log = paths.log(name)
@@ -972,6 +1330,9 @@ class GuestVm(val ctx: Context, val img: GuestImage, val lowPowerBoot: Boolean =
         synchronized(procs) { procs[name] = p }
         pidOf(p)?.let { pgids.add(it) }
         log("· $name started")
+        // init publishes every service's state; the framework waits on it (SystemService.waitForState: the WebView
+        // zygote, the boot animation)
+        props.put("init.svc.$name", "running")
         Thread({
             if (!direct) runCatching {
                 OutputStreamWriter(FileOutputStream(log, true)).use { w ->
@@ -981,10 +1342,32 @@ class GuestVm(val ctx: Context, val img: GuestImage, val lowPowerBoot: Boolean =
             }
             val code = runCatching { p.waitFor() }.getOrDefault(-1)
             if (!stopping) log("· $name exited, code $code")
+            if (!stopping && code != 0) learnBinderProtocol(name, log)
             if (!stopping && code != 0 && !QemuFallback.enabled(paths) &&
                 runCatching { QemuFallback.isLinkFailure(QemuFallback.lastRun(log.readText(), name)) }.getOrDefault(false))
                 fallbackToPatchedQemu(name)
+            // a restarted service is already running again under this name
+            synchronized(procs) { if (procs[name].let { it == null || it === p }) props.put("init.svc.$name", "stopped") }
         }, "log-$name").apply { isDaemon = true; start() }
+    }
+
+    private val binderProtocolRetried = java.util.concurrent.atomic.AtomicBoolean(false)
+
+    /**
+     * A program that died on "binder driver version (8) differs from user space version (7)" tells which protocol the
+     * firmware wants. Remember it and start the system again once, with the binder daemons answering that version.
+     */
+    private fun learnBinderProtocol(name: String, log: File) {
+        if (engine != Engine.N64) return
+        val (driver, wanted) = runCatching { BinderProtocol.parseMismatch(QemuFallback.lastRun(log.readText(), name)) }.getOrNull() ?: return
+        if (BinderProtocol.saved(paths.bin) == wanted) {
+            log("✖ $name still wants binder protocol $wanted although ${BinderProtocol.ENV}=$wanted was set: the guest runner of this Android version (libaemu64_${kernel.tag}) does not honour ${BinderProtocol.GUEST_ENV} (only the 8.x kernels 26/27 translate protocol 7)")
+            return
+        }
+        if (!binderProtocolRetried.compareAndSet(false, true)) return
+        BinderProtocol.save(paths.bin, wanted)
+        log("✖ $name: binder driver speaks protocol $driver, the firmware wants $wanted; remembered, starting the system again with protocol $wanted")
+        onPower?.invoke(true, "")
     }
 
     private val qemuFallbackStarted = java.util.concurrent.atomic.AtomicBoolean(false)
@@ -1104,12 +1487,46 @@ class GuestVm(val ctx: Context, val img: GuestImage, val lowPowerBoot: Boolean =
         onPower?.invoke(reboot, reason)
     }
 
+    /**
+     * 12+: the generator of the linker's namespaces takes the active modules from /apex/apex-info-list.xml, which
+     * apexd writes when it mounts them; here they are plain directories, so the list is written from their manifests.
+     */
+    private fun apexInfoList() {
+        val apex = File(paths.root, "apex")
+        val mods = apex.listFiles()?.filter { it.isDirectory && '@' !in it.name && File(it, "apex_manifest.pb").isFile }?.sortedBy { it.name } ?: return
+        if (mods.isEmpty()) return
+        val pre = File(paths.root, "system/apex").list() ?: emptyArray()
+        val sb = StringBuilder("<?xml version=\"1.0\" encoding=\"utf-8\"?>\n<apex-info-list>\n")
+        for (m in mods) {
+            // apex_manifest.pb: field 1 the name, field 2 the version (a varint)
+            val b = File(m, "apex_manifest.pb").readBytes()
+            var i = 0; var version = 1L
+            fun varint(): Long { var v = 0L; var sh = 0; while (i < b.size) { val c = b[i++].toInt(); v = v or ((c and 0x7f).toLong() shl sh); sh += 7; if (c and 0x80 == 0) break }; return v }
+            while (i < b.size) {
+                val tag = varint().toInt()
+                when (tag and 7) { 0 -> { val v = varint(); if (tag shr 3 == 2) version = v }; 2 -> i += varint().toInt(); 1 -> i += 8; 5 -> i += 4; else -> i = b.size }
+            }
+            val file = pre.firstOrNull { it == m.name || it.substringBeforeLast('.') == m.name || it.startsWith(m.name + ".") } ?: m.name
+            sb.append("  <apex-info moduleName=\"${m.name}\" modulePath=\"/system/apex/$file\" preinstalledModulePath=\"/system/apex/$file\" versionCode=\"$version\" versionName=\"\" isFactory=\"true\" isActive=\"true\" />\n")
+        }
+        sb.append("</apex-info-list>\n")
+        File(apex, "apex-info-list.xml").writeText(sb.toString())
+    }
+
+    private fun clientComposition() {
+        runCatching { guestShell("service call SurfaceFlinger 1008 i32 1", 15_000) }
+    }
+
     private fun onProp(k: String, v: String) {
         if (k == "sys.powerctl") { powerRequest(v); return }
         if (k == "service.bootanim.exit") {
             for ((start, name) in BootMediaServices.triggers(paths.root, k, v)) onCtl(start, name)
             if (v == "1") onCtl(false, "bootanim")
         }
+        // SurfaceFlinger has just come up (it resets this before starting the boot animation)
+        if (k == "service.bootanim.exit" && v == "0" && engine == Engine.N64 && kernel.clientComposition)
+            Thread { clientComposition() }.start()
+        if (k == "service.bootanim.exit" && v == "1" && screenUpAt == 0L) screenUpAt = System.currentTimeMillis()
         if ((k == "sys.boot_completed" || k == "dev.bootcomplete") && v == "1" && bootDoneAt == 0L) {
             if (!recoveryMode && !lowPowerBoot) noteBoot.reported(SystemClock.elapsedRealtime())
             bootDoneAt = System.currentTimeMillis()
@@ -1142,8 +1559,59 @@ class GuestVm(val ctx: Context, val img: GuestImage, val lowPowerBoot: Boolean =
         }.onFailure { log("TouchWiz boot media: ${it.message}") }
     }
 
+    /**
+     * The modules ApexStub reports (<root>/apex/.aemu-apexes): name, package file, preinstalled path, version. The
+     * package manager parses the package file itself (its AndroidManifest.xml), so it is the one the importer set
+     * aside when it unpacked the module; the preinstalled path tells it the partition.
+     */
+    private fun apexStandInList() = runCatching {
+        val apex = File(paths.root, "apex")
+        val out = File(apex, ".aemu-apexes")
+        val parked = File(paths.root, "system/.aemu-parked").listFiles()?.filter { it.name.endsWith(".apex") || it.name.endsWith(".capex") }?.sortedBy { it.name } ?: emptyList()
+        if (out.isFile && out.lastModified() >= (parked.maxOfOrNull { it.lastModified() } ?: 0L) && out.length() > 0) return@runCatching
+        fun fields(b: ByteArray): Pair<String?, Long> {
+            var i = 0; var name: String? = null; var version = 1L
+            fun varint(): Long { var v = 0L; var sh = 0; while (i < b.size) { val c = b[i++].toInt(); v = v or ((c and 0x7f).toLong() shl sh); sh += 7; if (c and 0x80 == 0) break }; return v }
+            while (i < b.size) {
+                val tag = varint().toInt()
+                when (tag and 7) {
+                    0 -> { val v = varint(); if (tag shr 3 == 2) version = v }
+                    2 -> { val n = varint().toInt(); if (tag shr 3 == 1 && i + n <= b.size) name = String(b, i, n); i += n }
+                    1 -> i += 8; 5 -> i += 4; else -> i = b.size
+                }
+            }
+            return name to version
+        }
+        val sb = StringBuilder(); val seen = HashSet<String>()
+        for (f in parked) runCatching {
+            val (name, version) = java.util.zip.ZipFile(f).use { z -> fields(z.getInputStream(z.getEntry("apex_manifest.pb")).use { it.readBytes() }) }
+            if (name == null || !seen.add(name) || !File(apex, "$name/apex_manifest.pb").isFile) return@runCatching
+            // "system#apex#x.apex" is where the package was: /system/apex/x.apex
+            val was = "/" + f.name.replace('#', '/')
+            sb.append("$name\t/system/.aemu-parked/${f.name}\t$was\t$version\n")
+        }
+        out.writeText(sb.toString())
+        log("apex stand-in: ${seen.size} modules")
+    }.onFailure { log("apex stand-in: ${it.message}") }
+
     private fun onCtl(start: Boolean, svc: String) {
-        val plan = bootServices.filter { it.name !in InitPlan.NEVER_START }.ifEmpty { InitPlan.fallback(img, paths.root) }
+        if (svc.startsWith("aidl/")) {
+            // a lazy AIDL service (artd of 14+, a skin's daemon): started when servicemanager is asked for it, and
+            // a few times at most, as the question comes every second for as long as the client waits
+            if (!kernel.lazyAidlServices) return
+            if (kernel.apexStandIn && svc == "aidl/apexservice") return
+            val def = InitPlan.lazyAidl(svc.removePrefix("aidl/"), paths.root) ?: return
+            synchronized(procs) {
+                if (procs[def.name]?.isAlive == true) return
+                val n = lazyStarts[def.name] ?: 0
+                if (n >= 3) return
+                lazyStarts[def.name] = n + 1
+            }
+            log("lazy service ${def.name} asked for ($svc)")
+            Thread { runCatching { startService(def) } }.start()
+            return
+        }
+        val plan = servicePlan().filter { it.name !in InitPlan.NEVER_START }.ifEmpty { InitPlan.fallback(img, paths.root) }
         if (svc == "bootanim" || svc == "bootanimation" || svc == "samsungani") {
             if (!start) {
                 // 4.x sets service.bootanim.exit first and the animation quits on its own, closing its audio.
@@ -1229,12 +1697,87 @@ class GuestVm(val ctx: Context, val img: GuestImage, val lowPowerBoot: Boolean =
 
     private fun afterBoot() {
         val r = guestRunner
+        if (skipWizardNow()) return   // the system comes up again and gets here once more
+        // (again: something in the first seconds after the boot completes turns it back off, and it is not known what;
+        // a call made half a minute later stays)
+        if (engine == Engine.N64 && kernel.clientComposition) Thread {
+            for (wait in longArrayOf(0, 10_000, 20_000)) {
+                Thread.sleep(wait)
+                if (state != State.RUNNING) return@Thread
+                clientComposition()
+            }
+        }.start()
         r.run(listOf("/system/bin/sh", "-c", "export PATH=/system/bin:/system/xbin:\$PATH; svc power stayon true"), 60_000)
+        if (engine == Engine.N64 && kernel.webViewSingleProcess)
+            runCatching { guestShell("cmd webviewupdate disable-multiprocess", 30_000) }
         TreeFixer(ctx, paths, img, ::log).noScreenSleep()
         disableBrokenComponents()
+        if (img.api >= 24) runCatching { enableHome() }.onFailure { log("home screen check failed: $it") }
         runCatching {
             ImageStore.update(ctx, img.id) { it.copy(lastBootMs = bootDoneAt - bootAt, bootCount = it.bootCount + 1) }
         }.onFailure { log("boot statistics: could not save: ${it.message}") }
+    }
+
+    /**
+     * The first boot ends in the vendor's setup wizard: the package list it has to be switched off in exists only
+     * now, and the running system keeps its own copy of the settings. Several wizards cannot be passed here at all
+     * (Sony's 4.0 one shows an empty screen, Samsung's waits for the network time), so the system is restarted once,
+     * with the wizard disabled and the device marked as set up while it is down.
+     */
+    private fun skipWizardNow(): Boolean {
+        if (wizardSkipped || zygoteRestarts > 0 || img.bootCount > 0) return false
+        // MIUI ships its own wizard under the AOSP provisioner's name, and it does not finish by itself
+        val wizards = TreeFixer.FIRST_RUN_WIZARDS + (if (File(paths.root, "system/app/miui/miui.apk").isFile) listOf("com.android.provision") else emptyList())
+        val pkgFile = File(paths.root, "data/system/packages.xml")
+        // 12+ keeps its package lists in binary XML (ABX) - and a text one written by request (persist.sys.binary_xml)
+        // is not read back by 14 ("illegal attribute name: :strings"). There the running system is asked instead.
+        if (runCatching { pkgFile.inputStream().use { i -> ByteArray(3).also { i.read(it) } }.contentEquals("ABX".toByteArray()) }.getOrDefault(false)) {
+            val listed = runCatching { guestShell("pm list packages", 60_000) }.getOrDefault("")
+            val wizard = wizards.firstOrNull { listed.lines().any { l -> l.trim() == "package:$it" } } ?: return false
+            wizardSkipped = true
+            plannedRestart = true
+            log("first boot: setup wizard ($wizard) switched off in the running system, restarting it")
+            runCatching { guestShell("settings put global device_provisioned 1; settings put secure user_setup_complete 1; pm disable-user --user 0 $wizard", 60_000) }
+            synchronized(procs) { procs["zygote"] }?.let { z -> pidOf(z)?.let { runCatching { AProcess.sendSignal(it, 9) } } }
+            return true
+        }
+        val pkgs = runCatching { pkgFile.readText() }.getOrNull() ?: return false
+        val restr = runCatching { File(paths.root, "data/system/users/0/package-restrictions.xml").readText() }.getOrDefault("")
+        val wizard = wizards.firstOrNull {
+            pkgs.contains("<package name=\"$it\"") && !Regex("<pkg name=\"${Regex.escape(it)}\"[^>]*enabled=\"2\"").containsMatchIn(restr)
+        } ?: return false
+        wizardSkipped = true
+        plannedRestart = true
+        log("first boot: restarting the system past the setup wizard ($wizard)")
+        synchronized(procs) { procs["zygote"] }?.let { z -> pidOf(z)?.let { runCatching { AProcess.sendSignal(it, 9) } } }
+        return true
+    }
+
+    /**
+     * The home screen of a firmware can ship switched off and be switched on by its setup wizard or by an app that
+     * runs during it (the Google app's launcher activity on Nexus 8.0, turned on for the GoogleHome stub). With the
+     * wizard skipped the only home left is Settings' FallbackHome, a black screen. Then every home activity the
+     * package manager knows of but does not resolve, in a package that has an entry in the app list, is switched on.
+     */
+    private fun enableHome() {
+        val resolved = guestShell("cmd package query-activities --brief -a android.intent.action.MAIN -c android.intent.category.HOME", 30_000)
+        val homes = Regex("""\S+/\S+""").findAll(resolved).map { it.value }.toSet()
+        if (homes.any { !it.endsWith("FallbackHome") }) return
+        val table = guestShell("dumpsys package -f r", 90_000).lines()
+        val off = LinkedHashSet<String>()
+        for (i in table.indices) {
+            if (!table[i].contains("\"android.intent.category.HOME\"")) continue
+            // the component line is the one above the filter's action/category lines
+            val comp = (i downTo maxOf(0, i - 8)).firstNotNullOfOrNull { j -> Regex("""\s[0-9a-f]+ (\S+/\S+) filter""").find(table[j])?.groupValues?.get(1) } ?: continue
+            if (comp !in homes) off += comp
+        }
+        // (not the system's own fallbacks, and not a setup or recovery flow: a launcher's package shows in the app list)
+        val own = homes.map { it.substringBefore('/') }.toSet() + "android"
+        val listed = Regex("""(\S+)/\S+""").findAll(guestShell("cmd package query-activities --brief -a android.intent.action.MAIN -c android.intent.category.LAUNCHER", 30_000))
+            .map { it.groupValues[1] }.toSet()
+        val c = off.firstOrNull { it.substringBefore('/') !in own && it.substringBefore('/') in listed } ?: return
+        log("home screen $c was switched off, switching it on")
+        guestShell("pm enable $c; am start -a android.intent.action.MAIN -c android.intent.category.HOME", 30_000)
     }
 
     /**
@@ -1279,7 +1822,7 @@ class GuestVm(val ctx: Context, val img: GuestImage, val lowPowerBoot: Boolean =
             while (!stopping) {
                 Thread.sleep(3000)
                 if (power.length() > 0) { val v = runCatching { power.readText().trim() }.getOrDefault("reboot"); power.writeText(""); powerRequest(v) }
-                if (img.api >= 21) runCatching { dns.ensure() }
+                if (img.api >= 14) runCatching { dns.ensure() }
                 val dead = synchronized(procs) { procs.filter { !it.value.isAlive }.toList() }
                 for ((name, p) in dead) {
                     if (stopping) break
@@ -1290,7 +1833,7 @@ class GuestVm(val ctx: Context, val img: GuestImage, val lowPowerBoot: Boolean =
                     if (name in setOf("zygote", "surfaceflinger", "mediaserver")) noteBoot.interrupted()
                     // a clean exit (code 0) is the normal end of the animation; anything else is a crash or a kill
                     if (name == "bootanim" && code != 0) checkDeadBootAnimLayer(code)
-                    if (name == "zygote") {
+                    if (name == "zygote" || name == "zygote_secondary") {
                         // 2.x with "Phone GPU" off: the firmware's software renderer (pixelflinger, libGLES_android.so) crashes
                         // under qemu inside SurfaceFlinger, which lives in system_server, so zygote dies with 137 on every boot
                         // and the loop never ends. The GL bridge is the working path: switch it on and restart the VM once.
@@ -1310,8 +1853,9 @@ class GuestVm(val ctx: Context, val img: GuestImage, val lowPowerBoot: Boolean =
                                 continue
                             }
                         }
-                        if (state != State.FAILED && (!everBooted || zygoteRestarts >= 6)) {
-                            failure = if (code == 137) Msg("zygote exited (code $code) — SIGKILL (cause not established)", R.string.vmfail_zygote_exited_sigkill, code)
+                        if (state != State.FAILED && bootDoneAt == 0L && !(everBooted && zygoteRestarts < 6)) {
+                            failure = if (name != "zygote") Msg("$name exited (code $code)" + if (code == 137) " — killed: the phone ran out of memory, or system_server died and took zygote with it (see the guest log)" else "")
+                                else if (code == 137) Msg("zygote exited (code $code) — SIGKILL (cause not established)", R.string.vmfail_zygote_exited_sigkill, code)
                                 else Msg("zygote exited (code $code)", R.string.vmfail_zygote_exited, code)
                             // zygote kills itself with SIGKILL when system_server dies, so 137 is only the end of the chain
                             if (code == 137 && guestLogHas("Failure starting system services"))
@@ -1328,10 +1872,24 @@ class GuestVm(val ctx: Context, val img: GuestImage, val lowPowerBoot: Boolean =
                             if (code == 137 && guestLogHas("No original dex files found"))
                                 failure = Msg("system_server cannot start: the precompiled code of the framework (system/framework/oat) is missing from this container — import the firmware again", R.string.vmfail_system_server_oat_missing)
                             log("✖ $failure"); setState(State.FAILED)
-                        } else if (state != State.FAILED && everBooted) {
-                            zygoteRestarts++
-                            log("✖ zygote crashed (code $code), restarting system ($zygoteRestarts)")
+                        } else if (plannedRestart) {
+                            plannedRestart = false
+                            killZygoteChildren()
+                            TreeFixer(ctx, paths, img, ::log).noScreenSleep()
                             restartZygote()
+                        } else if (state != State.FAILED && (bootDoneAt > 0 || everBooted)) {
+                            zygoteRestarts++
+                            val now = System.currentTimeMillis()
+                            zygoteCrashes.addLast(now)
+                            while (zygoteCrashes.isNotEmpty() && zygoteCrashes.first() < now - 600_000) zygoteCrashes.removeFirst()
+                            val recentCrashesIn1Min = zygoteCrashes.count { it >= now - 60_000 }
+                            if (recentCrashesIn1Min >= 5 || zygoteCrashes.size > 6) {
+                                failure = Msg("system keeps crashing: $name exited $recentCrashesIn1Min times in 1 min (${zygoteCrashes.size} times in 10 min, last code $code)")
+                                log("✖ $failure"); setState(State.FAILED)
+                            } else {
+                                log("✖ $name crashed (code $code), restarting system ($zygoteRestarts)")
+                                restartZygote()
+                            }
                         }
                         continue
                     }
@@ -1347,8 +1905,9 @@ class GuestVm(val ctx: Context, val img: GuestImage, val lowPowerBoot: Boolean =
                         }
                         continue
                     }
-                    val svc = img.services.firstOrNull { it.name == name }
                     val n = restarts.getOrDefault(name, 0)
+                    val svc = img.services.firstOrNull { it.name == name }
+                        ?: if (name.contains("-hal-") && n < 3) servicePlan().firstOrNull { it.name == name } else null
                     // init restarts surfaceflinger and then zygote ("onrestart restart zygote"); without that a
                     // crashed compositor leaves the last frame on screen forever
                     if (name == "surfaceflinger" && svc != null && bootDoneAt > 0 && n < 12) {
@@ -1359,10 +1918,13 @@ class GuestVm(val ctx: Context, val img: GuestImage, val lowPowerBoot: Boolean =
                         continue
                     }
                     // родной audio_policy производителя может падать с нашим HAL — подменяем на AOSP
-                    if (name == "mediaserver" && code == 139 && n == 1) swapAudioPolicy()
+                    if (name == "mediaserver" && (code == 139 || code == 134) && n == 1) swapAudioPolicy()
                     // the AOSP stand-in crashed as well (different service ABI): keep the firmware's own policy for good
-                    if (name == "mediaserver" && code == 139 && n == 2) abandonAospPolicy()
-                    if (svc != null && (svc.restart || name in ALWAYS_RESTART) && code != 137 && code != 143 && n < 12) {
+                    if (name == "mediaserver" && (code == 139 || code == 134) && n == 2) abandonAospPolicy()
+                    // (init restarts every service that is not oneshot; a HAL that leaves when its only client, system_server, is
+                    // restarted would otherwise keep the new system_server waiting for it forever)
+                    val hal = name.contains("-hal-") && n < 3
+                    if (svc != null && (svc.restart || name in ALWAYS_RESTART || hal) && code != 137 && code != 143 && n < 12) {
                         restarts[name] = n + 1
                         log("service $name crashed (code $code), restarting (${n + 1}/12)")
                         runCatching { startService(svc) }
@@ -1387,7 +1949,7 @@ class GuestVm(val ctx: Context, val img: GuestImage, val lowPowerBoot: Boolean =
      * Ставит политику AOSP 4.3 за обёрткой: родная сохраняется, лишние потоки производителя
      * (Samsung: 0..14 против 0..9 в AOSP) обёртка сводит к MUSIC, чтобы AOSP-код не писал за массив.
      */
-    private fun swapAudioPolicy() {
+    private fun swapAudioPolicy(crashed: Boolean = false) {
         if (img.api < 16) return
         val f = File(paths.root, "system/lib/hw/audio_policy.default.so")
         val aosp = File(paths.root, "system/lib/libaemu_apaosp.so")
@@ -1419,13 +1981,27 @@ class GuestVm(val ctx: Context, val img: GuestImage, val lowPowerBoot: Boolean =
             }
             return
         }
-        fun assetSize(n: String) = runCatching { ctx.assets.openFd("engines/kk/$n").use { it.length } }.getOrDefault(-1L)
-        if (aosp.length() == assetSize("audio_policy.default.so") && f.length() == assetSize("audio_policy.wrap.so")) return
+        // the AOSP policy itself crashes in some vendors' audio services (Samsung 4.4: its first output is not found
+        // right after it is added): after three more crashes in a row it is taken out again for good, and mediaserver
+        // runs as it did before the swap
+        val bad = File(paths.root, "system/.aemu-parked/audio_policy.aosp-bad")
+        if (bad.isFile) return
+        fun assetSize(n: String) = runCatching { EngineAssets.size(ctx, "engines/kk/$n") }.getOrDefault(-1L)
+        if (aosp.length() == assetSize("audio_policy.default.so") && f.length() == assetSize("audio_policy.wrap.so")) {
+            if (!crashed) return
+            runCatching {
+                bad.parentFile?.mkdirs(); bad.writeText("")
+                aosp.delete()
+                if (parked.isFile) { parked.copyTo(f, overwrite = true); parked.delete() } else f.delete()
+                log("audio: the AOSP audio_policy crashes here too, removed it")
+            }
+            return
+        }
         runCatching {
             parked.parentFile?.mkdirs()
             if (!parked.isFile && f.isFile) f.copyTo(parked, overwrite = true)
-            ctx.assets.open("engines/kk/audio_policy.default.so").use { i -> aosp.outputStream().use { o -> i.copyTo(o) } }
-            ctx.assets.open("engines/kk/audio_policy.wrap.so").use { i -> f.outputStream().use { o -> i.copyTo(o) } }
+            EngineAssets.open(ctx, "engines/kk/audio_policy.default.so").use { i -> aosp.outputStream().use { o -> i.copyTo(o) } }
+            EngineAssets.open(ctx, "engines/kk/audio_policy.wrap.so").use { i -> f.outputStream().use { o -> i.copyTo(o) } }
             log("audio: firmware audio_policy crashes, installed AOSP one (stock kept)")
         }
     }
@@ -1482,24 +2058,55 @@ class GuestVm(val ctx: Context, val img: GuestImage, val lowPowerBoot: Boolean =
             } finally { bootAnimCheckRunning.set(false) }
         }, "bootanim-layer-check").apply { isDaemon = true; start() }
     }
+    @Volatile private var plannedRestart = false
+    private var wizardSkipped = false
+
+    /** Set by the screen: destroys the view's Surface and creates a new one (a new native window). */
+    @Volatile var resurface: (() -> Unit)? = null
+
+    /**
+     * The in-app GPU bridge (API < 21) holds one EGL window surface on the app's native window, made for the guest's
+     * system_server. When that process is SIGKILLed (planned first-boot restart, crash) the surface stays alive in the
+     * bridge, the window is still connected, and the next system_server cannot create its own on it (EGL_BAD_ALLOC
+     * 0x3003 in glbridge.log: "window did not accept the surface"): the screen stays black. Handing the bridge the
+     * same Surface again changes nothing (same native window), so the view's Surface itself is recreated: the bridge
+     * gets a different native window and drops the old one.
+     */
+    private fun reseatGlSurface() {
+        if (!glInApp) return
+        val cycle = resurface ?: return
+        val old = surface
+        runCatching {
+            cycle()
+            val end = SystemClock.elapsedRealtime() + 4_000
+            while (SystemClock.elapsedRealtime() < end && (surface == null || surface === old)) Thread.sleep(50)
+            log("GPU bridge: screen surface recreated before the system restarts (${if (surface != null && surface !== old) "ok" else "no new surface"})")
+        }
+    }
 
     private fun restartZygote() {
         val z = img.services.firstOrNull { it.name == "zygote" } ?: return
         if (img.api >= 24) runCatching { TreeFixer(ctx, paths, img, ::log).ensureHostPathAlias() }
         bootDoneAt = 0
         setState(State.BOOTING)
+        reseatGlSurface()
         paths.socket("zygote").delete()
+        paths.socket("zygote_secondary").delete()
         // на настоящем ядре дети зиготы гибнут вместе с system_server; здесь они остаются жить и
         // держат ссылки на мёртвые службы (телефония отказывает новому system_server в правах)
         val n = killZygoteChildren()
         if (n > 0) log("killed apps of previous zygote: $n")
         // healthd keeps the battery listener of the dead system_server and stops answering the new one:
         // BatteryService.onStart then blocks in registerListener forever
-        bootServices.firstOrNull { it.name == "healthd" }?.let { h ->
+        servicePlan().firstOrNull { it.name == "healthd" }?.let { h ->
             synchronized(procs) { procs.remove("healthd") }?.let { runCatching { it.destroyForcibly() } }
             runCatching { startService(h) }
         }
         runCatching { startService(z) }
+        img.services.firstOrNull { it.name == "zygote_secondary" }?.let { z2 ->
+            synchronized(procs) { procs.remove("zygote_secondary") }?.let { runCatching { it.destroyForcibly() } }
+            runCatching { startService(z2) }
+        }
     }
 
     private fun guestLogHas(text: String): Boolean = runCatching {
@@ -1521,31 +2128,71 @@ class GuestVm(val ctx: Context, val img: GuestImage, val lowPowerBoot: Boolean =
             // app_process с aemu-stubs.jar — наша заглушка bluetooth_manager, не приложение зиготы
             if (cmd.contains(marker) && cmd.contains("/system/bin/app_process") && !cmd.contains("aemu-stubs.jar") && !cmd.contains("aemu-bt.jar") && !cmd.contains(WifiEmu.JAR_NAME) && !cmd.contains("aemu-sensorhub.jar")) {
                 runCatching { AProcess.sendSignal(pid, 9) }; n++
+            } else if (orphanOfThisImage(d)) {
+                // 7.0+: a zygote child rewrites its whole command line ("system_server"), so the path is gone from it;
+                // what is left of a dead zygote is known by the root in its environment and by having no parent
+                runCatching { AProcess.sendSignal(pid, 9) }; n++
             }
         }
         return n
     }
 
+    /** a guest program of this image whose parent has exited (init of the host adopted it) */
+    private fun orphanOfThisImage(proc: File): Boolean {
+        val status = runCatching { File(proc, "status").readLines() }.getOrNull() ?: return false
+        if (status.none { it.startsWith("PPid:") && it.substringAfter(':').trim() == "1" }) return false
+        val env = runCatching { String(File(proc, "environ").readBytes(), Charsets.ISO_8859_1) }.getOrNull() ?: return false
+        return env.split(0.toChar()).any { it == "AEMU64_ROOT=${paths.root.absolutePath}" || it == "AEMU64_ROOT=${paths.root.canonicalPath}" }
+    }
+
     // ------------------------------------------------------------------ остановка
+
+    /**
+     * Runs one teardown step on its own thread and gives up on it after [timeoutMs]: a component that hangs (a FIFO
+     * nobody reads, a native call) must not keep the whole VM on "stopping system" forever.
+     */
+    private fun step(name: String, timeoutMs: Long = 4_000, action: () -> Unit) {
+        val t = Thread({ runCatching { action() }.onFailure { log("stop: $name failed: $it") } }, "stop-$name").apply { isDaemon = true; start() }
+        t.join(timeoutMs)
+        if (t.isAlive) log("stop: $name did not finish in ${timeoutMs / 1000} s, skipped")
+    }
 
     fun stop() {
         if (state == State.STOPPED) return
         stopping = true
         setState(State.STOPPING)
         log("stopping system")
-        vibration.stop()
-        battery.stop()
-        camera.stop()
-        microphone.stop()
-        bluetooth.stop()
-        motion.stop()
-        runCatching { guestRunner.run(listOf("/system/bin/sync"), 5_000) }
-        killAll()
-        adb.stop(); props.stop(); input.stop(); frames.stop(); ril.stop(); vold.stop(); audio.stop(); net.stop(); dns.stop(); events.stop(); logd.stop()
-        extraStubs.forEach { it.stop() }; extraStubs.clear()
-        lmk?.stop(); lmk = null
-        Keeper.release(ctx)
-        setState(State.STOPPED)
+        try {
+            step("vibration") { vibration.stop() }
+            step("battery", 8_000) { battery.stop() }
+            step("camera") { camera.stop() }
+            step("microphone") { microphone.stop() }
+            step("bluetooth") { bluetooth.stop() }
+            step("motion") { motion.stop() }
+            step("sync", 8_000) { guestRunner.run(listOf("/system/bin/sync"), 5_000) }
+            step("kill") { killAll() }
+            step("adb") { adb.stop() }
+            step("props") { props.stop() }
+            step("input") { input.stop() }
+            step("frames") { frames.stop() }
+            step("ril") { ril.stop() }
+            step("vold") { vold.stop() }
+            step("audio") { audio.stop() }
+            step("net") { net.stop() }
+            step("dns") { dns.stop() }
+            step("events") { events.stop() }
+            step("logd") { logd.stop() }
+            step("lights") { lights.stop() }
+            step("sensors") { sensors.stop() }
+            step("mic") { mic.stop() }
+            step("cameraFeed") { cameraFeed.stop() }
+            step("gl") { GlHost.stop() }
+            step("stubs") { extraStubs.forEach { it.stop() }; extraStubs.clear() }
+            step("lmk") { lmk?.stop(); lmk = null }
+        } finally {
+            runCatching { Keeper.release(ctx) }
+            setState(State.STOPPED)
+        }
     }
 
     private fun killAll() {
@@ -1565,7 +2212,7 @@ class GuestVm(val ctx: Context, val img: GuestImage, val lowPowerBoot: Boolean =
             val pid = d.name.toIntOrNull() ?: return@forEach
             if (pid == mine) return@forEach
             val cmd = runCatching { String(File(d, "cmdline").readBytes(), Charsets.ISO_8859_1).replace('\u0000', ' ') }.getOrNull() ?: return@forEach
-            val ours = (cmd.contains("/images/") && (cmd.contains("libqemu") || cmd.contains("libbinderd") || cmd.contains("libdhdrun") || cmd.contains("libglserverd"))) ||
+            val ours = cmd.contains("libaemu64") || cmd.contains("libbinderd64") || (cmd.contains("/images/") && (cmd.contains("libqemu") || cmd.contains("libbinderd") || cmd.contains("libdhdrun") || cmd.contains("libglserverd"))) ||
                 cmd.startsWith("${ctx.packageName}:binder") || cmd.startsWith("${ctx.packageName}:gl")
             if (ours) { runCatching { AProcess.sendSignal(pid, 9) }; n++ }
         }
@@ -1583,6 +2230,7 @@ class GuestVm(val ctx: Context, val img: GuestImage, val lowPowerBoot: Boolean =
      * "<tool>: not found".
      */
     fun guestShell(cmd: String, timeoutMs: Long = 60_000): String {
+        if (engine == Engine.N64) return guestRunner.run(listOf("/system/bin/sh", "-c", shellPrefix + cmd), timeoutMs).second
         val r = guestRunner
         val path = GuestRunner.shellPath(r.env()["PATH"])
         return r.run(listOf("/system/bin/sh", "-c", GuestRunner.scriptFns(paths.root) + cmd), timeoutMs, mapOf("PATH" to path)).second
@@ -1592,8 +2240,29 @@ class GuestVm(val ctx: Context, val img: GuestImage, val lowPowerBoot: Boolean =
         "-Djava.class.path=/system/framework/aemu-setup.jar", "/system/bin", "app.aemu.setup.RotationCtl"),
         15_000, mapOf("DHD_UID" to "1000", "DHD_GID" to "1000"))
 
-    fun installApk(apkOnSdcard: String): String =
-        guestRunner.run(listOf("/system/bin/pm", "install", "-r", apkOnSdcard), 600_000).second
+    /** Put in front of every guest shell command (menu, adb, terminal): PATH order and the tool wrappers. */
+    val shellPrefix: String get() = "export PATH=/system/bin:/system/xbin:\$PATH; $toolWrappers"
+
+    /**
+     * Shell functions that run the firmware's Java tools (am, pm, input, svc…) through app.aemu.stub.Run, which
+     * calls System.exit() after main(): left alone, the tool's VM waits forever for its binder thread and the command
+     * never returns. Jar and class come from each tool's own script in /system/bin.
+     */
+    private val toolWrappers: String by lazy {
+        val stubs = "/system/framework/aemu-stubs.jar"
+        if (!File(paths.root, stubs.removePrefix("/")).isFile) return@lazy ""
+        val sb = StringBuilder()
+        File(paths.root, "system/bin").listFiles()?.forEach { f ->
+            if (!f.isFile || f.length() > 8_000 || !f.name.matches(Regex("[a-z][a-z0-9_]*"))) return@forEach
+            val text = runCatching { f.readText(Charsets.ISO_8859_1) }.getOrNull() ?: return@forEach
+            val cls = Regex("app_process\\S*\\s+\\S+\\s+([A-Za-z_][\\w.$]*\\.[A-Z][\\w$]*)").find(text)?.groupValues?.get(1) ?: return@forEach
+            val jar = Regex("framework/([\\w.-]+\\.jar)").find(text)?.groupValues?.get(1) ?: return@forEach
+            sb.append("${f.name}() { CLASSPATH=/system/framework/$jar:$stubs app_process /system/bin app.aemu.stub.Run $cls \"\$@\"; }; ")
+        }
+        sb.toString()
+    }
+
+    fun installApk(apkOnSdcard: String): String = guestShell("pm install -r $apkOnSdcard", 600_000)
 
     private fun pidOf(p: Process): Int? {
         var c: Class<*>? = p.javaClass
@@ -1603,6 +2272,53 @@ class GuestVm(val ctx: Context, val img: GuestImage, val lowPowerBoot: Boolean =
             c = c.superclass
         }
         return null
+    }
+
+    /** The 32-bit ABI list of a firmware with no 64-bit side: its own flat property if it has one, else the partition's
+     *  (what init of 10+ derives it from), else its 32-bit entries of the combined list or its primary ABI. */
+    private fun pure32Abilist32(): String {
+        val all = HashMap<String, String>()
+        for (n in listOf("system/build.prop", "vendor/default.prop", "vendor/build.prop", "odm/etc/build.prop", "odm/build.prop",
+            "product/etc/build.prop", "product/build.prop", "system_ext/etc/build.prop", "system_ext/build.prop")) runCatching {
+            File(paths.root, n).takeIf { it.isFile }?.let { f -> PropArea.parseProps(f.readText()).forEach { (k, v) -> if (v.isNotBlank()) all.putIfAbsent(k, v.trim()) } }
+        }
+        val order = (all["ro.product.property_source_order"] ?: "product,product_services,odm,vendor,system").split(',').map { it.trim() }
+        val direct = all["ro.product.cpu.abilist32"]
+            ?: all["ro.vendor.product.cpu.abilist32"]
+            ?: order.firstNotNullOfOrNull { all["ro.product.$it.cpu.abilist32"] }
+        if (direct != null) return direct
+        fun is32(a: String) = !a.contains("64")
+        val combined = (all["ro.product.cpu.abilist"] ?: order.firstNotNullOfOrNull { all["ro.product.$it.cpu.abilist"] })
+            ?.split(',')?.map { it.trim() }?.filter { it.isNotEmpty() && is32(it) }
+        if (!combined.isNullOrEmpty()) return combined.joinToString(",")
+        val abi = (all["ro.product.cpu.abi"] ?: all["ro.product.cpu.abi2"])?.takeIf { is32(it) }
+        return if (abi != null && abi != "armeabi") "$abi,armeabi" else "armeabi-v7a,armeabi"
+    }
+
+    /** What init of 10+ does after reading the property files: ro.product.<what> from the first partition that has
+     *  ro.product.<partition>.<what>, and the fingerprint from its parts. Only where the firmware does not say. */
+    private fun deriveIdentity(later: MutableMap<String, String>) {
+        val all = LinkedHashMap<String, String>()
+        for (n in listOf("system/build.prop", "vendor/default.prop", "vendor/build.prop", "odm/etc/build.prop", "odm/build.prop",
+            "product/etc/build.prop", "product/build.prop", "product_services/build.prop", "system_ext/etc/build.prop", "system_ext/build.prop")) runCatching {
+            File(paths.root, n).takeIf { it.isFile }?.let { f -> PropArea.parseProps(f.readText()).forEach { (k, v) -> all.putIfAbsent(k, v) } }
+        }
+        // (the files init of 10 reads besides the ones above: the odm's and the product's)
+        for (n in listOf("odm/etc/build.prop", "odm/build.prop", "product/etc/build.prop", "product/build.prop", "product_services/build.prop",
+            "system_ext/etc/build.prop", "system_ext/build.prop", "mi_ext/etc/build.prop")) runCatching {
+            File(paths.root, n).takeIf { it.isFile }?.let { f -> PropArea.parseProps(f.readText()).forEach { (k, v) -> later.putIfAbsent(k, v) } }
+        }
+        val order = (all["ro.product.property_source_order"] ?: "product,product_services,odm,vendor,system").split(',')
+        for (what in listOf("brand", "device", "manufacturer", "model", "name")) {
+            if (all.containsKey("ro.product.$what")) continue
+            val v = order.firstNotNullOfOrNull { all["ro.product.${it.trim()}.$what"]?.takeIf { s -> s.isNotEmpty() } } ?: continue
+            all["ro.product.$what"] = v; later.putIfAbsent("ro.product.$what", v)
+        }
+        if (!all.containsKey("ro.build.fingerprint")) {
+            fun p(k: String) = all[k] ?: "unknown"
+            later.putIfAbsent("ro.build.fingerprint", p("ro.product.brand") + "/" + p("ro.product.name") + "/" + p("ro.product.device") + ":" +
+                p("ro.build.version.release") + "/" + p("ro.build.id") + "/" + p("ro.build.version.incremental") + ":" + p("ro.build.type") + "/" + p("ro.build.tags"))
+        }
     }
 
     private fun gmtZone(): String {

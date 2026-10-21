@@ -25,6 +25,7 @@ class AudioOut(
     @Volatile var played = 0L
         private set
     @Volatile var muted = false
+    @Volatile var audioCaptureHook: ((ByteArray, Int, Int) -> Unit)? = null
 
     val fifo: File get() = File(paths.root, dev)
 
@@ -81,6 +82,7 @@ class AudioOut(
                     if (n < 0) break
                     if (n == 0) continue
                     if (played == 0L) log("audio started")
+                    audioCaptureHook?.invoke(buf, 0, n)
                     val t = track
                     if (t != null && !muted) {
                         var off = 0

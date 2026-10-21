@@ -25,9 +25,24 @@ class PropService(private val paths: VmPaths, private val log: (String) -> Unit)
     private val server = UnixServer(paths.socket("property_service"), "props") { c ->
         val din = DataInputStream(c.inputStream)
         val body = ByteArray(128)
-        din.readFully(body)
+        din.readFully(body, 0, 4)
         val b = ByteBuffer.wrap(body).order(ByteOrder.LITTLE_ENDIAN)
         val cmd = b.getInt()
+        if (cmd == 0x00020001) {
+            // protocol 2 (8.0+, taken when ro.property_service.version is 2): lengths before the name and the value,
+            // so a name may be longer than 31 characters, and the client waits for a result
+            fun str(): String {
+                val l = ByteArray(4); din.readFully(l)
+                val n = ByteBuffer.wrap(l).order(ByteOrder.LITTLE_ENDIAN).getInt()
+                if (n < 0 || n > 0xffff) throw java.io.IOException("props: length $n")
+                return String(ByteArray(n).also { din.readFully(it) }, Charsets.UTF_8).substringBefore('\u0000')
+            }
+            val name = str()
+            apply(name, str())
+            c.outputStream.write(ByteArray(4))   // PROP_SUCCESS
+            return@UnixServer
+        }
+        din.readFully(body, 4, 124)
         val name = cstr(body, 4, 32)
         val value = cstr(body, 36, 92)
         if (cmd == 1) apply(name, value) else log("props: unknown command $cmd")
@@ -35,7 +50,7 @@ class PropService(private val paths: VmPaths, private val log: (String) -> Unit)
 
     /** Разворачивает область из шаблона образа и подмешивает сохранённые persist.*. */
     @Synchronized
-    fun prepare(overrides: Map<String, String>): Boolean {
+    fun prepare(overrides: Map<String, String>, defaults: Map<String, String> = emptyMap(), size: Int = PropArea.SIZE): Boolean {
         close()
         val tpl = paths.propsTemplate
         val f = paths.props
@@ -45,6 +60,8 @@ class PropService(private val paths: VmPaths, private val log: (String) -> Unit)
         }
         f.parentFile?.mkdirs()
         tpl.copyTo(f, overwrite = true)
+        // (a larger area for a kernel that asks for one: the C library maps the file whole, whatever its length)
+        if (f.length() < size) runCatching { java.io.RandomAccessFile(f, "rw").use { it.setLength(size.toLong()) } }
         rootOwned(f)
         val a = PropArea.open(f)
         if (a == null) {
@@ -59,6 +76,7 @@ class PropService(private val paths: VmPaths, private val log: (String) -> Unit)
                 if (a.put(p.name, runCatching { p.readText().trim() }.getOrDefault(""))) n++
             }
         }
+        for ((k, v) in defaults) if (a.get(k) == null) a.put(k, v)
         // наши значения важнее сохранённых гостем
         for ((k, v) in overrides) a.put(k, v)
         writes = 0; rejects = 0
@@ -77,6 +95,11 @@ class PropService(private val paths: VmPaths, private val log: (String) -> Unit)
         if (name.isEmpty()) { rejects++; return }
         if (name.startsWith("ctl.")) {
             val what = name.removePrefix("ctl.")
+            // 10+: hwservicemanager asks for the service of an interface by the interface's name until it registers;
+            // those services are started at boot here
+            // (14+: servicemanager starts a lazy AIDL service the same way, as aidl/<name>; that one is not running yet)
+            if (what == "interface_start" && value.startsWith("aidl/")) { onCtl?.invoke(true, value); return }
+            if (what.startsWith("interface_")) return
             onCtl?.invoke(what == "start" || what == "restart", value) ?: log("props: ctl.$what=$value (no services)")
             return
         }

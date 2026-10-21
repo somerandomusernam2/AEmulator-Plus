@@ -36,6 +36,17 @@ object InitPlan {
      *   только если условие выполняется, и перекрывает безусловные (так init применяет их позже, чем on init) —
      *   MIUI/MTK так задают BOOTCLASSPATH для user-сборки.
      */
+    /**
+     * 11+: init.rc and what it imports live in /system/etc/init/hw, all the zygote variants side by side; init takes
+     * the one ro.zygote names. (Before that they are in the root directory, the right variant only.)
+     */
+    fun hwRcFiles(root: File, props: Map<String, String>): List<File> {
+        val zygote = "init.${props["ro.zygote"] ?: "zygote64_32"}.rc"
+        return File(root, "system/etc/init/hw").listFiles()
+            ?.filter { it.isFile && it.name.endsWith(".rc") && (!it.name.startsWith("init.zygote") || it.name == zygote) }
+            ?.sortedBy { if (it.name == "init.rc") "" else it.name } ?: emptyList()
+    }
+
     fun parse(files: List<File>, props: Map<String, String> = emptyMap(), includeCharging: Boolean = false): Rc {
         val services = LinkedHashMap<String, RcService>()
         val exports = LinkedHashMap<String, String>()
@@ -70,14 +81,15 @@ object InitPlan {
                         }
                     }
                     "import" -> cur = null
-                    "setprop" -> if (cur == null && !propTrigger && t.size >= 3 && !t[2].startsWith("$")) setprops.putIfAbsent(t[1], t.drop(2).joinToString(" "))
+                    "setprop" -> if (cur == null && !propTrigger && t.size >= 3 && !t[2].startsWith("$")) setprops.putIfAbsent(t[1], t.drop(2).joinToString(" ").removeSurrounding("\""))   // init takes "" as an empty value (11: sys.shutdown.requested)
                     "export" -> if (t.size >= 3) when (condOk) {
                         null -> if (f == files.first() || t[1] !in exports) exports[t[1]] = t.drop(2).joinToString(" ")
                         true -> condExports[t[1]] = t.drop(2).joinToString(" ")
                         false -> {}
                     }
                     "mkdir" -> if (t.size >= 2) dirs.add(t[1])
-                    "socket" -> cur?.let { if (t.size >= 4) it.sockets[t[1]] = t[3] }
+                    // "<mode>", or "<mode>,<type>" for a socket that is not a stream one (tombstoned: seqpacket)
+                    "socket" -> cur?.let { if (t.size >= 4) it.sockets[t[1]] = if (t[2] == "stream") t[3] else "${t[3]},${t[2]}" }
                     "user" -> cur?.let { if (t.size >= 2) it.user = t[1] }
                     "group" -> cur?.let { if (t.size >= 2) it.group = t[1] }
                     "oneshot" -> cur?.oneshot = true
@@ -108,6 +120,8 @@ object InitPlan {
 
     private val ORDER = listOf(
         Rule("servicemanager", delayMs = 1500),
+        Rule("hwservicemanager", delayMs = 800, minApi = 26),
+        Rule("vndservicemanager", delayMs = 500, minApi = 26),
         Rule("surfaceflinger", delayMs = 2000, minApi = 14),
         Rule("healthd", delayMs = 500, minApi = 19),
         Rule("keystore", delayMs = 300),
@@ -116,12 +130,14 @@ object InitPlan {
         Rule("drm", alt = listOf("drmserver"), delayMs = 500),
         Rule("media", alt = listOf("mediaserver"), delayMs = 1000, restart = true),
         Rule("zygote"),
+        Rule("zygote_secondary", minApi = 21),
     )
 
     /** Строит план загрузки из разобранных rc-файлов; для отсутствующих служб берёт умолчания. */
     fun plan(rc: Rc, api: Int, root: File): List<GuestService> {
         val out = ArrayList<GuestService>()
         for (r in ORDER) {
+            if (r.name == "zygote_secondary" && (rc.setprops["ro.zygote"] == "zygote64" || !File(root, "system/bin/app_process32").isFile)) continue
             val found = (listOf(r.name) + r.alt).firstNotNullOfOrNull { rc.services[it] }
             // Honeycomb (3.x) ROMs run surfaceflinger as an init service (init.rc sets system_init.startsurfaceflinger 0),
             // so system_server waits for it forever; honour the service when the ROM declares it
@@ -131,9 +147,13 @@ object InitPlan {
             // launch app_process32 (defaults() already builds that command line).
             val zygote32Only = r.name == "zygote" &&
                 !File(root, "system/bin/app_process").isFile && File(root, "system/bin/app_process32").isFile
-            val def = found?.takeUnless { zygote32Only }?.let { toService(it, r) } ?: defaults(r.name, api, root)?.let {
+            var def = found?.takeUnless { zygote32Only }?.let { toService(it, r) } ?: defaults(r.name, api, root)?.let {
                 it.copy(waitSocket = r.waitSocket, delayMs = r.delayMs, restart = r.restart)
             } ?: continue
+            // 8.0+ installd is a binder service: there is no socket to wait for
+            if (r.name == "installd" && api >= 26) def = def.copy(waitSocket = null, delayMs = 300)
+            // 10+: netd is reached over binder too
+            if (r.name == "netd" && api >= 29) def = def.copy(waitSocket = null, delayMs = 500)
             if (!File(root, def.argv.first().removePrefix("/")).isFile) continue
             out.add(normalHealthd(def))
         }
@@ -142,17 +162,45 @@ object InitPlan {
         val extras = rc.services.values.filter { sv ->
             val bin = sv.argv.first()
             val base = bin.substringAfterLast('/')
-            !sv.disabled && !sv.oneshot && sv.cls != "charger" && !isLpm(sv.name, base, sv.cls) &&
+            // (a HAL marked oneshot is one its client restarts: the audio service)
+            (!sv.disabled || isThermalHal(sv)) && (!sv.oneshot || bin.substringBeforeLast('/').endsWith("/bin/hw")) && sv.cls != "charger" && !isLpm(sv.name, base, sv.cls) &&
                 sv.name !in known && sv.name !in SKIP && base !in SKIP_BIN &&
                 // префиксом совпадают только явные «xxx_» и длинные имена: иначе «sh» отсекал бы shelld (MIUI) и т.п.
-                SKIP_BIN.none { base == it || ((it.endsWith("_") || it.length >= 5) && base.startsWith(it)) } && !base.endsWith(".sh") &&
-                (bin.startsWith("/system/bin/") || bin.startsWith("/system/xbin/") || bin.startsWith("/vendor/bin/")) &&
+                // Samsung's sensorhubservice is a binder service system_server waits for without a timeout (S4/S5 TouchWiz), not a sensor daemon
+                (base == "sensorhubservice" || SKIP_BIN.none { base == it || ((it.endsWith("_") || it.length >= 5) && base.startsWith(it)) }) && !base.endsWith(".sh") &&
+                // (10+: the software codec service is a program of its APEX module)
+                (bin.startsWith("/system/bin/") || bin.startsWith("/system/xbin/") || bin.startsWith("/vendor/bin/") || bin.startsWith("/apex/")) &&
                 File(root, bin.removePrefix("/")).isFile
-        }.map { sv -> GuestService(sv.name, sv.argv, sv.sockets.toMap(), delayMs = 200, optional = true) }
+        }.map { sv -> GuestService(sv.name, sv.argv, sv.sockets.toMap(), delayMs = 200, optional = true,
+            // the camera service connects to itself (the API 1 parameters of each camera) and trusts that call only
+            // from its own uid or the media one, never from root
+            // (the program exists from 7.0 on, and 7.x checks the same way)
+            uid = if (sv.name == "cameraserver") 1047 else 0, gid = if (sv.name == "cameraserver") 1047 else 0,
+            // 8.0+: a service without a class is in none of the classes init starts (the WebView zygotes, which
+            // system_server starts itself for the ABI of the WebView package)
+            onDemand = api >= 26 && sv.cls == "default") }
+        // Treble (8.0+): the HALs are programs of their own (/vendor/bin/hw), and surfaceflinger, keystore and
+        // system_server wait for the ones the vendor manifest lists: they go up right after the service managers
+        val (hals, rest) = extras.partition { it.argv.first().substringBeforeLast('/').endsWith("/bin/hw") }
+        val sf = out.indexOfFirst { it.name == "surfaceflinger" }.let { if (it < 0) out.size else it }
+        out.addAll(sf, hals.map { it.copy(delayMs = 100, optional = false) })
         val z = out.indexOfFirst { it.name == "zygote" }.let { if (it < 0) out.size else it }
-        out.addAll(z, extras)
+        out.addAll(z, rest)
         // Samsung 2.x boot logo + sound (playlogos1 is a oneshot, so the filter above never picks it up)
         return BootMediaServices.withLegacyLogo(out, root, api)
+    }
+
+    /**
+     * The thermal HAL (android.hardware.thermal-service.*, service vendor.thermal-hal) is declared "disabled" in its rc:
+     * the vendor init starts it by name from its own init.<board>.rc, and this plan never runs those triggers. Android 14's
+     * system_server (ThermalManagerService) waits for android.hardware.thermal.IThermal/default with no timeout,
+     * so it logged "Waited one second for ...IThermal/default" forever and the boot never went on. The binary only
+     * reads /sys/devices/virtual/thermal (served by ThermalSysfs), so it is started like the other HALs of /bin/hw.
+     */
+    private fun isThermalHal(sv: RcService): Boolean {
+        val bin = sv.argv.first()
+        return bin.substringBeforeLast('/').endsWith("/bin/hw") &&
+            (sv.name.contains("thermal", true) || bin.substringAfterLast('/').contains("thermal-service", true))
     }
 
     /** Службы init, которые не запускаем: их роль играет хост, или они лезут в железо. */
@@ -181,6 +229,14 @@ object InitPlan {
         else s
 
     private val SKIP = setOf(
+        // lpm: Samsung's charging screen of a phone that is off; started like a service it powers the guest off
+        "lpm",
+        // kpoc_charger: the same on MediaTek firmware (kernel power-off charging)
+        "kpoc_charger",
+        // mtkbt: MediaTek's Bluetooth stack daemon; without its chip it fills the log with thousands of lines a second
+        "mtkbt",
+        // mountd (1.0-1.5): cannot mount a block device here; the host answers on its socket instead (VoldStub)
+        "mountd",
         "ueventd", "vold", "rild", "ril-daemon", "adbd", "debuggerd", "debuggerd64", "console", "dbus", "bluetoothd",
         "btld", "wpa_supplicant", "p2p_supplicant", "dhcpcd", "racoon", "mtpd", "qemud", "goldfish-setup", "goldfish-logcat",
         "dumpstate", "flash_recovery", "recovery", "redbend_ua", "sreadaheadd", "lpm", "lpmkey", "playlpm", "charger", "macloader",
@@ -216,9 +272,16 @@ object InitPlan {
     /** Умолчания для образов без init.rc (например, только /system из прошивки). */
     fun defaults(name: String, api: Int, root: File): GuestService? = when (name) {
         "servicemanager" -> GuestService("servicemanager", listOf("/system/bin/servicemanager"))
+        "hwservicemanager" -> if (File(root, "system/bin/hwservicemanager").isFile)
+            GuestService("hwservicemanager", listOf("/system/bin/hwservicemanager"), mapOf("hwservicemanager" to "0660")) else null
+        "vndservicemanager" -> if (File(root, "system/bin/vndservicemanager").isFile)
+            GuestService("vndservicemanager", listOf("/system/bin/vndservicemanager", "/dev/vndbinder")) else null
         "surfaceflinger" -> if (api >= 14) GuestService("surfaceflinger", listOf("/system/bin/surfaceflinger")) else null
-        "healthd" -> if (File(root, "sbin/healthd").isFile) GuestService("healthd", listOf("/sbin/healthd")) else null
-        "keystore" -> GuestService("keystore", listOf("/system/bin/keystore", "/data/misc/keystore"))
+        // (8.0+: in /system, with its service line in the ramdisk's init.rc a system-only image comes without)
+        "healthd" -> listOf("/sbin/healthd", "/system/bin/healthd").firstOrNull { File(root, it.drop(1)).isFile }?.let { GuestService("healthd", listOf(it)) }
+        // up to 4.2 keystore serves its own control socket and exits at once without it (4.3+: binder)
+        "keystore" -> GuestService("keystore", listOf("/system/bin/keystore", "/data/misc/keystore"),
+            if (api <= 17) mapOf("keystore" to "0666") else emptyMap())
         "installd" -> GuestService("installd", listOf("/system/bin/installd"), mapOf("installd" to "0600"))
         "netd" -> GuestService("netd", listOf("/system/bin/netd"),
             if (api >= 14) mapOf("netd" to "0660", "dnsproxyd" to "0660", "mdns" to "0660") else mapOf("netd" to "0660"))
@@ -226,10 +289,19 @@ object InitPlan {
         "drm", "drmserver" -> if (api >= 11) GuestService("drmserver", listOf("/system/bin/drmserver")) else null
         "zygote" -> {
             val app = when {
+                File(root, "system/bin/app_process64").isFile -> "/system/bin/app_process64"
                 File(root, "system/bin/app_process32").isFile && !File(root, "system/bin/app_process").isFile -> "/system/bin/app_process32"
                 else -> "/system/bin/app_process"
             }
-            GuestService("zygote", listOf(app, "-Xzygote", "/system/bin", "--zygote", "--start-system-server"), mapOf("zygote" to "0666"))
+            // 10+: zygote takes a second socket from init, for its pool of spare app processes, and stops without it
+            GuestService("zygote", listOf(app, "-Xzygote", "/system/bin", "--zygote", "--start-system-server") + (if (api >= 29) listOf("--socket-name=zygote") else emptyList()),
+                mapOf("zygote" to "0666") + (if (api >= 29) mapOf("usap_pool_primary" to "0660") else emptyMap()))
+        }
+        "zygote_secondary" -> {
+            val app = if (File(root, "system/bin/app_process32").isFile) "/system/bin/app_process32" else null
+            if (app != null && File(root, "system/bin/app_process64").isFile) {
+                GuestService("zygote_secondary", listOf(app, "-Xzygote", "/system/bin", "--zygote", "--socket-name=zygote_secondary"), mapOf("zygote_secondary" to "0666") + (if (api >= 29) mapOf("usap_pool_secondary" to "0660") else emptyMap()))
+            } else null
         }
         else -> null
     }
@@ -238,6 +310,26 @@ object InitPlan {
     fun optional(name: String, img: GuestImage, root: File): GuestService? = when (name) {
         "bootanim", "bootanimation", "samsungani", "playsound", BootMediaServices.LEGACY_LOGO -> BootMediaServices.resolve(root, name)
         else -> null
+    }
+
+    /**
+     * The service init would start when servicemanager is asked for a lazy AIDL interface ("interface aidl <name>" in
+     * its .rc entry): artd of 14+, which system_server waits for at the first boot, or a skin's own daemon.
+     */
+    fun lazyAidl(iface: String, root: File): GuestService? {
+        val dirs = listOf("system/etc/init", "system_ext/etc/init", "system/system_ext/etc/init", "product/etc/init", "system/product/etc/init").map { File(root, it) } +
+            File(root, "apex").listFiles().orEmpty().map { File(it, "etc") }
+        for (f in dirs.flatMap { d -> d.listFiles().orEmpty().filter { it.isFile && it.name.endsWith(".rc") }.sortedBy { it.name } }) {
+            var name = ""; var argv = emptyList<String>()
+            for (raw in runCatching { f.readLines() }.getOrDefault(emptyList())) {
+                val t = raw.trim().split(Regex("\\s+"))
+                if (t[0] == "service" && t.size >= 3) { name = t[1]; argv = t.drop(2) }
+                else if (t[0] == "on") name = ""
+                else if (t[0] == "interface" && t.size >= 3 && t[1] == "aidl" && t[2] == iface && name.isNotEmpty() &&
+                    File(root, argv.first().removePrefix("/")).isFile) return GuestService(name, argv, uid = 0, gid = 0)
+            }
+        }
+        return null
     }
 
     fun fallback(img: GuestImage, root: File): List<GuestService> =

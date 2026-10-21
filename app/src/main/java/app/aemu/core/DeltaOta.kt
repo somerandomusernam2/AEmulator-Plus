@@ -1285,10 +1285,12 @@ object DeltaOta {
                     f.writeBytes(nb)
                     newBoot = Staged(f, bootFile, null, false)
                     val oldRd = runCatching { BootPartitionImport.validate(BootImage.ramdisk(bootOld) ?: emptyList()) }.getOrDefault(emptyList())
-                    val newRd = try {
+                    // a kernel-only (GKI) boot image has no ramdisk before or after: only boot.img itself is replaced
+                    val keepsNoRamdisk = oldRd.isEmpty() && BootImage.isKernelOnly(nb)
+                    val newRd = if (keepsNoRamdisk) emptyList<BootImage.CpioEntry>() else try {
                         BootPartitionImport.validate(BootImage.ramdisk(nb) ?: throw OtaException("the patched boot image has no ramdisk", R.string.ota_the_patched_boot_image_has_no))
                     } catch (e: IllegalArgumentException) { throw OtaException("the patched boot ramdisk was rejected: ${e.message}", R.string.ota_the_patched_boot_ramdisk_was_rejected, e.message) }
-                    if (newRd.none { it.name == "init.rc" }) throw OtaException("the patched boot ramdisk has no init.rc", R.string.ota_the_patched_boot_ramdisk_has_no)
+                    if (!keepsNoRamdisk && newRd.none { it.name == "init.rc" }) throw OtaException("the patched boot ramdisk has no init.rc", R.string.ota_the_patched_boot_ramdisk_has_no)
                     val oldBy = oldRd.associateBy { it.name.trimEnd('/') }
                     val newBy = newRd.associateBy { it.name.trimEnd('/') }
                     var k = 0

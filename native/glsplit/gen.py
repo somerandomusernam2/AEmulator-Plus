@@ -4,9 +4,9 @@ GL-моста /system/lib/egl/libGLES_bridge.so. Функции из SPECIAL р�
 syms = [s.strip() for s in open('symbols.txt') if s.strip()]
 SPECIAL = {'glPixelStorei', 'glTexImage2D', 'glTexSubImage2D', 'glBindBuffer', 'eglCreateContext', 'eglMakeCurrent',
            'glVertexAttribPointer', 'glEnableVertexAttribArray', 'glDisableVertexAttribArray', 'glDrawArrays', 'glDrawElements',
-           'glBindTexture', 'glEGLImageTargetTexture2DOES', 'glDeleteTextures', 'eglSwapBuffers', 'eglCreateWindowSurface', 'eglGetProcAddress', 'eglCreateImageKHR'}
+           'glBindTexture', 'glEGLImageTargetTexture2DOES', 'glDeleteTextures', 'eglSwapBuffers', 'eglCreateWindowSurface', 'eglGetProcAddress', 'eglCreateImageKHR', 'glViewport'}
 # called from split.c but still exported as plain stubs
-HELPERS = {'glGenBuffers', 'glDeleteBuffers', 'glBufferData', 'glBufferSubData', 'eglCreatePbufferSurface', 'eglGetConfigAttrib', 'eglChooseConfig'}
+HELPERS = {'glGenBuffers', 'glDeleteBuffers', 'glBufferData', 'glBufferSubData', 'eglCreatePbufferSurface', 'eglGetConfigAttrib', 'eglChooseConfig', 'eglQuerySurface', 'glScissor', 'glMatrixMode', 'glLoadIdentity', 'glOrthof'}
 import re
 # функции, которых нет в ES 1.x: в контексте ES1 переходник делает их пустыми (см. split.c)
 ES2ONLY = re.compile(r'^gl(?!.*(OES|EXT|APPLE|IMG|QCOM|NV|AMD|ANGLE|ARM)$)(.*(Shader|Program|Uniform|VertexAttrib|AttribLocation|'

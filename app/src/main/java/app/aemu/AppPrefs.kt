@@ -115,6 +115,10 @@ object AppPrefs {
     fun library3d(ctx: Context): Boolean = sp(ctx).getBoolean("library_3d", false)
     fun setLibrary3d(ctx: Context, v: Boolean) = sp(ctx).edit().putBoolean("library_3d", v).apply()
 
+    /** New grid home screen (default) instead of the classic card list. */
+    fun newHome(ctx: Context): Boolean = sp(ctx).getBoolean("new_home", true)
+    fun setNewHome(ctx: Context, v: Boolean) = sp(ctx).edit().putBoolean("new_home", v).apply()
+
     fun lastUpdateCheck(ctx: Context): Long = sp(ctx).getLong("last_update_check", 0L)
     fun setLastUpdateCheck(ctx: Context, v: Long) = sp(ctx).edit().putLong("last_update_check", v).apply()
 
@@ -135,24 +139,39 @@ object AppPrefs {
             trackballDpad = p.getBoolean("def_trackball_dpad", false),
             trackballStepDp = p.getInt("def_trackball_step", 18).coerceIn(4, 48),
             keepScreenOn = p.getBoolean("def_awake", d.keepScreenOn),
+            showLed = p.getBoolean("def_led", d.showLed),
         )
     }
 
     fun setDefaults(ctx: Context, s: VmSettings) = sp(ctx).edit()
         .putBoolean("def_gpu", s.gpu).putBoolean("def_jit", s.jit).putBoolean("def_proxy", s.netProxy)
-        .putBoolean("def_nav", s.showNavBar).putBoolean("def_awake", s.keepScreenOn)
+        .putBoolean("def_nav", s.showNavBar).putBoolean("def_awake", s.keepScreenOn).putBoolean("def_led", s.showLed)
         .putString("def_nav_buttons", s.navButtons).putBoolean("def_trackball", s.trackball)
         .putBoolean("def_trackball_dpad", s.trackballDpad).putInt("def_trackball_step", s.trackballStepDp).apply()
 
     /** Контекст с выбранным языком — для attachBaseContext каждой активности. */
+    /**
+     * Language and theme of the app applied to an activity's resources. The theme goes into the night bits of
+     * uiMode: values-night (window background), isSystemInDarkTheme and enableEdgeToEdge's status bar icons then
+     * follow the app's choice — before, a dark app theme on a light system kept a white window background and dark,
+     * invisible status bar icons.
+     */
     fun wrap(base: Context): Context {
         val tag = language(base)
-        if (tag.isEmpty()) return base
-        val loc = Locale.forLanguageTag(tag)
-        Locale.setDefault(loc)
+        val night = when (theme(base)) {
+            THEME_LIGHT -> Configuration.UI_MODE_NIGHT_NO
+            THEME_DARK -> Configuration.UI_MODE_NIGHT_YES
+            else -> -1
+        }
+        if (tag.isEmpty() && night < 0) return base
         val cfg = Configuration(base.resources.configuration)
-        cfg.setLocale(loc)
-        cfg.setLayoutDirection(loc)
+        if (tag.isNotEmpty()) {
+            val loc = Locale.forLanguageTag(tag)
+            Locale.setDefault(loc)
+            cfg.setLocale(loc)
+            cfg.setLayoutDirection(loc)
+        }
+        if (night >= 0) cfg.uiMode = (cfg.uiMode and Configuration.UI_MODE_NIGHT_MASK.inv()) or night
         return base.createConfigurationContext(cfg)
     }
 }

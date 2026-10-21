@@ -3,10 +3,11 @@ package app.aemu.core
 import android.system.Os
 import app.aemu.importer.BootImage
 import java.io.File
+import java.io.RandomAccessFile
 
 /**
  * Recovery mode: the ramdisk of a recovery.img (stock, TWRP, OrangeFox, CWM…) unpacked into <image>/recovery.
- * The VM runs its /sbin/recovery under qemu with that folder as "/", sharing the system's framebuffer and touch.
+ * The VM runs its /sbin/recovery under translator (or natively on arm64/aarch32) sharing the framebuffer and touch.
  */
 object RecoveryImage {
     fun dir(paths: VmPaths) = File(paths.dir, "recovery")
@@ -30,6 +31,15 @@ object RecoveryImage {
     }
 
     fun kind(paths: VmPaths): Kind = kindOf(dir(paths))
+
+    fun isElf64(paths: VmPaths): Boolean = File(dir(paths), "sbin/recovery").let { f ->
+        f.isFile && runCatching {
+            f.inputStream().use {
+                val b = ByteArray(5)
+                it.read(b) == 5 && b[0] == 0x7f.toByte() && b[1] == 'E'.code.toByte() && b[2] == 'L'.code.toByte() && b[3] == 'F'.code.toByte() && b[4] == 2.toByte()
+            }
+        }.getOrDefault(false)
+    }
 
     /** Unpacks a recovery (or boot) image; false when it holds no /sbin/recovery. */
     fun install(paths: VmPaths, image: ByteArray, log: (String) -> Unit): Boolean {
@@ -72,33 +82,68 @@ object RecoveryImage {
     )
 
     /** Runtime pieces the ramdisk lacks: device nodes qemu emulates, mount points, the shared framebuffer. */
-    fun prepare(paths: VmPaths, sdcard: File?, log: (String) -> Unit = {}, api: Int = 0): Prepared {
+    fun prepare(paths: VmPaths, sdcard: File?, log: (String) -> Unit = {}, api: Int = 0, settings: VmSettings? = null): Prepared {
         val r = dir(paths)
-        for (d in listOf("dev/graphics", "dev/input", "tmp", "cache", "data", "system", "sdcard", "proc", "sys")) File(r, d).mkdirs()
+        for (d in listOf("dev/graphics", "dev/input", "tmp", "cache", "data", "system", "sdcard", "proc", "sys", "etc")) File(r, d).mkdirs()
         // no tty0: minui gives up on graphics when it opens one but KDSETMODE fails; without it, it skips the step
         File(r, "dev/tty0").delete()
-        // its own framebuffer (qemu only emulates an fb0 inside the guest root; links out of it are not followed
-        // or not allowed), sized like the system's; the screen view shows it in recovery mode
+
+        // Sizing framebuffer: TWRP and minui expect at least 2 pages of double buffering.
         val fb = fb(paths)
-        val size = paths.fb.length().takeIf { it > 0 } ?: 0L
+        val (w, h) = runCatching { File(paths.root, "dhd.fbgeom").readText().trim().split(Regex("\\s+")).map { it.toInt() } }
+            .getOrNull()?.takeIf { it.size >= 2 }?.let { it[0] to it[1] } ?: ((settings?.width ?: 720) to (settings?.height ?: 1280))
+        val minSize = (w.toLong() * h * 4 * 2).coerceAtLeast(paths.fb.length())
         runCatching {
             if (java.nio.file.Files.isSymbolicLink(fb.toPath())) fb.delete()
-            if (size > 0 && fb.length() != size) java.io.RandomAccessFile(fb, "rw").use { it.setLength(size) }
+            fb.parentFile?.mkdirs()
+            if (!fb.exists() || fb.length() < minSize) {
+                RandomAccessFile(fb, "rw").use { it.setLength(minSize) }
+            }
         }
-        // dynamic recoveries (TWRP) get librecshim.so preloaded: mount points look mounted, reboot reaches the host
+
+        // dynamic recoveries (TWRP, OrangeFox) get librecshim.so preloaded: mount points look mounted, evdev ioctls answered
         runCatching {
-            // + the system's guest shim: it runs #! scripts (qemu only starts ELF), e.g. installers inside zips
             for (lib in listOf("librecshim.so", "libaemushim.so")) {
-                paths.ctx.assets.open("engines/common/$lib").use { i -> File(r, "sbin/$lib").outputStream().use { i.copyTo(it) } }
+                EngineAssets.open(paths.ctx, "engines/common/$lib").use { i -> File(r, "sbin/$lib").outputStream().use { i.copyTo(it) } }
                 File(r, "sbin/$lib").setReadable(true, false)
             }
         }
         File(r, "dev/aemu_power").let { if (!it.exists()) it.createNewFile() }
-        runCatching { File(r, "dhd.fbgeom").writeText(File(paths.root, "dhd.fbgeom").readText()) }
+        runCatching { File(r, "dhd.fbgeom").writeText("$w $h\n") }
+
+        // Virtual mount table for TWRP/OrangeFox: redirected from /proc/mounts and /proc/self/mounts
+        val mounts = """
+rootfs / rootfs rw,relatime 0 0
+tmpfs /dev tmpfs rw,nosuid,relatime,mode=755 0 0
+devpts /dev/pts devpts rw,relatime,mode=600 0 0
+proc /proc proc rw,relatime 0 0
+sysfs /sys sysfs rw,relatime 0 0
+/dev/block/bootdevice/by-name/system /system ext4 rw,relatime 0 0
+/dev/block/bootdevice/by-name/userdata /data ext4 rw,relatime 0 0
+/dev/block/bootdevice/by-name/cache /cache ext4 rw,relatime 0 0
+/dev/block/bootdevice/by-name/boot /boot emmc rw,relatime 0 0
+/dev/block/bootdevice/by-name/recovery /recovery emmc rw,relatime 0 0
+/data/media/0 /sdcard vfat rw,relatime 0 0
+""".trimIndent()
+        runCatching { File(r, "tmp/aemu_mounts").writeText(mounts + "\n") }
+
+        // TWRP theme density & flags in default.prop
+        runCatching {
+            val defProp = File(r, "default.prop")
+            val existing = if (defProp.isFile) defProp.readText() else ""
+            val density = settings?.density?.takeIf { it > 0 } ?: 320
+            val sb = java.lang.StringBuilder(existing)
+            if (!existing.contains("ro.sf.lcd_density")) sb.append("\nro.sf.lcd_density=$density\n")
+            if (!existing.contains("ro.twrp.boot")) sb.append("ro.twrp.boot=1\n")
+            if (!existing.contains("ro.boot.recovery")) sb.append("ro.boot.recovery=1\n")
+            if (!existing.contains("ro.product.model")) sb.append("ro.product.model=AEmulator Guest\n")
+            defProp.writeText(sb.toString())
+        }
+
         // the system's partitions and memory card, for recoveries that browse or flash files
-        for ((name, target) in listOf("system" to File(paths.root, "system"), "data" to File(paths.root, "data"))) {
+        for ((name, target) in listOf("system" to File(paths.root, "system"), "data" to File(paths.root, "data"), "cache" to File(paths.root, "cache"))) {
             val link = File(r, name)
-            if (!java.nio.file.Files.isSymbolicLink(link.toPath()) && link.isDirectory && !hasFiles(link)) {
+            if (!java.nio.file.Files.isSymbolicLink(link.toPath()) && (!link.exists() || (link.isDirectory && !hasFiles(link)))) {
                 ImageStore.wipe(link); runCatching { Os.symlink(target.absolutePath, link.path) }
             }
         }

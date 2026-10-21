@@ -70,6 +70,79 @@ object ElfPatch {
         return out
     }
 
+    /** What an ELF64 file defines and what it needs from others (undefined, not weak), by its .dynsym section; null when unreadable. */
+    class DynSyms(val defined: Set<String>, val undefined: Set<String>)
+
+    fun dynSyms64(f: File): DynSyms? {
+        if (f.length() < 64 || f.length() > 64L shl 20) return null
+        val d = runCatching { f.readBytes() }.getOrNull() ?: return null
+        if (d[0] != 0x7f.toByte() || d[1] != 'E'.code.toByte() || d[4] != 2.toByte()) return null
+        val b = ByteBuffer.wrap(d).order(ByteOrder.LITTLE_ENDIAN)
+        val shoff = b.getLong(40); val shentsize = b.getShort(58).toInt() and 0xffff; val shnum = b.getShort(60).toInt() and 0xffff
+        if (shoff <= 0 || shentsize < 64 || shoff + shnum.toLong() * shentsize > d.size) return null
+        for (i in 0 until shnum) {
+            val sh = (shoff + i.toLong() * shentsize).toInt()
+            if (b.getInt(sh + 4) != 11) continue                                  // SHT_DYNSYM
+            val off = b.getLong(sh + 24); val size = b.getLong(sh + 32); val link = b.getInt(sh + 40)
+            if (link <= 0 || link >= shnum || off < 0 || off + size > d.size) return null
+            val strSh = (shoff + link.toLong() * shentsize).toInt()
+            val strOff = b.getLong(strSh + 24); val strSize = b.getLong(strSh + 32)
+            if (strOff < 0 || strOff + strSize > d.size) return null
+            fun name(n: Int): String {
+                var e = (strOff + n).toInt(); val s0 = e
+                while (e < d.size && d[e] != 0.toByte()) e++
+                return String(d, s0, e - s0, Charsets.US_ASCII)
+            }
+            val defined = HashSet<String>(); val undefined = HashSet<String>()
+            var o = off + 24
+            while (o + 24 <= off + size) {
+                val nm = b.getInt(o.toInt()); val bind = (d[(o + 4).toInt()].toInt() and 0xff) shr 4; val shndx = b.getShort((o + 6).toInt()).toInt() and 0xffff
+                if (nm != 0) {
+                    if (shndx != 0) defined.add(name(nm)) else if (bind != 2) undefined.add(name(nm))
+                }
+                o += 24
+            }
+            return DynSyms(defined, undefined)
+        }
+        return null
+    }
+
+    /** The DT_NEEDED names of an ELF64 (little endian) file; null when it is not one. */
+    fun needed64(f: File): List<String>? {
+        if (f.length() < 64 || f.length() > 64L shl 20) return null
+        val d = runCatching { f.readBytes() }.getOrNull() ?: return null
+        if (d[0] != 0x7f.toByte() || d[1] != 'E'.code.toByte() || d[4] != 2.toByte()) return null
+        val b = ByteBuffer.wrap(d).order(ByteOrder.LITTLE_ENDIAN)
+        val phoff = b.getLong(32); val phentsize = b.getShort(54).toInt() and 0xffff; val phnum = b.getShort(56).toInt() and 0xffff
+        if (phoff <= 0 || phentsize < 56 || phoff + phnum.toLong() * phentsize > d.size) return null
+        class Load(val off: Long, val va: Long, val size: Long)
+        val loads = ArrayList<Load>()
+        var dynOff = -1L; var dynSize = 0L
+        for (i in 0 until phnum) {
+            val ph = (phoff + i.toLong() * phentsize).toInt()
+            val off = b.getLong(ph + 8); val va = b.getLong(ph + 16); val filesz = b.getLong(ph + 32)
+            when (b.getInt(ph)) { 1 -> loads.add(Load(off, va, filesz)); 2 -> { dynOff = off; dynSize = filesz } }
+        }
+        if (dynOff < 0 || dynOff + dynSize > d.size) return null
+        var strVa = -1L
+        val names = ArrayList<Long>()
+        var e = dynOff
+        while (e + 16 <= dynOff + dynSize) {
+            val tag = b.getLong(e.toInt()); val v = b.getLong(e.toInt() + 8)
+            if (tag == 0L) break
+            if (tag == 5L) strVa = v
+            if (tag == 1L) names.add(v)
+            e += 16
+        }
+        val strOff = loads.firstOrNull { strVa >= it.va && strVa < it.va + it.size }?.let { it.off + strVa - it.va } ?: return null
+        return names.mapNotNull { n ->
+            val start = strOff + n
+            if (start < 0 || start >= d.size) return@mapNotNull null
+            var end = start.toInt(); while (end < d.size && d[end] != 0.toByte()) end++
+            String(d, start.toInt(), end - start.toInt(), Charsets.US_ASCII)
+        }
+    }
+
     /**
      * Rewrites a DT_NEEDED entry of a 32-bit ARM ELF file in place ([to] must not be longer than [from]; the string is
      * overwritten and NUL-terminated, the bytes after it are left alone in case another string shares the tail).
@@ -357,15 +430,24 @@ object ElfPatch {
         returnZeroMatching(f, includeSymtab) { it in names }
 
     /** [returnZero] for every function whose name satisfies [wanted]. */
-    fun returnZeroMatching(f: File, includeSymtab: Boolean = false, wanted: (String) -> Boolean): Int {
+    fun returnZeroMatching(f: File, includeSymtab: Boolean = false, wanted: (String) -> Boolean): Int =
+        returnValueMatching(f, 0, includeSymtab, wanted)
+
+    /** [returnZero] for the functions in [names], but they report [value] (0..255) instead of 0. */
+    fun returnValue(f: File, names: Set<String>, value: Int, includeSymtab: Boolean = false): Int =
+        returnValueMatching(f, value, includeSymtab) { it in names }
+
+    private fun returnValueMatching(f: File, value: Int, includeSymtab: Boolean, wanted: (String) -> Boolean): Int {
+        require(value in 0..255)
         val syms = runCatching { f.readBytes() }.getOrNull()?.let { symbolsMatching(it, includeSymtab, wanted) } ?: return 0
         var n = 0
         RandomAccessFile(f, "rw").use { raf ->
             for ((_, v) in syms) {
                 val thumb = (v shr 40) and 1L == 1L
                 val off = v and 0xffffffffffL
+                val thumbCode = THUMB_RET0 or value                       // movs r0, #value ; bx lr
                 val want = ByteBuffer.allocate(8).order(ByteOrder.LITTLE_ENDIAN).apply {
-                    if (thumb) putInt(THUMB_RET0).putInt(THUMB_RET0) else putInt(ARM_RET0).putInt(ARM_BX_LR)
+                    if (thumb) putInt(thumbCode).putInt(thumbCode) else putInt(ARM_RET0 or value).putInt(ARM_BX_LR)
                 }.array()
                 val have = ByteArray(if (thumb) 4 else 8)
                 raf.seek(off); raf.readFully(have)

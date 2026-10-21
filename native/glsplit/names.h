@@ -425,6 +425,7 @@ static const char *const kNames[] = {
 #define IDX_eglGetConfigAttrib 16
 #define IDX_eglGetProcAddress 23
 #define IDX_eglMakeCurrent 30
+#define IDX_eglQuerySurface 34
 #define IDX_eglSwapBuffers 39
 #define IDX_glBindBuffer 53
 #define IDX_glBindTexture 61
@@ -438,8 +439,13 @@ static const char *const kNames[] = {
 #define IDX_glEGLImageTargetTexture2DOES 142
 #define IDX_glEnableVertexAttribArray 145
 #define IDX_glGenBuffers 164
+#define IDX_glLoadIdentity 272
+#define IDX_glMatrixMode 281
+#define IDX_glOrthof 289
 #define IDX_glPixelStorei 292
+#define IDX_glScissor 322
 #define IDX_glTexImage2D 345
 #define IDX_glTexSubImage2D 355
 #define IDX_glVertexAttribPointer 412
+#define IDX_glViewport 414
 static const unsigned char kEs2Only[] = {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,1,0,0,0,1,0,1,0,1,0,1,1,0,1,0,0,1,0,0,1,0,1,0,0,1,0,0,1,1,1,1,0,0,0,0,0,0,1,0,0,0,0,0,0,0,1,0,1,0,1,1,0,0,1,1,1,0,0,1,0,1,1,1,0,1,1,1,0,1,1,0,0,0,0,0,1,0,0,1,0,0,1,1,0,1,1,0,0,0,0,0,0,0,1,1,1,1,0,0,1,0,0,0,0,1,0,1,0,1,0,0,0,0,1,0,1,1,0,1,0,1,1,0,1,0,0,1,1,1,1,1,1,0,0,0,1,0,0,0,0,0,0,1,1,0,1,1,0,0,1,0,0,0,0,1,1,1,1,1,1,0,1,1,1,1,1,1,0,1,1,0,0,0,0,0,0,0,0,0,1,1,1,1,1,1,1,1,1,1,1,1,0,1,1,0,0,1,0,1,1,1,0,1,1,1,0,1,1,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,1,1,0,1,0,1,1,1,0,1,0,0,0,0,1,1,1,1,0,0,0,0,1,1,0,1,0,1,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,1,1,0,1,1,0,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0,1};

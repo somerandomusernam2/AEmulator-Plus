@@ -3962,16 +3962,6 @@ glVertexPointer:
     mov r12, r0
     pop {r0-r3, lr}
     bx r12
-    .global glViewport
-    .type glViewport,%function
-    .align 2
-glViewport:
-    push {r0-r3, lr}
-    movw r0, #414
-    bl aemu_split_resolve
-    mov r12, r0
-    pop {r0-r3, lr}
-    bx r12
     .global glWaitSync
     .type glWaitSync,%function
     .align 2

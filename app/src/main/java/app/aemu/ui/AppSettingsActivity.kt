@@ -108,13 +108,9 @@ class AppSettingsActivity : ComponentActivity() {
         setContent { AemuTheme { AppSettings(onBack = ::finish, onRestyle = ::restart) } }
     }
 
-    /** Язык и тема применяются пересозданием активностей (главный экран — через onResume). */
+    /** Язык применяется пересозданием активности для применения нового ContextWrapper с локалью. */
     private fun restart() {
-        startActivity(Intent(this, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP))
-        startActivity(Intent(this, AppSettingsActivity::class.java))
-        overridePendingTransition(0, 0)
-        finish()
-        overridePendingTransition(0, 0)
+        recreate()
     }
 }
 
@@ -133,6 +129,7 @@ private fun AppSettings(onBack: () -> Unit, onRestyle: () -> Unit) {
     val scope = rememberCoroutineScope()
     var autoUpdates by remember { mutableStateOf(AppPrefs.autoCheckUpdates(ctx)) }
     var library3d by remember { mutableStateOf(AppPrefs.library3d(ctx)) }
+    var newHome by remember { mutableStateOf(AppPrefs.newHome(ctx)) }
     var updateState by remember { mutableStateOf<UpdateState>(UpdateState.Idle) }
     var downloadJob by remember { mutableStateOf<Job?>(null) }
 
@@ -238,6 +235,9 @@ private fun AppSettings(onBack: () -> Unit, onRestyle: () -> Unit) {
 
             item {
                 Section(stringResource(R.string.as_appearance)) {
+                    Toggle(stringResource(R.string.as_new_home), stringResource(R.string.as_new_home_sub), newHome) {
+                        newHome = it; AppPrefs.setNewHome(ctx, it)
+                    }
                     Toggle(stringResource(R.string.as_library_3d), stringResource(R.string.as_library_3d_sub), library3d) {
                         library3d = it; AppPrefs.setLibrary3d(ctx, it)
                     }
@@ -259,7 +259,7 @@ private fun AppSettings(onBack: () -> Unit, onRestyle: () -> Unit) {
                         options.forEachIndexed { i, res ->
                             ToggleButton(
                                 checked = theme == i,
-                                onCheckedChange = { theme = i; AppPrefs.setTheme(ctx, i); onRestyle() },
+                                onCheckedChange = { if (theme != i) { theme = i; AppPrefs.setTheme(ctx, i) } },
                                 shapes = when (i) {
                                     0 -> ButtonGroupDefaults.connectedLeadingButtonShapes()
                                     options.lastIndex -> ButtonGroupDefaults.connectedTrailingButtonShapes()
@@ -288,7 +288,7 @@ private fun AppSettings(onBack: () -> Unit, onRestyle: () -> Unit) {
                     )
                     if (Build.VERSION.SDK_INT >= 31 && accent == 0) {
                         Toggle(stringResource(R.string.as_dynamic), stringResource(R.string.as_dynamic_sub), dynamic) {
-                            dynamic = it; AppPrefs.setDynamicColor(ctx, it); onRestyle()
+                            dynamic = it; AppPrefs.setDynamicColor(ctx, it)
                         }
                     }
                 }
@@ -303,6 +303,7 @@ private fun AppSettings(onBack: () -> Unit, onRestyle: () -> Unit) {
                     Toggle(stringResource(R.string.vs_nav), stringResource(R.string.vs_nav_sub), defaults.showNavBar) { set(defaults.copy(showNavBar = it)) }
                     NavigationSettings(defaults, ::set)
                     Toggle(stringResource(R.string.vs_awake), stringResource(R.string.vs_awake_sub), defaults.keepScreenOn) { set(defaults.copy(keepScreenOn = it)) }
+                    Toggle(stringResource(R.string.as_led), stringResource(R.string.as_led_sub), defaults.showLed) { set(defaults.copy(showLed = it)) }
                 }
             }
 

@@ -43,10 +43,10 @@ public class NetStub extends NetworkAgent {
     }
 
     public static void main(String[] args) throws Exception {
-        try { run(); } catch (Throwable t) { t.printStackTrace(System.out); System.out.flush(); }
+        try { run(args.length > 0 && "ethernet".equals(args[0])); } catch (Throwable t) { t.printStackTrace(System.out); System.out.flush(); }
     }
 
-    static void run() throws Exception {
+    static void run(boolean ethernet) throws Exception {
         Looper.prepare();
         final Class<?> sm = Class.forName("android.os.ServiceManager");
         Method get = sm.getMethod("getService", String.class);
@@ -56,15 +56,37 @@ public class NetStub extends NetworkAgent {
             if (b == null) Thread.sleep(1000);
         }
         if (b == null) { System.out.println("aemu-net: службы connectivity нет"); return; }
+        // The service is published before the system is ready. A network that arrives in between reaches the
+        // vendors' additions to ConnectivityService before they are set up (MIUI 10: "WifiAssistant not
+        // initialized", and system_server is gone), so the network is registered once the boot has completed.
+        Method prop = Class.forName("android.os.SystemProperties").getMethod("get", String.class);
+        for (int i = 0; i < 300 && !"1".equals(prop.invoke(null, "sys.boot_completed")); i++) Thread.sleep(500);
+        // Службы Ethernet запускаются раньше connectivity: раз её нет сейчас, прошивка её не заводит вовсе. На все
+        // вызовы заглушка отвечает «без исключения» и пустым ответом (null, false, 0).
+        if (ethernet && get.invoke(null, "ethernet") == null) {
+            IBinder eth = new android.os.Binder() {
+                @Override protected boolean onTransact(int code, android.os.Parcel data, android.os.Parcel reply, int flags) {
+                    if (code == INTERFACE_TRANSACTION) { reply.writeString("android.net.IEthernetManager"); return true; }
+                    if (reply != null) reply.writeNoException();
+                    return true;
+                }
+            };
+            sm.getMethod("addService", String.class, IBinder.class).invoke(null, "ethernet", eth);
+            System.out.println("aemu-net: служба ethernet — заглушка");
+        }
         final Class<?> icm = Class.forName("android.net.IConnectivityManager");
         Object svc = Class.forName("android.net.IConnectivityManager$Stub").getMethod("asInterface", IBinder.class).invoke(null, b);
         final Object[] cmHolder = new Object[1];
         Context ctx = new ContextWrapper(null) {
             @Override public Object getSystemService(String name) { return Context.CONNECTIVITY_SERVICE.equals(name) ? cmHolder[0] : null; }
+            // (16: the agent asks for the manager by its class, when it is made)
+            @Override public String getSystemServiceName(Class<?> c) { return "android.net.ConnectivityManager".equals(c.getName()) ? Context.CONNECTIVITY_SERVICE : null; }
             @Override public String getPackageName() { return "android"; }
             @Override public Context getApplicationContext() { return this; }
         };
-        cmHolder[0] = newObj("android.net.ConnectivityManager", new Class<?>[]{Context.class, icm}, ctx, svc);
+        // 5.x: the manager is made from the service alone
+        try { cmHolder[0] = newObj("android.net.ConnectivityManager", new Class<?>[]{Context.class, icm}, ctx, svc); }
+        catch (NoSuchMethodException e) { cmHolder[0] = newObj("android.net.ConnectivityManager", new Class<?>[]{icm}, svc); }
 
         NetworkInfo ni = (NetworkInfo) newObj("android.net.NetworkInfo", new Class<?>[]{int.class, int.class, String.class, String.class},
                 9 /* TYPE_ETHERNET */, 0, "ETHERNET", "");
@@ -88,7 +110,9 @@ public class NetStub extends NetworkAgent {
         call(lp, "addDnsServer", new Class<?>[]{InetAddress.class}, InetAddress.getByAddress(new byte[]{8, 8, 8, 8}));
         call(lp, "addDnsServer", new Class<?>[]{InetAddress.class}, InetAddress.getByAddress(new byte[]{1, 1, 1, 1}));
 
-        NetStub agent = new NetStub(Looper.myLooper(), ctx, ni, nc, lp);
+        // 12+: that constructor is gone
+        try { new NetStub(Looper.myLooper(), ctx, ni, nc, lp); }
+        catch (NoSuchMethodError e) { NetAgent2.start(ctx, Looper.myLooper(), nc, lp); }
         System.out.println("aemu-net: сеть зарегистрирована");
         Looper.loop();
     }

@@ -70,6 +70,21 @@ class UnixServer(
     }
 
     companion object {
+        /**
+         * Wakes a reader blocked on a FIFO / pokes a sysfs-style file, without ever blocking the caller:
+         * a plain open(O_WRONLY) of a FIFO with no reader waits forever (ENXIO only with O_NONBLOCK), which hung
+         * "stopping system" when the reader thread had already exited.
+         */
+        fun poke(file: File, text: String) {
+            runCatching {
+                val fd = Os.open(file.absolutePath, OsConstants.O_WRONLY or OsConstants.O_NONBLOCK or OsConstants.O_CLOEXEC, 0)
+                try {
+                    val b = text.toByteArray()
+                    Os.write(fd, b, 0, b.size)
+                } finally { runCatching { Os.close(fd) } }
+            }
+        }
+
         fun cloexec(fd: FileDescriptor?) {
             if (fd == null) return
             runCatching { Os.fcntlInt(fd, OsConstants.F_SETFD, OsConstants.FD_CLOEXEC) }

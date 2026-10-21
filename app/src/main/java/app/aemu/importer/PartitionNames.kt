@@ -14,6 +14,8 @@ internal object PartitionNames {
     private val BOOT = Regex("(?i)boot(\\.img|_signed(\\.img)?)|boot_a\\.(img|bin)")
     private val OEM = Regex("(?i)oem(\\.ext4)?\\.img(\\.ext4)?|oem_signed(\\.img)?|oem\\.rfs|oem_a\\.(img|bin)")
     private val VENDOR = Regex("(?i)vendor(\\.ext4)?\\.img|vendor_a\\.(img|bin)")
+    /** Partitions besides system / vendor / oem: Treble and dynamic-partition ones, and the skins' own (Xiaomi mi_ext, OPPO my_*, vivo vgc, Samsung prism / optics). */
+    private val EXTRA = Regex("(?i)(product|system_ext|odm|mi_ext|vgc|prism|optics|my_[a-z0-9]+)(_[ab])?(\\.ext4|\\.erofs|\\.f2fs)?\\.img(\\.ext4)?(\\.lz4)?")
     private val RECOVERY = Regex("(?i)recovery(\\.img|_signed(\\.img)?)(\\.lz4)?|recovery\\.(emmc|mmc)\\.win")
 
     /** Image names that always mean the system partition (RFS dumps call it factoryfs). */
@@ -23,6 +25,18 @@ internal object PartitionNames {
     /** The optional /vendor partition (A/B and Treble devices). Only a real image name counts, never a bare "vendor" folder. */
     fun isVendor(base: String) = VENDOR.matches(base)
     fun isBoot(base: String) = BOOT.matches(base)
+
+    /**
+     * Where an image of an optional partition is read to, or null if [base] is not one: product and system_ext live
+     * under system/ (the layout the guest and Analyzer expect), the others in a root directory of their own name.
+     * Only the active slot counts: "_b" copies are ignored.
+     */
+    fun extraMount(base: String): String? {
+        val m = EXTRA.matchEntire(base) ?: return null
+        if (m.groupValues[2].equals("_b", true)) return null
+        val p = m.groupValues[1].lowercase()
+        return if (p == "product" || p == "system_ext") "system/$p" else p
+    }
     /** recovery image (optionally lz4-framed, optionally signed) or a TWRP raw recovery.*.win backup. */
     fun isRecovery(base: String) = RECOVERY.matches(base)
 

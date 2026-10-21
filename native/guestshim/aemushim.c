@@ -175,6 +175,69 @@ EXPORT int execvp(const char *file, char *const argv[]) {
     return fail(last);
 }
 
+/* ------------------------------------------------------------------ read-only precompiled /system code */
+/*
+ * On a phone /system is a read-only mount. Here it is a plain directory owned by the guest's uid, and installd /
+ * PackageManager of 5.0+ "clean up" the stock odex/oat files on a fresh /data: the framework and the apps then fail
+ * with "No original dex files found" on every following boot. The host takes the write bit away (TreeFixer.protectOat),
+ * but an owner can chmod it back. During a normal boot (AEMU_RO_SYSTEM=1) changes to that code fail with EROFS like on
+ * the real mount; recovery does not set the variable, so flashing still works.
+ */
+#define EROFS 30
+#define AT_FDCWD (-100)
+static int g_ro = -1;
+static int ro_enabled(void) {
+    if (g_ro < 0) {
+        g_ro = 0;
+        for (char **e = environ; e && *e; e++) {
+            const char *v = *e, *k = "AEMU_RO_SYSTEM=1";
+            int i = 0;
+            while (k[i] && v[i] == k[i]) i++;
+            if (!k[i]) { g_ro = 1; break; }
+        }
+    }
+    return g_ro;
+}
+static int has(const char *s, const char *sub) {
+    for (; *s; s++) {
+        int i = 0;
+        while (sub[i] && s[i] == sub[i]) i++;
+        if (!sub[i]) return 1;
+    }
+    return 0;
+}
+static int ends(const char *s, const char *suf) {
+    int n = 0, m = 0;
+    while (s[n]) n++;
+    while (suf[m]) m++;
+    if (m > n) return 0;
+    for (int i = 0; i < m; i++) if (s[n - m + i] != suf[i]) return 0;
+    return 1;
+}
+static int ro_path(const char *p) {
+    if (!p || !ro_enabled()) return 0;
+    if (!(p[0] == '/' && p[1] == 's' && p[2] == 'y' && p[3] == 's' && p[4] == 't' && p[5] == 'e' && p[6] == 'm' && p[7] == '/')) return 0;
+    return has(p, "/oat/") || has(p, "/framework/arm") || ends(p, ".odex") || ends(p, ".oat") || ends(p, ".art") || ends(p, ".vdex");
+}
+#define SYS_unlink 10
+#define SYS_chmod 15
+#define SYS_rename 38
+#define SYS_rmdir 40
+#define SYS_unlinkat 328
+static int ret(long r) { return r < 0 ? fail(r) : (int)r; }
+EXPORT int unlink(const char *p) { return ro_path(p) ? fail(-EROFS) : ret(sys3(SYS_unlink, (long)p, 0, 0)); }
+EXPORT int rmdir(const char *p) { return ro_path(p) ? fail(-EROFS) : ret(sys3(SYS_rmdir, (long)p, 0, 0)); }
+EXPORT int remove(const char *p) {
+    if (ro_path(p)) return fail(-EROFS);
+    long r = sys3(SYS_unlink, (long)p, 0, 0);
+    if (r == -21 /* EISDIR */) r = sys3(SYS_rmdir, (long)p, 0, 0);
+    return ret(r);
+}
+EXPORT int rename(const char *a, const char *b) { return ro_path(a) || ro_path(b) ? fail(-EROFS) : ret(sys3(SYS_rename, (long)a, (long)b, 0)); }
+EXPORT int chmod(const char *p, unsigned m) { return ro_path(p) ? fail(-EROFS) : ret(sys3(SYS_chmod, (long)p, (long)m, 0)); }
+EXPORT int unlinkat(int fd, const char *p, int fl) {
+    return (fd == AT_FDCWD || p[0] == '/') && ro_path(p) ? fail(-EROFS) : ret(sys3(SYS_unlinkat, fd, (long)p, fl));
+}
 /* ------------------------------------------------------------------ учёт трафика (xt_qtaguid) */
 /*
  * NetworkManagementService включает учёт трафика, только если есть /proc/net/xt_qtaguid/ctrl; без него
@@ -298,6 +361,22 @@ static int oom_open(const char *path) {
  * used only in persistent process") and crash. The block's address is taken at load time (it sits right before
  * environ on the initial stack) and its current text is served through a pipe.
  */
+/* Services start with stdin closed. A gralloc buffer received over binder could then take descriptor 0, which the GPU
+ * bridge reads as "no fd": 7.x SurfaceFlinger got such a buffer before its EGL (and the same guard in libGLES_split)
+ * was loaded, the EGLImage was refused and a GLSurfaceView never reached the screen. 0..2 are held from the start. */
+__attribute__((constructor)) static void hold_std_fds(void) {
+    for (long fd = 0; fd < 3; fd++)
+        if (sys3(55 /* fcntl */, fd, 1 /* F_GETFD */, 0) < 0) sys3(SYS_open, (long)"/dev/null", 2 /* O_RDWR */, 0);
+}
+
+/* ...and stay held: a native handle whose fd slot reads 0 is closed through native_handle_close, the next buffer then
+ * took 0 again in 7.1's SurfaceFlinger. A closed 0..2 is reopened on /dev/null at once. */
+EXPORT int close(int fd) {
+    long r = sys3(SYS_close, fd, 0, 0);
+    if (r >= 0 && fd >= 0 && fd < 3) sys3(SYS_open, (long)"/dev/null", 2 /* O_RDWR */, 0);
+    return r >= 0 ? (int)r : (int)fail(r);
+}
+
 static char *g_argv0;
 static unsigned long g_main_sp;
 __attribute__((constructor)) static void find_argv(void) {
@@ -420,6 +499,95 @@ out:
 
 #include "trackball.h"
 
+/*
+ * qemu passes the phone's own /proc/meminfo through: a 2.3 firmware saw 16 GB and vendors that take the total from a
+ * build prop (MIUI "-22766MB of 1GB available") computed negative free memory. The file is served scaled to the
+ * guest's RAM budget (AEMU_RAM_KB from the host): every kB value times guest/host total, so free, cached and buffers
+ * keep the phone's proportions. -nostdlib on ARMv7 has no division helpers, so the division is done by shifts.
+ */
+static unsigned long long udiv64(unsigned long long n, unsigned long d) {
+    unsigned long long q = 0, r = 0;
+    for (int i = 63; i >= 0; i--) {
+        r = (r << 1) | ((n >> i) & 1);
+        if (r >= d) { r -= d; q |= 1ULL << i; }
+    }
+    return q;
+}
+static unsigned long env_ulong(const char *key) {
+    for (char **e = environ; e && *e; e++) {
+        const char *v = *e;
+        int i = 0;
+        while (key[i] && v[i] == key[i]) i++;
+        if (key[i] || v[i] != '=') continue;
+        unsigned long x = 0;
+        for (v += i + 1; *v >= '0' && *v <= '9'; v++) x = x * 10 + (unsigned long)(*v - '0');
+        return x;
+    }
+    return 0;
+}
+static int meminfo_open(const char *path) {
+    static const char M[] = "/proc/meminfo";
+    int i = 0;
+    while (M[i] && path[i] == M[i]) i++;
+    if (M[i] || path[i]) return -1;
+    unsigned long guest = env_ulong("AEMU_RAM_KB");
+    if (!guest) return -1;
+    char in[8192], out[8192 + 512];
+    long fd = sys3(SYS_open, (long)path, 0400000, 0);
+    if (fd < 0) return -1;
+    long total = 0;
+    for (;;) {
+        long n = sys3(SYS_read, fd, (long)(in + total), (long)sizeof(in) - 1 - total);
+        if (n <= 0) break;
+        total += n;
+        if (total >= (long)sizeof(in) - 1) break;
+    }
+    sys3(SYS_close, fd, 0, 0);
+    if (total <= 0) return -1;
+    in[total] = 0;
+    /* the host total: first number of the file (MemTotal) */
+    unsigned long host = 0;
+    const char *p = in;
+    while (*p && (*p < '0' || *p > '9')) p++;
+    while (*p >= '0' && *p <= '9') host = host * 10 + (unsigned long)(*p++ - '0');
+    if (!host || guest >= host) return -1;
+    long o = 0;
+    p = in;
+    while (*p && o < (long)sizeof(out) - 64) {
+        const char *line = p, *e = p;
+        while (*e && *e != 0x0a) e++;
+        const char *d = line;
+        while (d < e && (*d < '0' || *d > '9')) d++;
+        const char *de = d;
+        unsigned long long v = 0;
+        while (de < e && *de >= '0' && *de <= '9') v = v * 10 + (unsigned long long)(*de++ - '0');
+        int kb = de + 3 <= e && de[0] == ' ' && de[1] == 'k' && de[2] == 'B';
+        if (d < e && kb) {
+            unsigned long s = (unsigned long)udiv64(v * guest, host);
+            char num[12]; int k = 0;
+            do { num[k++] = (char)('0' + (int)(s % 10)); s /= 10; } while (s && k < 11);
+            /* keep the column: the new number ends where the old one did */
+            int extra = k - (int)(de - d);
+            const char *pe = d;
+            while (extra > 0 && pe - line >= 2 && pe[-1] == ' ' && pe[-2] == ' ') { pe--; extra--; }
+            for (const char *c = line; c < pe; c++) out[o++] = *c;
+            for (int j = (int)(de - d); j > k; j--) out[o++] = ' ';
+            while (k) out[o++] = num[--k];
+            for (const char *c = de; c < e; c++) out[o++] = *c;
+        } else {
+            for (const char *c = line; c < e; c++) out[o++] = *c;
+        }
+        if (*e) out[o++] = 0x0a;
+        p = *e ? e + 1 : e;
+    }
+    long m = sys3(SYS_memfd_create, (long)"meminfo", 0, 0);
+    if (m < 0) return -1;
+    long w = 0;
+    while (w < o) { long n = sys3(SYS_write, m, (long)(out + w), o - w); if (n <= 0) break; w += n; }
+    sys3(SYS_lseek, m, 0, 0);
+    return (int)m;
+}
+
 EXPORT int open(const char *path, int flags, ...) {
     char b[128];
     int mode = 0;
@@ -434,6 +602,8 @@ EXPORT int open(const char *path, int flags, ...) {
     }
     if (path && !(flags & 3) && path[0] == '/' && path[1] == 'p') {
         int fd = cmdline_open(path);
+        if (fd >= 0) return fd;
+        fd = meminfo_open(path);
         if (fd >= 0) return fd;
         fd = maps_open(path);
         if (fd >= 0) return fd;
@@ -563,6 +733,17 @@ EXPORT int sigaction(int sig, const struct bionic_sigaction *act, struct bionic_
  * takes minutes and the watchdogs kill the system. That request fails at once instead: dumps keep Java stacks.
  */
 #define SYS_tgkill 268
+/*
+ * Sony's 2.3 zygote starts system_server with resource limits (--rlimit) above the hard limits of the Android app
+ * the guest runs in; the kernel answers EPERM and Dalvik aborts the fork ("cannot setrlimit(): Operation not
+ * permitted", "VM aborting"). A limit that cannot be raised is left as it is.
+ */
+EXPORT int setrlimit(int resource, const void *rlim) {
+    long r = sys3(75 /* setrlimit */, resource, (long)rlim, 0);
+    if (r == -1 /* EPERM */) return 0;
+    return r < 0 ? fail(r) : 0;
+}
+
 EXPORT int tgkill(int tgid, int tid, int sig) {
     if (sig == 33 /* libbacktrace THREAD_SIGNAL, __SIGRTMIN+1 */) { *__errno() = 22; return -1; }
     long r = sys3(SYS_tgkill, tgid, tid, sig);
@@ -581,6 +762,7 @@ EXPORT int tgkill(int tgid, int tid, int sig) {
 #define BC_TRANSACTION_ 0x40286300
 #define BR_TRANSACTION_ 0x80287202
 #define BR_REPLY_ 0x80287203
+#define BR_DEAD_BINDER_ 0x8004720f
 #define TF_ONE_WAY_ 1
 #define SYS_ioctl 54
 #define SYS_gettid 224
@@ -593,7 +775,8 @@ static int wait_slot(int tid, int add) {
     return 0;
 }
 
-/* player notifications taken from a thread that waits for a reply; the next pool thread that reads gets them */
+/* player notifications and death notices taken from a thread that waits for a reply; the next pool thread that
+ * reads gets them */
 static unsigned char g_held[1024];
 static volatile int g_held_len, g_held_lock;
 static void held_lock(void) { while (!__sync_bool_compare_and_swap(&g_held_lock, 0, 1)) sys3(158 /* sched_yield */, 0, 0, 0); }
@@ -613,6 +796,98 @@ static int is_player_notify(const unsigned char *td) {
     return msg != 1 && msg != 4;
 }
 
+/*
+ * A service handed to servicemanager (addService) lives as long as its process: the kernel driver keeps a strong
+ * reference on the node for servicemanager. The stand's binderd does not always, the JavaBBinder is freed when the
+ * parcel goes and its address is reused by another service: on TouchWiz 4.4 getService("restriction_policy") in
+ * system_server then returned device_policy ("Binder invocation to an incorrect interface", system restart).
+ * The reference is taken here: mStrong and mWeak are the first two words of RefBase::weakref_impl (2.3 - 7.1).
+ */
+static void pin_service(const unsigned char *td) {
+    if (*(const unsigned *)td != 0 || *(const unsigned *)(td + 8) != 3 /* ADD_SERVICE_TRANSACTION */) return;
+    const unsigned char *d = (const unsigned char *)(ulong)*(const unsigned *)(td + 32);
+    const unsigned *offs = (const unsigned *)(ulong)*(const unsigned *)(td + 36);
+    unsigned size = *(const unsigned *)(td + 24), n = *(const unsigned *)(td + 28) / 4;
+    if (!d || !offs) return;
+    for (unsigned i = 0; i < n; i++) {
+        if (offs[i] + 16 > size) continue;
+        const unsigned *o = (const unsigned *)(d + offs[i]);
+        if (o[0] != 0x73622a85 /* BINDER_TYPE_BINDER */ || !o[2]) continue;
+        volatile int *refs = (volatile int *)(ulong)o[2];
+        __sync_fetch_and_add(&refs[0], 1);
+        __sync_fetch_and_add(&refs[1], 1);
+    }
+}
+
+/* binder_transaction_data whose parcel is addressed to the given interface (strict-mode word, then String16) */
+static int iface_is(const unsigned char *td, const char *want, int n) {
+    const unsigned char *d = (const unsigned char *)(ulong)*(const unsigned *)(td + 32);
+    unsigned size = *(const unsigned *)(td + 24);
+    if (!d || size < 8 + 2 * (unsigned)n) return 0;
+    if (*(const unsigned *)(d + 4) != (unsigned)n) return 0;
+    for (int i = 0; i < n; i++) if (d[8 + 2 * i] != (unsigned char)want[i] || d[9 + 2 * i]) return 0;
+    return 1;
+}
+/* bindApplication of this process: 0 not seen, 1 its handler runs on g_bind_tid, 2 queued on the main looper */
+static volatile int g_bind_state, g_bind_tid;
+
+/*
+ * Oneway calls to one object run one after another: the kernel driver hands the next one out only when the buffer
+ * of the previous is freed. The stand's binderd gives them to several pool threads at once, and then the handlers
+ * race: scheduleReceiver/CreateService reached the main looper before the much heavier bindApplication, and on
+ * MIUI 7 (Android 5.0) eleven apps died at every boot with "Instrumentation.onException on a null object".
+ * Each oneway transaction takes a ticket of its target object here and waits for the earlier ones to be freed.
+ */
+#define BC_FREE_BUFFER_ 0x40046303
+#define OW_MAX 64
+static struct { unsigned node, buf, ticket; int tid; } g_ow[OW_MAX];   /* oneway transactions being handled */
+static struct { unsigned node, issued; } g_own[32];
+static volatile int g_ow_lock;
+static void ow_lock(void) { while (!__sync_bool_compare_and_swap(&g_ow_lock, 0, 1)) sys3(158 /* sched_yield */, 0, 0, 0); }
+static void ow_unlock(void) { __sync_lock_release(&g_ow_lock); }
+
+static void ow_freed(unsigned buf) {
+    ow_lock();
+    for (int i = 0; i < OW_MAX; i++) if (g_ow[i].buf == buf) g_ow[i].buf = 0;
+    ow_unlock();
+}
+/* registers the transaction; returns its slot or -1 */
+static int ow_take(unsigned node, unsigned buf, int tid) {
+    int slot = -1, n = -1;
+    ow_lock();
+    for (int i = 0; i < 32; i++) if (g_own[i].node == node) { n = i; break; }
+    if (n < 0) {
+        /* a node nobody is handling right now gives its place up */
+        for (int i = 0; i < 32 && n < 0; i++) {
+            int busy = 0;
+            for (int k = 0; k < OW_MAX; k++) if (g_ow[k].buf && g_ow[k].node == g_own[i].node) busy = 1;
+            if (!busy) { n = i; g_own[i].node = node; g_own[i].issued = 0; }
+        }
+    }
+    if (n >= 0) for (int i = 0; i < OW_MAX; i++) if (!g_ow[i].buf) {
+        g_ow[i].node = node; g_ow[i].buf = buf; g_ow[i].ticket = g_own[n].issued++; g_ow[i].tid = tid;
+        slot = i;
+        break;
+    }
+    ow_unlock();
+    return slot;
+}
+static int ow_must_wait(int slot, int tid) {
+    int r = 0;
+    ow_lock();
+    for (int i = 0; i < OW_MAX; i++)
+        if (g_ow[i].buf && g_ow[i].node == g_ow[slot].node && g_ow[i].tid != tid && g_ow[i].ticket < g_ow[slot].ticket) r = 1;
+    ow_unlock();
+    return r;
+}
+
+static void ow_drop_older(int slot) {
+    ow_lock();
+    for (int i = 0; i < OW_MAX; i++)
+        if (g_ow[i].buf && g_ow[i].node == g_ow[slot].node && g_ow[i].ticket < g_ow[slot].ticket) g_ow[i].buf = 0;
+    ow_unlock();
+}
+
 static int is_waiting(int tid) { for (int k = 0; k < 64; k++) if (waiting_tid[k] == tid) return 1; return 0; }
 
 /* Cupcake..Froyo libpixelflinger assembles its scanline code into malloc'd heap memory and runs it after cacheflush().
@@ -629,6 +904,162 @@ EXPORT int cacheflush(long start, long end, long flags) {
     return r < 0 ? fail(r) : 0;
 }
 
+/* The stand's binder link now and then answers ENOTCONN; libbinder aborts the whole process on that
+ * (SurfaceFlinger, system_server, ...). A short retry rides out a hiccup. */
+static long bwr_raw(int fd, struct bwr *b) {
+    long r = sys3(SYS_ioctl, fd, BINDER_WRITE_READ_, (long)b);
+    for (int tries = 0; r == -107 /* ENOTCONN */ && tries < 25; tries++) {
+        struct timespec_s ts = { 0, 80 * 1000 * 1000 };
+        sys3(162 /* nanosleep */, (long)&ts, 0, 0);
+        r = sys3(SYS_ioctl, fd, BINDER_WRITE_READ_, (long)b);
+    }
+    return r;
+}
+
+/*
+ * Replies of nested calls. The handler of a oneway transaction that binderd delivered to a thread waiting for a
+ * reply runs inside that wait; a synchronous call it makes takes the first BR_REPLY the thread reads, and that
+ * can be the reply of the outer call (it may even sit in the same batch, right behind the transaction). The two
+ * calls then get each other's answers. AOSP 4.4's keyguard was invisible because of that: system_server's oneway
+ * setHidden() arrived while SystemUI waited in relayout(), its checkPermission() read relayout's reply as "denied".
+ * The kernel driver cannot produce this (the oneway goes to a pool thread), so the order is restored here: per
+ * thread, the reply of the outer call is taken off the stream before the inner call is sent, kept aside and handed
+ * back when the thread is waiting for that call again.
+ */
+#define BC_REPLY_ 0x40286301
+#define BR_TRANSACTION_COMPLETE_ 0x7206
+#define BT_SEGS 3
+struct bt_seg { int level, len; unsigned char d[192]; };
+struct bt {
+    volatile int tid;
+    int np, hd, owed, last_sync; /* pending sync calls, sync handlers running, completions not yet read */
+    unsigned char ph[16];        /* hd when each pending call was sent */
+    struct bt_seg seg[BT_SEGS];
+};
+static struct bt g_bt[64];
+
+static struct bt *bt_get(int tid) {
+    for (int k = 0; k < 64; k++) if (g_bt[k].tid == tid) return &g_bt[k];
+    for (int k = 0; k < 64; k++) if (__sync_bool_compare_and_swap(&g_bt[k].tid, 0, tid)) {
+        struct bt *t = &g_bt[k];
+        t->np = t->hd = t->owed = 0;
+        for (int i = 0; i < BT_SEGS; i++) t->seg[i].len = 0;
+        return t;
+    }
+    return 0;
+}
+static int is_reply_cmd(unsigned cmd) { return cmd == BR_REPLY_ || cmd == 0x7205 /* BR_DEAD_REPLY */ || cmd == 0x7211 /* BR_FAILED_REPLY */; }
+static struct bt_seg *bt_seg_at(struct bt *t, int level) {
+    for (int i = 0; i < BT_SEGS; i++) if (t->seg[i].len && t->seg[i].level == level) return &t->seg[i];
+    return 0;
+}
+static int bt_stash(struct bt *t, int level, const unsigned char *d, long len) {
+    if (len <= 0 || len > (long)sizeof t->seg[0].d || bt_seg_at(t, level)) return 0;
+    for (int i = 0; i < BT_SEGS; i++) if (!t->seg[i].len) {
+        for (long k = 0; k < len; k++) t->seg[i].d[k] = d[k];
+        t->seg[i].level = level; t->seg[i].len = (int)len;
+        return 1;
+    }
+    return 0;
+}
+/* books the commands handed to libbinder in rb[from..*end); cuts the batch after a oneway transaction that arrived
+ * inside a pending call (hold_reply: at the reply of the pending call) and keeps the rest aside */
+static void bt_read(struct bt *t, unsigned char *rb, long from, long *end, int hold_reply) {
+    for (long p = from; p + 4 <= *end;) {
+        unsigned cmd = *(unsigned *)(rb + p);
+        long len = 4 + ((cmd >> 16) & 0x3fff);
+        if (p + len > *end) break;
+        if (is_reply_cmd(cmd)) {
+            if (hold_reply && bt_stash(t, t->np, rb + p, *end - p)) { *end = p; return; }
+            /* a failure instead of BR_TRANSACTION_COMPLETE belongs to the transaction just sent */
+            if (cmd != BR_REPLY_ && t->owed > 0) { t->owed--; if (t->last_sync && t->np > 0) t->np--; }
+            else if (t->np > 0) t->np--;
+        } else if (cmd == BR_TRANSACTION_COMPLETE_) {
+            if (t->owed > 0) t->owed--;
+        } else if (cmd == BR_TRANSACTION_) {
+            if (!(*(unsigned *)(rb + p + 4 + 12) & TF_ONE_WAY_)) t->hd++;
+            else if (t->np > 0 && p + len < *end && bt_stash(t, t->np, rb + p + len, *end - p - len)) { *end = p + len; return; }
+        }
+        p += len;
+    }
+}
+static int bt_only_noop(const unsigned char *rb, long from, long end) {
+    for (long p = from; p + 4 <= end;) {
+        unsigned cmd = *(const unsigned *)(rb + p);
+        if (cmd != 0x720c /* BR_NOOP */) return 0;
+        p += 4 + ((cmd >> 16) & 0x3fff);
+    }
+    return 1;
+}
+static long bwr_ordered(int fd, struct bwr *b, int tid) {
+    struct bt *t = bt_get(tid);
+    if (!t) return bwr_raw(fd, b);
+    unsigned char *rb = (unsigned char *)b->read_buffer;
+    int ntx = 0, sync_tx = 0, nrep = 0;
+    long w0 = b->write_consumed;
+    for (long p = w0; p + 4 <= b->write_size;) {
+        unsigned cmd = *(unsigned *)(b->write_buffer + p);
+        if (cmd == BC_TRANSACTION_) { ntx++; if (p + 20 <= b->write_size && !(*(unsigned *)(b->write_buffer + p + 4 + 12) & TF_ONE_WAY_)) sync_tx = 1; }
+        else if (cmd == BC_REPLY_) nrep++;
+        p += 4 + ((cmd >> 16) & 0x3fff);
+    }
+    long start = b->read_consumed, r;
+    /* a synchronous call from the handler of a nested oneway: the outer reply first */
+    if (sync_tx && t->np > 0 && t->np <= (int)sizeof t->ph && t->hd == t->ph[t->np - 1] && b->read_size > start) {
+        struct bt_seg *s;
+        while (!(s = bt_seg_at(t, t->np))) {
+            struct bwr q = *b;
+            q.write_size = q.write_consumed = 0;
+            r = bwr_raw(fd, &q);
+            if (r < 0) return r;
+            long end = q.read_consumed;
+            bt_read(t, rb, start, &end, 1);
+            /* anything that came before the reply goes to libbinder now; it comes back with the same write */
+            if (end > start && !bt_only_noop(rb, start, end)) { b->read_consumed = end; return 0; }
+        }
+    }
+    struct bt_seg *s = bt_seg_at(t, t->np);
+    if (s && !ntx && !nrep && !t->owed && b->read_size - start >= s->len) {
+        if (b->write_size > b->write_consumed) {
+            struct bwr q = *b;
+            q.read_size = q.read_consumed;
+            r = bwr_raw(fd, &q);
+            if (r < 0) return r;
+            b->write_consumed = q.write_consumed;
+        }
+        long end = start + s->len;
+        for (int i = 0; i < s->len; i++) rb[start + i] = s->d[i];
+        s->len = 0;
+        bt_read(t, rb, start, &end, 0);
+        b->read_consumed = end;
+        r = 0;
+    } else {
+        r = bwr_raw(fd, b);
+        if (r < 0) return r;
+        for (long p = w0; p + 4 <= b->write_consumed && p + 4 <= b->write_size;) {   /* what was sent */
+            unsigned cmd = *(unsigned *)(b->write_buffer + p);
+            if (cmd == BC_TRANSACTION_) {
+                t->owed++;
+                t->last_sync = !(*(unsigned *)(b->write_buffer + p + 4 + 12) & TF_ONE_WAY_);
+                if (t->last_sync) {
+                    if (t->np < (int)sizeof t->ph) t->ph[t->np] = (unsigned char)t->hd;
+                    t->np++;
+                }
+            } else if (cmd == BC_REPLY_) { t->owed++; t->last_sync = 0; if (t->hd > 0) t->hd--; }
+            p += 4 + ((cmd >> 16) & 0x3fff);
+        }
+        long end = b->read_consumed;
+        bt_read(t, rb, start, &end, 0);
+        b->read_consumed = end;
+    }
+    if (!t->np && !t->hd && !t->owed) {
+        int any = 0;
+        for (int i = 0; i < BT_SEGS; i++) any |= t->seg[i].len;
+        if (!any) t->tid = 0;
+    }
+    return r;
+}
+
 EXPORT int ioctl(int fd, int req, void *arg) {
     if (((unsigned)req >> 8 & 255) == 'E' && trackball_fd(fd)) return trackball_ioctl((unsigned)req, arg);
     if ((unsigned)req != BINDER_WRITE_READ_ || !arg) {
@@ -637,34 +1068,57 @@ EXPORT int ioctl(int fd, int req, void *arg) {
     }
     struct bwr *b = (struct bwr *)arg;
     int tid = (int)sys3(SYS_gettid, 0, 0, 0);
+    if (g_bind_state == 1 && g_bind_tid == tid) g_bind_state = 2;   // back from the handler
     // a synchronous BC_TRANSACTION in this write: the thread now waits for its reply
     for (long p = b->write_consumed; p + 4 <= b->write_size;) {
         unsigned cmd = *(unsigned *)(b->write_buffer + p);
         unsigned sz = (cmd >> 16) & 0x3fff;
         if (cmd == BC_TRANSACTION_ && p + 4 + 16 <= b->write_size && !(*(unsigned *)(b->write_buffer + p + 4 + 12) & TF_ONE_WAY_))
             wait_slot(tid, 1);
+        if (cmd == BC_TRANSACTION_ && p + 4 + 40 <= b->write_size) pin_service((const unsigned char *)(b->write_buffer + p + 4));
+        if (cmd == BC_FREE_BUFFER_ && p + 8 <= b->write_size) ow_freed(*(unsigned *)(b->write_buffer + p + 4));
         p += 4 + sz;
     }
     long start = b->read_consumed;
-    long r = sys3(SYS_ioctl, fd, req, (long)arg);
-    /* The stand's binder link now and then answers ENOTCONN; libbinder aborts the whole process on that
-     * (SurfaceFlinger, system_server, ...). A short retry rides out a hiccup. */
-    for (int tries = 0; r == -107 /* ENOTCONN */ && tries < 25; tries++) {
-        struct timespec_s ts = { 0, 80 * 1000 * 1000 };
-        sys3(162 /* nanosleep */, (long)&ts, 0, 0);
-        r = sys3(SYS_ioctl, fd, req, (long)arg);
-    }
+    long r = bwr_ordered(fd, b, tid);
     if (r < 0) return fail(r);
-    int nested_oneway = 0, replied = 0;
+    int nested_oneway = 0, replied = 0, before_bind = 0;
     for (long p = start; p + 4 <= b->read_consumed;) {
         unsigned cmd = *(unsigned *)(b->read_buffer + p);
         unsigned sz = (cmd >> 16) & 0x3fff;
+        if (cmd == BR_TRANSACTION_ && p + 4 + 40 <= b->read_consumed
+            && iface_is((const unsigned char *)(b->read_buffer + p + 4), "android.app.IApplicationThread", 30)) {
+            if (*(unsigned *)(b->read_buffer + p + 4 + 8) == 13 /* BIND_APPLICATION_TRANSACTION, 2.3 - 7.1 */) {
+                if (!g_bind_state) { g_bind_tid = tid; g_bind_state = 1; }
+            } else if (g_bind_state != 2 && !(g_bind_state == 1 && g_bind_tid == tid)) before_bind = 1;
+        }
         if (cmd == BR_REPLY_ || cmd == 0x7205 /* BR_DEAD_REPLY */ || cmd == 0x7211 /* BR_FAILED_REPLY */) replied = 1;
         else if (cmd == BR_TRANSACTION_ && p + 4 + 16 <= b->read_consumed && (*(unsigned *)(b->read_buffer + p + 4 + 12) & TF_ONE_WAY_))
             nested_oneway = 1;
         p += 4 + sz;
     }
     int waiting = is_waiting(tid);
+    /* A death notice does not belong to a thread that waits for a reply either (the kernel driver queues it for the
+     * pool): libbinder runs binderDied() right there, its own calls then take the reply of the pending call from
+     * the same batch and the pending call waits forever. TouchWiz 4.4's system_server hung like that under the
+     * ActivityManager lock (in ServiceManager.getService) until the watchdog restarted the system. */
+    if (waiting) {
+        unsigned char *rb = (unsigned char *)b->read_buffer;
+        held_lock();
+        for (long p = start; p + 4 <= b->read_consumed;) {
+            unsigned cmd = *(unsigned *)(rb + p);
+            long len = 4 + ((cmd >> 16) & 0x3fff);
+            if (cmd == BR_DEAD_BINDER_ && p + len <= b->read_consumed && g_held_len + len <= (long)sizeof g_held) {
+                for (long i = 0; i < len; i++) g_held[g_held_len + i] = rb[p + i];
+                g_held_len += (int)len;
+                for (long i = p; i + len < b->read_consumed; i++) rb[i] = rb[i + len];
+                b->read_consumed -= len;
+                continue;
+            }
+            p += len;
+        }
+        held_unlock();
+    }
     if (nested_oneway && !replied && waiting) {
         /* a media player's notify must not run here: MediaPlayer::reset() and friends hold the player lock across
          * the call and notify() takes it (MIUI's SystemUI froze playing the charging sound). It goes to the next
@@ -686,6 +1140,12 @@ EXPORT int ioctl(int fd, int req, void *arg) {
         }
         held_unlock();
     }
+    /* scheduleCreateService/LaunchActivity that overtook bindApplication (see above): wait until the thread that
+     * got bindApplication has queued it — a fixed pause is not enough while dex2oat keeps every core busy */
+    if (before_bind && waiting) {
+        struct timespec_s ts = { 0, 5 * 1000 * 1000 };
+        for (int i = 0; i < 600 && g_bind_state != 2; i++) sys3(162 /* nanosleep */, (long)&ts, 0, 0);
+    } else
     if (nested_oneway && !replied && waiting && sys3(199 /* getuid32 */, 0, 0, 0) >= 10000) {
         struct timespec_s ts = { 0, 30 * 1000 * 1000 };
         sys3(162 /* nanosleep */, (long)&ts, 0, 0);
@@ -699,6 +1159,18 @@ EXPORT int ioctl(int fd, int req, void *arg) {
             g_held_len = 0;
         }
         held_unlock();
+    }
+    for (long p = start; p + 4 <= b->read_consumed;) {
+        unsigned cmd = *(unsigned *)(b->read_buffer + p);
+        const unsigned *td = (const unsigned *)(b->read_buffer + p + 4);
+        if (cmd == BR_TRANSACTION_ && p + 4 + 40 <= b->read_consumed && (td[3] & TF_ONE_WAY_) && td[0] && td[8]) {
+            int slot = ow_take(td[0], td[8], tid);
+            struct timespec_s ts = { 0, 2 * 1000 * 1000 };
+            int i = 0;
+            for (; slot >= 0 && i < 2500 && ow_must_wait(slot, tid); i++) sys3(162 /* nanosleep */, (long)&ts, 0, 0);
+            if (i == 2500) ow_drop_older(slot);   /* their thread is gone or stuck: do not wait for them again */
+        }
+        p += 4 + ((cmd >> 16) & 0x3fff);
     }
     if (replied) wait_slot(tid, 0);
     return (int)r;
@@ -846,6 +1318,14 @@ EXPORT int lsetxattr(const char *p, const char *n, const void *v, unsigned long 
 EXPORT int setsockopt(int fd, int level, int name, const void *val, unsigned int len) {
     if (level == 1 /* SOL_SOCKET */ && name == 36 /* SO_MARK */) return 0;
     long r = sys5(294 /* setsockopt */, fd, level, name, (long)val, len);
+    return r >= 0 ? (int)r : fail(r);
+}
+/* 7.0+ media services (mediacodec, mediaextractor) put themselves under a seccomp filter through minijail and abort
+ * when it is refused: the translator cannot take a guest filter (EINVAL). The app already runs under the phone's own
+ * filter, so the guest's is accepted and dropped, like mount() above. */
+EXPORT int prctl(int option, unsigned long a2, unsigned long a3, unsigned long a4, unsigned long a5) {
+    if (option == 22 /* PR_SET_SECCOMP */) return 0;
+    long r = sys5(172 /* prctl */, option, (long)a2, (long)a3, (long)a4, (long)a5);
     return r >= 0 ? (int)r : fail(r);
 }
 __attribute__((naked, noinline)) static long sys5(long n, long a, long b, long c, long d, long e) {

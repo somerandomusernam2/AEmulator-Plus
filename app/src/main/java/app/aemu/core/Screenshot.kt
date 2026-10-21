@@ -114,6 +114,46 @@ object Screenshot {
         return ok
     }
 
+    private var frameBuf = ByteArray(0)
+
+    /**
+     * The current frame of the guest framebuffer as ARGB pixels (w*h ints, same formats as [take]), for what streams the
+     * screen (VNC). Blocking; the read buffer is kept between calls. False when there is no frame to read.
+     * Ported from AEmulator 0.0.0.3 (GPL-3.0); written for this fork's fb0 handling.
+     */
+    @Synchronized
+    fun readFrame(fb: File?, w: Int, h: Int, format: Int, pages: Int, page: Int, into: IntArray): Boolean {
+        if (fb == null || !fb.isFile || w <= 0 || h <= 0 || into.size < w * h) return false
+        val bpp = if (format == 0) 2 else 4
+        val size = w.toLong() * h * bpp
+        if (size > Int.MAX_VALUE) return false
+        if (frameBuf.size != size.toInt()) frameBuf = ByteArray(size.toInt())
+        val pg = if (pages == 2) page else 0
+        RandomAccessFile(fb, "r").use { f ->
+            val off = pg * size
+            if (f.length() < off + size) {
+                if (pg != 0 && f.length() >= size) f.seek(0) else return false
+            } else f.seek(off)
+            f.readFully(frameBuf)
+        }
+        val bb = ByteBuffer.wrap(frameBuf).order(ByteOrder.LITTLE_ENDIAN)
+        when (format) {
+            0 -> for (i in 0 until w * h) {
+                val v = bb.getShort(i * 2).toInt() and 0xFFFF
+                val r = ((v shr 11) and 0x1F) * 255 / 31
+                val g = ((v shr 5) and 0x3F) * 255 / 63
+                val b = (v and 0x1F) * 255 / 31
+                into[i] = -0x1000000 or (r shl 16) or (g shl 8) or b
+            }
+            2 -> for (i in 0 until w * h) into[i] = bb.getInt(i * 4) or -0x1000000
+            else -> for (i in 0 until w * h) {
+                val v = bb.getInt(i * 4)
+                into[i] = -0x1000000 or ((v and 0xff) shl 16) or (v and 0xff00) or ((v shr 16) and 0xff)
+            }
+        }
+        return true
+    }
+
     private fun rawToBitmap(raw: File, w: Int, h: Int, format: Int, bpp: Int, page: Int): Bitmap? {
         val size = w.toLong() * h * bpp
         val data = ByteArray(size.toInt())

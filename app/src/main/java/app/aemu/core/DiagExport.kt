@@ -283,6 +283,14 @@ object DiagExport {
             val sha = MessageDigest.getInstance("SHA-1").digest(bytes).joinToString("") { "%02x".format(it) }
             appendLine("libaemushim.so in the guest tree: ${bytes.size} bytes, sha1 $sha, mtime ${java.util.Date(shim.lastModified())}")
         } else appendLine("libaemushim.so: missing in the guest tree")
+        for (path in listOf(GuestPreload.XATTR, GuestPreload.XATTR_VENDOR)) {
+            val xa = File(p.root, path.removePrefix("/"))
+            appendLine("$path: " + (if (xa.isFile) "${xa.length()} bytes" else "missing in the guest tree") +
+                ", 32-bit-only tree=${isPure32Tree(p.root)}")
+        }
+        appendLine()
+        appendLine("-- HALs: what the manifest promises vs what the tree can start --")
+        runCatching { append(halReport(p.root)) }.onFailure { appendLine("[failed: $it]") }
         appendLine()
         appendLine("-- run dir --")
         p.bin.listFiles()?.sortedBy { it.name }?.forEach { appendLine("${it.name}: ${kind(it)} ${it.length()} bytes, ${java.util.Date(it.lastModified())}") }
@@ -383,4 +391,58 @@ object DiagExport {
             else -> "other(${m.toString(8)})"
         }
     }.getOrDefault("?")
+
+    /**
+     * system_server, keystore and cameraserver wait for ever for a HAL the vendor manifest lists and nothing registers
+     * ("Waited one second for android.hardware.keymaster@3.0::IKeymasterDevice/default"). This says, per manifest entry,
+     * whether the tree has a program that could register it, and lists the HAL programs and libraries of the tree.
+     */
+    private fun halReport(root: File): String = buildString {
+        val manifests = ArrayList<File>()
+        for (rel in listOf("vendor/etc/vintf/manifest.xml", "vendor/manifest.xml", "system/vendor/manifest.xml", "system/vendor/etc/vintf/manifest.xml"))
+            File(root, rel).takeIf { it.isFile }?.let { manifests += it }
+        for (rel in listOf("vendor/etc/vintf/manifest", "system/vendor/etc/vintf/manifest"))
+            File(root, rel).listFiles()?.filter { it.isFile && it.name.endsWith(".xml") }?.sortedBy { it.name }?.let { manifests += it }
+        val bins = listOf("vendor/bin/hw", "system/vendor/bin/hw", "system/bin/hw").flatMap { d ->
+            File(root, d).listFiles()?.filter { it.isFile }?.map { "$d/${it.name}" }.orEmpty()
+        }.sorted()
+        appendLine("HAL programs in the tree (${bins.size}):"); bins.forEach { appendLine("  $it") }
+        // rc services that run a program of a HAL directory
+        val rcs = listOf("vendor/etc/init", "system/vendor/etc/init", "system/etc/init", "").flatMap { d ->
+            File(root, d).listFiles()?.filter { it.isFile && it.name.endsWith(".rc") }.orEmpty()
+        }
+        appendLine("rc services that run a HAL program:")
+        for (rc in rcs) {
+            var cur: String? = null; var bin: String? = null; var flags = ArrayList<String>()
+            fun flush() { val b = bin; val c = cur; if (c != null && b != null && b.contains("/bin/hw/"))
+                appendLine("  ${rc.name}: service $c $b ${if (File(root, b.removePrefix("/")).isFile) "(present)" else "(MISSING)"} ${flags.joinToString(" ")}") }
+            for (raw in runCatching { rc.readLines() }.getOrDefault(emptyList())) {
+                val t = raw.trim()
+                if (t.startsWith("service ")) { flush(); val w = t.split(Regex("\\s+")); cur = w.getOrNull(1); bin = w.getOrNull(2); flags = ArrayList() }
+                else if (t.startsWith("on ")) { flush(); cur = null; bin = null }
+                else if (cur != null && (t == "disabled" || t == "oneshot" || t.startsWith("class ") || t.startsWith("user "))) flags += t
+            }
+            flush()
+        }
+        val hal = Regex("<hal[^>]*>(.*?)</hal>", RegexOption.DOT_MATCHES_ALL)
+        val nm = Regex("<name>([^<]+)</name>"); val ver = Regex("<version>([^<]+)</version>")
+        val itf = Regex("<interface>\\s*<name>([^<]+)</name>\\s*<instance>([^<]+)</instance>", RegexOption.DOT_MATCHES_ALL)
+        appendLine("manifest entries:")
+        if (manifests.isEmpty()) appendLine("  (no vendor manifest found)")
+        for (m in manifests) {
+            val txt = runCatching { m.readText() }.getOrDefault("")
+            for (h in hal.findAll(txt)) {
+                val body = h.groupValues[1]
+                val name = nm.find(body)?.groupValues?.get(1) ?: continue
+                val v = ver.find(body)?.groupValues?.get(1) ?: "?"
+                val i = itf.findAll(body).joinToString(",") { it.groupValues[1] + "/" + it.groupValues[2] }
+                appendLine("  ${m.relativeTo(root).path}: $name@$v $i")
+            }
+        }
+        appendLine("keymaster / gatekeeper / camera libraries:")
+        for (d in listOf("vendor/lib/hw", "vendor/lib64/hw", "system/lib/hw", "system/lib64/hw", "system/vendor/lib/hw")) {
+            File(root, d).listFiles()?.filter { f -> val n = f.name; n.contains("keymaster") || n.contains("keystore") || n.contains("gatekeeper") || n.contains("camera") }
+                ?.sortedBy { it.name }?.forEach { appendLine("  $d/${it.name} (${it.length()} bytes)") }
+        }
+    }
 }

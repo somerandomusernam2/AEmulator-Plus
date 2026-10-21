@@ -85,13 +85,33 @@ static u32 hexnum(const char **pp) {
     *pp = p; return v;
 }
 
+/* the map line holding sp, or the nearest lines around it (a stack that is gone, or a guard page).
+ * Lines are streamed, so the ones kept are copied into static buffers. */
+static char g_sp_line[320], g_below_line[320], g_above_line[320];
+static const char *g_sp_map, *g_below, *g_above;
+static u32 g_sp_e, g_below_e, g_above_s, g_above_e;
+static int g_above_r;
+static void copy_line(char *dst, const char *src) {
+    int i = 0;
+    for (; src[i] && i < 319; i++) dst[i] = src[i];
+    dst[i] = 0;
+}
+
 static void parse_map_line(const char *line) {
     const char *q = line;
     u32 s = hexnum(&q); if (*q != '-') return; q++;
     u32 e = hexnum(&q); if (*q != ' ') return; q++;
     if (!q[0] || !q[1] || !q[2] || !q[3] || q[4] != ' ') return;
     int exec = q[2] == 'x';
-    if (q[0] == 'r' && g_sp >= s && g_sp < e) g_stack_end = e;
+    int readable = q[0] == 'r';
+    if (g_sp >= s && g_sp < e) {
+        g_sp_e = e; copy_line(g_sp_line, line); g_sp_map = g_sp_line;
+        if (readable) g_stack_end = e;
+    }
+    if (e <= g_sp && e > g_below_e) { g_below_e = e; copy_line(g_below_line, line); g_below = g_below_line; }
+    if (s > g_sp && (!g_above || s < g_above_s)) {
+        g_above_s = s; g_above_e = e; g_above_r = readable; copy_line(g_above_line, line); g_above = g_above_line;
+    }
     q += 5;
     u32 off = hexnum(&q);
     // Skip device and inode; paths may contain spaces.
@@ -116,6 +136,7 @@ static void parse_map_line(const char *line) {
 
 static void load_maps_from(const char *path) {
     g_nmaps = g_paths_used = g_map_limit = 0;
+    g_sp_map = g_below = g_above = 0; g_sp_e = g_below_e = g_above_s = g_above_e = 0; g_above_r = 0;
     long fd = cr_sys3(SYS_open, (long)path, 0, 0);
     if (fd < 0) return;
     // system_server can have more than 256 KiB of maps. Stream every line so
@@ -191,9 +212,21 @@ static void dump_current(const char *title, u32 addr, u32 *regs) {
         flush_line();
     }
     put("sp "); puthex(regs[13]); flush_line();
+    if (g_sp_map) {
+        put("sp in "); put(g_sp_map); flush_line();
+        put("next above "); put(g_above ? g_above : "-"); flush_line();
+    }
+    else {
+        put("sp unmapped; below "); put(g_below ? g_below : "-"); flush_line();
+        put("sp unmapped; above "); put(g_above ? g_above : "-"); flush_line();
+    }
     /* стек: всё, что похоже на адрес возврата в исполняемый код */
     u32 *sp = (u32 *)regs[13];
     u32 words = g_stack_end > regs[13] ? (g_stack_end - regs[13]) / 4 : 0;
+    /* sp on a guard page (the stack ran out): walk the stack itself, from its lowest address */
+    if (!words && g_sp_map && g_above && g_above_r && g_sp_e == g_above_s) {
+        sp = (u32 *)g_above_s; words = (g_above_e - g_above_s) / 4;
+    }
     if (!words) { put("stack scan unavailable: no readable mapping for sp"); flush_line(); }
     if (words > 4096) words = 4096;
     int shown = 0;

@@ -45,9 +45,11 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
+import app.aemu.core.CpuInfo
 import app.aemu.core.Engine
 import app.aemu.core.GuestImage
 import app.aemu.core.GyroLock
@@ -125,6 +127,18 @@ fun SettingsSheet(img: GuestImage, onDismiss: () -> Unit, onSave: (VmSettings) -
             Toggle(stringResource(R.string.vs_jit), stringResource(R.string.vs_jit_sub), s.jit) { s = s.copy(jit = it) }
             if (img.api >= 21) Toggle(stringResource(R.string.vs_fulldex), stringResource(R.string.vs_fulldex_sub), s.fullDexopt) { s = s.copy(fullDexopt = it) }
             if (img.api < 14) Toggle(stringResource(R.string.vs_legacy), stringResource(R.string.vs_legacy_sub), s.legacyEngine) { s = s.copy(legacyEngine = it) }
+            if (img.api >= 26 && img.abi.startsWith("armeabi")) Toggle(
+                "Translate on the native engine",
+                "32-bit firmware of Android 8+ (Wear OS 9, ...): run it on the arm64 engine through qemu-arm. The universal engine cannot start it (binder protocol 8). Takes effect on the next start.",
+                s.translate32
+            ) { s = s.copy(translate32 = it) }
+            val has32 = CpuInfo.hasAArch32
+            Toggle(
+                stringResource(R.string.vs_native32),
+                if (has32) stringResource(R.string.vs_native32_sub) else stringResource(R.string.vs_native32_unsupported),
+                s.native32 && has32
+            ) { if (has32) s = s.copy(native32 = it) }
+            Toggle(stringResource(R.string.vs_thermal), stringResource(R.string.vs_thermal_sub), s.thermalPassthrough) { s = s.copy(thermalPassthrough = it) }
             val ramIdx = RAM_STEPS.indexOf(s.ramMb).coerceAtLeast(0)
             ListItem(
                 headlineContent = { Text(stringResource(R.string.vs_ram)) },
@@ -250,6 +264,7 @@ fun SettingsSheet(img: GuestImage, onDismiss: () -> Unit, onSave: (VmSettings) -
             Toggle(stringResource(R.string.vs_hide_menu), stringResource(R.string.vs_hide_menu_sub), s.hideMenuButton) { s = s.copy(hideMenuButton = it) }
             NavigationSettings(s) { s = it }
             Toggle(stringResource(R.string.vs_awake), stringResource(R.string.vs_awake_sub), s.keepScreenOn) { s = s.copy(keepScreenOn = it) }
+            Toggle(stringResource(R.string.as_led), stringResource(R.string.as_led_sub), s.showLed) { s = s.copy(showLed = it) }
             Toggle(stringResource(R.string.vs_single), stringResource(R.string.vs_single_sub), s.mtMode == 4) { s = s.copy(mtMode = if (it) 4 else 0) }
 
             Spacer(Modifier.height(16.dp))
