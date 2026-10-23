@@ -80,6 +80,25 @@ object EngineAssets {
 
     fun exists(ctx: Context, path: String): Boolean = load(ctx).containsKey(path)
 
+    /**
+     * Guest-side helper files per guest architecture. The directories above hold ARM builds. For an x86 guest the same
+     * file lives in a sibling directory with the architecture's suffix (engines/kk -> engines/kk-x86, engines/common ->
+     * engines/common-x86). Where the x86 build does not exist (yet) the answer is a path that is not in the index, so
+     * [size] is -1 and [exists] false for it and the installers skip the file; a machine-independent file (a dex jar,
+     * a text file) falls back to the plain path because it runs the same everywhere.
+     */
+    fun forArch(ctx: Context, path: String, arch: GuestArch): String {
+        if (arch == GuestArch.ARM) return path
+        val m = Regex("^engines/(common|kk|gb)/(.+)$").find(path) ?: return path
+        val alt = "engines/${m.groupValues[1]}${arch.assetSuffix}/${m.groupValues[2]}"
+        if (exists(ctx, alt)) return alt
+        return if (isMachineIndependent(path) && exists(ctx, path)) path else "engines/.missing-${arch.id}/${m.groupValues[2]}"
+    }
+
+    /** Dex jars and text/property files carry no machine code. */
+    fun isMachineIndependent(path: String): Boolean =
+        path.endsWith(".jar") || path.endsWith(".props") || path.endsWith(".xml") || path.endsWith(".txt")
+
     /** size in bytes, -1 when there is no such file */
     fun size(ctx: Context, path: String): Long = load(ctx)[path]?.size ?: -1L
 

@@ -83,6 +83,10 @@ class TreeFixer(
                     // звук даёт движок
                     cls == "gralloc" || (cls == "audio" && variant == "primary.default") -> park(f)
                     cls == "audio" && (variant.startsWith("a2dp") || variant.startsWith("usb") || variant.startsWith("r_submix")) -> {}
+                    // Android Things: the board's pin map (peripheral_io.<board>.so) is plain user-space code that tells the
+                    // peripheral manager daemon which GPIO/I2C/SPI/UART names exist; set aside, every app that opens
+                    // a peripheral dies with "Unknown I/O name"
+                    cls == "peripheral_io" -> {}
                     cls in keepClasses && isDefault -> {}
                     cls == "audio_policy" -> if (!isDefault) park(f)
                     cls in parkClasses -> park(f)
@@ -96,7 +100,7 @@ class TreeFixer(
             File(root, dir).listFiles()?.forEach { f ->
                 val nm = f.name
                 val vendorGl = (nm.startsWith("libEGL_") || nm.startsWith("libGLESv1_CM_") || nm.startsWith("libGLESv2_") ||
-                    nm.startsWith("libGLESv3_") || (nm.startsWith("libGLES_") && nm != "libGLES_android.so") ||
+                    nm.startsWith("libGLESv3_") || (nm.startsWith("libGLES_") && nm != "libGLES_android.so" && nm != X86SoftwareGles.ALIAS) ||
                     nm.startsWith("libq3dtools") || nm.startsWith("eglsubAndroid") || nm.startsWith("libRBEGL") || nm.startsWith("libRBGLES"))
                 if (vendorGl) park(f)
             }
@@ -130,7 +134,7 @@ class TreeFixer(
             d.listFiles()?.forEach { f -> if (f.isFile) { if (f.canWrite()) { f.setWritable(false, false); n++ } } else if (f.isDirectory) lock(f) }
             d.setWritable(false, false)
         }
-        File(sys, "framework").listFiles()?.filter { it.isDirectory && (it.name == "oat" || it.name == "arm" || it.name == "arm64") }?.forEach { lock(it) }
+        File(sys, "framework").listFiles()?.filter { it.isDirectory && (it.name == "oat" || it.name == "arm" || it.name == "arm64" || it.name == "x86") }?.forEach { lock(it) }
         for (top in listOf("app", "priv-app")) File(sys, top).listFiles()?.forEach { app ->
             File(app, "oat").takeIf { it.isDirectory }?.let { lock(it) }
         }
@@ -143,7 +147,7 @@ class TreeFixer(
         installSensorHal()
         File(root, "system/framework/aemu-setup.jar").let { dst ->
             dst.parentFile?.mkdirs()
-            EngineAssets.open(ctx, "engines/common/aemu-setup.jar").use { src -> dst.outputStream().use { src.copyTo(it) } }
+            eaOpen("engines/common/aemu-setup.jar").use { src -> dst.outputStream().use { src.copyTo(it) } }
             dst.setReadable(true, false)
         }
         installCameraHal()
@@ -151,13 +155,17 @@ class TreeFixer(
         fixThemeXml()
         parkWhetstone()
         parkPlayReady()
+        disableTegraRmInit()
         parkQcomServices()
         swapMtkAudioHal()
         // glibc (Google TV) firmware: the engine's GL shims are bionic libraries (NEEDED libdl.so / libc.so) and cannot
         // be loaded by a glibc userland ("load_driver(libGLES_android.so): libdl.so: cannot open shared object file",
         // then no EGL display, SurfaceFlinger cannot pick a config and system_server dies with SIGSEGV).
         // They also replace the firmware's own libGLES_android.so, so use the firmware's software renderer instead.
-        eglConfig(img.settings.gpu && !GuestPreload.isGlibcFirmware(root))
+        // ⚠ the GPU bridge/shim of the KK engine exists for ARM guests only until the x86 build of it does (GuestVm.settings turns the
+        // GPU off for such a guest): with the stored setting this would put ARM libraries into an x86 tree (libEGL: "unexpected e_machine: 40").
+        val gpuForArch = img.arch == GuestArch.ARM || EngineAssets.exists(ctx, "engines/${Engine.KK.id}${img.arch.assetSuffix}/libGLES.so")
+        eglConfig(img.settings.gpu && gpuForArch && !GuestPreload.isGlibcFirmware(root))
         FbDirectPatch.apply(root, img.api, log) // Android 1.x: no page flipping -> render straight into fb0 (otherwise the screen stays black)
         makeDataDirs()
         fixDataRootAccess()
@@ -446,7 +454,7 @@ class TreeFixer(
             // AudioFlinger asks libhardware for module class "libaudio"/"primary" here, and libhardware rejects a module
             // whose id differs ("load: id=libaudio != hmi->id=audio"). The same asset serves the AOSP-style loader
             // (hw/audio.primary.default.so, id "audio"), so only this copy gets the id changed.
-            val raw = EngineAssets.open(ctx, asset).use { it.readBytes() }
+            val raw = eaOpen(asset).use { it.readBytes() }
             val hal = HalModuleId.retarget(raw, MTK_HAL_MODULE_ID)
             if (hal == null) log("audio: cannot set the HAL module id to $MTK_HAL_MODULE_ID, AudioFlinger will refuse it")
             val bytes = hal ?: raw
@@ -518,6 +526,29 @@ class TreeFixer(
         val moved = if (isLink(plugin) || parked.exists()) plugin.delete() else plugin.renameTo(parked)
         if (moved) log("DRM: PlayReady plugin set aside (drmserver crashed in it)")
     }.onFailure { log("DRM: could not set aside the PlayReady plugin: ${it.message}") }
+
+    /**
+     * NVIDIA Tegra firmware (Google Jamboard, Shield, Nexus 9, ...): the vendor libjpeg depends on libnvtvmr.so, whose
+     * constructor calls into libnvrm.so as soon as the library is loaded. libnvrm reads the Tegra chip id from sysfs/fuse
+     * nodes a phone does not have ("NvRmPrivGetChipPlatform: Could not read platform information", "No matching chip
+     * spec found for chip Id=685"), is left without a chip spec and dereferences it (SIGSEGV at 0x38 inside libnvrm).
+     * The constructor runs in every process that loads libjpeg, so zygote, bootanimation and the 32-bit daemons
+     * (mediaserver, cameraserver, app_process32; under qemu the guest fault is re-raised as a host SIGSEGV) all died
+     * at start. The constructor only sets up the hardware video/JPEG path, which cannot work here anyway, so its
+     * DT_INIT / DT_INIT_ARRAY are switched off; the stock file is kept in system/.aemu-parked as *.stock.
+     */
+    private fun disableTegraRmInit() = runCatching {
+        var patched = 0
+        for (dir in listOf("vendor/lib64", "vendor/lib", "system/vendor/lib64", "system/vendor/lib", "system/lib64", "system/lib")) {
+            val f = File(root, "$dir/libnvtvmr.so")
+            if (!f.isFile || File(f.parentFile, "libnvrm.so").let { !it.isFile && !isLink(it) }) continue
+            val real = f.canonicalFile
+            if (!real.path.startsWith(root.canonicalPath + "/")) continue
+            val stock = File(root, "system/.aemu-parked/" + real.relativeTo(root.canonicalFile).path.replace('/', '#') + ".stock")
+            if (!stock.exists()) { stock.parentFile?.mkdirs(); runCatching { real.copyTo(stock) } }
+            if (ElfPatch.disableInit(real) == 1) { patched++; log("NVIDIA: ${real.relativeTo(root.canonicalFile).path}: constructor switched off (libnvrm has no Tegra chip here)") }
+        }
+    }.onFailure { log("NVIDIA: could not switch off the libnvtvmr constructor: ${it.message}") }
 
     /**
      * qemu names the input device "dhd-touch"; with no layout of that name the guest falls back to the firmware's
@@ -635,10 +666,10 @@ class TreeFixer(
             for ((asset, to) in listOf((if (kernel.gpuBridge32Open) "libGLES_aemu.so" else "libGLES_route.so") to name, "libGLES_split.so" to "libGLES_split.so", "libGLES.so" to "libGLES_bridge.so")) {
                 val f = File(root, "system/lib/egl/$to")
                 if (on) runCatching {
-                    val len = EngineAssets.size(ctx, "engines/kk/$asset")
+                    val len = eaSize("engines/kk/$asset")
                     if (isLink(f) || !f.isFile || f.length() != len) {
                         f.delete()
-                        EngineAssets.open(ctx, "engines/kk/$asset").use { i -> f.outputStream().use { o -> i.copyTo(o) } }
+                        eaOpen("engines/kk/$asset").use { i -> f.outputStream().use { o -> i.copyTo(o) } }
                         f.setReadable(true, false); f.setExecutable(true, false); copied++
                     }
                 } else if (to != name || !isLink(f)) f.delete()
@@ -748,7 +779,8 @@ class TreeFixer(
         // Samsung's libgui (see the gralloc rule below) is not the library AOSP's SurfaceFlinger was built against:
         // the consumer side of the buffer queue is laid out differently and the first queued frame crashes in it.
         // Such firmware keeps its own SurfaceFlinger.
-        val ownSf = kernel.exynosHandles && exynosLibgui("lib64")
+        // (or one that crashed on the engine's build at the first frame: GuestVm.useFirmwareSurfaceFlinger leaves a marker)
+        val ownSf = (kernel.exynosHandles && exynosLibgui("lib64")) || File(root, "system/.aemu-parked/firmware-sf").isFile
         // The sound trigger service of the engine only hosts the firmware's own implementation; where there is none (a
         // generic system image) it exits at once, and its manifest entry makes system_server wait for it forever.
         val soundTriggerImpl = File(root, "vendor/lib64/hw").list().orEmpty().any { it.startsWith("android.hardware.soundtrigger@") && it.endsWith("-impl.so") }
@@ -781,20 +813,20 @@ class TreeFixer(
             // /system/lib for programs under /system, /vendor/lib for programs under /vendor: the vendor linker namespace
             // (permitted_paths=/odm:/vendor) refuses a library from /system/lib
             runCatching {
-                val size = EngineAssets.size(ctx, asset)
+                val size = eaSize(asset)
                 for (guestPath in listOf(GuestPreload.XATTR, GuestPreload.XATTR_VENDOR)) {
                     val dst = File(root, guestPath.removePrefix("/"))
                     if (dst.isFile && dst.length() == size && sameContent(asset, dst)) continue
                     dst.parentFile?.mkdirs()
                     if (isLink(dst)) Os.remove(dst.absolutePath)
-                    EngineAssets.open(ctx, asset).use { i -> dst.outputStream().use { o -> i.copyTo(o) } }
+                    eaOpen(asset).use { i -> dst.outputStream().use { o -> i.copyTo(o) } }
                     dst.setReadable(true, false); dst.setExecutable(true, false)
                     log("xattr: libaemuxattr.so installed at $guestPath (the kernel refuses extended attributes)")
                 }
             }.onFailure { log("xattr: libaemuxattr.so missing from the engine set: ${it.message}") }
         }
         fun is64BitElf(asset: String): Boolean = runCatching {
-            EngineAssets.open(ctx, asset).use { i ->
+            eaOpen(asset).use { i ->
                 val h = ByteArray(5)
                 i.read(h) == 5 && h[0] == 0x7f.toByte() && h[1] == 'E'.code.toByte() && h[2] == 'L'.code.toByte() && h[3] == 'F'.code.toByte() && h[4] == 2.toByte()
             }
@@ -819,7 +851,7 @@ class TreeFixer(
                     else -> it
                 }
             })
-            val size = runCatching { EngineAssets.size(ctx, asset) }.getOrDefault(-1L)
+            val size = runCatching { eaSize(asset) }.getOrDefault(-1L)
             if (dst.isFile && size >= 0 && dst.length() == size && sameContent(asset, dst)) continue
             runCatching {
                 dst.parentFile?.mkdirs()
@@ -829,7 +861,7 @@ class TreeFixer(
                     parked.parentFile?.mkdirs()
                     if (!parked.exists()) dst.renameTo(parked)
                 }
-                EngineAssets.open(ctx, asset).use { i -> dst.outputStream().use { o -> i.copyTo(o) } }
+                eaOpen(asset).use { i -> dst.outputStream().use { o -> i.copyTo(o) } }
                 dst.setReadable(true, false); dst.setExecutable(true, false)
                 copied++
             }.onFailure { log("$n: ${it.message}") }
@@ -839,6 +871,22 @@ class TreeFixer(
         if (kernel.eglName != "swiftshader") listOf(kernel.eglDir, "system/lib/egl").flatMap { File(root, it).listFiles().orEmpty().toList() }.filter { it.name.endsWith("_swiftshader.so") }.forEach { f ->
             val link = File(f.parentFile, f.name.replace("_swiftshader.so", "_${kernel.eglName}.so"))
             if (!isLink(link)) { link.delete(); runCatching { Os.symlink(f.name, link.path) } }
+        }
+        // 7.x libEGL tries ONE library carrying all three APIs (libGLES_<tag>.so, tag "emulation" when qemu.gles is 1)
+        // before the separate libEGL_/libGLESv1_CM_/libGLESv2_ ones. A 32-bit firmware's SurfaceFlinger runs on the
+        // engine's 32-bit SwiftShader (the separate libraries linked above): a single-file libGLES_<tag>.so left in
+        // system/lib/egl (the firmware's own, or the GPU shim of an earlier run on another engine) is loaded instead,
+        // has no GLES 2 window config and SurfaceFlinger aborts with "no suitable EGLConfig found, giving up".
+        if (kernel.eglName != "swiftshader" && File(root, "system/lib/egl/libGLESv2_swiftshader.so").isFile) {
+            val single = File(root, "system/lib/egl/libGLES_${kernel.eglName}.so")
+            if (single.isFile || isLink(single)) {
+                val parked = File(root, "system/.aemu-parked/system#lib#egl#${single.name}")
+                parked.parentFile?.mkdirs()
+                if (isLink(single)) Os.remove(single.absolutePath)
+                else { parked.delete(); if (!single.renameTo(parked)) single.delete() }
+                log("${single.name}: set aside, the engine's 32-bit SwiftShader takes its place")
+                copied++
+            }
         }
         // 8.0's 32-bit libEGL looks for the "emulation" driver in system/lib/egl only, where the engine's 32-bit
         // SwiftShader is not (it goes with the other EGL drivers to vendor/lib/egl): links there, under SwiftShader's
@@ -988,14 +1036,14 @@ class TreeFixer(
             for ((asset, to) in listOf(cameraHal to "system/lib/hw/camera.default.so",
                 audioHal to "system/lib/hw/audio.primary.default.so")) {
                 val dst = File(root, to)
-                val size = runCatching { EngineAssets.size(ctx, asset) }.getOrDefault(-1L)
+                val size = runCatching { eaSize(asset) }.getOrDefault(-1L)
                 if (dst.isFile && size >= 0 && dst.length() == size && sameContent(asset, dst)) continue
                 runCatching {
                     dst.parentFile?.mkdirs()
                     val parked = File(root, "system/.aemu-parked/${to.replace('/', '#')}")
                     parked.parentFile?.mkdirs()
                     if (dst.isFile && !parked.exists()) dst.renameTo(parked)
-                    EngineAssets.open(ctx, asset).use { i -> dst.outputStream().use { o -> i.copyTo(o) } }
+                    eaOpen(asset).use { i -> dst.outputStream().use { o -> i.copyTo(o) } }
                     dst.setReadable(true, false); copied++
                 }.onFailure { log("$to: ${it.message}") }
             }
@@ -1004,7 +1052,7 @@ class TreeFixer(
         runCatching {
             // (read whole: a jar is stored compressed in the package, and such an asset has no length to ask for)
             val jar = File(root, "system/framework/aemu-stubs.jar")
-            val bytes = EngineAssets.open(ctx, "engines/kk/aemu-stubs.jar").use { it.readBytes() }
+            val bytes = eaOpen("engines/kk/aemu-stubs.jar").use { it.readBytes() }
             if (!jar.isFile || !jar.readBytes().contentEquals(bytes)) {
                 jar.writeBytes(bytes)
                 jar.setReadable(true, false); copied++
@@ -1012,7 +1060,13 @@ class TreeFixer(
         }.onFailure { log("aemu-stubs.jar: ${it.message}") }
         if (copied > 0) log("engine n64 files updated: $copied")
         // qemu-arm (the firmware's 32-bit programs) asks for the lowest mappable address; the phone hides the real file
-        runCatching { File(root, "proc/sys/vm").mkdirs(); File(root, "proc/sys/vm/mmap_min_addr").writeText("65536") }
+        // (a static 32-bit program of the firmware, healthd, is linked at 0x8000: with 65536 qemu-arm refuses to load it
+        // - "requires virtual address space that is in use" - so for such a tree the file says 32768, the lowest
+        // address a phone's kernel allows by default)
+        runCatching {
+            File(root, "proc/sys/vm").mkdirs()
+            File(root, "proc/sys/vm/mmap_min_addr").writeText(if (linksBelow64K(File(root, "sbin/healthd"))) "32768" else "65536")
+        }
         runCatching { File(root, "proc/.one/1").mkdirs(); File(root, "proc/.task1").mkdirs(); File(root, "proc/.task1/none").writeText("") }     // what a 32-bit program sees as /proc/self/task
         // the vendor's HALs drive hardware this phone does not have (ION, MDP, the SoC's audio DSP): with them
         // aside, the loader falls back to the *.default ones
@@ -1136,6 +1190,7 @@ class TreeFixer(
             }
         }
         if (parked > 0) log("vendor HALs set aside: $parked")
+        restorePeripheralIo()
         parkSensorsHalOfPure32Treble()
         disableTeeKeyMint()
         dropHalsWithoutService()
@@ -1215,6 +1270,84 @@ class TreeFixer(
      * not there and takes the entry out of the manifests, so SensorService finds no HAL and runs without sensors.
      * Runs on every start (the manifest comes back with the engine's files and goes again).
      */
+    /**
+     * Android Things: peripheral_io.<board>.so (the pin map of the board, read by the firmware's peripheralman) was
+     * set aside by sanitize() of an earlier version, so an image prepared then has no pins at all ("Unknown I/O
+     * name I2C1" / EINT24 / SPI_MO) - it is put back. The board's I2C buses are /dev/i2c-N to the daemon; the phone
+     * has no such devices, so they stand as links to the host's /dev/zero (reads give zeros, writes are
+     * accepted) and the ioctls of the i2c-dev interface, which qemu-arm refuses, are answered by libaemuxattr.so.
+     */
+    private fun restorePeripheralIo() = runCatching {
+        val parked = File(root, "system/.aemu-parked")
+        var back = 0
+        parked.listFiles()?.filter { it.isFile && it.name.contains("#lib#hw#peripheral_io.") && it.name.endsWith(".so") }?.forEach { f ->
+            val dst = File(root, f.name.replace('#', '/'))
+            if (!dst.exists() && dst.parentFile?.isDirectory == true && f.renameTo(dst)) { dst.setReadable(true, false); back++; log("${dst.name}: the board's pin map is back") }
+        }
+        val hasMap = listOf("system/lib/hw", "vendor/lib/hw", "system/vendor/lib/hw").any { d ->
+            File(root, d).list()?.any { it.startsWith("peripheral_io.") && it.endsWith(".so") } == true }
+        if (!hasMap) return@runCatching
+        File(root, "dev").mkdirs()
+        // Every bus is a plain file of its own inside the image. The earlier links to the host's /dev/zero (and then to
+        // distinct /dev/* nodes) all pointed at inodes the whole phone shares: peripheralman claims a bus with a file
+        // lock, the host kernel answered "held by PID <someone else>" and Android Things' OemService died with
+        // "I2C1 is already in use", after which the IoT launcher restarted that default app for ever. A file in the
+        // image has an inode nobody else has. Its ioctls (I2C_SLAVE, I2C_RDWR, SMBUS) give ENOTTY, which
+        // libaemuxattr.so answers; read() gives zeros (4 KiB of them), write() is accepted.
+        // A bus file that is not exactly 4 KiB is rebuilt: the boot animation drives the LED chip over I2C1 in a loop and
+        // its writes land in this plain file, which had grown to 1 GiB (peripheralman then looked wedged and was restarted).
+        for (n in 0..4) File(root, "dev/i2c-$n").let { l ->
+            if (isLink(l) || !l.isFile || l.length() != 4096L) {
+                l.delete()
+                runCatching { l.writeBytes(ByteArray(4096)) }
+            }
+            l.setReadable(true, false); l.setWritable(true, false)
+        }
+        gpioSysfsStandIns()
+    }.onFailure { log("peripheral_io: ${it.message}") }
+
+    /**
+     * Android Things' peripheralman drives a GPIO through /sys/class/gpio/gpio<N>/{direction,value,edge,active_low} and
+     * answers "<name> driver failure" when gpio<N> is not there ("Failed to open /sys/class/gpio/gpio400"). The pin
+     * numbers come from the board's pin map (peripheral_io.<board>.so); the earlier stand-in covered only the pins that
+     * had been seen failing one by one (411, 438), so every other pin broke the same way when the next app opened it.
+     *
+     * On the AT1 speaker image that was the launch loop: OemService's DspFirmwareUpgrader opens EINT24 and then EINT13
+     * (= gpio400, no node) and throws, leaving EINT24 open; AT1Board.setup() in the same process then gets "EINT24 is
+     * already in use by PID <its own>", throws before it creates its StandbyTimer, and the first audio standby callback
+     * dies with an NPE (AT1Board.startStandbyTimer). The IoT launcher restarts the default app, which does it all again.
+     *
+     * Every number the SoC's GPIO controller can have gets a node of its own (plain files in the image: qemu's -L prefix
+     * only redirects a path that exists in the tree; reads give the stored value, writes are accepted). A node already
+     * there (made by the engine's own stand-in) is never touched. "export"/"unexport" accept writes too.
+     */
+    private fun gpioSysfsStandIns() {
+        val base = File(root, "sys/class/gpio").apply { mkdirs() }
+        var d: File? = base
+        while (d != null && d != root && d.path.startsWith(root.path)) { d.setReadable(true, false); d.setExecutable(true, false); d = d.parentFile }
+        for (n in listOf("export", "unexport")) File(base, n).let { f ->
+            if (!f.isFile) runCatching { f.writeText("") }
+            f.setReadable(true, false); f.setWritable(true, false)
+        }
+        var made = 0
+        for (pin in 0 until GPIO_STAND_IN_PINS) {
+            val dir = File(base, "gpio$pin")
+            if (dir.isDirectory && File(dir, "value").isFile && File(dir, "direction").isFile) continue
+            runCatching {
+                dir.mkdirs()
+                dir.setReadable(true, false); dir.setExecutable(true, false); dir.setWritable(true, false)
+                for ((n, v) in listOf("direction" to "in", "value" to "0", "edge" to "none", "active_low" to "0")) {
+                    File(dir, n).let { f ->
+                        if (!f.isFile) f.writeText(v + "\n")
+                        f.setReadable(true, false); f.setWritable(true, false)
+                    }
+                }
+                made++
+            }
+        }
+        if (made > 0) log("peripheral_io: GPIO sysfs nodes for pins 0..${GPIO_STAND_IN_PINS - 1} ($made new)")
+    }
+
     private fun parkSensorsHalOfPure32Treble() {
         if (!kernel.treble || !isPure32Tree(root)) return
         var n = 0
@@ -1344,6 +1477,7 @@ class TreeFixer(
         }
         // Dedicated loader variant: never overwrite a stock camera.default/vendor HAL.
         val asset = "engines/common/camera.aemu_host.so"
+        if (img.arch != GuestArch.ARM && eaSize(asset) < 0) { log("camera: no ${img.arch.id} host-camera HAL in this build, the guest has no camera"); return }
         if (destination.isFile && sameContent(asset, destination)) {
             if (CameraHalFallback.configure(root, destination, img.api <= 20)) log("camera: legacy default HAL fallback installed")
             return
@@ -1356,7 +1490,7 @@ class TreeFixer(
                 if (isLink(destination)) Os.remove(destination.absolutePath)
             }
             destination.parentFile?.mkdirs()
-            EngineAssets.open(ctx, asset).use { input -> destination.outputStream().use { input.copyTo(it) } }
+            eaOpen(asset).use { input -> destination.outputStream().use { input.copyTo(it) } }
             destination.setReadable(true, false); destination.setExecutable(true, false)
             log("camera: standard HAL1 host-camera bridge installed")
             if (CameraHalFallback.configure(root, destination, img.api <= 20)) log("camera: legacy default HAL fallback installed")
@@ -1386,14 +1520,23 @@ class TreeFixer(
                 else "motion: all sensors disabled in the settings; guest runs without sensors")
             return
         }
+        if (img.arch != GuestArch.ARM && eaSize("engines/common/sensors.aemu_host.so") < 0) {
+            log("motion: no ${img.arch.id} sensor HAL in this build, the guest has no sensors")
+            return
+        }
         for (name in listOf("sensors.aemu_host.so", "sensors.default.so")) {
             val file = File(root, "system/lib/hw/$name")
             file.parentFile?.mkdirs()
-            EngineAssets.open(ctx, "engines/common/sensors.aemu_host.so").use { input -> file.outputStream().use { input.copyTo(it) } }
+            eaOpen("engines/common/sensors.aemu_host.so").use { input -> file.outputStream().use { input.copyTo(it) } }
             file.setReadable(true, false)
         }
         log("motion: installed legacy host sensor HAL")
     }
+
+    // Engine assets for THIS firmware's architecture (see EngineAssets.forArch): ARM reads engines/<set>/<file> as before, an
+    // x86 firmware reads engines/<set>-x86/<file> and finds nothing where that build has not been added yet
+    private fun eaOpen(path: String) = EngineAssets.open(ctx, EngineAssets.forArch(ctx, path, img.arch))
+    private fun eaSize(path: String) = EngineAssets.size(ctx, EngineAssets.forArch(ctx, path, img.arch))
 
     private fun installEngineFiles() {
         // the fake SHM devices (libshmshim.so) keep their allocator state in these files: start every boot from scratch
@@ -1439,7 +1582,8 @@ class TreeFixer(
         // gralloc.default, который выделяет память через ION (MediaTek и др.), без ядра не работает:
         // устройство выделения получается пустым и SurfaceFlinger падает — ставим gralloc движка
         val romGralloc = File(root, "system/lib/hw/gralloc.default.so")
-        if (engine == Engine.KK && romGralloc.isFile && romGralloc.length() < 2_000_000) {
+        // (x86: there is no engine gralloc to put in its place yet, the firmware keeps its own)
+        if (engine == Engine.KK && img.arch == GuestArch.ARM && romGralloc.isFile && romGralloc.length() < 2_000_000) {
             val text = runCatching { String(romGralloc.readBytes(), Charsets.ISO_8859_1) }.getOrDefault("")
             if (text.contains("libion.so") || text.contains("ion_alloc")) {
                 val parked = File(root, "system/.aemu-parked/system#lib#hw#gralloc.default.so.ion")
@@ -1450,7 +1594,7 @@ class TreeFixer(
         // Eclair (API 5..7): the Droid firmware gralloc.default blocks forever on its own module mutex (strace: FUTEX_WAIT on an address
         // inside gralloc.default.so, right after mmap of fb0) once fb0 offers a single page, so SurfaceFlinger never finishes readyToRun and
         // system_init never starts the Java services. The engine gralloc (AOSP) handles the single-page case with a plain ashmem buffer.
-        val eclairGralloc = img.api in 5..7
+        val eclairGralloc = img.api in 5..7 && img.arch == GuestArch.ARM
         if (eclairGralloc && romGralloc.isFile) {
             val parked = File(root, "system/.aemu-parked/system#lib#hw#gralloc.default.so.eclair")
             if (!parked.exists()) {
@@ -1468,12 +1612,13 @@ class TreeFixer(
             ?.let { runCatching { it.readBytes() }.getOrNull() }
         val replacingFirmwareGralloc = eclairGralloc || ionParkedGralloc.isFile
         val engineGralloc = if (replacedGralloc == null) null
-            else runCatching { EngineAssets.open(ctx, "engines/${engine.id}/gralloc.default.so").use { it.readBytes() } }.getOrNull()
+            else runCatching { eaOpen("engines/${engine.id}/gralloc.default.so").use { it.readBytes() } }.getOrNull()
         val grallocVariant = GtiGralloc.applies(replacedGralloc, engineGralloc)
         if (replacedGralloc != null && engineGralloc != null)
             log("gralloc: firmware ${GrallocProbe.verdict(replacedGralloc)}, engine ${GrallocProbe.verdict(engineGralloc)} -> " +
                 if (grallocVariant) "Eclair-behaviour variant" else "standard engine gralloc")
         var copied = 0
+        var skippedForArch = 0
         // 7.0+ libEGL on a qemu kernel (qemu.gles=1) only tries the "emulation" driver name
         val nougat = if (img.api >= 24 && copies.any { it.second == "system/lib/egl/libGLES_bridge.so" })
             listOf("libGLES_split.so" to "system/lib/egl/libGLES_emulation.so") else emptyList()
@@ -1538,7 +1683,9 @@ class TreeFixer(
                 else -> from
             }
             val asset = if (name.startsWith("@")) "engines/common/${name.drop(1)}" else "engines/${engine.id}/$name"
-            val size = runCatching { EngineAssets.size(ctx, asset) }.getOrDefault(-1L)
+            // x86: the helper libraries are ARM binaries until their x86 builds are added; a file that is not there is skipped
+            if (img.arch != GuestArch.ARM && eaSize(asset) < 0) { skippedForArch++; continue }
+            val size = runCatching { eaSize(asset) }.getOrDefault(-1L)
             // одинаковый размер ещё не значит тот же файл (правки движка на месте, варианты HAL) — сверяем CRC
             if (dst.isFile && size >= 0 && dst.length() == size && sameContent(asset, dst)) continue
             if (mtkHw) runCatching {
@@ -1550,7 +1697,7 @@ class TreeFixer(
             runCatching {
                 dst.parentFile?.mkdirs()
                 if (isLink(dst)) Os.remove(dst.absolutePath)
-                EngineAssets.open(ctx, asset).use { i -> dst.outputStream().use { o -> i.copyTo(o) } }
+                eaOpen(asset).use { i -> dst.outputStream().use { o -> i.copyTo(o) } }
                 dst.setReadable(true, false)
                 dst.setExecutable(true, false)
                 copied++
@@ -1558,6 +1705,8 @@ class TreeFixer(
                 if (name == GtiGralloc.ASSET) log("gralloc: Eclair-behaviour variant installed (same-process buffers are not re-mapped or unmapped)")
             }.onFailure { log("${from.removePrefix("@")} missing from engine set: ${it.message}") }
         }
+        if (skippedForArch > 0)
+            log("${img.arch.id}: $skippedForArch engine helper files have no ${img.arch.id} build yet (assets/engines/*${img.arch.assetSuffix}); the guest runs without them")
         // Replicate camera.default.so into vendor/lib/hw and 64-bit libraries for modern cameraserver and apps
         val cam32 = File(root, "system/lib/hw/camera.default.so")
         val vcam32 = File(root, "vendor/lib/hw/camera.default.so")
@@ -1572,10 +1721,10 @@ class TreeFixer(
                 val asset64 = (if (engine == Engine.N64) kernel.assets.reversed() else emptyList())
                     .firstNotNullOfOrNull { EngineAssets.layerAsset(ctx, it, "system#lib64#hw#camera.default.so", EngineAssets.ARM64) }
                     ?: "engines/common/camera.default64.so"
-                val size64 = EngineAssets.size(ctx, asset64)
+                val size64 = eaSize(asset64)
                 if (!cam64.exists() || cam64.length() != size64) {
                     cam64.parentFile?.mkdirs()
-                    EngineAssets.open(ctx, asset64).use { i -> cam64.outputStream().use { o -> i.copyTo(o) } }
+                    eaOpen(asset64).use { i -> cam64.outputStream().use { o -> i.copyTo(o) } }
                     cam64.setReadable(true, false)
                 }
                 if (File(root, "vendor/lib64/hw").isDirectory && (!vcam64.exists() || vcam64.length() != cam64.length())) {
@@ -1594,7 +1743,7 @@ class TreeFixer(
         }
         // netfilter в эмуляторе нет: iptables всегда падает, а netd 4.x (Samsung) считает это фатальным
         // для NetworkManagementService/ConnectivityService — ставим пустую программу, родную прячем
-        val trueSize = runCatching { EngineAssets.size(ctx, "engines/common/aemu_true.so") }.getOrDefault(-1L)
+        val trueSize = runCatching { eaSize("engines/common/aemu_true.so") }.getOrDefault(-1L)
         // MIUI: invoke-as runs FirewallService's iptables loop as root; under qemu that shell never sees its
         // children exit, so ConnectivityService (and the whole boot) hangs in CommandLineUtils.waitFor
         val fakes = listOf("bin/iptables", "bin/ip6tables") + if (img.skin.contains("MIUI", true)) listOf("xbin/invoke-as") else emptyList()
@@ -1606,7 +1755,7 @@ class TreeFixer(
                 val parked = File(root, "system/.aemu-parked/system#${rel.replace('/', '#')}")
                 parked.parentFile?.mkdirs()
                 if (isLink(f)) Os.remove(f.absolutePath) else if (!parked.exists()) f.renameTo(parked) else f.delete()
-                EngineAssets.open(ctx, "engines/common/aemu_true.so").use { i -> f.outputStream().use { o -> i.copyTo(o) } }
+                eaOpen("engines/common/aemu_true.so").use { i -> f.outputStream().use { o -> i.copyTo(o) } }
                 f.setReadable(true, false); f.setExecutable(true, false)
                 copied++
             }.onFailure { log("$n not replaced: ${it.message}") }
@@ -1623,7 +1772,7 @@ class TreeFixer(
                 runCatching {
                     File(root, "system/.aemu-parked").mkdirs()
                     cam.copyTo(File(root, "system/.aemu-parked/system#lib#libcamera.so"), overwrite = true)
-                    EngineAssets.open(ctx, "engines/gb/libcamera.so").use { i -> cam.outputStream().use { o -> i.copyTo(o) } }
+                    eaOpen("engines/gb/libcamera.so").use { i -> cam.outputStream().use { o -> i.copyTo(o) } }
                     stamp.writeText("1")
                 }
             }
@@ -1639,7 +1788,7 @@ class TreeFixer(
         val stubOk = img.api in 9..10 && !htc && !needsLegacyCameraSymbol()
         // a stub that an earlier build put on a firmware it does not fit: put the stock library back
         if (!stubOk && !htc && parkedCam.isFile && !stamp.isFile) runCatching {
-            val noneSize = EngineAssets.size(ctx, "engines/common/libcamera.none.so")
+            val noneSize = eaSize("engines/common/libcamera.none.so")
             if (noneSize > 0 && cam.length() == noneSize) {
                 cam.delete(); parkedCam.renameTo(cam)
                 log("camera: stock libcamera.so restored (the empty HAL does not fit this firmware)")
@@ -1651,7 +1800,7 @@ class TreeFixer(
             if (listOf("libcald", "liboemcamera", "oncrpc").any { text.contains(it) }) runCatching {
                 File(root, "system/.aemu-parked").mkdirs()
                 cam.copyTo(parkedCam, overwrite = true)
-                EngineAssets.open(ctx, "engines/common/libcamera.none.so").use { i -> cam.outputStream().use { o -> i.copyTo(o) } }
+                eaOpen("engines/common/libcamera.none.so").use { i -> cam.outputStream().use { o -> i.copyTo(o) } }
                 log("camera: the firmware's 2.3 HAL needs the modem, replaced with an empty one (stock kept)")
                 copied++
             }
@@ -1688,6 +1837,8 @@ class TreeFixer(
 
     /** Направляет загрузчик EGL прошивки на GL-мост (или на программный растеризатор). */
     private fun eglConfig(gpu: Boolean) {
+        // x86 Lollipop/Marshmallow firmware without the AOSP software renderer (also covers images imported by older builds)
+        X86SoftwareGles.ensure(ctx, root, img.api, log)
         val dir = File(root, "system/lib/egl").apply { mkdirs() }
         val cfg = File(dir, "egl.cfg")
         val cfgRom = File(dir, "egl.cfg.rom")
@@ -1723,7 +1874,11 @@ class TreeFixer(
                     cfg.writeText("0 0 android\n0 1 aemu\n")
                 } else {
                     // программная отрисовка: убираем все наши имена, иначе загрузчик 4.4 всё равно найдёт libGLES.so
-                    for (n in names) if (n != "libGLES_android.so") File(dir, n).delete()
+                    // (x86 5.x/6.0 libEGL ignores egl.cfg and asks for egl/libGLES.so first, then scans for libGLES_<tag>.so, which
+                    // never takes libGLES_android.so: the file X86SoftwareGles.ensure put under that name just above has to stay,
+                    // or SurfaceFlinger aborts with "couldn't find an OpenGL ES implementation", exit 132)
+                    val keepPlain = img.arch != GuestArch.ARM && img.api in 20..23
+                    for (n in names) if (n != "libGLES_android.so" && !(keepPlain && n == "libGLES.so")) File(dir, n).delete()
                     if (swOff.isFile) { sw.delete(); swOff.renameTo(sw) }
                     cfg.writeText("0 0 android\n")
                 }
@@ -1741,7 +1896,7 @@ class TreeFixer(
             while (true) { val n = i.read(b); if (n < 0) break; c.update(b, 0, n) }
             return c.value
         }
-        EngineAssets.open(ctx, asset).use { crc(it) } == f.inputStream().use { crc(it) }
+        eaOpen(asset).use { crc(it) } == f.inputStream().use { crc(it) }
     }.getOrDefault(false)
 
     /** Пустые таблицы xt_qtaguid, на которые гостевая прослойка подменяет /proc/net/xt_qtaguid/… */
@@ -1783,7 +1938,11 @@ class TreeFixer(
             path.toFile().delete()
         }
         val target = listOf("mksh", "ash", "toybox", "busybox", "../xbin/busybox").firstOrNull { inTree(File(bin, it)) }
-        if (target == null) { log("sh: system/bin/sh is missing and there is no mksh/ash/toybox/busybox to link it to"); return@runCatching }
+        if (target == null) {
+            // (pre-1.0 builds have no system/bin/sh by design: the shell is /sbin/sh of the ramdisk)
+            if (!LegacyFirmware.isLegacyLayout(paths.root)) log("sh: system/bin/sh is missing and there is no mksh/ash/toybox/busybox to link it to")
+            return@runCatching
+        }
         if (isLink) java.nio.file.Files.delete(path)
         java.nio.file.Files.createSymbolicLink(path, java.nio.file.Paths.get(target))
         log("sh: system/bin/sh -> $target restored")
@@ -2208,18 +2367,18 @@ class TreeFixer(
         }
     }
 
-    private fun assetSize(a: String): Long = runCatching { EngineAssets.size(ctx, a) }.getOrDefault(-1L)
+    private fun assetSize(a: String): Long = runCatching { eaSize(a) }.getOrDefault(-1L)
     private fun installAsset(a: String, f: File) {
         if (f.isFile && !isLink(f) && f.length() == assetSize(a)) return
         f.delete()
-        EngineAssets.open(ctx, a).use { i -> f.outputStream().use { o -> i.copyTo(o) } }
+        eaOpen(a).use { i -> f.outputStream().use { o -> i.copyTo(o) } }
         f.setReadable(true, false); f.setExecutable(true, false)
     }
     /** the open GLES bridge for the 32-bit engine is asked for (file "glopen" in the image's directory) */
     private fun openGl32(): Boolean = engine == Engine.KK && File(paths.dir, "glopen").isFile &&
         assetSize(OPEN_GL) > 0
 
-    private fun splitSize(): Long = runCatching { EngineAssets.size(ctx, "engines/kk/libGLES_split.so") }.getOrDefault(-1L)
+    private fun splitSize(): Long = runCatching { eaSize("engines/kk/libGLES_split.so") }.getOrDefault(-1L)
 
     private fun makeDataDirs() {
         var made = 0
@@ -2311,6 +2470,8 @@ class TreeFixer(
         File(root, "dev/input/event0").let { if (!it.isFile) { it.parentFile?.mkdirs(); it.createNewFile() } }
         File(root, "dev/socket").mkdirs()
         File(root, "dev/graphics").mkdirs()
+        // pre-1.0: the compositor opens /dev/fb0, not /dev/graphics/fb0
+        if (LegacyFirmware.ensureFbAlias(root)) log("legacy layout: dev/fb0 -> graphics/fb0")
         // a directory in the file's place: open() fails with EISDIR whatever the flags
         if (engine == Engine.N64 && kernel.noQemuPipe) File(root, "dev/qemu_pipe").let { if (!it.isDirectory) { it.delete(); it.mkdirs() } }
         AudioOut(paths, log).makeFifo()
@@ -3320,10 +3481,15 @@ class TreeFixer(
         // qemu reports smem_len = two 32-bit pages (TWRP draws BGRA_8888); mmap past the file end would SIGBUS
         val need = w.toLong() * h * 4 * 2
         val f = paths.fb
-        if (f.isFile && f.length() == need) return
+        // the geometry file is rewritten every time: 540x960 and 960x540 (a resolution preset turned to landscape) need
+        // the same number of bytes, so the size of fb0 alone does not tell that the guest's answer to FBIOGET_VSCREENINFO changed
+        val geom = "$w $h\n"
+        val geomFile = File(root, "dhd.fbgeom")
+        val geomOk = runCatching { geomFile.readText() == geom }.getOrDefault(false)
+        if (f.isFile && f.length() == need && geomOk) return
         f.parentFile?.mkdirs()
         RandomAccessFile(f, "rw").use { it.setLength(need) }
-        runCatching { File(root, "dhd.fbgeom").writeText("$w $h\n") }
+        runCatching { geomFile.writeText(geom) }
         log("framebuffer: ${w}x$h")
     }
 
@@ -3702,6 +3868,19 @@ val db = settingsDb()
         if (changed) runCatching { f.writeText(xml); log("legacy Google login disabled: ${targets.joinToString()}") }
     }
 
+    /** a 32-bit non-PIE executable with a loadable segment below 0x10000 (static Android programs start at 0x8000) */
+    private fun linksBelow64K(f: File): Boolean = runCatching {
+        if (!f.isFile || isLink(f)) return@runCatching false
+        val h = f.inputStream().use { i -> ByteArray(4096).also { n -> i.read(n) } }
+        val b = java.nio.ByteBuffer.wrap(h).order(java.nio.ByteOrder.LITTLE_ENDIAN)
+        if (h[0] != 0x7f.toByte() || h[1] != 'E'.code.toByte() || h[4] != 1.toByte() || b.getShort(16).toInt() != 2) return@runCatching false
+        val phoff = b.getInt(28); val phentsize = b.getShort(42).toInt() and 0xffff; val phnum = b.getShort(44).toInt() and 0xffff
+        (0 until phnum).any { k ->
+            val o = phoff + k * phentsize
+            o + 12 <= h.size && b.getInt(o) == 1 && (b.getInt(o + 8).toLong() and 0xffffffffL) < 0x10000L
+        }
+    }.getOrDefault(false)
+
     /**
      * Static healthd (5.0+) checks the battery files with faccessat, which the stand's qemu does not map into the
      * guest root: it tests the phone's real /sys and finds no battery. Its path constant becomes the relative
@@ -3817,9 +3996,11 @@ val db = settingsDb()
      * persistent crash loops the whole system. There is no NFC to offer, so the app is moved out of the way.
      */
     private fun parkNfc() {
-        // 7.0+ zygote: the shim shows qemu's /dhd.owners descriptor under this whitelisted name; after fork
-        // zygote reopens it by that path, which has to lead back to the same table
-        if (img.api >= 24) runCatching {
+        // 6.0+ zygote (API 23 too: an x86 6.0.1 zygote logs "Failed open(/system/framework/aemu-owners.jar)" and
+        // "Unable to reopen whitelisted descriptors" in system_server's child, then zygote exits 137): the shim
+        // shows qemu's /dhd.owners descriptor under this whitelisted name; after fork zygote reopens it by that
+        // path, which has to lead back to the same table
+        if (img.api >= 23) runCatching {
             val link = File(root, "system/framework/aemu-owners.jar")
             if (!isLink(link)) { link.delete(); Os.symlink(paths.owners.absolutePath, link.path) }
         }
@@ -3912,6 +4093,8 @@ val db = settingsDb()
     private fun wipe(f: File) = ImageStore.wipe(f)
 
     companion object {
+        /** GPIO numbers 0..511 get a sysfs node (MT8516 pins sit at 387 + EINTn, i.e. EINT13 = 400, EINT24 = 411). */
+        private const val GPIO_STAND_IN_PINS = 512
         /** hw_module_t.id that MediaTek's AudioFlinger requests for libaudio.primary.default.so. */
         private const val MTK_HAL_MODULE_ID = "libaudio"
 
@@ -4047,6 +4230,9 @@ val db = settingsDb()
             "data/local", "data/local/tmp", "data/misc", "data/misc/keystore", "data/misc/wifi", "data/misc/zoneinfo",
             "data/property", "data/system", "data/anr", "data/backup", "data/lost+found", "data/drm", "data/media",
             "data/resource-cache", "data/security", "data/tombstones", "cache", "cache/download", "cache/lost+found",
+            // Dalvik of 2.x-4.x keeps the dex cache of /system jars here (init.rc: mkdir /cache/dalvik-cache); without it the VM
+            // finds no bootclasspath entry ("Could not stat dex cache directory") and zygote aborts. Also covers a tree whose ramdisk is missing
+            "cache/dalvik-cache",
             // what init.rc makes for the daemons (a system-only image comes without that file; installd leaves without misc/user)
             "data/misc/user", "data/misc/systemkeys", "data/misc/vpn", "data/misc/net", "data/misc/shared_relro", "data/misc/media", "data/misc/gatekeeper",
             "mnt", "mnt/asec", "mnt/obb", "mnt/secure", "mnt/secure/asec", "mnt/shell", "mnt/media_rw", "storage",

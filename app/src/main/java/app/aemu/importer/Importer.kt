@@ -1,5 +1,7 @@
 /* Modified for AEmulator Sunset, 2026-10-03: VM archive restore and boot retention.
  * Modified for AEmulator Super Plus, 2026-10-11: Sony .ftf / .sin import.
+ * Modified for AEmulator Plus, 2026-10-23: Android-x86 ISO 9660 import (importIso, Iso9660.kt).
+ * Modified for AEmulator Plus, 2026-10-23: pre-1.0 firmware (bare ramdisk.img, /javalib, /android): see LegacyFirmware.
  * GPL-3.0; see LICENSE and NOTICE.md. */
 package app.aemu.importer
 
@@ -9,9 +11,11 @@ import android.net.Uri
 import android.system.Os
 import app.aemu.core.CscImport
 import app.aemu.core.GuestImage
+import app.aemu.core.LegacyFirmware
 import app.aemu.core.LocalizedIOException
 import app.aemu.core.ImageStore
 import app.aemu.core.TreeFixer
+import app.aemu.core.X86SoftwareGles
 import app.aemu.core.VmPaths
 import app.aemu.core.RecoveryImage
 import app.aemu.core.SystemLayout
@@ -74,6 +78,7 @@ class Importer(
     private var bytes = 0L
     private var gotSystem = false
     private var gotOem = false
+    private var gotVendor = false
     /** a Samsung CSC package found in the firmware, kept aside until build.prop shows whether this is Samsung firmware */
     private var pendingCsc: File? = null
     /** The system partition held the whole root file system (Android 7+ A/B "system-as-root": init, init*.rc, sepolicy, sbin/ at its top). */
@@ -114,7 +119,7 @@ class Importer(
             }
             useDeferredBoot()
             // build.prop is optional: some dumps/ports lack it, Analyzer infers the version from the tree
-            if (!File(root, "system/framework").isDirectory && !File(root, "system/build.prop").isFile)
+            if (LegacyFirmware.frameworkDirName(root) == null && !File(root, "system/build.prop").isFile)
                 throw LocalizedIOException("no Android system partition found in file", R.string.imp_no_android_system_partition_found_in)
             finishTree()
             applyPendingCsc()
@@ -122,6 +127,8 @@ class Importer(
             recovery?.let { r -> runCatching { RecoveryImage.install(paths, r, log) }.onFailure { log("recovery: install failed (${it.message}), skipped") } }
             onProgress(lt(R.string.imp_analyzing_firmware), 0.97f)
             val img = Analyzer(ctx, paths, ramdisk).analyze(id, name)
+            // x86 5.x/6.0 firmware of real devices has no libGLES_android.so: libEGL then aborts SurfaceFlinger
+            X86SoftwareGles.ensure(ctx, root, img.api, log)
             TreeFixer(ctx, paths, img, log).sanitize()
             ImageStore.save(ctx, img.copy(sizeBytes = ImageStore.du(paths.dir)))
             onProgress(lt(R.string.import_ready), 1f)
@@ -145,7 +152,11 @@ class Importer(
         if (h.size < 2) throw LocalizedIOException("empty or truncated firmware file", R.string.imp_empty_or_truncated_firmware_file)
         // Odin's own "Orion.ops" (a ~100 byte settings file shipped next to Odin Multi Downloader) is not an OPPO .ops firmware
         if (depth > 0 && name.endsWith(".ops", true) && src.size < 0x200) { log("skipped $name: too small to be an OPS firmware container"); return }
+        // a bare ramdisk (ramdisk.img of an SDK emulator package, initrd.gz, ramdisk.cpio): no boot image around it, so the
+        // generic cpio / gzip branches below would unpack it as loose files and never record it as the ramdisk
+        val bareRamdisk = decodeBareRamdisk(src, name, h)
         when {
+            bareRamdisk != null -> takeBareRamdisk(bareRamdisk, name)
             // Partitions of a payload.bin / fastboot package that hold no filesystem and that the guest never needs:
             // AVB metadata (vbmeta*), device-tree overlays (dtbo, dtb) and SoC firmware blobs (abl, xbl, tz, modem ...).
             // Inside an archive they are skipped instead of failing the whole import.
@@ -185,6 +196,9 @@ class Importer(
                 String(h, 0, 6, Charsets.US_ASCII) == "070702" ||
                 String(h, 0, 6, Charsets.US_ASCII) == "070707") ->
                 importCpioStream(streamOf(src), name, depth)
+            // ISO 9660 CD image (Android-x86 live CD and its descendants): ramdisk.img + system.sfs / system.img inside.
+            // Checked before the GPT probe: an isohybrid image may carry a partition table of its own.
+            Iso9660.probe(src) -> importIso(src, name, depth)
             // full eMMC/UFS dump with a GUID partition table: boot / recovery / system are cut out of it
             GptDisk.probe(h) && src.size > (1L shl 20) -> importGptDisk(src, name)
             // Huawei dload/UPDATE.APP: packet chain of raw partition images (the container has no name-based hint)
@@ -374,10 +388,34 @@ class Importer(
     private fun importVendor(src: RandomSource) {
         try {
             importImage(if (SparseSource.probe(src)) SparseSource(listOf(src)) else src, "vendor")
+            gotVendor = true
         } catch (t: Throwable) {
             if (cancelled) throw t
             log("vendor: skipped, cannot read the partition (${t.message ?: t.javaClass.simpleName})")
         }
+    }
+
+    /**
+     * A partition delivered as several sparse chunks (vendor.img_sparsechunk.N, vendor.N ...), already copied to
+     * [parts] in order. Only a real sparse set is used (names like vendor.0 are ambiguous). The vendor partition is
+     * optional, so a failure there is logged and skipped; a split system one is not.
+     */
+    private fun importSplitSparse(parts: List<File>, partition: String) {
+        val chans = parts.map { FileChannel.open(it.toPath(), StandardOpenOption.READ) }
+        try {
+            val srcs = chans.map { ChannelSource(it) }
+            val names = parts.joinToString { it.name }
+            if (!srcs.all { SparseSource.probe(it) }) { log("ignoring ${parts.first().name}: not a sparse image set"); return }
+            log("sparse $partition in ${srcs.size} part(s): $names")
+            if (partition == "system") { importImage(SparseSource(srcs), "system"); gotSystem = true }
+            else try {
+                importImage(SparseSource(srcs), partition)
+                if (partition == "vendor") gotVendor = true
+            } catch (t: Throwable) {
+                if (cancelled) throw t
+                log("$partition: skipped, cannot read the partition (${t.message ?: t.javaClass.simpleName})")
+            }
+        } finally { chans.forEach { it.close() }; parts.forEach { it.delete() } }
     }
 
     /** Keeps a CSC package aside (first one wins); it is read only once the system partition shows Samsung. */
@@ -638,7 +676,7 @@ class Importer(
         var found = false
         val s = if (SparseSource.probe(src)) SparseSource(listOf(src)) else MotoImage.unwrap(src)
         if (UbiFsReader.probe(s)) UbiFsReader(s).walk { path, _ -> if (path == "build.prop" || path == "framework") found = true }
-        else if (Yaffs2Reader.probe(s)) Yaffs2Reader(s).walk { path, _ -> if (path == "build.prop" || path == "framework") found = true }
+        else if (Yaffs2Reader.probe(s)) Yaffs2Reader(s).walk { path, _ -> if (path == "build.prop" || path == "framework" || path == "javalib") found = true }
         else if (Ext4Reader.probe(s)) Ext4Reader(s).walk { path, _ -> if (path == "build.prop" || path == "framework") found = true }
         else if (ErofsReader.probe(s)) ErofsReader(s).let { fs ->
             found = fs.lookup("build.prop") != null || fs.lookup("framework") != null || fs.lookup("system/build.prop") != null
@@ -882,6 +920,13 @@ class Importer(
                 } else log("ignoring ${sparseChunks.first().name}: not a sparse image set")
             } finally { chans.forEach { it.close() }; parts.forEach { it.delete() } }
         }
+        // split sparse vendor (vendor.img_sparsechunk.N, vendor.N, ...), same naming schemes as system
+        if (!gotVendor) {
+            val byName = entries.associateBy { it.name }
+            val vendorChunks = SparseChunks.select(
+                entries.filter { !it.isDirectory && !it.name.contains("__MACOSX/") }.map { it.name }, "vendor").mapNotNull { byName[it] }
+            if (vendorChunks.isNotEmpty()) importSplitSparse(vendorChunks.map { spillEntry(zip, it) }, "vendor")
+        }
         if (rawProgramEntries.isNotEmpty() && (!gotSystem || ramdisk == null || recovery == null || !gotOem)) importEdl(zip, entries, rawProgramEntries)
         // zips at any depth (Firmware/fw.zip): opened only if the outer archive had no system / boot
         for (pe in pendingZips) {
@@ -961,6 +1006,8 @@ class Importer(
             val sysRoot = findSystemRoot(z.entries.map { it.name.replace('\\', '/').trimStart('/') })
             val nested = ArrayList<Pair<File, String>>()
             val vdat = LinkedHashMap<String, MutableMap<String, File>>()
+            // split sparse system / vendor: an entry is readable once, so chunks are spilled and sorted after the pass
+            val splitParts = LinkedHashMap<String, MutableList<Pair<String, File>>>()
             while (true) {
                 if (cancelled) throw IOException("cancelled")
                 val e = z.nextEntry ?: break
@@ -988,6 +1035,10 @@ class Importer(
                         gotSystem = true
                     }
                     base.endsWith(".yaffs2.img", true) && !base.equals("system.yaffs2.img", true) -> drain(entryStream)
+                    e.size > 4096 && listOf("system", "vendor").any { SparseChunks.indexOf(n, it) != null } -> {
+                        val part = if (SparseChunks.indexOf(n, "system") != null) "system" else "vendor"
+                        splitParts.getOrPut(part) { ArrayList() }.add(n to spill(entryStream, base))
+                    }
                     isBootName(base) -> takeBoot(entryStream.readBytes())
                     isRecoveryName(base) && e.size < 64_000_000 -> takeRecovery(entryStream, base)
                     CscPackage.isCscContainer(base) && e.size > 0 -> takeCsc(entryStream, base)
@@ -1024,6 +1075,13 @@ class Importer(
                 }
                 onProgress(lt(R.string.imp_extracting, base), 0.5f)
             }
+            for ((part, files) in splitParts) {
+                val byPath = files.toMap()
+                val chosen = SparseChunks.select(byPath.keys, part).mapNotNull { byPath[it] }
+                (files.map { it.second } - chosen.toSet()).forEach { it.delete() }
+                if (chosen.isEmpty() || (part == "system" && gotSystem) || (part == "vendor" && gotVendor)) chosen.forEach { it.delete() }
+                else importSplitSparse(chosen, part)
+            }
             for ((key, pair) in vdat) {
                 val data = pair["data"]
                 val list = pair["list"]
@@ -1050,6 +1108,76 @@ class Importer(
             }
             if (!gotSystem && nested.isEmpty()) log("no system found in archive $name")
         }
+    }
+
+    /**
+     * ISO 9660 image of Android-x86 (live CD / installer, also Bliss OS, PrimeOS ...). The ISO is only a container:
+     *  - `ramdisk.img` is the Android root file system (gzip'ed cpio with init, init*.rc, sbin/ ...): it becomes the
+     *    VM's ramdisk, like the ramdisk of a boot.img;
+     *  - `system.sfs` is a SquashFS that holds one file, `system.img` (an ext4 image): that image is cut out of it
+     *    and imported as the system partition. A plain `system.img` in the ISO is imported directly;
+     *  - `kernel` (a bzImage the guest never runs: the translator runs the firmware's programs), `initrd.img` (the live
+     *    boot script) and `install.img` (the installer) are not needed.
+     * Files of a folder (an `android-x.y/` directory on the CD) are found too; the one nearest to the root wins.
+     */
+    private fun importIso(src: RandomSource, name: String, depth: Int) {
+        val iso = Iso9660(src)
+        val files = iso.entries(checkCancelled = { if (cancelled) throw IOException("cancelled") }).filter { !it.isDir }
+        fun find(vararg names: String) = files.filter { f -> names.any { f.name.equals(it, true) } }
+            .minByOrNull { it.path.count { c -> c == '/' } }
+        val sfs = find("system.sfs")
+        val plain = find("system.img")
+        if (sfs == null && plain == null) {
+            throw LocalizedIOException("no Android system found in the ISO image (expected system.sfs or system.img)", R.string.imp_iso_no_system)
+        }
+        log("iso: ${files.size} files; system from ${(sfs ?: plain)!!.path}")
+        // the root file system first: it is small, and tells at once if the ISO is not an Android one after all
+        find("ramdisk.img")?.takeIf { ramdisk == null }?.let { rd ->
+            if (rd.size > MAX_RAMDISK) log("iso: ${rd.path} is too large for a ramdisk, skipped")
+            else {
+                val list = runCatching { BootImage.decompress(readAllFrom(iso.open(rd)))?.let { BootImage.cpio(it) } }.getOrNull()
+                if (!list.isNullOrEmpty() && list.any { it.name == "init.rc" }) { ramdisk = list; log("boot: ramdisk ${rd.path}, ${list.size} files") }
+                else log("iso: ${rd.path} is not a ramdisk with init.rc, skipped")
+            }
+        }
+        if (sfs == null) {
+            val s = iso.open(plain!!)
+            onProgress(lt(R.string.imp_reading_image, "system", "ISO 9660"), -1f)
+            importImage(if (SparseSource.probe(s)) SparseSource(listOf(s)) else s, "system")
+            return
+        }
+        // SquashFS needs a file. It is deleted as soon as system.img is out of it: both at once would double the disk peak.
+        onProgress(lt(R.string.imp_reading_image, "system", "SquashFS"), -1f)
+        val sfsFile = spill(streamOf(iso.open(sfs)), "system.sfs")
+        val dir = sfsFile.parentFile ?: sfsFile
+        try {
+            var image: File? = null
+            FirmwareToolset.walkSquashFs(sfsFile, { log(it) }, object : FirmwareToolset.SquashVisitor {
+                override fun dir(path: String, mode: Int) {}
+                override fun link(path: String, target: String) {}
+                override fun file(path: String, mode: Int, size: Long): java.io.OutputStream? {
+                    if (cancelled) throw IOException("cancelled")
+                    if (image != null || !path.substringAfterLast('/').equals("system.img", true)) return null
+                    if (tmp.usableSpace < size + 64L * 1024 * 1024)
+                        throw LocalizedIOException("Not enough space to unpack firmware", R.string.imp_not_enough_space_to_unpack_firmware)
+                    return File(dir, "system.img").also { image = it }.outputStream().buffered(1 shl 20)
+                }
+                override fun fileEnd(path: String) {}
+            })
+            val img = image
+            if (img == null) {
+                // no system.img inside: the SquashFS is the /system tree itself
+                log("iso: system.sfs holds no system.img, read as a file tree")
+                FileChannel.open(sfsFile.toPath(), StandardOpenOption.READ).use { c -> importImage(ChannelSource(c), "system") }
+                return
+            }
+            sfsFile.delete()
+            log("iso: system.img, ${img.length() shr 20} MB, from system.sfs")
+            FileChannel.open(img.toPath(), StandardOpenOption.READ).use { c ->
+                val s = ChannelSource(c)
+                importImage(if (SparseSource.probe(s)) SparseSource(listOf(s)) else s, "system")
+            }
+        } finally { deleteTree(dir) }
     }
 
     /**
@@ -1838,6 +1966,30 @@ class Importer(
     private val LOOSE_RAMDISK = Regex("(?i)(ramdisk|initrd|initramfs)(\\.cpio)?(\\.(gz|xz|lzma|lz4|img))?")
 
     /** Ramdisk shipped without a boot.img: a packed ramdisk.gz (cpio) or an unpacked initrd/ folder. */
+    /**
+     * The entries of [src] if it is a bare ramdisk: named ramdisk / initrd / initramfs (.cpio, .gz, .img ...), compressed or plain
+     * cpio, small enough, and holding an init script (/init.rc, or /etc/init.rc of a pre-1.0 ramdisk). Null otherwise, and then
+     * the file goes the way it went before.
+     */
+    private fun decodeBareRamdisk(src: RandomSource, name: String, h: ByteArray): List<BootImage.CpioEntry>? {
+        val base = name.replace('\\', '/').substringAfterLast('/')
+        if (!LOOSE_RAMDISK.matches(base) || src.size !in 1024..MAX_RAMDISK) return null
+        val gzip = h.size > 2 && h[0] == 0x1f.toByte() && h[1] == 0x8b.toByte()
+        val lzma = h.size > 2 && h[0] == 0x5d.toByte() && h[1] == 0x00.toByte()
+        val xz = h.size > 6 && h[0] == 0xfd.toByte() && String(h, 1, 4, Charsets.ISO_8859_1) == "7zXZ"
+        val lz4 = h.size > 3 && h[0] == 0x02.toByte() && h[1] == 0x21.toByte() && h[2] == 0x4c.toByte()
+        val cpio = h.size > 6 && String(h, 0, 6, Charsets.ISO_8859_1).let { it == "070701" || it == "070702" }
+        if (!(gzip || lzma || xz || lz4 || cpio)) return null
+        return runCatching { BootImage.decompress(readAllFrom(src))?.let { BootImage.cpio(it) } }.getOrNull()
+            ?.takeIf { it.isNotEmpty() && LegacyFirmware.hasInitScript(it.map { e -> e.name }) }
+    }
+
+    private fun takeBareRamdisk(rd: List<BootImage.CpioEntry>, name: String) {
+        if (ramdisk != null) { log("boot: $name ignored (a ramdisk was already taken)"); return }
+        ramdisk = rd
+        log("boot: bare ramdisk ${name.substringAfterLast('/')}, ${rd.size} files")
+    }
+
     private fun takeLooseRamdisk(zip: ZipFile, entries: List<ZipArchiveEntry>, wrap: String, sysRoot: String?) {
         fun rel(e: ZipArchiveEntry) = e.name.replace('\\', '/').removePrefix(wrap)
         val usable = entries.filter { e ->
@@ -1851,16 +2003,18 @@ class Importer(
                 val raw = zip.getInputStream(e).use { it.readBytes() }
                 BootImage.decompress(raw)?.let { BootImage.cpio(it) }
             }.getOrNull()
-            if (!rd.isNullOrEmpty() && rd.any { it.name == "init.rc" }) {
+            if (!rd.isNullOrEmpty() && LegacyFirmware.hasInitScript(rd.map { it.name })) {
                 ramdisk = rd
                 log("boot: loose ramdisk ${rel(e)}, ${rd.size} files")
                 return
             }
         }
         // 2. unpacked ramdisk folder (.../initrd/init.rc, .../initrd/sbin/healthd)
+        // (a pre-1.0 ramdisk keeps its init.rc in etc/, so the folder named initrd is one level up)
         val rc = usable.firstOrNull { rel(it).substringAfterLast('/') == "init.rc" && rel(it).substringBeforeLast('/', "").let { d ->
-            d.substringAfterLast('/').matches(Regex("(?i)(initrd|ramdisk|rootfs)")) } } ?: return
-        val dir = rel(rc).substringBeforeLast('/') + "/"
+            d.substringAfterLast('/').matches(Regex("(?i)(initrd|ramdisk|rootfs)")) ||
+                d.substringAfterLast('/') == "etc" && d.substringBeforeLast('/', "").substringAfterLast('/').matches(Regex("(?i)(initrd|ramdisk|rootfs)")) } } ?: return
+        val dir = rel(rc).substringBeforeLast('/').removeSuffix("/etc") + "/"
         val out = ArrayList<BootImage.CpioEntry>()
         for (e in usable) {
             val n = rel(e)
@@ -1872,7 +2026,7 @@ class Importer(
             val perm = e.unixMode.and(0xfff).takeIf { it != 0 } ?: if (name.startsWith("sbin/") || name == "init" || name.endsWith(".sh")) 0x1ed else 0x1a4
             out.add(BootImage.CpioEntry(name, 0x8000 or perm, data))
         }
-        if (out.any { it.name == "init.rc" }) {
+        if (LegacyFirmware.hasInitScript(out.map { it.name })) {
             ramdisk = out
             log("boot: unpacked ramdisk folder ${dir.trimEnd('/')}, ${out.size} files")
         }
@@ -2079,6 +2233,8 @@ class Importer(
         rootLink("vendor", "system/vendor")
         rootLink("etc", "system/etc")
         rootLink("bin", "system/bin")
+        // pre-1.0: /javalib is the framework directory, and the programs are linked against /android
+        LegacyFirmware.ensureLayout(root, log)
         runCatching { File(root, "system/etc/mtab").let { if (!it.exists() && !isLink(it)) Os.symlink("../../proc/mounts", it.absolutePath) } }
         log("symlinks created: $made")
     }

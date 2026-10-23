@@ -35,7 +35,8 @@ val packEngines = tasks.register("packEngines") {
         o.deleteRecursively()
         File(o, "blobs").mkdirs()
         val idx = StringBuilder()
-        engineSrc.walkTopDown().filter { it.isFile }.sortedBy { it.invariantSeparatorsPath }.forEach { f ->
+        // dot files (.gitkeep in the still empty engines/*-x86 directories) are placeholders, not engine files
+        engineSrc.walkTopDown().filter { it.isFile && !it.name.startsWith(".") }.sortedBy { it.invariantSeparatorsPath }.forEach { f ->
             val sha = MessageDigest.getInstance("SHA-1").digest(f.readBytes()).joinToString("") { "%02x".format(it) }
             val b = File(o, "blobs/$sha")
             if (!b.exists()) f.copyTo(b)
@@ -58,7 +59,7 @@ android {
         //noinspection ExpiredTargetSdkVersion
         targetSdk = 28
         versionCode = 34
-        versionName = "0.0.0.3.1" // <AEmulator base>.<Plus release>
+        versionName = "0.0.0.3.2" // <AEmulator base>.<Plus release>
         ndk { abiFilters += listOf("arm64-v8a") }
     }
 

@@ -197,6 +197,56 @@ object ElfPatch {
     }
 
     /**
+     * Switches off the load-time constructors (DT_INIT and DT_INIT_ARRAY) of an ELF file, 32-bit or 64-bit, little
+     * endian, in place: DT_INIT_ARRAYSZ becomes 0 and DT_INIT is renamed to a tag the linker ignores (the dynamic
+     * section keeps its size, so nothing else moves). Returns 1 when the file was changed, 0 when it has no
+     * constructors left (already patched, or none to begin with) or is not such an ELF file.
+     */
+    fun disableInit(f: File): Int {
+        if (f.length() < 64 || f.length() > 64L shl 20) return 0
+        val d = runCatching { f.readBytes() }.getOrNull() ?: return 0
+        if (d[0] != 0x7f.toByte() || d[1] != 'E'.code.toByte() || d[5] != 1.toByte()) return 0
+        val is64 = when (d[4].toInt()) { 2 -> true; 1 -> false; else -> return 0 }
+        val b = ByteBuffer.wrap(d).order(ByteOrder.LITTLE_ENDIAN)
+        val phoff = if (is64) b.getLong(32) else b.getInt(28).toLong() and 0xffffffffL
+        val phentsize = b.getShort(if (is64) 54 else 42).toInt() and 0xffff
+        val phnum = b.getShort(if (is64) 56 else 44).toInt() and 0xffff
+        if (phoff <= 0 || phentsize < (if (is64) 56 else 32) || phoff + phnum.toLong() * phentsize > d.size) return 0
+        var dynOff = -1L; var dynSize = 0L
+        for (i in 0 until phnum) {
+            val ph = (phoff + i.toLong() * phentsize).toInt()
+            if (b.getInt(ph) != 2) continue
+            if (is64) { dynOff = b.getLong(ph + 8); dynSize = b.getLong(ph + 32) }
+            else { dynOff = b.getInt(ph + 4).toLong() and 0xffffffffL; dynSize = b.getInt(ph + 16).toLong() and 0xffffffffL }
+        }
+        if (dynOff < 0 || dynOff + dynSize > d.size) return 0
+        val esz = if (is64) 16 else 8
+        var changed = 0
+        var e = dynOff
+        while (e + esz <= dynOff + dynSize) {
+            val at = e.toInt()
+            val tag = if (is64) b.getLong(at) else b.getInt(at).toLong()
+            if (tag == 0L) break
+            val valAt = at + esz / 2
+            when (tag) {
+                12L -> { if (is64) b.putLong(at, IGNORED_TAG) else b.putInt(at, IGNORED_TAG.toInt()); changed++ }                  // DT_INIT
+                27L -> {                                                                                                          // DT_INIT_ARRAYSZ
+                    val v = if (is64) b.getLong(valAt) else b.getInt(valAt).toLong()
+                    if (v != 0L) { if (is64) b.putLong(valAt, 0) else b.putInt(valAt, 0); changed++ }
+                }
+            }
+            e += esz
+        }
+        if (changed == 0) return 0
+        if (!f.canWrite()) f.setWritable(true, true)
+        RandomAccessFile(f, "rw").use { raf -> raf.seek(dynOff); raf.write(d, dynOff.toInt(), dynSize.toInt()) }
+        return 1
+    }
+
+    /** An unused dynamic tag in the OS-specific range: the linker only notes it, it never acts on it. */
+    private const val IGNORED_TAG = 0x6000000fL
+
+    /**
      * Cache-hint instructions the emulated CPU refuses (SIGILL on the first memcpy of every process).
      *
      * MediaTek's bionic memcpy starts with `pld [r1]` / `pldw [r0]` pairs. Two things in them upset qemu-user:

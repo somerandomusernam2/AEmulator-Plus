@@ -25,7 +25,10 @@ import androidx.compose.material3.ListItem
 import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Switch
 import androidx.compose.material3.TextButton
@@ -91,26 +94,30 @@ fun SettingsSheet(img: GuestImage, onDismiss: () -> Unit, onSave: (VmSettings) -
             if (s.legacyEngine && img.api < 14) {
                 Text(stringResource(R.string.vs_fixed_2x), style = MaterialTheme.typography.bodyMedium)
             } else {
-                Row(horizontalArrangement = Arrangement.spacedBy(ButtonGroupDefaults.ConnectedSpaceBetween), modifier = Modifier.fillMaxWidth()) {
-                    RESOLUTIONS.forEachIndexed { i, r ->
-                        ToggleButton(
-                            checked = r.selected(s),
-                            onCheckedChange = { s = r.apply(s) },
-                            contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 4.dp),
-                            shapes = when (i) {
-                                0 -> ButtonGroupDefaults.connectedLeadingButtonShapes()
-                                RESOLUTIONS.lastIndex -> ButtonGroupDefaults.connectedTrailingButtonShapes()
-                                else -> ButtonGroupDefaults.connectedMiddleButtonShapes()
-                            },
-                            modifier = Modifier.weight(1f).semantics { role = Role.RadioButton },
-                        ) { Text(if (r == ResolutionPreset.HOST) stringResource(R.string.vs_resolution_host)
-                            else "${r.width}×${r.height}", style = MaterialTheme.typography.labelMedium, maxLines = 1, softWrap = false) }
+                val firmwareDensity = remember(img.id) { ResolutionPreset.buildPropDensity(app.aemu.core.VmPaths(ctx, img.id).root) }
+                var presetMenu by remember { mutableStateOf(false) }
+                val current = RESOLUTIONS.firstOrNull { it.selected(s) }
+                val hostLabel = stringResource(R.string.vs_resolution_host)
+                val customLabel = stringResource(R.string.vs_resolution_custom)
+                fun name(r: ResolutionPreset) = if (r.isHost) hostLabel else r.label
+                Box(Modifier.fillMaxWidth()) {
+                    OutlinedButton(onClick = { presetMenu = true }, modifier = Modifier.fillMaxWidth()) {
+                        Text(current?.let(::name) ?: customLabel, modifier = Modifier.weight(1f), maxLines = 1)
+                        Text("▾")
+                    }
+                    DropdownMenu(expanded = presetMenu, onDismissRequest = { presetMenu = false }, modifier = Modifier.heightIn(max = 360.dp)) {
+                        RESOLUTIONS.forEach { r ->
+                            DropdownMenuItem(
+                                text = { Text(name(r), fontWeight = if (r == current) FontWeight.Bold else null) },
+                                onClick = { s = r.apply(s, firmwareDensity); presetMenu = false },
+                            )
+                        }
                     }
                 }
                 Spacer(Modifier.height(8.dp))
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
-                    NumField(stringResource(R.string.vs_width), s.width, Modifier.weight(1f)) { s = s.copy(width = it.coerceIn(240, 2160) and 0x7ffffffe, hostResolution = false) }
-                    NumField(stringResource(R.string.vs_height), s.height, Modifier.weight(1f)) { s = s.copy(height = it.coerceIn(320, 3840) and 0x7ffffffe, hostResolution = false) }
+                    NumField(stringResource(R.string.vs_width), s.width, Modifier.weight(1f)) { s = s.copy(width = it.coerceAtLeast(2) and 0x7ffffffe, hostResolution = false) }
+                    NumField(stringResource(R.string.vs_height), s.height, Modifier.weight(1f)) { s = s.copy(height = it.coerceAtLeast(2) and 0x7ffffffe, hostResolution = false) }
                     NumField(stringResource(R.string.vs_dpi), s.density, Modifier.weight(1f)) { s = s.copy(density = it.coerceIn(96, 640), hostResolution = false) }
                 }
                 Text(stringResource(R.string.vs_screen_hint), style = MaterialTheme.typography.bodySmall,

@@ -36,7 +36,15 @@ class GuestVm(val ctx: Context, val img: GuestImage, val lowPowerBoot: Boolean =
 
     val paths = VmPaths(ctx, img.id)
     val kernel: Kernel64 get() = Kernel64.forApi(img.api)
-    val settings = img.settings
+    /**
+     * The firmware's settings as this boot uses them. An x86 guest has no GPU bridge until the x86 build of the guest-side
+     * GL library (assets/engines/kk-x86/libGLES.so) exists: a guest that is told about a GPU it cannot reach loops in
+     * EGL, so the GPU and hardware UI options are off for it meanwhile (software rendering in the guest).
+     */
+    val settings = img.settings.let { s ->
+        if (img.arch != GuestArch.ARM && s.gpu &&
+            !EngineAssets.exists(ctx, "engines/${Engine.KK.id}${img.arch.assetSuffix}/libGLES.so")) s.copy(gpu = false, hwui = false) else s
+    }
     /** Factory-test (MMI/FTM) build: no Java framework, only a native test UI. Booted like the charging class. */
     val nativeBoot: Boolean by lazy { !lowPowerBoot && MmiBoot.frameworkless(paths.root) && MmiBoot.service(paths.root) != null }
     /** The guest draws into fb0 itself (double-buffered minui) instead of going through SurfaceFlinger. */
@@ -92,7 +100,11 @@ class GuestVm(val ctx: Context, val img: GuestImage, val lowPowerBoot: Boolean =
         stateListeners.forEach { runCatching { it(s) } }
     }
 
-    val props = PropService(paths, ::log)
+    val props = PropService(paths, ::log).also {
+        // x86 without a GL bridge: only the ES 1 software renderer exists, so apps must not be told ES 2 is there
+        // (libEGL sets qemu.gles=2 on its own; see PropService.pinned)
+        if (img.arch != GuestArch.ARM && !settings.gpu) it.pinned = setOf("qemu.gles")
+    }
     /** ADB over the LAN, switched on from the VM menu */
     val adb = AdbServer(this)
     val input = InputService(paths, ::log)
@@ -213,6 +225,7 @@ class GuestVm(val ctx: Context, val img: GuestImage, val lowPowerBoot: Boolean =
         props.serve()
         input.rateHz = settings.touchHz
         input.mtMode = effectiveMtMode(settings)
+        input.legacyMouseButton = LegacyFirmware.isPreRelease(img.release)
         input.serve()
         frames.serve()
         power.writeText("")
@@ -247,8 +260,8 @@ class GuestVm(val ctx: Context, val img: GuestImage, val lowPowerBoot: Boolean =
         runCatching { logFile.writeText("") }
         log("image \"${img.name}\": ${img.displayVersion}, native MMI/FTM boot (no Android framework)")
         val service = MmiBoot.service(paths.root) ?: error("no MMI/FTM test program found in this firmware")
-        val qemu = paths.nativeBin(engine.qemu)
-        if (!qemu.canExecute()) error("translator ${engine.qemu} is not executable")
+        val qemu = paths.nativeBin(img.arch.translator(engine))
+        if (!qemu.canExecute()) error(translatorMissing(qemu.name))
         val others = MmiBoot.controllable(paths.root)
         killLeftovers()
         HostNative.limitStackSafe()
@@ -368,8 +381,8 @@ class GuestVm(val ctx: Context, val img: GuestImage, val lowPowerBoot: Boolean =
         log("image \"${img.name}\": recovery mode")
         if (!RecoveryImage.installed(paths)) error("this firmware has no recovery installed")
         val is64 = RecoveryImage.isElf64(paths)
-        val qemu = paths.nativeBin(if (is64) kernel.runner else Engine.KK.qemu)
-        if (!is64 && !(img.settings.native32 && CpuInfo.hasAArch32) && !qemu.canExecute()) error("translator ${Engine.KK.qemu} is not executable")
+        val qemu = paths.nativeBin(if (is64) kernel.runner else img.arch.translator(Engine.KK))
+        if (!is64 && !(img.arch == GuestArch.ARM && img.settings.native32 && CpuInfo.hasAArch32) && !qemu.canExecute()) error(translatorMissing(qemu.name))
         killLeftovers()
         HostNative.limitStackSafe()
         TreeFixer(ctx, paths, img, ::log).fixup()   // framebuffer, input node
@@ -403,7 +416,7 @@ class GuestVm(val ctx: Context, val img: GuestImage, val lowPowerBoot: Boolean =
         // debugging: run/recovery.strace traces the guest's system calls into run/recovery.trace
         val trace = if (File(paths.bin, "recovery.strace").exists()) listOf("-strace", "-D", File(paths.bin, "recovery.trace").absolutePath) else emptyList()
         val cmd = when {
-            img.settings.native32 && CpuInfo.hasAArch32 && !is64 -> listOf(File(r, "sbin/recovery").absolutePath)
+            img.arch == GuestArch.ARM && img.settings.native32 && CpuInfo.hasAArch32 && !is64 -> listOf(File(r, "sbin/recovery").absolutePath)
             is64 -> listOf(qemu.absolutePath, "/sbin/recovery", File(r, "sbin/recovery").absolutePath)
             else -> listOf(qemu.absolutePath, "-L", r.absolutePath, "-0", "/sbin/recovery") + trace + File(r, "sbin/recovery").absolutePath
         }
@@ -494,16 +507,34 @@ class GuestVm(val ctx: Context, val img: GuestImage, val lowPowerBoot: Boolean =
         setState(State.FAILED)
     }
 
+    /** Why a translator cannot be started. The x86-32 one is a separate build of the same QEMU that may be absent from an APK. */
+    private fun translatorMissing(name: String): String =
+        if (name == GuestArch.X86.qemuLib) "this firmware is x86 and the x86 translator ($name) is not in this build of the app"
+        else "translator $name is not executable"
+
+    /** A pre-1.0 tree (see LegacyFirmware.isLegacyLayout): the stubs below are for 1.5+ and cannot start on it. */
+    private val legacyFw: Boolean by lazy { LegacyFirmware.isLegacyLayout(paths.root) }
+
+    /** The services of the image. For a pre-1.0 tree the list made now: an image imported earlier has its runtime under another name. */
+    private fun storedServices(): List<GuestService> = if (legacyFw) servicePlan() else img.services
+
     private fun doBoot() {
         paths.bin.mkdirs()
         runCatching { logFile.writeText("") }
         log("image \"${img.name}\": ${img.displayVersion}, ${img.skin}, engine ${engine.title}")
-        if (QemuFallback.enabled(paths)) log("translator: ${engine.qemuXperiaPlay} (patched guest mmap base)")
-        if (!File(paths.root, "system/framework").isDirectory) error("firmware tree missing")
+        if (img.arch != GuestArch.ARM) log("· guest architecture ${img.arch.id}: translator ${img.arch.qemuLib}, no helper shims until the ${img.arch.id} builds are in assets/engines/*${img.arch.assetSuffix}")
+        else if (QemuFallback.enabled(paths)) log("translator: ${engine.qemuXperiaPlay} (patched guest mmap base)")
+        // pre-1.0 firmware keeps its Java libraries in system/javalib and links its programs against /android: make both names
+        // resolve first (a tree imported without them is repaired here), then look for the framework
+        LegacyFirmware.ensureLayout(paths.root, ::log)
+        if (!File(paths.root, "system/framework").isDirectory) error("firmware tree missing: no system/framework (or system/javalib) in the imported tree")
         if (MmiBoot.frameworkless(paths.root))
             error("this firmware has no Android framework (system/framework/framework.jar) and no native MMI/FTM test program to run instead")
-        val qemu = paths.nativeBin(if (engine == Engine.N64) kernel.runner else engine.qemu)
-        if (!qemu.canExecute()) error("translator ${qemu.name} is not executable")
+        val preOne = engine != Engine.N64 && img.arch == GuestArch.ARM && LegacyFirmware.isPreRelease(img.release) &&
+            paths.nativeBin(LegacyFirmware.PRE_RELEASE_TRANSLATOR).canExecute()
+        val qemu = paths.nativeBin(if (engine == Engine.N64) kernel.runner else if (preOne) LegacyFirmware.PRE_RELEASE_TRANSLATOR else img.arch.translator(engine))
+        if (!qemu.canExecute()) error(translatorMissing(qemu.name))
+        if (preOne) log("translator: ${LegacyFirmware.PRE_RELEASE_TRANSLATOR} (pre-1.0 build: readable memory is executable)")
         if (engine == Engine.N64) log("· kernel ${kernel.tag} (${kernel.runner})")
         // a 32-bit-only firmware on the native engine: every program of it, init's services included, runs in qemu-arm
         if (engine == Engine.N64 && isPure32Tree(paths.root)) {
@@ -541,7 +572,13 @@ class GuestVm(val ctx: Context, val img: GuestImage, val lowPowerBoot: Boolean =
         if (engine == Engine.N64) {             // SwiftShader (GLES 2/3 on the CPU) where the engine has it for this release
             // (8.0+ libEGL picks the driver by name: 1 is the emulator's host GPU pipe, 2 is SwiftShader)
             // (there libEGL takes it from /vendor/lib64/egl, and without that directory puts the flag back to 0)
-            val ss = if (File(paths.root, kernel.eglLib).isFile) kernel.gles else "0"
+            // (a firmware with no 64-bit side - Android Things, Wear OS - only gets the engine's 32-bit SwiftShader in
+            // system/lib/egl: its 64-bit libEGL is never installed, and checking only that one put the flag at 0, so
+            // libEGL fell back to libGLES_android.so (GLES 1 only) and SurfaceFlinger aborted with "no suitable
+            // EGLConfig found, giving up")
+            val hasSs = File(paths.root, kernel.eglLib).isFile ||
+                File(paths.root, "system/lib/egl/libEGL_swiftshader.so").isFile
+            val ss = if (hasSs) kernel.gles else "0"
             // (32-bit programs read it as 0 through the runner: they only have the GLES 1 renderer)
             overrides["ro.kernel.qemu.gles"] = ss; overrides["qemu.gles"] = ss
         }
@@ -794,6 +831,7 @@ class GuestVm(val ctx: Context, val img: GuestImage, val lowPowerBoot: Boolean =
         props.serve()
         input.rateHz = s.touchHz
         input.mtMode = effectiveMtMode(s)
+        input.legacyMouseButton = LegacyFirmware.isPreRelease(img.release)
         input.detectHome(paths.root)
         input.trackballEnabled = settings.trackball
         // 64-bit firmware on the native engine reads 24-byte events; a 32-bit-only one (qemu-arm) reads 16-byte ones
@@ -865,7 +903,7 @@ class GuestVm(val ctx: Context, val img: GuestImage, val lowPowerBoot: Boolean =
         bootAt = System.currentTimeMillis()
         bootDoneAt = 0
         everBooted = false; zygoteRestarts = 0; imeRetried = false
-        bootAnimCheckRunning.set(false); bootAnimFixes = 0
+        bootAnimCheckRunning.set(false); bootAnimFixes = 0; peripheralClaimReleased = false
         touchWizMediaStarted = false
         noteBoot.interrupted()
         pendingNote = ImageStore.get(ctx, img.id)?.oneTimeNote ?: img.oneTimeNote
@@ -935,7 +973,7 @@ class GuestVm(val ctx: Context, val img: GuestImage, val lowPowerBoot: Boolean =
                 glUp(); glDone = true
             }
             // Samsung: native SensorService/libsensorhub wait for "sensorhubservice" forever; a placeholder binder ends the wait
-            if (svc.name == "zygote" && engine == Engine.KK && File(paths.root, "system/framework/aemu-sensorhub.jar").isFile) {
+            if (svc.name == "zygote" && !legacyFw && engine == Engine.KK && File(paths.root, "system/framework/aemu-sensorhub.jar").isFile) {
                 synchronized(procs) { procs.remove("aemu-sensorhub") }?.let { runCatching { it.destroyForcibly() } }
                 startService(GuestService("aemu-sensorhub", listOf(appProcess,
                     "-Djava.class.path=/system/framework/aemu-sensorhub.jar", "/system/bin",
@@ -946,7 +984,7 @@ class GuestVm(val ctx: Context, val img: GuestImage, val lowPowerBoot: Boolean =
             // apps then die in BluetoothA2dp.<init> ("Bluetooth A2DP service not available!", com.android.WizBTsettings
             // crashing at every BOOT_COMPLETED). The same placeholder binder answers every call "empty"; it exits at once
             // when a real service is already registered.
-            if (svc.name == "zygote" && img.api < 9 && engine == Engine.KK && File(paths.root, "system/framework/aemu-stubs.jar").isFile) {
+            if (svc.name == "zygote" && !legacyFw && img.api < 9 && engine == Engine.KK && File(paths.root, "system/framework/aemu-stubs.jar").isFile) {
                 synchronized(procs) { procs.remove("aemu-a2dp") }?.let { runCatching { it.destroyForcibly() } }
                 startStub(GuestService("aemu-a2dp", listOf(appProcess,
                     "-Djava.class.path=/system/framework/aemu-stubs.jar", "/system/bin",
@@ -956,7 +994,7 @@ class GuestVm(val ctx: Context, val img: GuestImage, val lowPowerBoot: Boolean =
             if (svc.name == "zygote" && engine == Engine.N64 && plan.any { it.name == "apexd" })
                 waitFor("apexd", 15_000) { props.get("apexd.status") == "ready" }
             // 4.2+: заглушка bluetooth_manager до зиготы (system_server с ro.kernel.qemu=1 свою не поднимает)
-            if (svc.name == "zygote" && img.api >= (if (engine == Engine.N64) 9 else 5) && engine != Engine.GB && File(paths.root, "system/framework/aemu-stubs.jar").isFile) {
+            if (svc.name == "zygote" && !legacyFw && img.api >= (if (engine == Engine.N64) 9 else 5) && engine != Engine.GB && File(paths.root, "system/framework/aemu-stubs.jar").isFile) {
                 // 2.0–4.1 look up "bluetooth" instead; without it BluetoothAdapter is null and the vendor's code crashes. On
                 // 2.0/2.1 (API 5-7, Samsung GT-I5500) that is StatusBarService.readQuickPanelSetting, called from systemReady()
                 // in system_server: the NullPointerException kills it and zygote exits with 137.
@@ -977,7 +1015,7 @@ class GuestVm(val ctx: Context, val img: GuestImage, val lowPowerBoot: Boolean =
             }
             // emulated Wi-Fi: the guest service answers WifiManager as a connected access point and, on 5.0+, registers the
             // Wi-Fi network itself (instead of the Ethernet placeholder below)
-            if (svc.name == "zygote" && wifiOn) {
+            if (svc.name == "zygote" && !legacyFw && wifiOn) {
                 synchronized(procs) { procs.remove("aemu-wifi") }?.let { runCatching { it.destroyForcibly() } }
                 startService(GuestService("aemu-wifi", listOf(appProcess,
                     "-Djava.class.path=/${WifiEmu.JAR_PATH}", "/system/bin", "app.aemu.stub.WifiStub"), optional = true))
@@ -990,7 +1028,7 @@ class GuestVm(val ctx: Context, val img: GuestImage, val lowPowerBoot: Boolean =
                     "-Djava.class.path=/system/framework/aemu-stubs.jar", "/system/bin", "app.aemu.stub.VoldStub") + (if (kernel.volumeAtUserStart) listOf("userstart") else emptyList()), optional = true))
             }
             // 5.0–7.x: a registered network, otherwise ConnectivityService says "no active network" and browsers stay offline
-            if (svc.name == "zygote" && !wifiOn && (if (engine == Engine.N64) kernel.registeredNetwork else img.api in 21..25) && engine != Engine.GB && File(paths.root, "system/framework/aemu-stubs.jar").isFile) {
+            if (svc.name == "zygote" && !legacyFw && !wifiOn && (if (engine == Engine.N64) kernel.registeredNetwork else img.api in 21..25) && engine != Engine.GB && File(paths.root, "system/framework/aemu-stubs.jar").isFile) {
                 synchronized(procs) { procs.remove("aemu-net") }?.let { runCatching { it.destroyForcibly() } }
                 startStub(GuestService("aemu-net", listOf(appProcess,
                     "-Djava.class.path=/system/framework/aemu-stubs.jar", "/system/bin", "app.aemu.stub.NetStub") + (if (engine == Engine.N64 && Kernel64.forApi(img.api).ethernetStandIn) listOf("ethernet") else emptyList()), optional = true))
@@ -1009,6 +1047,19 @@ class GuestVm(val ctx: Context, val img: GuestImage, val lowPowerBoot: Boolean =
                 if (names.isNotEmpty()) startService(GuestService("aemu-standin", listOf("/system/bin/app_process",
                     "-Djava.class.path=/system/framework/aemu-stubs.jar", "/system/bin", "app.aemu.stub.StandIn") + names, optional = true))
             }
+            // 4.4+: BatteryService.onStart dies on a null "batteryproperties" (healthd publishes it), and without the
+            // battery state healthd pushes to its listener, the first isPowered() kills system_server. A 32-bit
+            // firmware's static /sbin/healthd (linked at 0x8000) can fail to load under qemu-arm ("requires virtual
+            // address space that is in use"): BatteryStub then serves the service from the guest's power_supply nodes.
+            // (a name that is registered is left alone, so a healthd that did come up keeps its place)
+            if (svc.name == "zygote" && engine == Engine.N64 && img.api >= 21 &&
+                File(paths.root, "system/framework/aemu-stubs.jar").isFile &&
+                synchronized(procs) { procs["healthd"]?.isAlive != true }) {
+                log("healthd is not running: the battery service is served by the engine")
+                synchronized(procs) { procs.remove("aemu-battery") }?.let { runCatching { it.destroyForcibly() } }
+                startService(GuestService("aemu-battery", listOf("/system/bin/app_process",
+                    "-Djava.class.path=/system/framework/aemu-stubs.jar", "/system/bin", "app.aemu.stub.BatteryStub"), optional = true))
+            }
             if (svc.name == BootMediaServices.LEGACY_LOGO) { LegacyLogoPatch.apply(paths.root, ::log); LegacyLogoPatch.provideHeadsetState(paths.root, ::log) }
             if (svc.name == "zygote" && needsBatteryPropertiesGuard) ensureBatteryProperties(plan)
             startService(svc)
@@ -1020,6 +1071,7 @@ class GuestVm(val ctx: Context, val img: GuestImage, val lowPowerBoot: Boolean =
         if (!glDone) glUp()
         startTouchWizBootMedia() // no-op if already started above (e.g. a plan without surfaceflinger)
         log("system started: ${alive().joinToString()}")
+        watchLegacyBoot()
         if (SetupWizardOption.runHelper(settings.skipSetupWizard,
                 File(paths.root, "data/system/aemu-setup-skip.properties").isFile)) {
             val setupRunner = guestRunner
@@ -1229,7 +1281,11 @@ class GuestVm(val ctx: Context, val img: GuestImage, val lowPowerBoot: Boolean =
      * rules of the version that imported it, and fixes to those rules must reach firmware imported earlier. (InitPlan
      * ignores MediaTek's advanced_meta_init.rc, so images imported before that was learned need no re-import.)
      */
-    private fun servicePlan(): List<GuestService> = (runCatching {
+    private fun servicePlan(): List<GuestService> =
+        // pre-1.0: the runtime of the tree's own init.rc, never the generic planner's zygote (see LegacyFirmware.bootPlan)
+        LegacyFirmware.bootPlan(paths.root)?.takeIf { it.isNotEmpty() } ?: genericServicePlan()
+
+    private fun genericServicePlan(): List<GuestService> = (runCatching {
         val root = paths.root
         val props = HashMap<String, String>()
         for (n in listOf("default.prop", "system/build.prop")) runCatching {
@@ -1277,7 +1333,8 @@ class GuestVm(val ctx: Context, val img: GuestImage, val lowPowerBoot: Boolean =
         var props = propsFile
         // звук: с ro.kernel.qemu=1 mediaserver берёт эмуляторный вывод в /dev/eac
         if (svc.name == "mediaserver") props = this.props.privateCopy("media", mapOf("ro.kernel.qemu" to "1"))
-        val argv = if (svc.name == "zygote" && !settings.jit && img.runtime == "dalvik")
+        // (-Xint:fast is an option of app_process' VM; the pre-1.0 runtime takes no options)
+        val argv = if (svc.name == "zygote" && !legacyFw && !settings.jit && img.runtime == "dalvik")
             svc.argv.take(1) + "-Xint:fast" + svc.argv.drop(1) else svc.argv
         // отладка: файл run/strace.<служба> включает трассировку системных вызовов qemu
         // tracing slows a service down and fills its log: only for the services named in the VM settings
@@ -1358,7 +1415,17 @@ class GuestVm(val ctx: Context, val img: GuestImage, val lowPowerBoot: Boolean =
      * firmware wants. Remember it and start the system again once, with the binder daemons answering that version.
      */
     private fun learnBinderProtocol(name: String, log: File) {
-        if (engine != Engine.N64) return
+        if (engine != Engine.N64) {
+            // the universal engine's binder daemon speaks protocol 7; a 32-bit firmware built for the 64-bit binder structs
+            // (protocol 8) cannot start on it. The native engine with qemu-arm can: remember it and start again on that.
+            val (driver, wanted) = runCatching { BinderProtocol.parseMismatch(QemuFallback.lastRun(log.readText(), name)) }.getOrNull() ?: return
+            if (wanted != 8 || !img.abi.startsWith("armeabi") || !img.settings.translate32 || !paths.nativeBin("libqemu_arm.so").canExecute()) return
+            if (!binderProtocolRetried.compareAndSet(false, true)) return
+            BinderProtocol.save(paths.bin, wanted)
+            log("✖ $name: binder driver speaks protocol $driver, the firmware wants $wanted; remembered, starting the system again on the native engine (qemu-arm)")
+            onPower?.invoke(true, "")
+            return
+        }
         val (driver, wanted) = runCatching { BinderProtocol.parseMismatch(QemuFallback.lastRun(log.readText(), name)) }.getOrNull() ?: return
         if (BinderProtocol.saved(paths.bin) == wanted) {
             log("✖ $name still wants binder protocol $wanted although ${BinderProtocol.ENV}=$wanted was set: the guest runner of this Android version (libaemu64_${kernel.tag}) does not honour ${BinderProtocol.GUEST_ENV} (only the 8.x kernels 26/27 translate protocol 7)")
@@ -1527,14 +1594,56 @@ class GuestVm(val ctx: Context, val img: GuestImage, val lowPowerBoot: Boolean =
         if (k == "service.bootanim.exit" && v == "0" && engine == Engine.N64 && kernel.clientComposition)
             Thread { clientComposition() }.start()
         if (k == "service.bootanim.exit" && v == "1" && screenUpAt == 0L) screenUpAt = System.currentTimeMillis()
-        if ((k == "sys.boot_completed" || k == "dev.bootcomplete") && v == "1" && bootDoneAt == 0L) {
-            if (!recoveryMode && !lowPowerBoot) noteBoot.reported(SystemClock.elapsedRealtime())
-            bootDoneAt = System.currentTimeMillis()
-            everBooted = true
-            log("★ guest reported boot completion in ${(bootDoneAt - bootAt) / 1000} s (UI not verified)")
-            setState(State.RUNNING)
-            Thread { afterBoot() }.start()
+        if ((k == "sys.boot_completed" || k == "dev.bootcomplete") && v == "1" && bootDoneAt == 0L)
+            completeBoot("guest reported boot completion")
+    }
+
+    /** Boot is over: state RUNNING (touch, adb, the library status and the rest wait for it), afterBoot() once. */
+    @Synchronized private fun completeBoot(why: String) {
+        if (bootDoneAt != 0L) return
+        if (!recoveryMode && !lowPowerBoot) noteBoot.reported(SystemClock.elapsedRealtime())
+        bootDoneAt = System.currentTimeMillis()
+        everBooted = true
+        log("★ $why in ${(bootDoneAt - bootAt) / 1000} s (UI not verified)")
+        setState(State.RUNNING)
+        Thread { afterBoot() }.start()
+    }
+
+    @Volatile private var legacyBootObservers: List<android.os.FileObserver> = emptyList()
+
+    private fun stopLegacyBootWatch() {
+        legacyBootObservers.forEach { runCatching { it.stopWatching() } }
+        legacyBootObservers = emptyList()
+    }
+
+    /**
+     * Pre-1.0 builds (HTC 20645 and the like) never set sys.boot_completed or dev.bootcomplete: the property did not exist
+     * yet, so the app stayed in BOOTING for ever and touch, adb and everything else that waits for RUNNING never came up.
+     *
+     * What the runtime does do is deliver ACTION_BOOT_COMPLETED: the receivers of the installed apps are instantiated and
+     * the media scanner answers by scanning the internal volume. The 20645 trace shows media.db being opened and then
+     * open("/system/media"), open(".../audio"), open(".../audio/ringtones"), once, and nothing else touches that directory
+     * at boot. An inotify watch on it (FileObserver) reports the first open / read, and that is the boot-completed event of
+     * these builds. The watch starts once the system is started, after every fix-up the app itself does to the tree.
+     * No event, no completion: nothing here fires on a clock.
+     */
+    private fun watchLegacyBoot() {
+        if (recoveryMode || lowPowerBoot || !LegacyFirmware.isPreRelease(img.release)) return
+        stopLegacyBootWatch()
+        val dir = File(paths.root, LegacyFirmware.BOOT_SCAN_DIR)
+        if (!dir.isDirectory) { log("pre-1.0 boot watch: ${LegacyFirmware.BOOT_SCAN_DIR} is not in this tree, no boot-completed signal to wait for"); return }
+        @Suppress("DEPRECATION")
+        val o = object : android.os.FileObserver(dir.absolutePath, android.os.FileObserver.OPEN or android.os.FileObserver.ACCESS) {
+            override fun onEvent(event: Int, path: String?) {
+                if (bootDoneAt != 0L || stopping) return
+                if (alive().none { it != "binderd" }) return    // the runtime is gone: that is a failure, not a boot
+                completeBoot("pre-1.0 build: the media scanner opened /${LegacyFirmware.BOOT_SCAN_DIR} (BOOT_COMPLETED was delivered)")
+                stopLegacyBootWatch()
+            }
         }
+        o.startWatching()
+        legacyBootObservers = listOf(o)
+        log("pre-1.0 boot watch: waiting for the guest to open /${LegacyFirmware.BOOT_SCAN_DIR} (media scanner, after BOOT_COMPLETED)")
     }
 
     @Volatile private var touchWizMediaStarted = false
@@ -1634,8 +1743,14 @@ class GuestVm(val ctx: Context, val img: GuestImage, val lowPowerBoot: Boolean =
                             log("boot animation watchdog: still alive 10 s after exit=1; area value=\"$seen\", re-asserting")
                             props.put("service.bootanim.exit", "1")
                         }
+                        // Android Things: the boot animation drives the board's LED array through peripheralman and keeps its
+                        // claim on I2C1 until it exits. The animation finishes its work and starts to tear down, but the process never dies (no binder death, so peripheralman keeps the claim), and the IoT launcher's default app
+                        // (OemService) dies with "I2C1 is already in use" and is restarted for ever. The animation is not
+                        // touched: the claim lives in peripheralman, so it is the daemon that is started afresh.
+                        if (waited >= 20 && bootDoneAt != 0L && !recoveryMode) releaseStuckPeripheralClaim()
                         if (waited == 30) log("boot animation is still running 30 s after service.bootanim.exit=1, waiting")
-                        if (waited == 60 && bootDoneAt != 0L && !recoveryMode) {
+                        // a stuck animation on a Things image is never killed (its layer would stay on top, see above)
+                        if (waited == 60 && bootDoneAt != 0L && !recoveryMode && !hasPeripheralman()) {
                             log("boot animation did not exit 60 s after boot completion (area value=\"${props.get("service.bootanim.exit")}\"), stopping it")
                             p.destroy()
                             if (!p.waitFor(3, java.util.concurrent.TimeUnit.SECONDS)) p.destroyForcibly()
@@ -1659,6 +1774,43 @@ class GuestVm(val ctx: Context, val img: GuestImage, val lowPowerBoot: Boolean =
         if (def == null) { log("ctl.${if (start) "start" else "stop"} $svc: no such service"); return }
         synchronized(procs) { procs.remove(svc) }?.destroyForcibly()
         if (start) Thread { runCatching { startService(def) } }.start()
+    }
+
+    private fun hasPeripheralman() = servicePlan().any { it.name == "peripheralman" }
+
+    /** user + system CPU ticks of a host process, or -1 */
+    private fun cpuTicks(pid: Int): Long = runCatching {
+        val f = File("/proc/$pid/stat").readText().substringAfterLast(')').trim().split(' ')
+        f[11].toLong() + f[12].toLong()   // utime, stime (fields 14 and 15 of the line)
+    }.getOrDefault(-1L)
+
+    private var peripheralClaimReleased = false
+
+    /**
+     * The boot animation is still alive 20 s after it was told to leave, on an image with Android Things' peripheralman.
+     * Records peripheralman's CPU use, then
+     * starts peripheralman afresh: its table of who holds which pin/bus goes with it, so OemService can open I2C1 again,
+     * Once per boot. The boot
+     * animation itself is never signalled.
+     */
+    private fun releaseStuckPeripheralClaim() {
+        if (peripheralClaimReleased) return
+        val old = synchronized(procs) { procs["peripheralman"] } ?: return
+        if (!old.isAlive) return
+        val def = servicePlan().firstOrNull { it.name == "peripheralman" } ?: return
+        peripheralClaimReleased = true
+        val pid = pidOf(old)
+        val before = pid?.let { cpuTicks(it) } ?: -1L
+        try { Thread.sleep(1000) } catch (_: InterruptedException) { return }
+        val after = pid?.let { cpuTicks(it) } ?: -1L
+        val bus = File(paths.root, "dev/i2c-1")
+        log("I2C1 is held by the boot animation which is still running; peripheralman (pid $pid) used " +
+            "${if (before >= 0 && after >= 0) "${after - before} ticks of CPU in 1 s" else "an unknown amount of CPU"}; " +
+            "bus file ${bus.length()} bytes. Starting peripheralman afresh (the boot animation is left alone)")
+        synchronized(procs) { procs.remove("peripheralman", old) }
+        old.destroyForcibly()
+        props.put("init.svc.peripheralman", "stopped")
+        runCatching { startService(def) }.onFailure { log("peripheralman: restart failed: ${it.message}") }
     }
 
     /**
@@ -1697,6 +1849,12 @@ class GuestVm(val ctx: Context, val img: GuestImage, val lowPowerBoot: Boolean =
 
     private fun afterBoot() {
         val r = guestRunner
+        if (LegacyFirmware.isPreRelease(img.release)) {   // no sh, no svc, no settings database, no wizard on a pre-1.0 build: only the statistics
+            runCatching {
+                ImageStore.update(ctx, img.id) { it.copy(lastBootMs = bootDoneAt - bootAt, bootCount = it.bootCount + 1) }
+            }.onFailure { log("boot statistics: could not save: ${it.message}") }
+            return
+        }
         if (skipWizardNow()) return   // the system comes up again and gets here once more
         // (again: something in the first seconds after the boot completes turns it back off, and it is not known what;
         // a call made half a minute later stays)
@@ -1906,10 +2064,17 @@ class GuestVm(val ctx: Context, val img: GuestImage, val lowPowerBoot: Boolean =
                         continue
                     }
                     val n = restarts.getOrDefault(name, 0)
-                    val svc = img.services.firstOrNull { it.name == name }
+                    val svc = storedServices().firstOrNull { it.name == name }
                         ?: if (name.contains("-hal-") && n < 3) servicePlan().firstOrNull { it.name == name } else null
                     // init restarts surfaceflinger and then zygote ("onrestart restart zygote"); without that a
                     // crashed compositor leaves the last frame on screen forever
+                    // The engine's SurfaceFlinger (AOSP) died during the boot: with a libgui whose BufferItem is laid out
+                    // differently (Google Jamboard, Tegra) FramebufferSurface::nextBuffer reads a garbage slot out of the
+                    // item on the very first frame. The firmware's own SurfaceFlinger goes with its own libgui: put it back.
+                    if (name == "surfaceflinger" && code == 139 && bootDoneAt == 0L && engine == Engine.N64 && useFirmwareSurfaceFlinger()) {
+                        val sf = svc ?: servicePlan().firstOrNull { it.name == name }
+                        if (sf != null) { runCatching { startService(sf) }; continue }
+                    }
                     if (name == "surfaceflinger" && svc != null && bootDoneAt > 0 && n < 12) {
                         restarts[name] = n + 1
                         log("✖ surfaceflinger crashed (code $code), restarting it and the system (${n + 1}/12)")
@@ -2006,6 +2171,31 @@ class GuestVm(val ctx: Context, val img: GuestImage, val lowPowerBoot: Boolean =
         }
     }
 
+    /**
+     * Puts the firmware's own SurfaceFlinger (set aside when the engine's was installed) back and remembers that the
+     * engine's does not work with this firmware's libgui (see TreeFixer: the marker keeps it from being replaced again).
+     * False when that was already done or there is nothing to put back.
+     */
+    private fun useFirmwareSurfaceFlinger(): Boolean {
+        val dir = File(paths.root, "system/.aemu-parked")
+        val marker = File(dir, "firmware-sf")
+        if (marker.exists()) return false
+        val pairs = listOf("system#bin#surfaceflinger" to "system/bin/surfaceflinger",
+            "system#lib64#libsurfaceflinger.so" to "system/lib64/libsurfaceflinger.so")
+        if (pairs.any { !File(dir, it.first).isFile }) return false
+        return runCatching {
+            for ((parked, live) in pairs) {
+                val dst = File(paths.root, live)
+                dst.delete()
+                if (!File(dir, parked).renameTo(dst)) File(dir, parked).copyTo(dst, overwrite = true)
+                dst.setReadable(true, false); dst.setExecutable(true, false)
+            }
+            marker.writeText("1")
+            log("surfaceflinger: the engine's build crashed on the first frame (libgui mismatch), the firmware's own SurfaceFlinger takes over")
+            true
+        }.getOrElse { log("surfaceflinger: cannot put the firmware's own back: ${it.message}"); false }
+    }
+
     /** Puts the firmware's own audio policy back and remembers that the AOSP stand-in does not work here. */
     private fun abandonAospPolicy() {
         val f = File(paths.root, "system/lib/hw/audio_policy.default.so")
@@ -2085,7 +2275,7 @@ class GuestVm(val ctx: Context, val img: GuestImage, val lowPowerBoot: Boolean =
     }
 
     private fun restartZygote() {
-        val z = img.services.firstOrNull { it.name == "zygote" } ?: return
+        val z = storedServices().firstOrNull { it.name == "zygote" } ?: return
         if (img.api >= 24) runCatching { TreeFixer(ctx, paths, img, ::log).ensureHostPathAlias() }
         bootDoneAt = 0
         setState(State.BOOTING)
@@ -2103,6 +2293,7 @@ class GuestVm(val ctx: Context, val img: GuestImage, val lowPowerBoot: Boolean =
             runCatching { startService(h) }
         }
         runCatching { startService(z) }
+        watchLegacyBoot()   // (a pre-1.0 build never reports boot completion by itself)
         img.services.firstOrNull { it.name == "zygote_secondary" }?.let { z2 ->
             synchronized(procs) { procs.remove("zygote_secondary") }?.let { runCatching { it.destroyForcibly() } }
             runCatching { startService(z2) }
@@ -2170,6 +2361,7 @@ class GuestVm(val ctx: Context, val img: GuestImage, val lowPowerBoot: Boolean =
             step("bluetooth") { bluetooth.stop() }
             step("motion") { motion.stop() }
             step("sync", 8_000) { guestRunner.run(listOf("/system/bin/sync"), 5_000) }
+            step("legacyBootWatch") { stopLegacyBootWatch() }
             step("kill") { killAll() }
             step("adb") { adb.stop() }
             step("props") { props.stop() }

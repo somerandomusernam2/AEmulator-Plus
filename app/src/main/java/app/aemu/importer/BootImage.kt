@@ -20,6 +20,16 @@ import java.util.zip.Inflater
 object BootImage {
     // Sunset: bound untrusted decompression, including embedded Samsung kernels.
     private const val MAX_DECODED = 128 * 1024 * 1024
+
+    /**
+     * Memory ceiling for the LZMA / XZ decoders, in KiB (the unit of the xz-java constructors). The decoder needs the stream's
+     * dictionary plus ~100 KiB of tables, so a limit of exactly 64 MiB rejected every kernel packed with `lzma -9` (64 MiB
+     * dictionary, e.g. CyanogenMod 3.0.x kernels for the i9100): MemoryLimitException, swallowed by the callers, and the boot
+     * image looked like it had no ramdisk. 160 MiB admits those and still refuses a hostile header asking for gigabytes.
+     */
+    private const val CODEC_LIMIT_KIB = 160 * 1024
+    private fun lzmaStream(d: ByteArray): InputStream = LZMAInputStream(ByteArrayInputStream(d), CODEC_LIMIT_KIB)
+    private fun xzStream(d: ByteArray): InputStream = XZInputStream(ByteArrayInputStream(d), CODEC_LIMIT_KIB)
     private fun InputStream.bounded(): ByteArray {
         val out = ByteArrayOutputStream()
         val buf = ByteArray(65536)
@@ -169,7 +179,7 @@ object BootImage {
                 when {
                     gz -> gunzipLenient(tail)
                     lz -> lzmaLenient(tail)
-                    else -> XZInputStream(ByteArrayInputStream(tail), 65536).use { it.bounded() }
+                    else -> xzStream(tail).use { it.bounded() }
                 }
             }.getOrNull() ?: continue
             if (kernel.size < 1_000_000) continue
@@ -182,7 +192,7 @@ object BootImage {
     private fun lzmaLenient(d: ByteArray): ByteArray {
         val out = ByteArrayOutputStream()
         runCatching {
-            LZMAInputStream(ByteArrayInputStream(d), 65536).use { s ->
+            lzmaStream(d).use { s ->
                 val buf = ByteArray(1 shl 16)
                 while (true) { val n = s.read(buf); if (n < 0) break; require(out.size().toLong() + n <= MAX_DECODED); out.write(buf, 0, n) }
             }
@@ -235,8 +245,8 @@ object BootImage {
         return runCatching {
             when {
                 d[0] == 0x1f.toByte() && d[1] == 0x8b.toByte() -> gunzipLenient(d)
-                d[0] == 0x5d.toByte() && d[1] == 0x00.toByte() -> LZMAInputStream(ByteArrayInputStream(d), 65536).use { it.bounded() }
-                d[0] == 0xfd.toByte() && String(d, 1, 4) == "7zXZ" -> XZInputStream(ByteArrayInputStream(d), 65536).use { it.bounded() }
+                d[0] == 0x5d.toByte() && d[1] == 0x00.toByte() -> lzmaStream(d).use { it.bounded() }
+                d[0] == 0xfd.toByte() && String(d, 1, 4) == "7zXZ" -> xzStream(d).use { it.bounded() }
                 d[0] == 0x02.toByte() && d[1] == 0x21.toByte() && d[2] == 0x4c.toByte() -> Lz4Legacy.decode(d)
                 String(d, 0, 6) == "070701" -> d
                 else -> null
@@ -362,7 +372,7 @@ object BootImage {
                 when {
                     gz -> gunzipLenient(tail)
                     lz -> lzmaLenient(tail)
-                    else -> XZInputStream(ByteArrayInputStream(tail), 65536).use { it.bounded() }
+                    else -> xzStream(tail).use { it.bounded() }
                 }
             }.getOrNull() ?: continue
             if (k.size < 500_000) continue
@@ -372,7 +382,8 @@ object BootImage {
     }
 
     fun parseBanner(line: String): KernelBanner? {
-        val l = VmSettings.cleanKernel(line).trim()
+        // not cleanKernel(): its 120-character cap cuts real banners (130-180 characters) before the build date
+        val l = VmSettings.cleanBanner(line).trim()
         val m = BANNER.find(l)
         if (m == null) {
             val rel = Regex("""^Linux version (\S+)""").find(l)?.groupValues?.get(1) ?: return null

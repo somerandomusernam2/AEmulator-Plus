@@ -31,9 +31,15 @@ class GuestRunner(
     private fun isEnvToken(t: String) = !t.startsWith("-") && Regex("^[A-Z_][A-Z0-9_]*=").containsMatchIn(t)
 
     val engine: Engine get() = img.engine
+    /** instruction set of the guest's programs: picks the translator, the preload set and whether DHD_NO_SMC may be sent */
+    val arch: GuestArch get() = img.arch
     val kernel: Kernel64 get() = Kernel64.forApi(img.api)
     val qemu: File get() = paths.nativeBin(
         if (engine == Engine.N64) kernel.runner
+        // x86-32: one translator (libqemu_i386.so); the 2.x mmap-base fallback is an ARM linker workaround, it has no x86 build
+        else if (arch != GuestArch.ARM) arch.translator(engine)
+        // pre-1.0 images only: the translator with read-implies-exec (see LegacyFirmware.PRE_RELEASE_TRANSLATOR)
+        else if (LegacyFirmware.isPreRelease(img.release) && paths.nativeBin(LegacyFirmware.PRE_RELEASE_TRANSLATOR).canExecute()) LegacyFirmware.PRE_RELEASE_TRANSLATOR
         else if (QemuFallback.enabled(paths) && paths.nativeBin(engine.qemuXperiaPlay).canExecute()) engine.qemuXperiaPlay else engine.qemu)
     val runner: File get() = paths.nativeBin(engine.runner)
 
@@ -46,7 +52,8 @@ class GuestRunner(
         if (runner.canExecute() && props.isFile) {
             cmd += runner.absolutePath; cmd += props.absolutePath; cmd += "30"
         }
-        if (img.settings.native32 && CpuInfo.hasAArch32) {
+        // (native32 runs the guest's ARM code directly on an AArch32-capable phone; an x86 guest is always translated)
+        if (arch == GuestArch.ARM && img.settings.native32 && CpuInfo.hasAArch32) {
             cmd += host
             cmd += argv.drop(1)
             return cmd
@@ -117,7 +124,9 @@ class GuestRunner(
         }
         e["AEMU64_FB"] = "${img.settings.width}x${img.settings.height}"
         // debugging: run/crash.report makes the runner print pc/lr and their mappings on a fatal signal
-        if (File(paths.bin, "crash.report").exists()) e["AEMU64_CRASH"] = "1"
+        // SurfaceFlinger is C++ only (no ART fault handler that the report would replace), so its fatal signals are
+        // always reported: pc/lr, the fault address and the registers go to <root>/dev/aemu_crash.log (and the log export)
+        if (File(paths.bin, "crash.report").exists() || program == "/system/bin/surfaceflinger") e["AEMU64_CRASH"] = "1"
         for (t in userTokens.filter(::isEnvToken)) e[t.substringBefore('=')] = t.substringAfter('=')
         for ((k, v) in extra) when {
             k.startsWith("DHD_SOCK_") -> e["AEMU64_SOCK_" + k.removePrefix("DHD_SOCK_")] = v
@@ -135,7 +144,15 @@ class GuestRunner(
         // The path depends on the program: a /vendor program's linker namespace (permitted_paths=/odm:/vendor) refuses
         // /system/lib/libaemuxattr.so ("CANNOT LINK EXECUTABLE", exit code 1), so it gets the copy in /vendor/lib.
         val xattrPath = GuestPreload.xattrFor(program)
-        if (isPure32Tree(paths.root) && File(paths.root, xattrPath.removePrefix("/")).isFile) {
+        // installd is left out: it marks an app's default storage with getxattr/setxattr("user.default"), and PMS's
+        // migrateAppData() moves /data/user_de/0/<pkg> over /data/data/<pkg> (or the other way) for every system app
+        // whose directory does not carry the mark. The shim answers ENODATA to every name but security.selinux and
+        // stores nothing, so no directory ever carries it: each boot the DE (or CE) directory was deleted/renamed away,
+        // and the apps that use device-protected storage (the contacts provider's calllog_shadow.db, then
+        // android.process.acore) failed with "mkdir failed: ENOENT". The libc of the tree is patched instead
+        // (TreeFixer.xattrNoop: a get reports one byte, a set succeeds), which marks both directories as default.
+        if (isPure32Tree(paths.root) && File(paths.root, xattrPath.removePrefix("/")).isFile &&
+            program?.substringAfterLast('/') != "installd") {
             val key = "DHD_ENV_LD_PRELOAD"
             val have = e[key].orEmpty().split(':').filter { it.isNotEmpty() && it != GuestPreload.XATTR && it != GuestPreload.XATTR_VENDOR }
             e[key] = (have + xattrPath).joinToString(":")
@@ -222,11 +239,39 @@ class GuestRunner(
         // 4.3+: SurfaceFlinger (GLConsumer) re-targets its EGLImages itself; forcing it again blanks the screen
         if (img.api >= 18) { e["AEMU_GL_RETARGET"] = "0"; e["AEMU_GL_CLIENT_ARRAYS"] = "0" }
         if (tbFlush > 0) e["DHD_TBFLUSH"] = tbFlush.toString()
-        if (noSmc) e["DHD_NO_SMC"] = "1"
+        if (noSmc && arch.supportsNoSmc) e["DHD_NO_SMC"] = "1"
         if (noTcgOpt) e["DHD_NO_TCGOPT"] = "1"
         for (t in userTokens.filter(::isEnvToken)) e[t.substringBefore('=')] = t.substringAfter('=')
         e.putAll(extra)
+        if (arch != GuestArch.ARM) archFixups(e)
         return e
+    }
+
+    /**
+     * What differs for a guest that is not ARM, applied last so that nothing (user options, [extra]) can undo it:
+     *  - no DHD_NO_SMC / GUEST_NO_SMC: stale translations on a JIT, see [GuestArch.supportsNoSmc];
+     *  - no preload of a library that is not built for this architecture: until the x86 builds of the helper libraries
+     *    (assets/engines/…-x86) exist, an x86 firmware boots without the shims, and a preload of an ARM file would
+     *    only make the guest's linker complain about the wrong ELF class/machine on every program.
+     */
+    private fun archFixups(e: MutableMap<String, String>) {
+        if (!arch.supportsNoSmc) { e.remove("DHD_NO_SMC"); e.remove("GUEST_NO_SMC") }
+        // The stand variables (binder socket, framebuffer size, input socket, creds, owners, sdcard, net ports, uid/gid...)
+        // are named DHD_<X> for the ARM translators (libqemu_kk/gb), but libqemu_i386.so (QEMU 8.2 + SENSES patches) only
+        // reads GUEST_<X>. With DHD_BINDER alone the x86 guest never gets a /dev/binder ("GUEST_BINDER не задан — открытие
+        // отклонено" -> ENOENT): servicemanager, surfaceflinger and every other native service abort, zygote segfaults.
+        // dhdrun keeps GUEST_* (it only strips DHD_*), and qemu hides GUEST_* from the guest's own environment.
+        // DHD_ENV_<X> (guest-only variables) and DHD_SOCK_<X> (init sockets) are dhdrun's, they are not mirrored.
+        for ((k, v) in e.entries.toList()) {
+            if (k.startsWith("DHD_") && !k.startsWith("DHD_ENV_") && !k.startsWith("DHD_SOCK_")) {
+                e.putIfAbsent("GUEST_" + k.removePrefix("DHD_"), v)
+            }
+        }
+        for (key in listOf("DHD_ENV_LD_PRELOAD", "LD_PRELOAD")) {
+            val v = e[key] ?: continue
+            val kept = v.split(':').filter { it.isNotEmpty() && GuestArch.isOfArch(File(paths.root, it.removePrefix("/")), arch) }
+            if (kept.isEmpty()) e.remove(key) else e[key] = kept.joinToString(":")
+        }
     }
 
     /** Одноразовый запуск гостевой команды (am, pm, settings, sh -c …) с ожиданием вывода. */

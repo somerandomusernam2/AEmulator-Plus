@@ -44,6 +44,12 @@ class InputService(private val paths: VmPaths, private val log: (String) -> Unit
     val trackballConnected: Int get() = trackballClients.size
     @Volatile var rateHz = 60
     @Volatile var mtMode = 0
+    /**
+     * Pre-1.0 builds: the touch-down state is reported together as BTN_TOUCH and BTN_MOUSE. The earliest framework knew the
+     * panel button as BTN_MOUSE (0x110); the trace of the 0.9 runtime logs every BTN_TOUCH as an ordinary key event and
+     * never reacts to the touch. Whichever of the two the build understands starts the touch; the other is dropped.
+     */
+    @Volatile var legacyMouseButton = false
     /** MMI/FTM: minui and the touch probe of one process each keep their own event0 descriptor, so one pid may own several clients. */
     @Volatile var multiPerPid = false
     /**
@@ -300,6 +306,7 @@ class InputService(private val paths: VmPaths, private val log: (String) -> Unit
         val wasDownPrev = wasDown
         if (down != wasDown) {
             put(b, EV_KEY, BTN_TOUCH, if (down) 1 else 0)
+            if (legacyMouseButton) put(b, EV_KEY, BTN_MOUSE, if (down) 1 else 0)
             wasDown = down
         }
         if (!down && mtMode == 4 && wasDownPrev) put(b, EV_ABS, ABS_PRESSURE, 0) // single-touch readers (1.5/1.6) end the touch on pressure 0
@@ -520,6 +527,7 @@ class InputService(private val paths: VmPaths, private val log: (String) -> Unit
         private const val ABS_MT_TRACKING_ID = 57
         private const val ABS_MT_PRESSURE = 58
         private const val BTN_TOUCH = 330
+        private const val BTN_MOUSE = 272
 
         const val KEY_HOME = 102
         const val KEY_BACK = 158

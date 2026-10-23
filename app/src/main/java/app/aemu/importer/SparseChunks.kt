@@ -1,7 +1,7 @@
 package app.aemu.importer
 
 /**
- * Recognises the split-sparse `system` naming schemes found in vendor firmware and puts the
+ * Recognises the split-sparse naming schemes (`system` by default, any other partition such as `vendor` by name) found in vendor firmware and puts the
  * chunks in the right order:
  *
  *   system.img_sparsechunk.N   system.img_sparsechunkN   system_sparsechunk.N  system_sparsechunkN
@@ -12,12 +12,19 @@ package app.aemu.importer
  * a set that starts at 0 and a set that starts at 1 both work, as does a set with gaps.
  */
 object SparseChunks {
-    private val NAME = Regex("(?i)(system(?:(?:\\.img)?_sparsechunk\\.?|\\.img\\.?|[._]))(\\d{1,9})")
+    private val NAME = nameRegex("system")
+
+    private fun nameRegex(partition: String) =
+        Regex("(?i)(" + Regex.escape(partition) + "(?:(?:\\.img)?_sparsechunk\\.?|\\.img\\.?|[._]))(\\d{1,9})")
 
     class Chunk(val path: String, val index: Int)
 
     /** Index of [path] if its file name is one of the chunk variants, else null. */
-    fun indexOf(path: String): Int? = NAME.matchEntire(baseName(path))?.groupValues?.get(2)?.toIntOrNull()
+    fun indexOf(path: String): Int? = indexOf(path, "system")
+
+    /** Same for the chunks of another partition (`vendor`, ...). */
+    fun indexOf(path: String, partition: String): Int? =
+        (if (partition == "system") NAME else nameRegex(partition)).matchEntire(baseName(path))?.groupValues?.get(2)?.toIntOrNull()
 
     fun isChunkName(path: String) = indexOf(path) != null
 
@@ -30,11 +37,12 @@ object SparseChunks {
      * Returns an empty list when there is no chunk — a lone `system.0` is not treated as a set
      * unless it is the only candidate, which the caller verifies by the sparse magic anyway.
      */
-    fun select(paths: Collection<String>): List<String> {
+    fun select(paths: Collection<String>, partition: String = "system"): List<String> {
+        val name = if (partition == "system") NAME else nameRegex(partition)
         val groups = LinkedHashMap<String, MutableList<Chunk>>()
         for (p in paths) {
             val norm = p.replace('\\', '/')
-            val m = NAME.matchEntire(norm.substringAfterLast('/')) ?: continue
+            val m = name.matchEntire(norm.substringAfterLast('/')) ?: continue
             val idx = m.groupValues[2].toIntOrNull() ?: continue
             val key = norm.substringBeforeLast('/', "") + "/" + m.groupValues[1].lowercase()
             groups.getOrPut(key) { ArrayList() }.add(Chunk(p, idx))

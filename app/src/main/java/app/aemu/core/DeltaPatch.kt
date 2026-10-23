@@ -75,7 +75,149 @@ internal object BsPatch {
 }
 
 /**
- * Applies the patch files of an incremental OTA: plain BSDIFF40, or IMGDIFF2 (zip/apk/jar-aware: the compressed
+ * VCDIFF (RFC 3284), the format of xdelta3. The first Android OTAs (1.0, e.g. the T-Mobile G1 "RC29 -> RC30" delta)
+ * used xdelta3 patches in their `applypatch` (the binary in those packages says "xd3_decode_input"); bsdiff came with
+ * Android 1.5. Only what such packages contain is read: the default code table, VCD_SOURCE windows (the whole source
+ * file or a part of it), an optional Adler-32 per window, no secondary compression, no VCD_TARGET windows.
+ */
+internal object VcDiff {
+    fun isVcdiff(patch: ByteArray) = patch.size >= 5 && patch[0] == 0xD6.toByte() && patch[1] == 0xC3.toByte() &&
+        patch[2] == 0xC4.toByte() && patch[3] == 0.toByte()
+
+    private const val MAX_TARGET = 1L shl 30
+
+    // RFC 3284 section 5.6, the default instruction code table: type (0 none, 1 add, 2 run, 3 copy), size, mode
+    private val T1 = IntArray(256)
+    private val S1 = IntArray(256)
+    private val M1 = IntArray(256)
+    private val T2 = IntArray(256)
+    private val S2 = IntArray(256)
+    private val M2 = IntArray(256)
+
+    init {
+        var i = 0
+        fun put(t1: Int, s1: Int, m1: Int, t2: Int, s2: Int, m2: Int) {
+            T1[i] = t1; S1[i] = s1; M1[i] = m1; T2[i] = t2; S2[i] = s2; M2[i] = m2; i++
+        }
+        put(2, 0, 0, 0, 0, 0)
+        for (s in 0..17) put(1, s, 0, 0, 0, 0)
+        for (m in 0..8) { put(3, 0, m, 0, 0, 0); for (s in 4..18) put(3, s, m, 0, 0, 0) }
+        for (m in 0..5) for (a in 1..4) for (c in 4..6) put(1, a, 0, 3, c, m)
+        for (m in 6..8) for (a in 1..4) put(1, a, 0, 3, 4, m)
+        for (m in 0..8) put(3, 4, m, 1, 1, 0)
+        check(i == 256)
+    }
+
+    private class Rd(val b: ByteArray, var pos: Int, val end: Int) {
+        fun u8(): Int {
+            if (pos >= end) throw IOException("truncated VCDIFF patch")
+            return b[pos++].toInt() and 0xff
+        }
+        fun varint(): Long {
+            var v = 0L
+            while (true) {
+                val c = u8()
+                v = (v shl 7) or (c and 0x7f).toLong()
+                if (v > (1L shl 56)) throw IOException("corrupt VCDIFF patch")
+                if (c and 0x80 == 0) return v
+            }
+        }
+        fun skip(n: Long) {
+            if (n < 0 || pos + n > end) throw IOException("truncated VCDIFF patch")
+            pos += n.toInt()
+        }
+    }
+
+    fun apply(src: ByteArray, patch: ByteArray): ByteArray {
+        if (!isVcdiff(patch)) throw IOException("not a VCDIFF patch")
+        val r = Rd(patch, 4, patch.size)
+        val hdr = r.u8()
+        if (hdr and 1 != 0) throw IOException("VCDIFF secondary compression is not supported")
+        if (hdr and 2 != 0) throw IOException("VCDIFF custom code tables are not supported")
+        if (hdr and 4 != 0) r.skip(r.varint()) // application header: xdelta3 puts the names of its temporary files there
+        val out = java.io.ByteArrayOutputStream(src.size + 4096)
+        while (r.pos < patch.size) {
+            val wi = r.u8()
+            if (wi and 2 != 0) throw IOException("VCDIFF target windows are not supported")
+            var sPos = 0
+            var sLen = 0
+            if (wi and 1 != 0) {
+                val l = r.varint(); val p = r.varint()
+                if (p + l > src.size) throw IOException("source file too short")
+                sLen = l.toInt(); sPos = p.toInt()
+            }
+            r.varint() // length of the delta encoding
+            val tLen = r.varint()
+            if (tLen > MAX_TARGET || out.size() + tLen > MAX_TARGET) throw IOException("VCDIFF target too large")
+            if (r.u8() and 7 != 0) throw IOException("VCDIFF secondary compression is not supported")
+            val dLen = r.varint(); val iLen = r.varint(); val aLen = r.varint()
+            var adler = -1L
+            if (wi and 4 != 0) {
+                adler = 0
+                repeat(4) { adler = (adler shl 8) or r.u8().toLong() }
+            }
+            if (dLen < 0 || iLen < 0 || aLen < 0 || r.pos + dLen + iLen + aLen > patch.size) throw IOException("truncated VCDIFF patch")
+            val data = Rd(patch, r.pos, r.pos + dLen.toInt())
+            val inst = Rd(patch, data.end, data.end + iLen.toInt())
+            val addr = Rd(patch, inst.end, inst.end + aLen.toInt())
+            r.pos = addr.end
+
+            val win = ByteArray(tLen.toInt())
+            var wp = 0
+            val near = LongArray(4)
+            val same = LongArray(768)
+            var next = 0
+            fun address(mode: Int): Long {
+                val here = (sLen + wp).toLong()
+                val a = when {
+                    mode == 0 -> addr.varint()
+                    mode == 1 -> here - addr.varint()
+                    mode < 6 -> near[mode - 2] + addr.varint()
+                    else -> same[(mode - 6) * 256 + addr.u8()]
+                }
+                if (a < 0 || a >= here) throw IOException("corrupt VCDIFF patch (address out of range)")
+                near[next] = a; next = (next + 1) and 3
+                same[(a % 768).toInt()] = a
+                return a
+            }
+            fun run(type: Int, size0: Int, mode: Int) {
+                if (type == 0) return
+                val size = if (size0 != 0) size0 else inst.varint().also { if (it > win.size) throw IOException("corrupt VCDIFF patch") }.toInt()
+                if (size > win.size - wp) throw IOException("corrupt VCDIFF patch (instruction runs past its window)")
+                when (type) {
+                    1 -> {
+                        if (size > data.end - data.pos) throw IOException("truncated VCDIFF patch")
+                        System.arraycopy(patch, data.pos, win, wp, size); data.pos += size; wp += size
+                    }
+                    2 -> { val c = data.u8().toByte(); java.util.Arrays.fill(win, wp, wp + size, c); wp += size }
+                    else -> {
+                        val a = address(mode)
+                        if (a + size <= sLen) { System.arraycopy(src, sPos + a.toInt(), win, wp, size); wp += size }
+                        else for (k in 0 until size) {
+                            val at = a + k
+                            win[wp++] = if (at < sLen) src[sPos + at.toInt()] else win[(at - sLen).toInt()]
+                        }
+                    }
+                }
+            }
+            while (inst.pos < inst.end) {
+                val op = inst.u8()
+                run(T1[op], S1[op], M1[op])
+                run(T2[op], S2[op], M2[op])
+            }
+            if (wp != win.size) throw IOException("corrupt VCDIFF patch (window has the wrong size)")
+            if (adler >= 0) {
+                val c = java.util.zip.Adler32(); c.update(win)
+                if (c.value != adler) throw IOException("VCDIFF checksum mismatch (the source file is not the one this patch was made for)")
+            }
+            out.write(win, 0, win.size)
+        }
+        return out.toByteArray()
+    }
+}
+
+/**
+ * Applies the patch files of an incremental OTA: VCDIFF (xdelta3, Android 1.0), plain BSDIFF40, or IMGDIFF2 (zip/apk/jar-aware: the compressed
  * chunks are inflated, bspatched and deflated again with the recorded zlib parameters), as in
  * bootable/recovery/applypatch/imgpatch.cpp. The caller checks the SHA-1 of the result.
  */
@@ -90,6 +232,7 @@ internal object ImgPatch {
      * the inflated source of its second chunk, so they are appended there (imgpatch.cpp: `i == 1 && bonus_data != NULL`).
      */
     fun apply(old: ByteArray, patch: ByteArray, bonus: ByteArray? = null): ByteArray {
+        if (VcDiff.isVcdiff(patch)) return VcDiff.apply(old, patch)
         if (BsPatch.isBsdiff(patch)) return BsPatch.apply(old, 0, old.size, patch, 0)
         if (patch.size < 12 || String(patch, 0, 8, Charsets.ISO_8859_1) != MAGIC) throw IOException("unknown patch format")
         val bb = ByteBuffer.wrap(patch).order(ByteOrder.LITTLE_ENDIAN)

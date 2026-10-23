@@ -1,8 +1,13 @@
+/* Modified for AEmulator Plus, 2026-10-23: pre-1.0 firmware (LegacyFirmware): old init.rc, sparse build.prop, /sdcard.
+ * GPL-3.0; see LICENSE and NOTICE.md. */
 package app.aemu.importer
 
+import app.aemu.core.GuestService
+import app.aemu.core.LegacyFirmware
 import app.aemu.core.ImportWarnings
 import android.content.Context
 import app.aemu.core.Engine
+import app.aemu.core.GuestArch
 import app.aemu.core.GuestImage
 import app.aemu.core.InitPlan
 import app.aemu.core.PropArea
@@ -25,9 +30,10 @@ class Analyzer(private val ctx: Context, private val paths: VmPaths, private val
         val noBuildProp = !buildFile.isFile
         val buildText = if (noBuildProp) synthBuildProp().also { if (persistBuildProp) buildFile.writeText(it) }
             else buildFile.readText(Charsets.UTF_8)
-        val build = PropArea.parseProps(buildText)
+        // (a pre-1.0 build.prop has no version and no product properties: LegacyFirmware fills them, other trees pass unchanged)
+        val build = LegacyFirmware.completeBuildProps(PropArea.parseProps(buildText), root)
         // (8.0+ system-as-root and system-only images keep the ramdisk's default.prop as /system/etc/prop.default)
-        val deflt = listOf("default.prop", "system/etc/prop.default").map { File(root, it) }.firstOrNull { it.isFile }
+        val deflt = listOf("default.prop", "etc/default.prop", "system/etc/prop.default").map { File(root, it) }.firstOrNull { it.isFile }
             ?.let { PropArea.parseProps(it.readText()) } ?: LinkedHashMap()
         val all = LinkedHashMap<String, String>().apply { putAll(deflt); build.forEach { (k, v) -> if (!(k.startsWith("ro.") && containsKey(k))) put(k, v) } }
 
@@ -52,12 +58,23 @@ class Analyzer(private val ctx: Context, private val paths: VmPaths, private val
         // form factor first (Glass/Wear/TV), then the skin; both read the merged identity props
         val skin = formFactorSkin(ident, api) ?: skin(ident)
         val abi = all["ro.product.cpu.abi"] ?: "armeabi-v7a"
+        // the instruction set comes from the firmware's own ELF files (e_machine), ro.product.cpu.abi is the fallback
+        val arch = GuestArch.detect(root, abi)
 
         // init.rc и его import’ы лежат в корне рамдиска
-        val rcFiles = (root.listFiles()?.filter { it.isFile && it.name.endsWith(".rc") }?.sortedBy { if (it.name == "init.rc") 0 else 1 } ?: emptyList()) +
+        // pre-1.0: /etc/init.rc in the old block syntax (env { } startup { } service { }); the Android runtime is one program
+        val legacyRcFile = File(root, "etc/init.rc").takeIf { f ->
+            f.isFile && !File(root, "init.rc").isFile && runCatching { LegacyFirmware.isLegacyInitRc(f.readText()) }.getOrDefault(false)
+        }
+        val legacyRc = legacyRcFile?.let { f -> runCatching { LegacyFirmware.parseInitRc(f.readText()) }.getOrNull() }
+        val legacy = legacyRc != null || LegacyFirmware.isLegacyLayout(root)
+        val rcFiles = if (legacyRcFile != null) listOf(legacyRcFile) else (root.listFiles()?.filter { it.isFile && it.name.endsWith(".rc") }?.sortedBy { if (it.name == "init.rc") 0 else 1 } ?: emptyList()) +
             InitPlan.hwRcFiles(root, all) +
             (File(root, "system/etc/init").listFiles()?.filter { it.name.endsWith(".rc") } ?: emptyList())
-        val rc = InitPlan.parse(rcFiles, all)
+        val rc = if (legacyRc != null) InitPlan.Rc(
+            services = legacyRc.services.associate { it.name to InitPlan.RcService(it.name, it.argv, disabled = !it.autostart) },
+            exports = legacyRc.exports, dirs = emptyList(),
+        ) else InitPlan.parse(rcFiles, all)
         // деревья из стендов HTC несут готовые dhd.bootclasspath / dhd.exports / dhd.dirs
         val dhdExports = File(root, "dhd.exports").takeIf { it.isFile }?.readLines()?.mapNotNull { l ->
             val i = l.indexOf('='); if (i > 0) l.substring(0, i).trim() to l.substring(i + 1).trim() else null
@@ -78,24 +95,29 @@ class Analyzer(private val ctx: Context, private val paths: VmPaths, private val
             exports["EMULATED_STORAGE_SOURCE"] = "/mnt/shell/emulated"
             exports["EMULATED_STORAGE_TARGET"] = "/storage/emulated"
         }
-        val plan = InitPlan.plan(rc, api, root)
+        val plan = if (legacy) LegacyFirmware.plan(legacyRc, root)
+            else InitPlan.plan(rc, api, root)
         val vols = StorageList.read(root)
         val voldVols = vols.filter { !it.emulated }.map { it.mountPoint }
-        val sdcard = vols.firstOrNull { it.primary && !it.emulated }?.mountPoint ?: exports["EXTERNAL_STORAGE"]?.takeIf { it.startsWith("/") }
+        val sdcard = if (legacy) "/sdcard" // (the card of the 2007 builds is mounted by init at /sdcard; later releases say /mnt/sdcard)
+            else vols.firstOrNull { it.primary && !it.emulated }?.mountPoint ?: exports["EXTERNAL_STORAGE"]?.takeIf { it.startsWith("/") }
             ?: when { api <= 13 -> "/mnt/sdcard"; api <= 16 -> "/storage/sdcard0"; else -> "/storage/emulated/legacy" }
 
         val warnings = ArrayList<String>()
         if (noBuildProp) warnings += ImportWarnings.NO_BUILD_PROP
-        if (rcFiles.isEmpty() && dhdBcp == null) warnings += ImportWarnings.NO_BOOT_IMG
+        if (rcFiles.isEmpty() && dhdBcp == null && !legacy) warnings += ImportWarnings.NO_BOOT_IMG
         if (api >= 19 && plan.none { it.name == "healthd" })
             warnings += ImportWarnings.NO_HEALTHD
         if (abi.startsWith("arm64") && api != 23) warnings += ImportWarnings.ARM64
-        if (abi.startsWith("x86") || abi.startsWith("mips")) warnings += ImportWarnings.notArm(abi)
+        // x86-32 runs (libqemu_i386.so); x86-64, MIPS and anything else the translators cannot run still gets the warning
+        if (GuestArch.isUnsupported(root, abi)) warnings += ImportWarnings.notArm(abi)
         if (api >= 21) warnings += ImportWarnings.experimental(release)
 
         val density = all["ro.sf.lcd_density"]?.toIntOrNull() ?: 240
         val engine = Engine.forApi(api)
         val baseSettings = when {
+            // the 2007 framework was built for 320x480 at 160 dpi and has no other layouts
+            legacy -> VmSettings(width = 320, height = 480, density = 160, fbHz = 60, touchHz = 60)
             engine == Engine.GB || api < 14 -> VmSettings(width = 480, height = 800, density = 240, fbHz = 60, touchHz = 60)
             // 540×960 — лучший баланс скорости и чёткости под эмуляцией; поменять можно в настройках
             density <= 160 -> VmSettings(width = 480, height = 800, density = 240)
@@ -117,8 +139,10 @@ class Analyzer(private val ctx: Context, private val paths: VmPaths, private val
 
         return GuestImage(
             id = id,
-            name = (if (model.startsWith(brand, true)) model else "$brand $model").trim().ifBlank { "Android $release" } +
-                if (skin != "AOSP" && !model.contains(skin, true)) " · $skin" else "",
+            // (a pre-1.0 build has no product of its own: "HTC Pre-1.0 build 20645" was only the guesses of LegacyFirmware)
+            name = if (legacy) LegacyFirmware.DISPLAY_NAME else
+                (if (model.startsWith(brand, true)) model else "$brand $model").trim().ifBlank { "Android $release" } +
+                    if (skin != "AOSP" && !model.contains(skin, true)) " · $skin" else "",
             release = release,
             api = api,
             brand = brand,
@@ -126,6 +150,7 @@ class Analyzer(private val ctx: Context, private val paths: VmPaths, private val
             skin = skin,
             engine = engine,
             abi = abi,
+            arch = arch,
             bootclasspath = bcp,
             exports = exports,
             dirs = dirs,
@@ -143,7 +168,7 @@ class Analyzer(private val ctx: Context, private val paths: VmPaths, private val
     }
 
     companion object {
-        const val VERSION = 16
+        const val VERSION = 18   // 18: ICS developer builds (sdk 13, codename IceCreamSandwich) are API 14; 17: guest architecture (GuestArch) detected from the ELF files
 
         /**
          * Form-factor tag from ro.build.characteristics: if the line contains "tv" it is Google TV below API 18 and
@@ -195,13 +220,22 @@ class Analyzer(private val ctx: Context, private val paths: VmPaths, private val
          */
         fun effectiveApi(sdk: Int?, codename: String?, release: String?): Int {
             val code = codename?.trim()?.uppercase().orEmpty()
-            val preview = when (code) { "N" -> 24; "NMR1" -> 25; else -> null }
+            // ICS pre-release trees (e.g. "Android Full on Stingray" IRK22) still say sdk=13 (Honeycomb) with codename
+            // "IceCreamSandwich", but ship the ICS AudioFlinger/audio_hw_device layout and init
+            val rel = release?.trim()?.uppercase().orEmpty()
+            val preview = when {
+                code == "N" -> 24
+                code == "NMR1" -> 25
+                code == "ICECREAMSANDWICH" || rel == "ICECREAMSANDWICH" -> 14
+                else -> null
+            }
             if (sdk == null) return preview ?: guessApi(release)
             return if (preview != null && sdk < preview) preview else sdk
         }
 
         fun guessApi(rel: String?): Int = when {
             rel == null -> 19
+            rel.startsWith("0.") -> 1   // pre-1.0 builds (0.9)
             rel.startsWith("1.0") -> 1; rel.startsWith("1.1") -> 2; rel.startsWith("1.5") -> 3; rel.startsWith("1.6") -> 4
             rel.startsWith("2.0") -> 5; rel.startsWith("2.1") -> 7; rel.startsWith("2.2") -> 8; rel.startsWith("2.3") -> 10
             rel.startsWith("3.0") -> 11; rel.startsWith("3.1") -> 12; rel.startsWith("3.2") -> 13
@@ -234,6 +268,7 @@ class Analyzer(private val ctx: Context, private val paths: VmPaths, private val
     private fun synthBuildProp(): String {
         fun has(path: String) = File(root, path).exists()
         val (api, rel) = when {
+            has("system/javalib") -> LegacyFirmware.PRE_RELEASE_API to LegacyFirmware.PRE_RELEASE_RELEASE
             has("system/apex") || has("apex") -> 29 to "10"
             has("system/bin/hwservicemanager") || has("system/etc/vintf") -> 26 to "8.0"
             has("system/framework/arm64") || has("system/lib64") -> if (has("system/etc/init")) 24 to "7.0" else 23 to "6.0"

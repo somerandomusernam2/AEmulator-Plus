@@ -1,0 +1,20 @@
+--- a/native/guestshim/aemushim_x86.c
++++ b/native/guestshim/aemushim_x86.c
+@@ -112,6 +112,17 @@
+         for (int m = 0; m < 9; m++) buf[m] = dn[m];
+         return 9;
+     }
++    // /dev/alarm is served by qemu as a memfd (patch 0096). A 6.0 zygote keeps the descriptor of its elapsed-time helper
++    // open, and the fork check then aborts it: "Not whitelisted : /memfd:guest-alarm (deleted)", every app start fails.
++    // Shown as /dev/null like the pipes above; the child reopens /dev/null over it and the helper falls back to the clock.
++    {
++        static const char al[] = "/memfd:guest-alarm";
++        if (size >= 9 && n >= 18 && starts_at(buf, (int)n, 0, al, 18)) {
++            static const char dn[] = "/dev/null";
++            for (int m = 0; m < 9; m++) buf[m] = dn[m];
++            return 9;
++        }
++    }
+     // qemu's ownership table: shown as a framework jar (TreeFixer links system/framework/aemu-owners.jar to it)
+     if (whole(buf, (int)n, "/dhd.owners")) {
+         static const char as[] = "/system/framework/aemu-owners.jar";

@@ -141,6 +141,7 @@ object DeltaOta {
         return null
     }
 
+    private val SHA40 = Regex("[0-9a-fA-F]{40}")
     private val LEGACY_FP = Regex("""ro\.build\.fingerprint=([^"]+)""")
     private val LEGACY_DEV = Regex("""getprop\(\s*"ro\.(?:product\.device|build\.product)"\s*\)\s*==\s*"([^"]+)"""")
 
@@ -187,7 +188,7 @@ object DeltaOta {
             if (line.isEmpty() || line.startsWith("#")) continue
             val t = line.split(Regex("\\s+"))
             when (t[0]) {
-                "assert", "show_progress", "copy_dir", "format", "mount", "unmount" -> {}
+                "assert", "show_progress", "format", "mount", "unmount" -> {}
                 "run_program" -> {
                     if (t.getOrNull(1) != "PACKAGE:applypatch") { out.append("run_program(").append(q(line)).append(");\n"); continue }
                     when {
@@ -195,6 +196,15 @@ object DeltaOta {
                         // applypatch <target-file> <target-sha1> <target-size> <source-sha1>:<patch>: the hash next to the size is
                         // the one of the NEW file, the one in front of the patch is the file as it is now. (The edify
                         // apply_patch below takes the new file's hash and size first, then the old file's hash.)
+                        // Android 1.0: applypatch <file> <target sha1> <source sha1> <patch> [<source sha1> <patch>]... (no size, the
+                        // patches are xdelta3; the package's own applypatch prints "<file> <tgt-sha1> [<src-sha1> <patch> ...]")
+                        t.size >= 6 && t.size % 2 == 0 && t[2].startsWith("/") && t[3].matches(SHA40) && !t[4].matches(Regex("\\d+")) &&
+                            (4..t.size - 2 step 2).all { t[it].matches(SHA40) && t[it + 1].startsWith("/tmp/patchtmp/") } -> {
+                            out.append("apply_patch_v1(").append(q(t[2])).append(", ").append(t[3])
+                            for (k in 4..t.size - 2 step 2)
+                                out.append(", ").append(t[k]).append(", ").append(q("patch/" + t[k + 1].removePrefix("/tmp/patchtmp/")))
+                            out.append(");\n")
+                        }
                         t.size == 6 && t[2].startsWith("/") && t[5].contains(':') -> {
                             val tgtSha = t[3]
                             val srcSha = t[5].substringBefore(':')
@@ -205,6 +215,13 @@ object DeltaOta {
                         else -> out.append("applypatch_unreadable(").append(q(line)).append(");\n")
                     }
                 }
+                // copy_dir PACKAGE:<dir> SYSTEM:<path>: the files of the package folder are copied into the tree (CACHE: is the
+                // patch staging folder, which is not needed here)
+                "copy_dir" ->
+                    if (t.size == 3 && t[1].startsWith("PACKAGE:") && (t[2].startsWith("SYSTEM:") || t[2].startsWith("DATA:")))
+                        out.append("package_extract_dir(").append(q(t[1].removePrefix("PACKAGE:"))).append(", ").append(q(legacyPath(t[2]))).append(");\n")
+                // symlink <target> <link>...
+                "symlink" -> if (t.size >= 3) out.append("symlink(").append(q(t[1])).append(", ").append(t.drop(2).joinToString(", ") { q(legacyPath(it)) }).append(");\n")
                 "set_perm" -> if (t.size >= 5) out.append("set_perm(${t[1]}, ${t[2]}, ${t[3]}, ").append(t.drop(4).joinToString(", ") { q(legacyPath(it)) }).append(");\n")
                 "set_perm_recursive" -> if (t.size >= 6) out.append("set_perm_recursive(${t[1]}, ${t[2]}, ${t[3]}, ${t[4]}, ").append(t.drop(5).joinToString(", ") { q(legacyPath(it)) }).append(");\n")
                 "delete" -> out.append("delete(").append(t.drop(1).joinToString(", ") { q(legacyPath(it)) }).append(");\n")
@@ -303,7 +320,15 @@ object DeltaOta {
 
     // ------------------------------------------------------------------ step 2: reading the updater-script
 
-    private class PatchStep(val path: String, val tgtSha: String, val tgtSize: Long, val srcSha: String, val entry: String)
+    /**
+     * [tgtSize] is -1 when the script does not give it (Android 1.0). [alt]: further (source SHA-1, patch entry) pairs; the
+     * Android 1.0 applypatch takes several and uses the one whose source SHA-1 is the file's ("applypatch file tgt-sha src-sha patch [src-sha patch]...").
+     */
+    private class PatchStep(val path: String, val tgtSha: String, val tgtSize: Long, val srcSha: String, val entry: String,
+                            val alt: List<Pair<String, String>> = emptyList()) {
+        val sources: List<Pair<String, String>> get() = listOf(srcSha to entry) + alt
+        fun entryFor(sha: String): String? = sources.firstOrNull { it.first == sha }?.second
+    }
     private class Rule(val path: String, val recursive: Boolean, val mode: Int)
     private class Extract(val src: String, val dest: String, val dir: Boolean)
     /** assert(sha1_check(read_file(path), sha…)): the file must hash to one of [shas] once the OTA is applied. */
@@ -339,6 +364,10 @@ object DeltaOta {
     // Android 2.x: the patches are unpacked to /tmp/patchtmp first and named as "<source sha>:/tmp/patchtmp/<zip path below patch/>"
     private val APPLY_OLD = Regex("""\bapply_patch\s*\(\s*"([^"]+)"\s*,\s*"-"\s*,\s*"?([0-9a-fA-F]{40})"?\s*,\s*(\d+)\s*,\s*"([0-9a-fA-F]{40}):/tmp/patchtmp/([^"]+)"\s*\)\s*(?:\|\|\s*abort\s*\(\s*$Q\s*\)\s*)?;""")
     private val APPLY_ANY = Regex("""\bapply_patch\s*\(""")
+    // Android 1.0 (legacyToEdify): apply_patch_v1("file", <tgt sha>, <src sha>, "patch entry"[, <src sha>, "patch entry"]...);
+    private val APPLY_V1 = Regex("""\bapply_patch_v1\s*\(\s*"([^"]+)"\s*,\s*([0-9a-fA-F]{40})((?:\s*,\s*[0-9a-fA-F]{40}\s*,\s*"[^"]+")+)\s*\)\s*;""")
+    private val APPLY_V1_ANY = Regex("""\bapply_patch_v1\s*\(""")
+    private val APPLY_V1_PAIR = Regex("""([0-9a-fA-F]{40})\s*,\s*"([^"]+)"""")
     // raw writes of radio / modem / bootloader partitions (the Droid's "mbm", the CDMA baseband); the boot partition is not among them
     private val RAW_OTHER = Regex("""\bwrite_raw_image\s*\(\s*$Q\s*,\s*"(?!boot")[^"]*"\s*\)""")
     private val BASEBAND = Regex("""\b[A-Za-z0-9_]+\.update_cdma_bp\s*\(\s*$Q\s*,\s*$Q\s*\)""")
@@ -378,7 +407,8 @@ object DeltaOta {
 
     private val HANDLED = setOf("apply_patch", "apply_patch_check", "apply_patch_space", "delete", "delete_recursive",
         "package_extract_dir", "package_extract_file", "symlink", "set_metadata", "set_metadata_recursive",
-        "set_perm", "set_perm_recursive", "read_file", "sha1_check", "block_image_update", "range_sha1", "boot_image", "rename")
+        "set_perm", "set_perm_recursive", "read_file", "sha1_check", "block_image_update", "range_sha1", "boot_image", "rename",
+        "apply_patch_v1")
     // tune2fs changes ext4 features (e.g. drops the journal) of the system partition so that the OTA can write to
     // it; the VM's /system is a plain folder, so there is nothing to tune.
     private val IGNORED = setOf("mount", "unmount", "ui_print", "show_progress", "set_progress", "getprop", "abort",
@@ -439,9 +469,16 @@ object DeltaOta {
         if (bootloaders > 0 || stagedBootloaders > 0) notes.add(Msg("the bootloader images (sbl1, tz, rpm, aboot...) are not part of a VM and were skipped", R.string.ota_the_bootloader_images_sbl_tz_rpm))
         val matches = APPLY.findAll(text).toList()
         val oldMatches = APPLY_OLD.findAll(text).toList()
-        if (matches.size + oldMatches.size != APPLY_ANY.findAll(text).count()) throw OtaException("the updater-script has apply_patch calls this app cannot read", R.string.ota_the_updater_script_has_apply_patch)
+        val v1Matches = APPLY_V1.findAll(text).toList()
+        if (matches.size + oldMatches.size != APPLY_ANY.findAll(text).count() || v1Matches.size != APPLY_V1_ANY.findAll(text).count())
+            throw OtaException("the updater-script has apply_patch calls this app cannot read", R.string.ota_the_updater_script_has_apply_patch)
         val applies = (matches.map { m -> val g = m.groupValues; m.range.first to PatchStep(g[1], g[2].lowercase(), g[3].toLong(), g[4].lowercase(), g[5]) } +
-            oldMatches.map { m -> val g = m.groupValues; m.range.first to PatchStep(g[1], g[2].lowercase(), g[3].toLong(), g[4].lowercase(), "patch/" + g[5]) })
+            oldMatches.map { m -> val g = m.groupValues; m.range.first to PatchStep(g[1], g[2].lowercase(), g[3].toLong(), g[4].lowercase(), "patch/" + g[5]) } +
+            v1Matches.map { m ->
+                val g = m.groupValues
+                val pairs = APPLY_V1_PAIR.findAll(g[3]).map { it.groupValues[1].lowercase() to it.groupValues[2] }.toList()
+                m.range.first to PatchStep(g[1], g[2].lowercase(), -1L, pairs[0].first, pairs[0].second, pairs.drop(1))
+            })
             .sortedBy { it.first }.map { it.second }
         for (step in applies) {
             when {
@@ -459,7 +496,7 @@ object DeltaOta {
         val deletes = statements(text, "delete").flatMap { a -> a.map { it to it.endsWith("/") } } +
             statements(text, "delete_recursive").flatMap { a -> a.map { it to true } }
         val extracts = statements(text, "package_extract_dir").filter { it.size == 2 && !it[1].startsWith("/tmp/") }.map { Extract(it[0], it[1], true) } +
-            statements(text, "package_extract_file").filter { it.size == 2 && !it[1].startsWith("/dev/") && !it[1].startsWith("/tmp/") }.map { Extract(it[0], it[1], false) }
+            statements(text, "package_extract_file").filter { it.size == 2 && !it[1].startsWith("/dev/") && !it[1].startsWith("/tmp/") && it[1] !in RECOVERY_ONLY }.map { Extract(it[0], it[1], false) }
         val renames = statements(text, "rename").filter { it.size == 2 }.map { ("/" + it[0].trimStart('/')) to ("/" + it[1].trimStart('/')) }
         val links = statements(text, "symlink").filter { it.size >= 2 }.flatMap { a -> a.drop(1).map { a[0] to it } }
 
@@ -699,7 +736,7 @@ object DeltaOta {
 
     private sealed class Loc {
         object Done : Loc()
-        class Need(val src: File, val fix: Fix) : Loc()
+        class Need(val src: File, val fix: Fix, val entry: String) : Loc()
         class Bad(val why: String) : Loc()
     }
 
@@ -715,8 +752,8 @@ object DeltaOta {
             val b = f.readBytes()
             val h = sha1(b)
             if (h == s.tgtSha) return Loc.Done
-            if (h == s.srcSha) return Loc.Need(f, Fix())
-            for (fix in fixes(b)) if (!fix.identity && sha1(fix.revert(b)) == s.srcSha) return Loc.Need(f, fix)
+            s.entryFor(h)?.let { return Loc.Need(f, Fix(), it) }
+            for (fix in fixes(b)) if (!fix.identity) s.entryFor(sha1(fix.revert(b)))?.let { return Loc.Need(f, fix, it) }
         }
         // The app rewrites some files (audio_policy.conf, libGLES_android.so...) and keeps the stock original next to
         // them as ".rom" / ".sw". If the live file was edited, the OTA is checked against and applied to that original.
@@ -726,8 +763,8 @@ object DeltaOta {
             val b = f.readBytes()
             val h = sha1(b)
             if (h == s.tgtSha) return Loc.Done
-            if (h == s.srcSha) return Loc.Need(f, Fix())
-            for (fix in fixes(b)) if (!fix.identity && sha1(fix.revert(b)) == s.srcSha) return Loc.Need(f, fix)
+            s.entryFor(h)?.let { return Loc.Need(f, Fix(), it) }
+            for (fix in fixes(b)) if (!fix.identity) s.entryFor(sha1(fix.revert(b)))?.let { return Loc.Need(f, fix, it) }
         }
         return Loc.Bad(if (seen) "modified" else "missing")
     }
@@ -860,7 +897,7 @@ object DeltaOta {
         } catch (e: Exception) {
             throw OtaException("$what: ${e.message ?: e.javaClass.simpleName}", R.string.ota_detail_with_name, what, e.message ?: e.javaClass.simpleName)
         }
-        if (out.size.toLong() != size || sha1(out) != sha) throw OtaException("$what: the patch did not produce the expected file", R.string.ota_the_patch_did_not_produce_the, what)
+        if ((size >= 0 && out.size.toLong() != size) || sha1(out) != sha) throw OtaException("$what: the patch did not produce the expected file", R.string.ota_the_patch_did_not_produce_the, what)
         return out
     }
 
@@ -1257,7 +1294,7 @@ object DeltaOta {
                 // ---- room for the new files
                 val prefixes = plan.extracts.filter { it.dir }.map { it.src.trimEnd('/') + "/" }
                 val extractBytes = zip.entries().asSequence().filter { e -> !e.isDirectory && prefixes.any { e.name.startsWith(it) } }.sumOf { it.size.coerceAtLeast(0) }
-                val need = needs.sumOf { it.first.tgtSize } + extractBytes + (bootStep?.tgtSize ?: 0L) + (96L shl 20)
+                val need = needs.sumOf { maxOf(it.first.tgtSize, it.second.src.length()) } + extractBytes + (bootStep?.tgtSize ?: 0L) + (96L shl 20)
                 if (paths.dir.usableSpace < need) throw OtaException("not enough free space: ${need shr 20} MB are needed", R.string.ota_not_enough_free_space_mb_are, need shr 20)
 
                 // ---- a block-based OTA: rebuild the stock image, run the transfer list on it, compare the result with the tree
@@ -1269,7 +1306,7 @@ object DeltaOta {
                 for ((i, p) in needs.withIndex()) {
                     val (s, l) = p
                     progress(Msg("Patching ${i + 1}/${needs.size}: ${s.path.substringAfterLast('/')}", R.string.ota_patching, i + 1, needs.size, s.path.substringAfterLast('/')))
-                    val out = patch(l.fix.revert(l.src.readBytes()), readEntry(zip, s.entry), s.path, s.tgtSha, s.tgtSize)
+                    val out = patch(l.fix.revert(l.src.readBytes()), readEntry(zip, l.entry), s.path, s.tgtSha, s.tgtSize)
                     val f = File(staging, "p$i")
                     f.writeBytes(out)
                     staged.add(Staged(f, l.src, modeFor(plan, s.path), l.src.canExecute()))
@@ -1331,6 +1368,7 @@ object DeltaOta {
                         for (e in zip.entries()) {
                             if (e.isDirectory || !e.name.startsWith(prefix)) continue
                             val guest = ex.dest.trimEnd('/') + "/" + e.name.removePrefix(prefix)
+                            if (guest in RECOVERY_ONLY) continue
                             val sf = File(staging, "x${x++}")
                             zip.getInputStream(e).use { i -> sf.outputStream().use { o -> i.copyTo(o, 1 shl 16) } }
                             val dest = guestFile(paths, guest)

@@ -61,6 +61,11 @@ See [build/source instructions](docs/build-source.md) and the
   loop); `Yaffs2Reader.kt` (the 2048+64 "sector row" spare layout); `BootImage.kt` (kernel with an appended gzip
   ramdisk, no `ANDROID!` header).
 
+- **2026-10-23**: Android-x86 ISO images (live CD / installer `.iso`, also Bliss OS, PrimeOS ...). Added
+  `app/src/main/java/app/aemu/importer/Iso9660.kt` (read-only ISO 9660 / Rock Ridge reader) and
+  `app/src/test/java/app/aemu/importer/Iso9660Test.kt`; `Importer.kt` (`importIso`, the ISO probe in `handle()`); the
+  `imp_iso_no_system` string; `docs/import-format-support.md`, `docs/x86-guest.md` and the README feature list.
+
 **Unresolved source-provenance gap:** this checkout contains inherited prebuilt
 engine binaries for which matching source, patches and build instructions have
 not been located or verified. The tagged checkout can rebuild the APK using

@@ -172,6 +172,10 @@ data class VmSettings(
         /** Single line of printable ASCII (no newline, so /proc/version and property values stay well-formed). */
         private fun cleanLine(v: String, max: Int): String = v.filter { it in ' '..'~' }.take(max)
         fun cleanKernel(v: String): String = cleanLine(v, KERNEL_MAX)
+        /** Longest linux_banner line read from a kernel image (the importer's own scan stops at the same length). */
+        const val BANNER_MAX = 512
+        /** A whole linux_banner read from a kernel: printable ASCII, but not cut at [KERNEL_MAX], which would drop the build date at its end. */
+        fun cleanBanner(v: String): String = cleanLine(v, BANNER_MAX)
         const val TOKEN_MAX = 32
         /** Release/user/host pieces: letters, digits and . _ - + only, so the line stays parseable ("Linux version REL (user@host)") */
         fun cleanToken(v: String, max: Int): String = v.filter { it in 'a'..'z' || it in 'A'..'Z' || it in '0'..'9' || it == '.' || it == '_' || it == '-' || it == '+' }.take(max)
@@ -366,6 +370,12 @@ data class GuestImage(
     val skin: String,
     val engine: Engine,
     val abi: String = "armeabi-v7a",
+    /**
+     * Instruction set of the firmware's own programs (see [GuestArch]); detected at import from the ELF files, so it
+     * also holds for a firmware whose ro.product.cpu.abi says something else. Picks the translator and the
+     * architecture's guest-side helper libraries; the engine stays the universal one.
+     */
+    val arch: GuestArch = GuestArch.ARM,
     val bootclasspath: String,
     val exports: Map<String, String>,
     val dirs: List<String>,
@@ -397,17 +407,21 @@ data class GuestImage(
     fun sensorsOff(s: VmSettings): Boolean = SensorHalApi.sensorsOff(s.disableSensors, api, skin, brand, model)
 
     /** Движок с учётом выбора пользователя. */
-    fun effective(): GuestImage = copy(engine = when {
+    fun effective(binder64: Boolean = false): GuestImage = copy(engine = when {
+        // x86-32: only the universal engine has a translator for it (libqemu_i386.so); no native arm64 engine, no 2.x fallback
+        arch == GuestArch.X86 -> Engine.KK
         abi == "arm64-v8a" -> Engine.N64
         settings.legacyEngine && api < 14 -> Engine.GB
-        settings.translate32 && api >= 26 && abi.startsWith("armeabi") -> Engine.N64
+        // a 32-bit firmware of 8.0+, or an older one built for the 64-bit binder structs (Android Things 1.0, ...): the
+        // universal engine's binder daemon speaks protocol 7 only
+        settings.translate32 && (api >= 26 || binder64) && abi.startsWith("armeabi") -> Engine.N64
         else -> Engine.KK
     })
 
     fun toJson(): JSONObject = JSONObject()
         .put("id", id).put("name", name).put("release", release).put("api", api)
         .put("brand", brand).put("model", model).put("skin", skin)
-        .put("engine", engine.id).put("abi", abi)
+        .put("engine", engine.id).put("abi", abi).put("arch", arch.id)
         .put("bootclasspath", bootclasspath)
         .put("exports", JSONObject(exports as Map<*, *>))
         .put("dirs", JSONArray(dirs))
@@ -441,6 +455,7 @@ data class GuestImage(
                 skin = o.optString("skin", "AOSP"),
                 engine = Engine.byId(o.optString("engine")),
                 abi = o.optString("abi", "armeabi-v7a"),
+                arch = GuestArch.byId(o.optString("arch", "arm")),
                 bootclasspath = o.optString("bootclasspath", ""),
                 exports = exports,
                 dirs = dirs,

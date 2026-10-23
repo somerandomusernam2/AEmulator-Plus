@@ -1,0 +1,60 @@
+x86-32: SYSENTER в user-mode — как `int $0x80`. Без него каждый процесс x86-гостя
+умирает на первом же системном вызове (SIGILL, код выхода 132).
+
+★★★ Симптом. Образ Android 6.0.1 x86 (ASUS Z00A): servicemanager, surfaceflinger,
+healthd, zygote, … — все падают сразу после старта, в журнале одно и то же:
+
+    EAX=0000007d  EIP=...  байты у EIP: 0f 34 90 90 90 90 90 90 90 cd 80 5d 5a 59 c3
+
+0x7d — mprotect (первый вызов linker'а, RELRO). Байты — это `__kernel_vsyscall` в
+том виде, как его отдаёт ядро Linux: `sysenter`, семь `nop`, `int $0x80`, затем
+`pop ebp; pop edx; pop ecx; ret`. Bionic x86 прошивки несёт свою копию этого
+куска (linker и статические сервисы вроде healthd), выбирает её по CPUID/HWCAP
+(SEP) и вызывает `sysenter` сам, не спрашивая у qemu никакого vdso.
+
+★ Причина. i386-linux-user не умеет SYSENTER: он нужен ядру и системной эмуляции,
+а user-mode трансляции для него нет (`sysenter_cs` равен 0, обработчика нет), и
+гость получает сигнал вместо системного вызова.
+
+★ Что сделано. В translate.c, в разборе 0F 34: если сразу за SYSENTER идёт то,
+что ядро кладёт в vsyscall-страницу — nop'ы (0x90) и `int $0x80` — команда
+выполняется как `int $0x80`, а возвращается управление ПОСЛЕ этого `int $0x80`
+(ровно туда, куда возвращает настоящий SYSENTER, `SYSENTER_RETURN`, на
+`pop ebp`). Если ядро перезапускает вызов (-ERESTARTSYS), cpu_loop откатывает EIP
+на 2 — это как раз сам `int $0x80`, то есть перезапуск идёт тем же путём, что и в
+настоящей vsyscall-странице. Регистры гостя при этом те же, что у `int $0x80`
+(EAX — номер, EBX, ECX, EDX, ESI, EDI, EBP — аргументы), ECX/EDX гость сам
+сохранил и восстановит (`push`/`pop` вокруг `sysenter`).
+
+SYSENTER с другим продолжением (нет `int $0x80` за nop'ами) трансляция не
+угадывает: поведение прежнее, без изменений. Только i386-linux-user
+(`CONFIG_USER_ONLY`, не x86-64); ARM и x86-64 не затронуты.
+
+--- a/target/i386/tcg/translate.c
++++ b/target/i386/tcg/translate.c
+@@ -6000,2 +6000,25 @@
+     case 0x134: /* sysenter */
++#if defined(CONFIG_USER_ONLY) && !defined(TARGET_X86_64)
++        /*
++         * ★ x86-32 user-mode: SYSENTER as `int $0x80`. The guest's bionic has
++         * its own copy of the kernel's __kernel_vsyscall:
++         *     sysenter; nop x7; int $0x80; pop %ebp; pop %edx; pop %ecx; ret
++         * and returns from SYSENTER right after the `int $0x80`.
++         */
++        {
++            int skip = 0;
++
++            while (skip < 16 &&
++                   translator_ldub(env, &s->base, s->pc + skip) == 0x90) {
++                skip++;
++            }
++            if (translator_ldub(env, &s->base, s->pc + skip) == 0xcd &&
++                translator_ldub(env, &s->base, s->pc + skip + 1) == 0x80) {
++                /* the return address = after the `int $0x80` */
++                s->pc += skip + 2;
++                gen_interrupt(s, 0x80);
++                break;
++            }
++        }
++#endif
+         /* For AMD SYSENTER is not valid in long mode */

@@ -90,9 +90,18 @@ class PropService(private val paths: VmPaths, private val log: (String) -> Unit)
 
     fun put(name: String, value: String): Boolean = area?.put(name, value) ?: false
 
+    /**
+     * Properties the guest may not change: a set of them is refused whatever the value. x86 firmware has only the AOSP
+     * software renderer (OpenGL ES 1), and 7.0+ libEGL writes qemu.gles=2 itself in "vendor software renderer" mode;
+     * ThreadedRenderer.isAvailable() then takes that for ES 2 support and every app's hwui aborts in eglChooseConfig
+     * ("Failed to choose config, error = EGL_SUCCESS"). Pinned at 0, apps draw in software.
+     */
+    @Volatile var pinned: Set<String> = emptySet()
+
     @Synchronized
     private fun apply(name: String, value: String) {
         if (name.isEmpty()) { rejects++; return }
+        if (name in pinned) { rejects++; return }
         if (name.startsWith("ctl.")) {
             val what = name.removePrefix("ctl.")
             // 10+: hwservicemanager asks for the service of an interface by the interface's name until it registers;

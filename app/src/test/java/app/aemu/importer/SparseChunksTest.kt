@@ -32,4 +32,16 @@ class SparseChunksTest {
         assertEquals(listOf("system.img_sparsechunk.0", "system.img_sparsechunk.1", "system.img_sparsechunk.2"),
             sel("system.0", "system.img_sparsechunk.2", "system.img_sparsechunk.0", "system.img_sparsechunk.1"))
     }
+
+    @Test fun vendorSetsAreSelectedSeparatelyFromSystem() {
+        val names = listOf("fw/system.img_sparsechunk.1", "fw/vendor.img_sparsechunk.2", "fw/vendor.img_sparsechunk.0",
+            "fw/vendor.img_sparsechunk.1", "fw/system.img_sparsechunk.0", "fw/vendor.img", "fw/oem.img_sparsechunk.0")
+        assertEquals(listOf("fw/vendor.img_sparsechunk.0", "fw/vendor.img_sparsechunk.1", "fw/vendor.img_sparsechunk.2"),
+            SparseChunks.select(names, "vendor"))
+        assertEquals(listOf("fw/system.img_sparsechunk.0", "fw/system.img_sparsechunk.1"), SparseChunks.select(names))
+        assertEquals(listOf("vendor.0", "vendor.1"), SparseChunks.select(listOf("vendor.1", "vendor.0", "system.0"), "vendor"))
+        assertTrue(SparseChunks.select(listOf("vendor.img", "vendor", "myvendor.0"), "vendor").isEmpty())
+        assertEquals(4, SparseChunks.indexOf("a\\vendor_sparsechunk.4", "vendor"))
+        assertNull(SparseChunks.indexOf("vendor_sparsechunk.4"))
+    }
 }

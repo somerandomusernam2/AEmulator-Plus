@@ -90,6 +90,7 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.background
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -279,7 +280,7 @@ class VmActivity : ComponentActivity() {
         if (stored == null) { finish(); return }
         try { app.aemu.core.VmStorageLease.forVm(filesDir).acquire() }
         catch (_: Exception) { toast(getString(R.string.vm_storage_busy)); finish(); return }
-        val img = if (cur?.img?.id == stored.id) stored else app.aemu.importer.Analyzer.refresh(this, stored).effective()
+        val img = if (cur?.img?.id == stored.id) stored else app.aemu.importer.Analyzer.refresh(this, stored).let { it.effective(app.aemu.core.BinderProtocol.wants8(app.aemu.core.VmPaths(this, it.id))) }
         if (cur != null && ((cur.img.id != img.id && cur.state != GuestVm.State.STOPPED) || cur.state == GuestVm.State.FAILED)) {
             // в процессе уже живёт другая машина — её надо сначала остановить
             cur.stop()
@@ -1069,6 +1070,10 @@ class VmActivity : ComponentActivity() {
         LaunchedEffect(Unit) { while (true) { if (vm.recoveryMode) guest.format = vm.recoveryFormat else if (vm.engine == app.aemu.core.Engine.N64) guest.format = 1; seconds = vm.bootSeconds(); frames = if (vm.glInApp) dev.lk.m7sense.GlBridge.frames() else guest.rings; delay(500) } }
         // как только гость начал рисовать — карточку убираем, остаётся маленький индикатор
         val drawing = frames > 30
+        // null = automatic (card hides once the guest draws); true/false = the person minimized or restored it
+        var cardOverride by remember { mutableStateOf<Boolean?>(null) }
+        LaunchedEffect(state) { if (state == GuestVm.State.RUNNING || state == GuestVm.State.FAILED || state == GuestVm.State.STOPPED) cardOverride = null }
+        val cardMinimized = cardOverride ?: (drawing && state == GuestVm.State.BOOTING)
         Box(Modifier.fillMaxSize()) {
             led?.takeIf { it.lit && showLed }?.let { LedIndicator(it, Modifier.align(Alignment.TopCenter)) }
             if (!showLog) skinLayout?.keys?.forEach { (button, area) -> key(button, area) { SkinKeyZone(button, area) } }
@@ -1085,14 +1090,17 @@ class VmActivity : ComponentActivity() {
             }
             // карточка загрузки
             AnimatedVisibility(
-                visible = state != GuestVm.State.RUNNING && !showLog && !(drawing && state == GuestVm.State.BOOTING),
+                visible = state != GuestVm.State.RUNNING && !showLog && (state == GuestVm.State.FAILED || !cardMinimized),
                 enter = fadeIn(), exit = fadeOut(),
                 modifier = Modifier.align(Alignment.Center),
-            ) { BootCard(seconds) }
+            ) { BootCard(seconds, onMinimize = { cardOverride = true }) }
 
-            if (drawing && state == GuestVm.State.BOOTING && !showLog && vm.screenUpAt == 0L) {
+            // minimized: a small pill, tap it to bring the card back
+            val pillState = state == GuestVm.State.BOOTING || state == GuestVm.State.PREPARING
+            if (pillState && cardMinimized && !showLog && (cardOverride == true || vm.screenUpAt == 0L)) {
                 Surface(shape = CircleShape, color = MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.9f),
-                    modifier = Modifier.align(Alignment.TopStart).displayCutoutPadding().statusBarsPadding().padding(8.dp)) {
+                    modifier = Modifier.align(Alignment.TopStart).displayCutoutPadding().statusBarsPadding().padding(8.dp)
+                        .clip(CircleShape).clickable { cardOverride = false }) {
                     Row(Modifier.padding(horizontal = 12.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
                         LoadingIndicator(Modifier.size(24.dp))
                         Spacer(Modifier.width(6.dp))
@@ -1387,7 +1395,7 @@ class VmActivity : ComponentActivity() {
     }
 
     @Composable
-    private fun BootCard(seconds: Long) {
+    private fun BootCard(seconds: Long, onMinimize: () -> Unit = {}) {
         Card(
             modifier = Modifier.widthIn(max = 360.dp).padding(24.dp),
             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.94f),
@@ -1419,6 +1427,11 @@ class VmActivity : ComponentActivity() {
                         Button(onClick = { thread { vm.stop(); vm.boot() } }) { Text(stringResource(R.string.retry)) }
                     }
                 } else {
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                        IconButton(onClick = onMinimize, modifier = Modifier.size(32.dp)) {
+                            Icon(Icons.Rounded.Minimize, contentDescription = stringResource(R.string.boot_minimize))
+                        }
+                    }
                     LoadingIndicator(Modifier.size(64.dp))
                     Spacer(Modifier.height(16.dp))
                     Text(vm.img.name, style = MaterialTheme.typography.titleLarge, maxLines = 2, overflow = TextOverflow.Ellipsis)

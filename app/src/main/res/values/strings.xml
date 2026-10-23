@@ -298,6 +298,7 @@
     <string name="catalog_warnings">Invalid or incomplete catalog data on lines: %1$s</string>
     <string name="browser_unavailable">No browser is available to open this link.</string>
     <string name="m_minimize">Minimize</string>
+    <string name="boot_minimize">Minimize boot screen (tap the pill to show it again)</string>
     <string name="open_vm">Open</string>
     <string name="vm_restarting">Restarting virtual machine…</string>
     <string name="vm_restart_failed">Could not restart the emulator. Close this screen and open the firmware again.</string>
@@ -330,6 +331,7 @@
     <string name="vs_gyro_none">No gyroscope</string>
     <string name="vs_host_resolution">Use host resolution</string>
     <string name="vs_resolution_host">Host</string>
+    <string name="vs_resolution_custom">Custom</string>
     <string name="vs_host_resolution_sub">Use the physical host display size and density after a full VM restart. Emulator controls overlay the guest. The cutout barrier is in app settings. High resolutions require more RAM and rendering time. The legacy 2.x engine keeps its fixed resolution.</string>
     <string name="as_cutout_barrier">Cutout barrier for VM screen</string>
     <string name="as_cutout_barrier_sub">Keep the VM screen clear of the notch or camera cutout. Off allows fullscreen behind it. Applies when reopening a VM.</string>

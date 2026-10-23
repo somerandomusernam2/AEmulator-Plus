@@ -243,3 +243,67 @@ EXPORT long syscall(long nr, ...)
     if ((unsigned long)r > (unsigned long)-4096L) { *__errno() = (int)-r; return -1; }
     return r;
 }
+
+/* ---- i2c-dev: the board's buses (Android Things' peripheralman opens /dev/i2c-N) ---- */
+/* The phone has no I2C controllers: TreeFixer makes /dev/i2c-N a link to the host's /dev/zero (reads give zeros,
+ * writes are accepted). The ioctls of the i2c-dev interface are refused - by qemu-arm itself (ENOSYS, before any host
+ * call) or by /dev/zero (ENOTTY) - so the real call is tried first and the same answers a bus that acknowledges every
+ * transfer would give come from here: a slave address is accepted, every SMBus / combined read returns zeros. */
+#define NR_IOCTL 54
+#define ENOTTY_ 25
+#define EINVAL_ 22
+#define EACCES_ 13
+#define EPERM_  1
+
+static void zero(void *p, unsigned n) { u8 *b = (u8 *)p; for (unsigned i = 0; i < n; i++) b[i] = 0; }
+
+static long i2c_emu(unsigned req, void *arg)
+{
+    switch (req) {
+    case 0x0701: case 0x0702: case 0x0703: case 0x0704: case 0x0706:   /* RETRIES, TIMEOUT, SLAVE, TENBIT, SLAVE_FORCE */
+    case 0x0708:                                                       /* PEC */
+        return 0;
+    case 0x0705:                                                       /* FUNCS: every function the adapter could have */
+        if (arg) *(unsigned long *)arg = 0xffffffffUL;
+        return 0;
+    case 0x0707: {                                                     /* RDWR: { msgs, nmsgs }, msg { addr, flags, len, buf } */
+        u32 *d = (u32 *)arg;
+        if (!d) return -EINVAL_;
+        u8 *m = (u8 *)(unsigned long)d[0];
+        for (u32 i = 0; m && i < d[1]; i++, m += 12) {
+            unsigned short flags = *(unsigned short *)(m + 2), len = *(unsigned short *)(m + 4);
+            u8 *buf = (u8 *)(unsigned long)*(u32 *)(m + 8);
+            if ((flags & 1) && buf) zero(buf, len);                    /* I2C_M_RD */
+        }
+        return (long)d[1];
+    }
+    case 0x0720: {                                                     /* SMBUS: { read_write, command, size, data } */
+        u8 *d = (u8 *)arg;
+        if (!d) return -EINVAL_;
+        u32 size = *(u32 *)(d + 4);
+        u8 *data = (u8 *)(unsigned long)*(u32 *)(d + 8);
+        if (d[0] == 1 && size != 0 && data) zero(data, 34);            /* a read: the union is 34 bytes (block + length) */
+        return 0;
+    }
+    default: return -ENOTTY_;
+    }
+}
+
+EXPORT int ioctl(int fd, int req, ...)
+{
+    __builtin_va_list ap;
+    __builtin_va_start(ap, req);
+    void *arg = __builtin_va_arg(ap, void *);
+    __builtin_va_end(ap);
+    long r = sys6(NR_IOCTL, fd, req, (long)arg, 0, 0, 0);
+    if (r >= 0) return (int)r;
+    unsigned u = (unsigned)req;
+    /* EACCES / EPERM: the phone's SELinux policy allows ioctls on a file of the image (the stand-in for /dev/i2c-N)
+     * only for a short list of commands and answers every other one with EACCES */
+    if ((r == -ENOSYS || r == -ENOTTY_ || r == -EINVAL_ || r == -EACCES_ || r == -EPERM_) && ((u >= 0x0701 && u <= 0x0708) || u == 0x0720)) {
+        long e = i2c_emu(u, arg);
+        if (e >= 0) return (int)e;
+        return (int)fail((int)-e);
+    }
+    return (int)fail((int)-r);
+}

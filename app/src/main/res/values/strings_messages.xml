@@ -143,6 +143,7 @@
     <string name="imp_compressed_file_is_empty">compressed file is empty: %1$s</string>
     <string name="imp_has_no_system_partition_not_a">\"%1$s\" has no system partition (not a full Acer firmware package?)</string>
     <string name="imp_ramdisk_too_large">ramdisk too large</string>
+    <string name="imp_iso_no_system">no Android system found in the ISO image (expected system.sfs or system.img)</string>
     <string name="imp_not_a_huawei_update_package">not a Huawei update package: %1$s</string>
     <string name="imp_has_no_system_partition_customization_only">\"%1$s\" has no system partition (customization-only package?); import UPDATE.APP instead</string>
     <string name="imp_transfer_list_missing">%1$s.transfer.list missing</string>

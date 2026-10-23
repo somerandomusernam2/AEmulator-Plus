@@ -90,6 +90,11 @@ object DiagExport {
                 }
                 entry(zip, "guest-sms-db.txt") { it.write(smsDb(ctx, vm).toByteArray()) }
                 vm.paths.bin.listFiles()?.filter { it.isFile }?.sortedBy { it.name }?.forEach { f -> addFile(zip, "run/${f.name}", f) }
+                // fatal-signal reports of the native runner (pc, lr, fault address, registers): where a native service died
+                listOf("dev/aemu_crash.log", "dev/.aemu_crash.log").forEach { rel ->
+                    val f = File(vm.paths.root, rel)
+                    if (f.isFile) addFile(zip, "guest/$rel", f)
+                }
                 // files the factory test program writes itself
                 listOf("cache/tki/tki.log", "data/mmi_ip.png", "data/local/tmp/mmi.log").forEach { rel ->
                     val f = File(vm.paths.root, rel)
@@ -142,6 +147,7 @@ object DiagExport {
             if (runCatching { android.os.Process.sendSignal(pid, 3) }.isSuccess) signalled++
         }
         sb.append("SIGQUIT sent to $signalled processes\n\n")
+        sb.append(nativeServiceDump(marker))
         // the catcher writes each process's stacks one after another; give them time (the emulated guest is slow)
         Thread.sleep(4000)
         sb.append("== new /data/anr/traces.txt content\n")
@@ -155,6 +161,40 @@ object DiagExport {
             }
         }.onFailure { sb.append("[cannot read traces.txt: $it]\n") }
         return sb.toString()
+    }
+
+    /**
+     * The guest's native programs (bootanimation, peripheralman, surfaceflinger, ...): for each thread its state, the host
+     * system call it is blocked in (the first word of /proc/<pid>/task/<tid>/syscall: futex, ioctl, nanosleep, read, ...) and
+     * its wait channel, and the files the process holds open. Read-only; what the host will not show is left as "?".
+     * Made to see why a service does not exit (the Android Things boot animation keeps the board's I2C bus claimed).
+     */
+    private fun nativeServiceDump(marker: String): String {
+        val sb = StringBuilder("== guest native programs (host view: pid, program, then tid:comm:state:syscall:wchan per thread, then open files)\n")
+        File("/proc").listFiles()?.sortedBy { it.name.toIntOrNull() ?: 0 }?.forEach { d ->
+            val pid = d.name.toIntOrNull() ?: return@forEach
+            val cmd = runCatching { String(File(d, "cmdline").readBytes(), Charsets.ISO_8859_1) }.getOrNull() ?: return@forEach
+            // the native engine's command line is "<qemu> <guest path of the program> <argv...>" - the guest path has no image
+            // root in it, so the image cannot be recognised by it; every process of this app's uid that is not the app itself or
+            // a Dalvik process (those are in the list above) is a guest program
+            if (pid == android.os.Process.myPid() || cmd.isEmpty() || cmd.contains("/system/bin/app_process")) return@forEach
+            val prog = cmd.split('\u0000').filter { it.isNotEmpty() }.joinToString(" ").replace(marker, "<img>/").take(160)
+            sb.append("$pid $prog\n")
+            File(d, "task").listFiles()?.sortedBy { it.name.toIntOrNull() ?: 0 }?.forEach { t ->
+                val name = runCatching { File(t, "comm").readText().trim() }.getOrDefault("?")
+                val st = runCatching { File(t, "stat").readText().substringAfterLast(')').trim().firstOrNull() }.getOrNull() ?: '?'
+                val sc = runCatching { File(t, "syscall").readText().trim().substringBefore(' ') }.getOrDefault("?")
+                val wc = runCatching { File(t, "wchan").readText().trim() }.getOrDefault("?")
+                sb.append("   ${t.name}:$name:$st:$sc:$wc\n")
+            }
+            val fds = runCatching {
+                File(d, "fd").listFiles()?.sortedBy { it.name.toIntOrNull() ?: 0 }?.take(60)?.joinToString("\n") { f ->
+                    "   fd ${f.name} -> " + runCatching { android.system.Os.readlink(f.path) }.getOrDefault("?")
+                }
+            }.getOrNull()
+            if (fds != null) sb.append(fds).append('\n')
+        }
+        return sb.append('\n').toString()
     }
 
     private fun openDownloads(ctx: Context, name: String): Target {
