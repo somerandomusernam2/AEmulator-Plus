@@ -1266,6 +1266,7 @@ class TreeFixer(
         disableTeeKeyMint()
         dropHalsWithoutService()
         useSoftwareGrallocOnPure32()
+        useEngineComposerOnPure32()
         useSoftwareKeymasterOnPure32()
     }
 
@@ -1340,6 +1341,112 @@ class TreeFixer(
             val park = File(root, "system/.aemu-parked/${q.relativeTo(root).path.replace('/', '#')}")
             park.parentFile?.mkdirs(); park.delete()
             if (q.renameTo(park)) log("${q.name}: set aside (its HALs are replaced by allocator@2.0)")
+        }
+    }
+
+    private val FRAG_COMPOSER2 = "aemu.graphics.composer2.xml"
+
+    /**
+     * A 32-bit-only Qualcomm Wear OS 4 firmware (Android 13) declares only vendor.qti.hardware.display.composer@3.0, served by
+     * vendor.qti.hardware.display.composer-service (SDM). It needs the display hardware, dies at start, and SurfaceFlinger
+     * aborts ("failed to get hwcomposer service"). The engine's 32-bit composer@2.1 service and passthrough impl
+     * (native/composer32, engines/n64-33/arm32) over its hwcomposer.default.so take its place: the board's service goes
+     * aside, its declarations are dropped, composer@2.1 is declared in a fragment.
+     *
+     * Only when the tree has the engine's 32-bit service, its impl and the HWC module: without them nothing is changed,
+     * the board's composer stays what it was.
+     */
+    private fun useEngineComposerOnPure32() {
+        if (!kernel.treble || !isPure32Tree(root)) { undoEngineComposer(); return }
+        // Modified for AEmulator Plus (2026-10-27): the engine's composer is used on every pure-32-bit treble firmware,
+        // no longer only on a Pixel Watch 2 (model check removed).
+        fun is32BitElf(f: File) = runCatching {
+            f.inputStream().use { i -> ByteArray(5).also { i.read(it) }.let { h -> h[0] == 0x7f.toByte() && h[1] == 'E'.code.toByte() && h[4] == 1.toByte() } }
+        }.getOrDefault(false)
+        val svc = listOf("vendor/bin/hw", "system/vendor/bin/hw").map { File(root, "$it/android.hardware.graphics.composer@2.1-service") }
+            .firstOrNull { it.isFile } ?: return
+        val libDirs = listOf("vendor/lib/hw", "system/vendor/lib/hw")
+        fun hasLib(n: String) = libDirs.any { File(root, "$it/$n").isFile }
+        if (!is32BitElf(svc) || !hasLib("android.hardware.graphics.composer@2.1-impl.so") || !hasLib("hwcomposer.default.so")) {
+            undoEngineComposer()
+            log("composer: the engine's 32-bit composer@2.1 is incomplete in the tree, the board's stays")
+            return
+        }
+        // Modified for AEmulator Plus (2026-10-27): the board's own android.hardware.graphics.composer declaration goes too.
+        // A Wear OS 3 board (Android 11, e.g. Hublot BBe / r11) already declares composer@2.1 IComposer/default next to the
+        // qti one; the fragment below then declares it a second time, VINTF refuses the device manifest ("Cannot add manifest
+        // fragment .../aemu.graphics.composer2.xml: HAL \"android.hardware.graphics.composer\" has a conflict"), hwservicemanager
+        // can no longer tell which HALs may register, and every HIDL/AIDL service of the guest aborts in registerAsService()
+        // (-2147483648): audio, health, lights, NFC, wifi, cas, drm, keystore, then SurfaceFlinger. The fragment is the only
+        // composer declaration left, whatever version the board had.
+        val gone = setOf("vendor.qti.hardware.display.composer", "vendor.display.config", "android.hardware.graphics.composer")
+        val hal = Regex("[ \\t]*<hal\\b[^>]*>.*?</hal>[ \\t]*\\r?\\n?", RegexOption.DOT_MATCHES_ALL)
+        val name = Regex("<name>\\s*([^<\\s]+)\\s*</name>")
+        val origDir = File(root, "system/.aemu-vintf-orig")
+        val monolithic = listOf("vendor/etc/vintf/manifest.xml", "system/vendor/etc/vintf/manifest.xml", "odm/etc/vintf/manifest.xml")
+        val fragDirs = listOf("vendor/etc/vintf/manifest", "system/vendor/etc/vintf/manifest")
+        val seen = HashSet<String>()
+        for (f in fragDirs.flatMap { File(root, it).listFiles().orEmpty().toList() } + monolithic.map { File(root, it) }) {
+            if (!f.isFile || !f.name.endsWith(".xml") || f.name == FRAG_COMPOSER2) continue
+            if (!seen.add(runCatching { f.canonicalPath }.getOrDefault(f.path))) continue
+            runCatching {
+                val removed = ArrayList<String>()
+                val out = hal.replace(f.readText()) { m ->
+                    val n = name.find(m.value)?.groupValues?.get(1)
+                    if (n != null && n in gone) { removed += n; "" } else m.value
+                }
+                if (removed.isNotEmpty()) {
+                    backupOnce(f, File(origDir, f.relativeTo(root).path.replace('/', '#')))
+                    f.setWritable(true); f.writeText(out); f.setReadable(true, false)
+                    log("${f.relativeTo(root).path}: board composer declaration dropped: ${removed.distinct().joinToString()}")
+                }
+            }.onFailure { log("${f.name}: composer declarations not checked: ${it.message}") }
+        }
+        val xml = """<manifest version="1.0" type="device">
+    <hal format="hidl">
+        <name>android.hardware.graphics.composer</name>
+        <transport>hwbinder</transport>
+        <version>2.1</version>
+        <interface><name>IComposer</name><instance>default</instance></interface>
+    </hal>
+</manifest>
+"""
+        val dst = File(root, "vendor/etc/vintf/manifest/$FRAG_COMPOSER2")
+        dst.parentFile?.mkdirs()
+        if (!dst.isFile || dst.readText() != xml) { dst.writeText(xml); dst.setReadable(true, false); log("${dst.name}: composer@2.1 declared (32-bit firmware, the engine's composer)") }
+        // the board's composer could not register any more (its HALs are no longer declared) and dies at start: aside
+        for (d in listOf("vendor/bin/hw", "system/vendor/bin/hw")) {
+            val q = File(root, "$d/vendor.qti.hardware.display.composer-service")
+            if (!q.isFile) continue
+            val park = File(root, "system/.aemu-parked/${q.relativeTo(root).path.replace('/', '#')}")
+            park.parentFile?.mkdirs(); park.delete()
+            if (q.renameTo(park)) log("${q.name}: set aside (replaced by the engine's composer@2.1)")
+        }
+    }
+
+    /**
+     * Modified for AEmulator Plus (2026-10-27). Takes back what an earlier start (or an earlier build of the app, which put the
+     * engine's composer on every 32-bit firmware) did for useEngineComposerOnPure32(): the aemu.graphics.composer2.xml fragment
+     * is deleted and the board's composer service that was set aside comes back. The board's own manifest declarations are
+     * restored by dropHalsWithoutService() (from system/.aemu-vintf-orig), which runs first; without this the stale fragment
+     * declares android.hardware.graphics.composer a second time and VINTF refuses the whole device manifest ("Cannot add
+     * manifest fragment .../aemu.graphics.composer2.xml: HAL \"android.hardware.graphics.composer\" has a conflict"), after
+     * which every HIDL/AIDL service of the guest aborts in registerAsService() (-2147483648).
+     */
+    private fun undoEngineComposer() {
+        for (d in listOf("vendor/etc/vintf/manifest", "system/vendor/etc/vintf/manifest")) {
+            val frag = File(root, "$d/$FRAG_COMPOSER2")
+            if (frag.isFile || isLink(frag)) {
+                if (frag.delete()) log("${frag.relativeTo(root).path}: removed (the board's own composer declaration is used)")
+            }
+        }
+        for (d in listOf("vendor/bin/hw", "system/vendor/bin/hw")) {
+            val q = File(root, "$d/vendor.qti.hardware.display.composer-service")
+            if (q.isFile || isLink(q)) continue
+            val park = File(root, "system/.aemu-parked/${q.relativeTo(root).path.replace('/', '#')}")
+            if (!park.isFile) continue
+            q.parentFile?.mkdirs()
+            if (park.renameTo(q)) log("${q.name}: put back (the board's composer is used)")
         }
     }
 

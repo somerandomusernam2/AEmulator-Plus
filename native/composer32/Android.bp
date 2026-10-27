@@ -1,0 +1,41 @@
+// Build in an AOSP android-13 tree (copy this directory to hardware/interfaces/graphics/composer/aemu32/), 32-bit only:
+//   lunch aosp_arm-userdebug && m android.hardware.graphics.composer@2.1-impl-aemu android.hardware.graphics.composer@2.1-service-aemu \
+//       android.hardware.graphics.mapper@2.0-impl libhwc2on1adapter
+// Then copy, into app/src/main/assets/engines/n64-33/arm32/ (the names are guest paths with '/' written as '#'):
+//   out/.../vendor/lib/hw/android.hardware.graphics.composer@2.1-impl.so          -> vendor#lib#hw#android.hardware.graphics.composer@2.1-impl.so
+//   out/.../vendor/bin/hw/android.hardware.graphics.composer@2.1-service          -> vendor#bin#hw#android.hardware.graphics.composer@2.1-service
+//   out/.../vendor/lib/hw/android.hardware.graphics.mapper@2.0-impl.so            -> vendor#lib#hw#android.hardware.graphics.mapper@2.0-impl.so
+//   out/.../vendor/lib/libhwc2on1adapter.so                                       -> vendor#lib#libhwc2on1adapter.so
+// (the interface libraries composer@2.1.so, mapper@2.0.so, graphics.common@1.x.so are the firmware's own, in its vendor/lib.)
+
+cc_library_shared {
+    name: "android.hardware.graphics.composer@2.1-impl-aemu",
+    stem: "android.hardware.graphics.composer@2.1-impl",
+    relative_install_path: "hw",
+    vendor: true,
+    compile_multilib: "32",
+    srcs: ["composer_impl.cpp"],
+    header_libs: ["android.hardware.graphics.composer@2.1-passthrough"],
+    shared_libs: [
+        "android.hardware.graphics.composer@2.1",
+        "android.hardware.graphics.composer@2.1-resources",
+        "libhidlbase",
+        "libhwc2on1adapter",
+        "libhwc2onfbadapter",
+        "libhardware",
+        "libutils",
+        "libcutils",
+        "liblog",
+    ],
+}
+
+cc_binary {
+    name: "android.hardware.graphics.composer@2.1-service-aemu",
+    stem: "android.hardware.graphics.composer@2.1-service",
+    relative_install_path: "hw",
+    vendor: true,
+    compile_multilib: "32",
+    srcs: ["composer_service.cpp"],
+    shared_libs: ["liblog"],
+    // dlopen()/dlsym() only: the program needs libdl, liblog and libc, like native/allocsvc
+}

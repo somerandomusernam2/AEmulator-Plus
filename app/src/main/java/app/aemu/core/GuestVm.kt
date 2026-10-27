@@ -1209,12 +1209,22 @@ class GuestVm(val ctx: Context, val img: GuestImage, val lowPowerBoot: Boolean =
                 HostNative.relaxFdsanSafe()
                 // 5.0+: hwui's GL stream has crashed the in-app bridge (SIGSEGV in serve_one_raw took the whole app down);
                 // the standalone glserverd keeps such a crash inside its own process
-                if (img.api < 21 && sf != null && GlBridge.start(sf, paths.glSock.absolutePath, paths.log("glbridge").absolutePath, w, h, false)) {
+                // Mali: the in-app bridge puts an app's ES2 context into the share group of SurfaceFlinger's ES1 context, and the
+                // driver then hands the app an ES 1.1 context: every glCreateProgram/glUseProgram fails (glserverd log: "OpenGL ES-CM 1.1"
+                // for system_server, driver refused 0x502). Sense 3's Rosie launcher and the lockscreen are ES2 and stay invisible
+                // (only the ES1 wallpaper shows). The standalone *_mali server keeps ES2 contexts out of that group, so Mali uses it
+                // for old images too.
+                val mali = HostInfo.gpu().contains("mali")
+                if (img.api < 21 && !mali && sf != null && GlBridge.start(sf, paths.glSock.absolutePath, paths.log("glbridge").absolutePath, w, h, false)) {
                     log("★ GPU bridge running in-app: frames render straight to the surface")
                     waitFor("GL bridge socket", 5_000) { paths.glSock.exists() }
                     return
                 }
-                log(if (img.api >= 21) "GPU bridge: standalone glserverd" else "in-app GPU bridge failed, falling back to standalone glserverd")
+                log(when {
+                    img.api >= 21 -> "GPU bridge: standalone glserverd"
+                    mali -> "GPU bridge: standalone glserverd (Mali: the in-app bridge hands ES2 apps an ES 1.1 context)"
+                    else -> "in-app GPU bridge failed, falling back to standalone glserverd"
+                })
                 spawn("glserverd", listOf(paths.nativeBin(engine.glserverdFor(HostInfo.gpu())).absolutePath,
                     "-s", paths.glSock.absolutePath, "-fb", paths.fb.absolutePath,
                     "-notify", paths.frameSock.absolutePath, "-w", "$w", "-h", "$h"), glServerEnv())
