@@ -27,5 +27,7 @@
     <string name="nav_trackball_recovery">Recovery: use arrow-key mode</string>
     <string name="vs_bluetooth">Host Bluetooth (experimental)</string>
     <string name="vs_bluetooth_sub">Let the guest scan, pair-list, and talk to Bluetooth devices through the phone: classic serial (RFCOMM) and Bluetooth LE (GATT). Needs Bluetooth permission and a full VM restart. Not raw HCI: the guest sees the phone adapter through a bridge, so headsets (audio profiles) are not supported.</string>
+    <string name="vs_sf_tombstone">SurfaceFlinger crash tombstone (debug)</string>
+    <string name="vs_sf_tombstone_sub">If SurfaceFlinger crashes, let the firmware write a normal tombstone to the log (with the crashing function) instead of a short report. Use it when sending a bug report. Applies at the next full VM boot.</string>
     <string name="bluetooth_permission_denied">Bluetooth permission denied: the guest will boot without host Bluetooth.</string>
 </resources>

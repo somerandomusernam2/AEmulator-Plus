@@ -75,4 +75,18 @@ class PartitionNamesTest {
         assertFalse(PartitionNames.isRawSystemDump(listOf("__MACOSX/build.prop", "__MACOSX/bin/sh")))
         assertFalse(PartitionNames.isRawSystemDump(listOf("binary/x", "build.prop")))
     }
+
+    @Test fun numberedRawPartitionDump() {
+        // Spreadtrum / Unisoc raw dump: images numbered in partition-table order
+        assertTrue(PartitionNames.isSystem("26.system.img"))
+        assertTrue(PartitionNames.isVendor("28.vendor.img"))
+        assertTrue(PartitionNames.isBoot("25.boot.img"))
+        assertTrue(PartitionNames.isRecovery("2.recovery.img"))
+        // other numbered images stay nothing
+        for (n in listOf("9.uboot_bak.img", "3.misc.img", "27.cache.img", "29.vbmeta.img")) {
+            assertFalse(n, PartitionNames.isSystem(n)); assertFalse(n, PartitionNames.isVendor(n)); assertFalse(n, PartitionNames.isBoot(n))
+        }
+        // a bare number is no prefix
+        assertFalse(PartitionNames.isVendor("28.img"))
+    }
 }

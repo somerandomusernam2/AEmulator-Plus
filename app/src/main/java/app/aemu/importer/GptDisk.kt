@@ -6,11 +6,17 @@ import java.nio.ByteOrder
 
 /**
  * Full eMMC/UFS dump (one raw image of the whole disk, GUID partition table at LBA 1).
- * Only the partitions the importer consumes are picked: boot, recovery, system, oem and (Android Things) gapps.
- * A/B slot "_a" names are accepted (boot_a, system_a, oem_a, gapps_a).
+ * Only the partitions the importer consumes are picked: boot, recovery, system, vendor, oem and (Android Things) gapps.
+ * A/B slot "_a" names are accepted (boot_a, system_a, vendor_a, oem_a, gapps_a).
+ *
+ * The vendor partition matters for Treble firmware (8.0+): it carries the board's HAL services, their passthrough
+ * implementations (android.hardware.*@x.y-impl.so), the device HAL manifest and the init scripts of those services.
+ * Left out, the guest tree has no /vendor/build.prop, the importer treats the firmware as vendor-less and replaces its
+ * HAL side with the engine's, which a 32-bit-only firmware (Android Things on a Raspberry Pi 3) cannot use.
  */
 object GptDisk {
-    enum class Kind { BOOT, RECOVERY, OEM, SYSTEM, GAPPS }
+    /** Declaration order is the order the partitions are applied in: vendor after system, which it is read on top of. */
+    enum class Kind { BOOT, RECOVERY, OEM, SYSTEM, VENDOR, GAPPS }
 
     class Part(val name: String, val start: Long, val size: Long)
 
@@ -75,11 +81,12 @@ object GptDisk {
         "recovery", "recovery_a", "fotakernel" -> Kind.RECOVERY
         "oem", "oem_a" -> Kind.OEM
         "system", "system_a", "factoryfs" -> Kind.SYSTEM
+        "vendor", "vendor_a" -> Kind.VENDOR
         "gapps", "gapps_a" -> Kind.GAPPS
         else -> null
     }
 
-    /** First partition of every kind, in the order boot, recovery, oem, system, gapps. */
+    /** First partition of every kind, in the order boot, recovery, oem, system, vendor, gapps. */
     fun pick(parts: List<Part>): List<Pair<Kind, Part>> =
         Kind.values().mapNotNull { k -> parts.firstOrNull { kindOf(it.name) == k }?.let { k to it } }
 

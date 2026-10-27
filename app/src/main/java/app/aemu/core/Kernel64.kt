@@ -284,7 +284,13 @@ enum class Kernel64(
     A8_1("27", 27..27, gpuBridge64 = true, bridgeAsEmulation = true, qcomHandles = true, webViewSingleProcess = true, registeredNetwork = true, treble = true, eglDir = "vendor/lib64/egl", gles = "2",
         // MIUI's system_server reads the panel colour from the touch controller's lockdown bytes before anything else
         // and dies closing the reader it never opened when the file is not there
-        procFiles = mapOf("tp_lockdown_info" to "4636320131320200\n"),
+        // (and, as on 8.0 above: BatteryStatsImpl's KernelWakelockReader posts Slog.wtf "neither /proc/wakelocks nor
+        // /d/wakeup_sources exists" from system_server's main thread; the ActivityManager thread then loads
+        // SettingsProvider for the dropbox code while the main thread installs it too, the two set up the same settings
+        // state and system_server dies with "cannot interact with a closed instance", zygote 137 - seen on Android
+        // Things 8.1. An empty table (only the header line the reader skips) means "no wakelocks" and no WTF.)
+        procFiles = mapOf("tp_lockdown_info" to "4636320131320200\n",
+            "wakelocks" to "name\tcount\texpire_count\twake_count\tactive_since\ttotal_time\tsleep_time\tmax_time\tlast_change\n"),
         absentFeatures = listOf("consumerir", "fingerprint", "nfc", "nfc.hce", "nfc.hcef"), trafficAccounting = true, noQemuPipe = true,
         // The framework calls a Treble device consistent only after checking the running kernel (its SELinux policy
         // version, release and build options) against its certification list. There is no SELinux for the guest and
@@ -384,7 +390,11 @@ enum class Kernel64(
         ownVndkDir = "vendor/lib64/aemu-vndk", manifestFragmentsAside = true, trebleLinkerConfig = true, propAreaSize = 512 * 1024,
         // (the firmware's own 32-bit codec service: as on 9)
         firmwareOwn = listOf("vendor#bin#hw#android.hardware.media.omx@1.0-service", "vendor#etc#init#android.hardware.media.omx@1.0-service.rc",
-            "vendor#lib#libavservices_minijail_vendor.so", "vendor#lib#libmediacodecservice.so", "vendor#lib#libminijail_vendor.so"),
+            "vendor#lib#libavservices_minijail_vendor.so", "vendor#lib#libmediacodecservice.so", "vendor#lib#libminijail_vendor.so",
+            // (the empty libhidltransport and libhwbinder of 10+: a vendor side built for 9 names them, and over the
+            // system of 11 they live only inside the VNDK package, where the sphal namespace does not look: the 32-bit
+            // allocator service and mapper impl of such a firmware failed to link, SurfaceFlinger: "gralloc-mapper is missing")
+            "vendor#lib64#libhidltransport.so", "vendor#lib64#libhwbinder.so", "vendor#lib#libhidltransport.so", "vendor#lib#libhwbinder.so"),
         // (the passthrough lookup takes any "-impl*.so": Qualcomm's ones wait for the secure world forever)
         firmwareAside = listOf("vendor#lib64#hw#android.hardware.keymaster@3.0-impl-qti.so", "vendor#lib64#hw#android.hardware.gatekeeper@1.0-impl-qti.so")),
     // Android 12: starts as kernel 30
@@ -440,6 +450,8 @@ enum class Kernel64(
             // the sound trigger HAL takes the engine's stand-in module, not the board's (which wants its DSP)
             "ro.hardware.sound_trigger.primary" to "aemu",
             // app compilation shares the phone's cores with the guest's UI, which SwiftShader draws on them too
+            // (netd of 14 waits for init to report that the network BPF loader has finished)
+            "init.svc.mdnsd_netbpfload" to "stopped",
             "dalvik.vm.dex2oat-threads" to "2", "dalvik.vm.background-dex2oat-threads" to "1", "dalvik.vm.boot-dex2oat-threads" to "2"),
         procFiles = mapOf("tp_lockdown_info" to "4636320131320200\n"),
         // (a generic system image of 14 carries the VNDK of 29..34 only, and its linkerconfig aborts on a version it
@@ -447,7 +459,9 @@ enum class Kernel64(
         // (the software KeyMint inside keystore2 waits for the vendor's patch level property to exist, for ever over
         // a generic system image: no keystore service, system_server dies in LockSettingsService)
         propDefaults = mapOf("ro.vndk.version" to "34", "ro.vendor.build.security_patch" to "2023-12-05"),
-        sysFiles = mapOf("android_lcd/lcd_name" to "aemu\n"),
+        sysFiles = mapOf("android_lcd/lcd_name" to "aemu\n",
+            // (netd of 14 also looks for the mark the network BPF loader leaves when it is done)
+            "fs/bpf/netd_shared/mainline_done" to ""),
         ownVndkDir = "vendor/lib64/aemu-vndk", manifestFragmentsAside = true, trebleLinkerConfig = true, propAreaSize = 512 * 1024, cgroup2Root = true, partitionsAtRoot = true, bpfMapNotes = true, linkerConfigTool = "apex/com.android.runtime/bin/linkerconfig", mediaProfilesFallback = true, manifestFragmentsKept = listOf("health", "aemu-"), oneFingerprint = true, vendorHeapProps = true, ownVendorUnderGsi = true, odmManifestFragmentsAside = true, lazyAidlServices = true, ramBudget = true, gpuBridge64 = true, bootHardwareProp = true,
         firmwareOwn = listOf("vendor#bin#hw#android.hardware.media.omx@1.0-service", "vendor#etc#init#android.hardware.media.omx@1.0-service.rc",
             "vendor#lib#libavservices_minijail_vendor.so", "vendor#lib#libmediacodecservice.so", "vendor#lib#libminijail_vendor.so",

@@ -1205,6 +1205,8 @@ public final class FirmwareToolset {
     }
     /** Walks a SquashFS 4 image without extracting it, so that the caller can hash, compare or store single files. */
     public static void walkSquashFs(File image,Consumer<String>log,SquashVisitor v)throws Exception{
+        // SquashFS 3.1 (Logitech Revue boot.img) has its own on-disk layout, see Squash3
+        if(Squash3.probe(image)){try(Squash3 s=new Squash3(image,log)){s.walk(v);}return;}
         try(SquashReader s=new SquashReader(image,log)){s.walkVisit(v);}
     }
     /** True if the file starts with a SquashFS 4 superblock (either byte order). */
@@ -1214,7 +1216,18 @@ public final class FirmwareToolset {
         catch(IOException e){return false;}
     }
     static final class SquashFs {
-        static File toZip(File f,File work,Consumer<String>log)throws Exception{File out=new File(work,safe(stripExt(f.getName()))+".zip");try(SquashReader s=new SquashReader(f,log)){s.writeZip(out,f.getName());}return out;}
+        static File toZip(File f,File work,Consumer<String>log)throws Exception{File out=new File(work,safe(stripExt(f.getName()))+".zip");
+            if(Squash3.probe(f)){final String top=safe(stripExt(f.getName()));
+                try(Squash3 s=new Squash3(f,log);FileOutputStream fos=new FileOutputStream(out);final ZipArchiveOutputStream z=new ZipArchiveOutputStream(fos)){
+                    s.walk(new SquashVisitor(){
+                        public void dir(String path,int mode)throws Exception{ZipArchiveEntry ze=new ZipArchiveEntry(top+"/"+path+"/");ze.setUnixMode(040000|mode);z.putArchiveEntry(ze);z.closeArchiveEntry();}
+                        public void link(String path,String target)throws Exception{ZipArchiveEntry ze=new ZipArchiveEntry(top+"/"+path);ze.setUnixMode(0120000|0777);z.putArchiveEntry(ze);z.write(target.getBytes(StandardCharsets.UTF_8));z.closeArchiveEntry();}
+                        public OutputStream file(String path,int mode,long size)throws Exception{ZipArchiveEntry ze=new ZipArchiveEntry(top+"/"+path);ze.setUnixMode(0100000|mode);z.putArchiveEntry(ze);return new FilterOutputStream(z){public void write(byte[]b,int o,int l)throws IOException{z.write(b,o,l);}public void close(){}};}
+                        public void fileEnd(String path)throws Exception{z.closeArchiveEntry();}
+                    });
+                }
+                return out;}
+            try(SquashReader s=new SquashReader(f,log)){s.writeZip(out,f.getName());}return out;}
     }
     static final class SquashReader implements Closeable {
         static final int META=8192,NO_FRAG=0xffffffff,UNCOMP=1<<24;RandomAccessFile r;Consumer<String>log;long base,imgEnd,bytesUsed,inodeTable,dirTable,fragTable,idTable,xattrTable,lookupTable,rootRef;int block,compression;boolean be;byte[]inodes,dirs;Map<Long,Integer>imap,dmap;List<Frag>frags=new ArrayList<>();
@@ -1230,7 +1243,7 @@ public final class FirmwareToolset {
                     if(verMaj==4&&bs>=4096&&bs<=1<<20&&(bs&(bs-1))==0&&bs==(1<<blog)&&comp>=1&&comp<=6){base=start+i;be=b;return;}
                 }
             }
-            throw new IOException("no SquashFS 4.0 superblock (only SquashFS 4.x is supported)");
+            throw new IOException("no SquashFS 4.0 superblock (only SquashFS 4.x and 3.1 are supported)");
         }
         void load()throws Exception{r.seek(base);byte[]s=new byte[96];r.readFully(s);int[]v=new int[5];for(int i=0;i<5;i++)v[i]=le32(s,i*4,be);block=v[3];compression=le16(s,20,be);rootRef=u64(s,32,be);bytesUsed=u64(s,40,be);inodeTable=u64(s,64,be);dirTable=u64(s,72,be);fragTable=u64(s,80,be);idTable=u64(s,48,be);xattrTable=u64(s,56,be);lookupTable=u64(s,88,be);r.seek(r.length());imgEnd=r.length()-base;MapTable it=loadMeta(inodeTable);inodes=it.buf;imap=it.map;MapTable dt=loadMeta(dirTable);dirs=dt.buf;dmap=dt.map;int fc=le32(s,16,be);if(fc>0&&fragTable!=0xffffffffffffffffL){long ptrs=(fc+511L)/512;byte[]pb=readAt(base+fragTable,(int)Math.min(ptrs*8,Integer.MAX_VALUE));for(int j=0;j<ptrs;j++){byte[]f=meta(u64(pb,j*8,be));int cnt=(int)Math.min(512,fc-j*512L);for(int k=0;k<cnt&&(k+1)*16<=f.length;k++){frags.add(new Frag(u64(f,k*16,be),le32(f,k*16+8,be)));}}}log.accept("SquashFS: block="+block+" compression="+compression+" endian="+(be?"BE":"LE"));}
         static final int SeekOrigin_END=2;

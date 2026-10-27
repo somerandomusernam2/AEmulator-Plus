@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- put into app/src/main/res/values/ (other languages fall back to these) -->
+<resources>
+    <string name="vs_cdma">CDMA modem</string>
+    <string name="vs_cdma_sub">Emulates a CDMA modem: 1xRTT / EV-DO registration, MEID, CDMA subscription and CDMA text messages. Applies at the next full boot.</string>
+    <string name="vs_cdma_fw_yes">This firmware is LTE on CDMA (telephony.lteOnCdmaDevice=1): on by default.</string>
+    <string name="vs_cdma_fw_no">This firmware is not LTE on CDMA: off by default.</string>
+</resources>

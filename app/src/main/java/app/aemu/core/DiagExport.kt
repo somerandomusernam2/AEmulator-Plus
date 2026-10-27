@@ -44,12 +44,15 @@ object DiagExport {
                 }
                 // what is on screen right now: layers (format, alpha, size), windows (flags, hardware acceleration) and the
                 // top activity. This shows what covers the UI when the guest runs but the screen looks black.
+                // a boot that never gets going has no RUNNING state to trigger the dumps below: what its processes are doing
+                // right now (CPU time over three seconds, blocked system call, wait channel) says "spinning" from "waiting"
+                if (vm.state != GuestVm.State.RUNNING) entry(zip, "guest-boot-processes.txt") { o -> o.write(bootProcessDump(vm).toByteArray(Charsets.ISO_8859_1)) }
                 if (vm.state == GuestVm.State.RUNNING) {
                     // Dalvik thread dumps (SIGQUIT) of the keyboard, system_server and every other guest app, taken first so the
                     // stacks show what the frozen keyboard's main thread is blocked on. Sent from the host: the Android 1.5 toolbox
                     // has no working ps/tail, so a guest-side `kill -3` pipeline dumps nothing there (guest-threads.txt came back empty).
                     entry(zip, "guest-threads.txt") { o -> o.write(guestThreadDump(vm).toByteArray(Charsets.ISO_8859_1)) }
-                    for ((file, cmd) in listOf(
+                    if (!vm.recoveryMode) for ((file, cmd) in listOf(
                         // who the input dispatcher is waiting for, and the IME's own view of the focused client
                         "guest-input-method.txt" to "dumpsys input_method",
                         "guest-sf-dump.txt" to "dumpsys SurfaceFlinger",
@@ -62,7 +65,7 @@ object DiagExport {
                     }
                 }
                 // does the /data/user/0 -> ../data link resolve inside the guest? (root view: ls errors show the errno)
-                if (vm.state == GuestVm.State.RUNNING) entry(zip, "guest-fs-probe.txt") { o ->
+                if (vm.state == GuestVm.State.RUNNING && !vm.recoveryMode) entry(zip, "guest-fs-probe.txt") { o ->
                     val cmd = "id; for p in /data /data/data /data/user /data/user/0 /data/user/0/ /data/user/0/com.android.providers.contacts " +
                         "/data/user/0/com.android.providers.contacts/cache /data/user/0/com.android.providers.contacts/databases " +
                         "/data/data/com.android.providers.contacts /data/data/com.android.providers.contacts/cache " +
@@ -76,7 +79,7 @@ object DiagExport {
                 // Does a plain write through a shared mmap of fb0 (exactly what SurfaceFlinger does) reach the file the app displays?
                 // A 216-byte ARM program maps fb0 read/write shared and fills the first 16bpp page with white; it never truncates the file.
                 // If the screen turns white / the host sees non-zero bytes, the mapping and the display path work and the problem is SurfaceFlinger's drawing.
-                if (vm.state == GuestVm.State.RUNNING) entry(zip, "guest-fb-map-test.txt") { o ->
+                if (vm.state == GuestVm.State.RUNNING && !vm.recoveryMode) entry(zip, "guest-fb-map-test.txt") { o ->
                     val bin = File(vm.paths.root, "data/local/tmp/aemu-fbtest")
                     bin.parentFile?.mkdirs()
                     bin.writeBytes(FBTEST_ELF.chunked(2).map { it.toInt(16).toByte() }.toByteArray())
@@ -87,6 +90,12 @@ object DiagExport {
                     runCatching { java.io.RandomAccessFile(vm.paths.fb, "r").use { r -> val b = ByteArray(65536); var left = r.length(); while (left > 0) { val n = r.read(b); if (n <= 0) break; for (i in 0 until n) if (b[i].toInt() != 0) nz++; left -= n } } }
                     o.write("host sees $nz non-zero bytes in fb0 after the test (expected 307200 if the shared mapping reaches the file)\n".toByteArray())
                     bin.delete()
+                }
+                // recovery mode: the recovery's own log and what it has mapped (is fb0 mmap()ed? is any /dev/input node open?)
+                if (vm.recoveryMode) {
+                    val rlog = File(RecoveryImage.dir(vm.paths), "tmp/recovery.log")
+                    if (rlog.isFile) addFile(zip, "recovery/tmp/recovery.log", rlog)
+                    entry(zip, "guest-recovery-proc.txt") { o -> o.write(recoveryProcDump(vm).toByteArray(Charsets.ISO_8859_1)) }
                 }
                 entry(zip, "guest-sms-db.txt") { it.write(smsDb(ctx, vm).toByteArray()) }
                 vm.paths.bin.listFiles()?.filter { it.isFile }?.sortedBy { it.name }?.forEach { f -> addFile(zip, "run/${f.name}", f) }
@@ -115,6 +124,47 @@ object DiagExport {
         operator fun component1() = out
         operator fun component2() = where
         operator fun component3() = finish
+    }
+
+    /**
+     * Every host process of this image (app_process of the zygote and its children, native programs, qemu): per thread the
+     * state letter, the host system call it is blocked in and the wait channel, plus the CPU ticks (utime+stime) used in the
+     * three seconds between two samples. A process that burns ticks is looping, one that burns none is waiting for something.
+     * Does not signal anything.
+     */
+    private fun bootProcessDump(vm: GuestVm): String {
+        val marker = "/images/${vm.img.id}/"
+        fun ticks(t: File): Long = runCatching {
+            val f = File(t, "stat").readText().substringAfterLast(')').trim().split(' ')
+            f[11].toLong() + f[12].toLong()          // fields 14 and 15 of stat: utime, stime
+        }.getOrDefault(-1L)
+        fun procs() = File("/proc").listFiles()?.mapNotNull { d ->
+            val pid = d.name.toIntOrNull() ?: return@mapNotNull null
+            val cmd = runCatching { String(File(d, "cmdline").readBytes(), Charsets.ISO_8859_1) }.getOrNull() ?: return@mapNotNull null
+            if (pid == android.os.Process.myPid() || cmd.isEmpty() || !(cmd.contains(marker) || cmd.contains("/system/bin/"))) null else pid to d
+        }?.sortedBy { it.first } ?: emptyList()
+        val first = procs().associate { (pid, d) -> pid to (File(d, "task").listFiles()?.associate { it.name to ticks(it) } ?: emptyMap()) }
+        Thread.sleep(3000)
+        val sb = StringBuilder("== guest processes while the VM is ${vm.state} (host view)\n" +
+            "pid program / tid:comm:state:syscall:wchan:cpu ticks in 3 s\n")
+        for ((pid, d) in procs()) {
+            val cmd = runCatching { String(File(d, "cmdline").readBytes(), Charsets.ISO_8859_1) }.getOrDefault("")
+            sb.append("$pid ").append(cmd.split('\u0000').filter { it.isNotEmpty() }.joinToString(" ").replace(marker, "<img>/").take(200)).append('\n')
+            File(d, "task").listFiles()?.sortedBy { it.name.toIntOrNull() ?: 0 }?.forEach { t ->
+                val name = runCatching { File(t, "comm").readText().trim() }.getOrDefault("?")
+                val st = runCatching { File(t, "stat").readText().substringAfterLast(')').trim().firstOrNull() }.getOrNull() ?: '?'
+                val sc = runCatching { File(t, "syscall").readText().trim().substringBefore(' ') }.getOrDefault("?")
+                val wc = runCatching { File(t, "wchan").readText().trim() }.getOrDefault("?")
+                val a = first[pid]?.get(t.name) ?: -1L; val b = ticks(t)
+                sb.append("   ${t.name}:$name:$st:$sc:$wc:${if (a >= 0 && b >= 0) b - a else "?"}\n")
+            }
+            runCatching {
+                File(d, "fd").listFiles()?.sortedBy { it.name.toIntOrNull() ?: 0 }?.take(40)?.forEach { f ->
+                    sb.append("   fd ${f.name} -> ${runCatching { android.system.Os.readlink(f.path) }.getOrDefault("?")}\n")
+                }
+            }
+        }
+        return sb.toString()
     }
 
     /**
@@ -195,6 +245,28 @@ object DiagExport {
             if (fds != null) sb.append(fds).append('\n')
         }
         return sb.append('\n').toString()
+    }
+
+    /** The running recovery's memory map (fb0 / input / graphics lines only) and its threads' syscalls. */
+    private fun recoveryProcDump(vm: GuestVm): String = buildString {
+        val marker = "/images/${vm.img.id}/"
+        var found = 0
+        File("/proc").listFiles()?.forEach { d ->
+            val pid = d.name.toIntOrNull() ?: return@forEach
+            val cmd = runCatching { String(File(d, "cmdline").readBytes(), Charsets.ISO_8859_1) }.getOrNull() ?: return@forEach
+            if (!cmd.contains("/sbin/recovery") || !cmd.contains(marker)) return@forEach
+            found++
+            appendLine("== pid $pid: ${cmd.split('\u0000').filter { it.isNotEmpty() }.joinToString(" ").replace(marker, "<img>/").take(200)}")
+            appendLine("-- maps mentioning fb0 / input / graphics")
+            runCatching { File(d, "maps").readLines().filter { it.contains("fb0") || it.contains("input") || it.contains("graphics") } }
+                .getOrDefault(emptyList()).forEach { appendLine(it.replace(marker, "<img>/")) }
+            appendLine("-- open files")
+            File(d, "fd").listFiles()?.sortedBy { it.name.toIntOrNull() ?: 0 }?.forEach { f ->
+                val t = runCatching { android.system.Os.readlink(f.path) }.getOrDefault("?")
+                if (!t.endsWith(".png")) appendLine("fd ${f.name} -> ${t.replace(marker, "<img>/")}")
+            }
+        }
+        if (found == 0) appendLine("no recovery process found")
     }
 
     private fun openDownloads(ctx: Context, name: String): Target {
@@ -280,6 +352,7 @@ object DiagExport {
         appendLine("state: ${vm.state}, nativeBoot=${vm.nativeBoot}, nativeUi=${vm.nativeUi}, recovery=${vm.recoveryMode}")
         val s = vm.settings
         appendLine("settings: mtMode=${s.mtMode}, touchHz=${s.touchHz}, navButtons=${s.navButtons}")
+        appendLine("radio: enabled=${s.radio}, cdma=${s.cdma ?: "auto"}, networkType=${NetworkType.label(s.networkType)}")
         appendLine("display: ${s.width}x${s.height}")
         appendLine("input: guest clients connected=${vm.input.connected} [${vm.input.clientInfo()}], trackball=${vm.input.trackballConnected}, events sent=${vm.input.sent}, effective mtMode=${vm.input.mtMode}")
         appendLine("strace: ${if (File(p.bin, "strace.keep").exists()) "on (run/strace.keep exists)" else "off"}")
@@ -291,7 +364,8 @@ object DiagExport {
         appendLine()
         appendLine("-- fb0 content (what the guest has actually drawn) --")
         runCatching {
-            val f = p.fb
+            val f = if (vm.recoveryMode) RecoveryImage.fb(p) else p.fb
+            if (vm.recoveryMode) appendLine("(recovery mode: reading ${f.path.substringAfter("/images/")}, not the system tree's fb0)")
             val w = vm.settings.width; val h = vm.settings.height
             val page16 = w.toLong() * h * 2
             RandomAccessFile(f, "r").use { r ->

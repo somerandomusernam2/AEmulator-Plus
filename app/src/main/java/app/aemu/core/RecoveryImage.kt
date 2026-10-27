@@ -170,6 +170,13 @@ sysfs /sys sysfs rw,relatime 0 0
             runCatching { bin.writeBytes(data) }.onFailure { log("recovery: cacheflush patch failed: ${it.message}") }
                 .onSuccess { notes += "cacheflush() makes generated code executable (static libc before 2.3)" }
         }
+        // bionic 6.0+ (a static recovery carries its own libc) aborts at start-up when personality(PER_LINUX32) fails,
+        // and it does on hosts without AArch32; TreeFixer.personalityNoop() only covers the system tree, not this one
+        val pers = patchPersonality(data)
+        if (pers > 0) {
+            runCatching { bin.writeBytes(data) }.onFailure { log("recovery: personality patch failed: ${it.message}") }
+                .onSuccess { notes += "personality(PER_LINUX32) made a no-op ($pers)" }
+        }
         stubBlockDevices(r)?.let { notes += "stubbed $it block device nodes" }
         stubProcMounts(r)
         // the input FIFO cannot answer EVIOCG* ioctls; vendor recoveries that probe the device (LG: EVIOCGNAME,
@@ -219,6 +226,31 @@ sysfs /sys sysfs rw,relatime 0 0
                         break
                     }
                 }
+            }
+            i += 4
+        }
+        return n
+    }
+
+    /**
+     * Same patch as TreeFixer.personalityNoop(), for the static recovery binary: the personality syscall stub
+     * (mov ip,r7; mov r7,#136 | ldr r7,[pc,#x]; swi #0) gets "mov r0,#0" instead of the swi. Returns the number of
+     * stubs patched; already patched or pre-6.0 binaries have no such stub and give 0.
+     */
+    internal fun patchPersonality(d: ByteArray): Int {
+        val b = java.nio.ByteBuffer.wrap(d).order(java.nio.ByteOrder.LITTLE_ENDIAN)
+        var n = 0
+        var i = 0
+        while (i + 12 <= d.size) {
+            if (b.getInt(i) == 0xe1a0c007.toInt() && b.getInt(i + 8) == 0xef000000.toInt()) {
+                val w = b.getInt(i + 4)
+                val nr = when {
+                    w == 0xe3a07088.toInt() -> 136
+                    w and 0xfffff000.toInt() == 0xe59f7000.toInt() ->
+                        (i + 4 + 8 + (w and 0xfff)).takeIf { it + 4 <= d.size }?.let { b.getInt(it) } ?: -1
+                    else -> -1
+                }
+                if (nr == 136) { b.putInt(i + 8, 0xe3a00000.toInt()); n++ }
             }
             i += 4
         }

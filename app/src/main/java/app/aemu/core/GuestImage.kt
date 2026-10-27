@@ -1,5 +1,6 @@
 /* Modified for AEmulator Sunset, 2026-10-03: persisted motion and host-display options.
  * Modified for AEmulator Super Plus, 2026-10-11: fake SIM card slots, Wi-Fi signal and neighbours.
+ * Modified for AEmulator Super Plus, 2026-10-23: CDMA modem option.
  * GPL-3.0; see LICENSE and NOTICE.md. */
 package app.aemu.core
 
@@ -44,6 +45,8 @@ data class VmSettings(
     val microphone: Boolean = false,
     /** Experimental host Bluetooth passthrough (scan, RFCOMM, GATT); applies at the next full VM boot. */
     val bluetooth: Boolean = false,
+    /** Debug: let SurfaceFlinger's fatal signals reach the firmware's own crash handler (tombstone in logcat) instead of the runner's short report. */
+    val sfTombstone: Boolean = false,
     val motionSensors: Boolean = false,
     /** Run the guest without any sensors; null = automatic (on for Nougat+ Wear SDK builds, see [SensorHalApi.crashesWithHostSensors]). */
     val disableSensors: Boolean? = null,
@@ -93,6 +96,11 @@ data class VmSettings(
     val baseband: String = "",
     /** radio technology the fake modem reports (see [NetworkType]); default 2G (EDGE) */
     val networkType: Int = NetworkType.DEFAULT,
+    /**
+     * CDMA modem emulation (see [CdmaMode]); null = automatic: on when the firmware has telephony.lteOnCdmaDevice=1,
+     * off otherwise. Applies at the next full VM boot.
+     */
+    val cdma: Boolean? = null,
     /** extra qemu options; KEY=VALUE tokens are passed as environment variables */
     val qemuArgs: String = "",
     /** Guest services whose qemu system calls are traced into the service log, comma separated ("mediaserver,zygote"). */
@@ -134,10 +142,11 @@ data class VmSettings(
         .put("camera", camera)
         .put("microphone", microphone)
         .put("bluetooth", bluetooth)
+        .put("sfTombstone", sfTombstone)
         .put("motionSensors", motionSensors).put("disableSensors", disableSensors).put("gyroLock", gyroLock).put("hostResolution", hostResolution)
         .put("skipSetupWizard", skipSetupWizard)
         .put("disableGoogleApps", disableGoogleApps)
-        .put("ramMb", ramMb).put("radio", radio).put("imei", imei).put("serial", serial).put("kernel", kernel).put("kernelBranch", kernelBranch).put("kernelCommit", kernelCommit).put("kernelUser", kernelUser).put("kernelHost", kernelHost).put("kernelCompiler", kernelCompiler).put("kernelBuild", kernelBuild).put("kernelFlags", kernelFlags).put("kernelDate", kernelDate).put("baseband", baseband).put("networkType", networkType).put("qemuArgs", qemuArgs).put("straceServices", straceServices)
+        .put("ramMb", ramMb).put("radio", radio).put("imei", imei).put("serial", serial).put("kernel", kernel).put("kernelBranch", kernelBranch).put("kernelCommit", kernelCommit).put("kernelUser", kernelUser).put("kernelHost", kernelHost).put("kernelCompiler", kernelCompiler).put("kernelBuild", kernelBuild).put("kernelFlags", kernelFlags).put("kernelDate", kernelDate).put("baseband", baseband).put("networkType", networkType).apply { if (cdma != null) put("cdma", cdma) }.put("qemuArgs", qemuArgs).put("straceServices", straceServices)
         .put("hardware", hardware)
         .put("wifi", wifi).put("wifiSsid", wifiSsid).put("wifiPassword", wifiPassword)
         .put("sim", sim.toJson()).put("sim2", sim2.toJson()).put("dualSim", dualSim)
@@ -206,7 +215,10 @@ data class VmSettings(
         fun procVersion(s: VmSettings): String {
             if (isFullLine(s.kernel)) return procVersion(s.kernel)
             val user = s.kernelUser.ifBlank { "aemu" }; val host = s.kernelHost.ifBlank { "aemu" }
-            val cc = s.kernelCompiler.ifBlank { "gcc version 4.6" }
+            // Nougat's Settings (DeviceInfoUtils.getFormattedKernelVersion) matches "(gcc.+? )": the compiler group must
+            // start with "gcc" and end with a space before the closing parenthesis, as in real banners
+            // ("(gcc version 4.9 (GCC) )"). Without it the regex fails and Settings shows the kernel version as unavailable.
+            val cc = s.kernelCompiler.ifBlank { "gcc version 4.6" }.trim() + " "
             val build = s.kernelBuild.ifBlank { "1" }
             val flags = s.kernelFlags.ifBlank { "SMP PREEMPT" }
             val date = s.kernelDate.ifBlank { "Thu Jan 1 00:00:00 UTC 2026" }
@@ -217,7 +229,7 @@ data class VmSettings(
         fun procVersion(v: String): String {
             val t = cleanKernel(v).trim()
             return if (t.startsWith("Linux version")) t + "\n"
-            else "Linux version ${kernelRelease(t).ifEmpty { DEFAULT_KERNEL }} (aemu@aemu) (gcc version 4.6) #1 SMP PREEMPT Thu Jan 1 00:00:00 UTC 2026\n"
+            else "Linux version ${kernelRelease(t).ifEmpty { DEFAULT_KERNEL }} (aemu@aemu) (gcc version 4.6 ) #1 SMP PREEMPT Thu Jan 1 00:00:00 UTC 2026\n"
         }
 
         /** The service names of a "mediaserver, zygote" list (commas, blanks or both); only characters valid in a file name are kept. */
@@ -267,6 +279,7 @@ data class VmSettings(
                 camera = o.optBoolean("camera", d.camera),
                 microphone = o.optBoolean("microphone", d.microphone),
                 bluetooth = o.optBoolean("bluetooth", d.bluetooth),
+                sfTombstone = o.optBoolean("sfTombstone", d.sfTombstone),
                 motionSensors = o.optBoolean("motionSensors", false),
                 disableSensors = if (o.has("disableSensors")) o.optBoolean("disableSensors") else null,
                 gyroLock = GyroLock.sanitize(o.optInt("gyroLock", GyroLock.DISABLED)),
@@ -291,7 +304,8 @@ data class VmSettings(
                 kernelFlags = cleanText(o.optString("kernelFlags", ""), 40),
                 kernelDate = cleanText(o.optString("kernelDate", ""), 40),
                 baseband = cleanBaseband(o.optString("baseband", "")),
-                networkType = NetworkType.sanitize(o.optInt("networkType", d.networkType)),
+                networkType = NetworkType.normalize(o.optInt("networkType", d.networkType)),
+                cdma = if (o.has("cdma") && !o.isNull("cdma")) o.optBoolean("cdma") else null,
                 qemuArgs = o.optString("qemuArgs", ""),
                 straceServices = o.optString("straceServices", ""),
                 hardware = cleanHardware(o.optString("hardware", "")),

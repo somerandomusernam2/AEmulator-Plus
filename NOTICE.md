@@ -72,3 +72,23 @@ not been located or verified. The tagged checkout can rebuild the APK using
 those prebuilts, but is not established as complete Corresponding Source for
 every bundled component. This notice is not a claim of full GPL compliance;
 publishing notices or hashes does not remedy missing required source.
+
+- **2026-10-24**: raw Spreadtrum/Unisoc partition dumps whose images are numbered in partition-table order
+  (`26.system.img`, `28.vendor.img`, `25.boot.img` ...): `PartitionNames.kt` ignores the numeric prefix (the vendor
+  partition was never read, so the guest lacked the firmware's own /vendor HAL services and passthrough impls) and
+  `PartitionNamesTest.kt` covers it; `TreeFixer.kt` keeps a 32-bit firmware's own allocator/keymaster service instead
+  of the engine's stand-in host. Binary patches of the inherited 32-bit engine hosts (no source in this tree): the
+  mangled name `configureRpcThreadpool` had length prefix 20 instead of 22 (allocator host for kernels 26/27, audio and
+  sensors hosts for kernel 34), and the kernel-27 plain audio host now loads `android.hardware.audio@2.0-impl.so`
+  instead of the MediaTek-only `-impl-mediatek` name. Not boot-tested.
+- **2026-10-24 (2)**: the engine's 32-bit allocator host also had a wrong hand-written mangled name for
+  `std::string` (missing one `E` after `char_traitsIc`; fixed in `native/allocsvc/allocator_service.cpp`, the shipped
+  binary cannot be patched in place). On a 32-bit firmware `TreeFixer.kt` now puts the firmware's own allocator /
+  keymaster service back when an earlier start replaced it with the engine's host.
+- **2026-10-24 (3)**: the one-time restart of the system after the first boot (past the setup wizard) now happens only
+  when "Skip setup wizard" is switched on, and that setting is offered for every release from API 16 up (it was
+  hidden above API 25).
+- **2026-10-25**: Google TV Streamer Pro (`ro.product.device=kirkwoodpro`) boot fix. Added
+  `app/src/main/java/app/aemu/core/LockSettingsBlobPatch.kt` (+ test) and `TreeFixer.lockSettingsBlobGuard()`: on that
+  device only, `KeyStore.setEntry` inside `SyntheticPasswordCrypto.createBlob` in `services.jar` is turned into `nop`s,
+  because the keystore cannot import an AES key there and system_server (and with it zygote, exit 137) died at boot.

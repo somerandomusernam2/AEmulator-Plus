@@ -155,6 +155,8 @@ class Importer(
         // a bare ramdisk (ramdisk.img of an SDK emulator package, initrd.gz, ramdisk.cpio): no boot image around it, so the
         // generic cpio / gzip branches below would unpack it as loose files and never record it as the ramdisk
         val bareRamdisk = decodeBareRamdisk(src, name, h)
+        // a file called just "system" / "vendor" / "boot" ... (no extension): a partition image if it is big enough to be one
+        val bare = PartitionNames.bareOk(name.replace('\\', '/'), src.size)
         when {
             bareRamdisk != null -> takeBareRamdisk(bareRamdisk, name)
             // Partitions of a payload.bin / fastboot package that hold no filesystem and that the guest never needs:
@@ -212,11 +214,11 @@ class Importer(
             // already classified: its role decides, whatever the partition happened to be called in that container
             // ("005-recovery.img", "02_Recovery.img", "mmcblk0p15", ...).
             // oem: optional, never boot-critical. Matched before the sparse/ext4 probes below, which would take it for system.
-            role == FirmwareToolset.Role.OEM || isOemName(name.replace('\\', '/').substringAfterLast('/')) -> importOem(src)
+            role == FirmwareToolset.Role.OEM || isOemName(name.replace('\\', '/').substringAfterLast('/'), bare) -> importOem(src)
             // optional /vendor partition (vendor.img, vendor_a.bin): matched before the ext4 probe, which would take it for system
-            isVendorName(name.replace('\\', '/').substringAfterLast('/')) -> importVendor(src)
+            isVendorName(name.replace('\\', '/').substringAfterLast('/'), bare) -> importVendor(src)
             // product / system_ext / odm and the skins' own partitions (mi_ext, my_*, vgc, prism, optics)
-            isExtraName(name.replace('\\', '/').substringAfterLast('/')) -> importExtra(src, name.replace('\\', '/').substringAfterLast('/'))
+            isExtraName(name.replace('\\', '/').substringAfterLast('/'), bare) -> importExtra(src, name.replace('\\', '/').substringAfterLast('/'))
             role == FirmwareToolset.Role.RECOVERY && src.size < 64_000_000 && isAndroidImage(h) ->
                 takeRecovery(streamOf(src), recoveryLabel(name, h))
             role == FirmwareToolset.Role.RECOVERY && src.size < 64_000_000 && isLz4Frame(h) ->
@@ -236,7 +238,7 @@ class Importer(
             isTar(h) || name.endsWith(".tar", true) || name.endsWith(".md5", true) || name.endsWith(".win", true) ->
                 importTarStream(streamOf(src), name, depth, src)
             // a recovery image reached directly (extracted by the firmware toolset, nested archive, plain file)
-            isRecoveryName(name.replace('\\', '/').substringAfterLast('/')) && src.size < 64_000_000 ->
+            isRecoveryName(name.replace('\\', '/').substringAfterLast('/'), bare) && src.size < 64_000_000 ->
                 takeRecovery(streamOf(src), name.replace('\\', '/').substringAfterLast('/'))
             // lz4-framed file that is not a recovery (system.img.lz4, a tar.lz4 ...): unpacked and recognised again
             isLz4Frame(h) -> importCompressed(org.apache.commons.compress.compressors.lz4.FramedLZ4CompressorInputStream(streamOf(src)), name, depth)
@@ -244,11 +246,11 @@ class Importer(
                 val data = readAllFrom(src)
                 val base = name.replace('\\', '/').substringAfterLast('/')
                 // an unnamed / oddly named image ("part_7.img", "mmcblk0p9") whose ramdisk carries /sbin/recovery is a recovery
-                if (role != FirmwareToolset.Role.BOOT && !isBootName(base) && hasRecoveryBinary(data)) takeRecovery(data.inputStream(), recoveryLabel(name, h))
+                if (role != FirmwareToolset.Role.BOOT && !isBootName(base, bare) && hasRecoveryBinary(data)) takeRecovery(data.inputStream(), recoveryLabel(name, h))
                 else takeBoot(data)
             }
             // system.img / factoryfs / factoryfs.img / factoryfs.rfs: a system partition whatever the filesystem
-            isSystemImageName(name.replace('\\', '/').substringAfterLast('/')) ->
+            isSystemImageName(name.replace('\\', '/').substringAfterLast('/'), bare) ->
                 importImage(if (SparseSource.probe(src)) SparseSource(listOf(src)) else src, "system")
             else -> importViaToolset(src, name, depth)
         }
@@ -340,7 +342,7 @@ class Importer(
     }
 
     /** recovery.img (optionally lz4-framed) or a TWRP raw recovery.*.win backup. */
-    private fun isRecoveryName(base: String) = PartitionNames.isRecovery(base)
+    private fun isRecoveryName(base: String, bare: Boolean = false) = PartitionNames.isRecovery(base, bare)
 
     /** vbmeta / dtbo / dtb / bootloader and radio firmware blobs: recognised by name (slot suffix and extension ignored) or magic. */
     private fun isSkippablePartition(name: String, h: ByteArray): Boolean {
@@ -359,11 +361,11 @@ class Importer(
         "toolsfv", "cpucp", "qweslicstore", "vm-bootsys", "tee", "splash",
     )
 
-    private fun isOemName(base: String) = PartitionNames.isOem(base)
+    private fun isOemName(base: String, bare: Boolean = false) = PartitionNames.isOem(base, bare)
 
-    private fun isVendorName(base: String) = PartitionNames.isVendor(base)
+    private fun isVendorName(base: String, bare: Boolean = false) = PartitionNames.isVendor(base, bare)
 
-    private fun isExtraName(base: String) = PartitionNames.extraMount(base) != null
+    private fun isExtraName(base: String, bare: Boolean = false) = PartitionNames.extraMount(base, bare) != null
 
     /**
      * An optional partition besides system / vendor / oem: product and system_ext are read into system/ (the layout the
@@ -371,7 +373,7 @@ class Importer(
      * directory. Never boot-critical: a partition that cannot be read is logged and skipped.
      */
     private fun importExtra(src: RandomSource, base: String) {
-        val mount = PartitionNames.extraMount(base) ?: return
+        val mount = PartitionNames.extraMount(base, bareOk = true) ?: return
         if (src.size < 4096) return
         try {
             importImage(if (SparseSource.probe(src)) SparseSource(listOf(src)) else src, mount)
@@ -695,7 +697,7 @@ class Importer(
         runCatching { BootImage.ramdisk(img)?.any { it.name.removePrefix("./") == "sbin/recovery" } == true }.getOrDefault(false)
 
     /** boot.img, or the signed one: boot_signed.img (HTC: 256-byte signature + image, BootImage strips it) / boot_signed (Motorola fastboot XML). */
-    private fun isBootName(base: String) = PartitionNames.isBoot(base)
+    private fun isBootName(base: String, bare: Boolean = false) = PartitionNames.isBoot(base, bare)
 
     /** Recovery is optional: remember the first one found, and never let a bad one abort the import. */
     private fun takeRecovery(i: InputStream, base: String) {
@@ -784,6 +786,7 @@ class Importer(
             if (cancelled) throw IOException("cancelled")
             val n = e.name.replace('\\', '/').removePrefix(wrap)
             val base = n.substringAfterLast('/')
+            val bare = PartitionNames.bareOk(n, e.size) && !e.isUnixSymlink
             when {
                 n.contains("__MACOSX/") || base.startsWith("._") -> {}
                 rawDump -> {
@@ -828,14 +831,14 @@ class Importer(
                 // a whole .ftf bundle inside another archive
                 base.endsWith(".ftf", true) && e.size > 0 -> importSonyFile(spillEntry(zip, e), depth)
                 // boot.img at any depth; the shallowest valid one is taken after the loop
-                isBootName(base) -> bootEntries.add(n to e)
-                isRecoveryName(base) && e.size < 64_000_000 -> zip.getInputStream(e).use { takeRecovery(it, base) }
+                isBootName(base, bare) -> bootEntries.add(n to e)
+                isRecoveryName(base, bare) && e.size < 64_000_000 -> zip.getInputStream(e).use { takeRecovery(it, base) }
                 CscPackage.isCscContainer(base) && e.size > 0 -> zip.getInputStream(e).use { takeCsc(it, base) }
-                isOemName(base) -> withEntrySource(zip, e) { importOem(it) }
-                isSystemImageName(base) ->
+                isOemName(base, bare) -> withEntrySource(zip, e) { importOem(it) }
+                isSystemImageName(base, bare) ->
                     withEntrySource(zip, e) { importImage(if (SparseSource.probe(it)) SparseSource(listOf(it)) else it, "system") }
-                isVendorName(base) -> withEntrySource(zip, e) { importVendor(it) }
-                isExtraName(base) && e.size > 4096 -> extraEntries.add(base to e)
+                isVendorName(base, bare) -> withEntrySource(zip, e) { importVendor(it) }
+                isExtraName(base, bare) && e.size > 4096 -> extraEntries.add(base to e)
                 base.lowercase().endsWith(".zip") && (base.startsWith("image-") || depth == 0 && e.size > 50_000_000) ||
                     base.lowercase().endsWith(".rar") || base.lowercase().endsWith(".7z") -> {
                     handleNestedZip(spillEntry(zip, e), base, depth)
@@ -1014,6 +1017,7 @@ class Importer(
                 if (e.isDirectory) continue
                 val n = e.name.replace('\\', '/').trimStart('/')
                 val base = n.substringAfterLast('/')
+                val bare = PartitionNames.bareOk(n, e.size)
                 val entryStream = object : InputStream() {
                     override fun read(): Int {
                         val one = ByteArray(1)
@@ -1039,14 +1043,14 @@ class Importer(
                         val part = if (SparseChunks.indexOf(n, "system") != null) "system" else "vendor"
                         splitParts.getOrPut(part) { ArrayList() }.add(n to spill(entryStream, base))
                     }
-                    isBootName(base) -> takeBoot(entryStream.readBytes())
-                    isRecoveryName(base) && e.size < 64_000_000 -> takeRecovery(entryStream, base)
+                    isBootName(base, bare) -> takeBoot(entryStream.readBytes())
+                    isRecoveryName(base, bare) && e.size < 64_000_000 -> takeRecovery(entryStream, base)
                     CscPackage.isCscContainer(base) && e.size > 0 -> takeCsc(entryStream, base)
-                    isOemName(base) -> nested.add(spill(entryStream, base) to "oem")
-                    isVendorName(base) -> nested.add(spill(entryStream, base) to "vendor")
-                    isExtraName(base) && e.size > 4096 -> nested.add(spill(entryStream, base) to "extra")
+                    isOemName(base, bare) -> nested.add(spill(entryStream, base) to "oem")
+                    isVendorName(base, bare) -> nested.add(spill(entryStream, base) to "vendor")
+                    isExtraName(base, bare) && e.size > 4096 -> nested.add(spill(entryStream, base) to "extra")
                     base.equals("system.yaffs2.img", true) ||
-                        isSystemImageName(base) -> {
+                        isSystemImageName(base, bare) -> {
                         nested.add(spill(entryStream, base) to "system")
                     }
                     base.matches(Regex("(?i).*\\.(zip|rar|7z|tar|tar\\.md5|md5|tgz|tar\\.gz)")) &&
@@ -1245,6 +1249,7 @@ class Importer(
             GptDisk.Kind.RECOVERY -> takeRecovery(streamOf(src), "recovery.img")
             GptDisk.Kind.OEM -> importOem(src)
             GptDisk.Kind.GAPPS -> importGapps(src)
+            GptDisk.Kind.VENDOR -> importVendor(src)
             GptDisk.Kind.SYSTEM -> {
                 importImage(if (SparseSource.probe(src)) SparseSource(listOf(src)) else src, "system")
                 gotSystem = true
@@ -1370,11 +1375,12 @@ class Importer(
                 if (entryName.isBlank() || entryName.split('/').any { it == ".." }) continue
                 val base = entryName.substringAfterLast('/')
                 val sysRel = systemRel(sysRoot, entryName)
+                val bare = PartitionNames.bareOk(entryName, Long.MAX_VALUE)
                 val interesting = sysRel != null || isSonyName(base) ||
-                    isBootName(base) || isRecoveryName(base) || isOemName(base) ||
+                    isBootName(base, bare) || isRecoveryName(base, bare) || isOemName(base, bare) ||
                     base.equals("system.yaffs2.img", true) ||
-                    isSystemImageName(base) ||
-                    base.matches(Regex("(?i).*\\.(zip|rar|7z|tar|tar\\.md5|md5|tgz|tar\\.gz|new\\.dat|transfer\\.list)")) ||
+                    isSystemImageName(base, bare) ||
+                    base.matches(Regex("(?i).*\\.(zip|rar|7z|tar|tar\\.md5|md5|tgz|tar\\.gz|new\\.dat|new\\.dat\\.br|transfer\\.list)")) ||
                     recognizedFirmwareTool(base)
                 if (!interesting) continue
                 val dir = File(tmp, "rar-${System.nanoTime()}").apply { mkdirs() }
@@ -1395,14 +1401,14 @@ class Importer(
                     temp.delete()
                 } else if (isSonyName(base)) {
                     pending.add(temp to "archive")
-                } else if (isBootName(base)) {
+                } else if (isBootName(base, bare)) {
                     takeBoot(temp.readBytes()); temp.delete()
-                } else if (isRecoveryName(base) && temp.length() < 64_000_000) {
+                } else if (isRecoveryName(base, bare) && temp.length() < 64_000_000) {
                     temp.inputStream().use { takeRecovery(it, base) }; temp.delete()
-                } else if (isOemName(base)) {
+                } else if (isOemName(base, bare)) {
                     pending.add(temp to "oem")
                 } else if (base.equals("system.yaffs2.img", true) ||
-                    isSystemImageName(base)) {
+                    isSystemImageName(base, bare)) {
                     pending.add(temp to "system")
                 } else if (base.endsWith(".new.dat", true) || base.endsWith(".new.dat.br", true) || base.endsWith(".transfer.list", true)) {
                     val key = base.lowercase().removeSuffix(".br").removeSuffix(".new.dat").removeSuffix(".transfer.list")
@@ -1520,14 +1526,30 @@ class Importer(
             FileChannel.open(t.toPath(), StandardOpenOption.READ).use { c -> handle(ChannelSource(c), c, base, depth + 1) }
         } finally { deferred = outer; t.delete() }
         try {
-            for ((f, entry) in mine) {
+            // system first (it resets the tree layout), then vendor / oem, then product / system_ext / odm ...:
+            // the extras are mounted under system/ and must never be taken for the system image itself
+            fun rank(entry: String): Int {
+                val b = entry.substringAfterLast('/')
+                return when {
+                    PartitionNames.extraMount(b, bareOk = true) != null -> 3
+                    isOemName(b, bare = true) -> 2
+                    isVendorName(b, bare = true) -> 1
+                    else -> 0
+                }
+            }
+            for ((f, entry) in mine.sortedBy { rank(it.second) }) {
+                if (cancelled) throw IOException("cancelled")
                 val entryBase = entry.substringAfterLast('/')
-                val part = when { isOemName(entryBase) -> "oem"; entryBase.lowercase().startsWith("vendor") -> "vendor"; else -> "system" }
                 FileChannel.open(f.toPath(), StandardOpenOption.READ).use { c ->
                     val src = ChannelSource(c)
-                    val img = if (SparseSource.probe(src)) SparseSource(listOf(src)) else src
-                    if (part == "oem") importOem(img)
-                    else if (part == "vendor") runCatching { importImage(img, part) } else importImage(img, part)
+                    when {
+                        PartitionNames.extraMount(entryBase, bareOk = true) != null -> importExtra(src, entryBase)
+                        isOemName(entryBase, bare = true) -> importOem(if (SparseSource.probe(src)) SparseSource(listOf(src)) else src)
+                        isVendorName(entryBase, bare = true) -> importVendor(src)
+                        isSystemImageName(entryBase, bare = true) ->
+                            importImage(if (SparseSource.probe(src)) SparseSource(listOf(src)) else src, "system")
+                        else -> log("$entryBase: not a partition image the importer uses, skipped")
+                    }
                 }
                 f.delete()
             }
@@ -1574,6 +1596,7 @@ class Importer(
                 val n = e.name.removePrefix("./").trimStart('/')
                 if (n.isBlank() || n == "TRAILER!!!" || n.split('/').any { it == ".." }) continue
                 val base = n.substringAfterLast('/')
+                val bare = e.isRegularFile && PartitionNames.bareOk(n, e.size)
                 when {
                     e.isDirectory -> FirmwareContainers.destination(root, n).mkdirs()
                     isSonyName(base) && e.isRegularFile && e.size > 0 -> importSonyFile(spill(cpio.nonClosing(), base), depth)
@@ -1581,13 +1604,13 @@ class Importer(
                         writeFile(n, cpio.nonClosing(), e.mode.toInt())
                         gotSystem = true
                     }
-                    isBootName(base) -> takeBoot(cpio.readBytes())
-                    isRecoveryName(base) && e.size < 64_000_000 -> takeRecovery(cpio, base)
-                    isOemName(base) -> {
+                    isBootName(base, bare) -> takeBoot(cpio.readBytes())
+                    isRecoveryName(base, bare) && e.size < 64_000_000 -> takeRecovery(cpio, base)
+                    isOemName(base, bare) -> {
                         val t = spill(cpio.nonClosing(), base)
                         try { FileChannel.open(t.toPath(), StandardOpenOption.READ).use { c -> importOem(ChannelSource(c)) } } finally { t.delete() }
                     }
-                    isSystemImageName(base) -> {
+                    isSystemImageName(base, bare) -> {
                         val t = spill(cpio.nonClosing(), base)
                         try {
                             FileChannel.open(t.toPath(), StandardOpenOption.READ).use { c ->
@@ -1626,6 +1649,9 @@ class Importer(
             if (n.isEmpty()) continue
             // Odin names members "system.img.md5", "boot.img.md5", ...: match on the real image name
             val base = PartitionNames.stripOdinMd5(n.substringAfterLast('/'))
+            // a bare partition name ("vendor", "boot", "product" ...) counts only for a regular, sizeable file: in a rootfs tree
+            // it is far more often a directory or a symlink
+            val bare = e.isFile && !e.isSymbolicLink && !e.isLink && PartitionNames.bareOk(n, e.size)
             // дерево rootfs целиком (system/, data/, dev/, …)
             if (fullRoot == null && ((n == "system" && !e.isFile) || n.startsWith("system/") || n.startsWith("init.rc") || n.startsWith("default.prop"))) fullRoot = true
             when {
@@ -1646,11 +1672,11 @@ class Importer(
                 }
                 n == "userdata" && e.isFile -> {}
                 CscPackage.isCscContainer(base) && e.isFile && e.size > 0 && !inSystemDump(n) -> takeCsc(tar.nonClosing(), base)
-                isOemName(base.replace(Regex("(?i)\\.lz4$"), "")) && e.isFile && !inSystemDump(n) -> {
+                isOemName(base.replace(Regex("(?i)\\.lz4$"), ""), bare) && e.isFile && !inSystemDump(n) -> {
                     val t = spill(maybeLz4(tar, base), base)
                     try { FileChannel.open(t.toPath(), StandardOpenOption.READ).use { c -> importOem(ChannelSource(c)) } } finally { t.delete() }
                 }
-                isSystemImageName(base.replace(Regex("(?i)\\.lz4$"), "")) && e.isFile -> {
+                isSystemImageName(base.replace(Regex("(?i)\\.lz4$"), ""), bare) && e.isFile -> {
                     if (under != null && !base.endsWith(".lz4", true)) {
                         // an Odin tar holds the image as it is: read in place, the phone needs no second copy of it
                         val ext = ExtentSource(under, listOf(tar.bytesRead to e.size))
@@ -1666,16 +1692,16 @@ class Importer(
                     }
                 }
                 // vendor / product / system_ext / odm / prism / optics ... as separate images (pre-super AP, Samsung CSC)
-                isExtraName(base.replace(Regex("(?i)\\.lz4$"), "")) && e.isFile && e.size > 4096 && !inSystemDump(n) -> {
+                isExtraName(base.replace(Regex("(?i)\\.lz4$"), ""), bare) && e.isFile && e.size > 4096 && !inSystemDump(n) -> {
                     val t = spill(maybeLz4(tar, base), base)
                     try { FileChannel.open(t.toPath(), StandardOpenOption.READ).use { c -> importExtra(ChannelSource(c), base.replace(Regex("(?i)\\.lz4$"), "")) } } finally { t.delete() }
                 }
-                isVendorName(base.replace(Regex("(?i)\\.lz4$"), "")) && e.isFile && e.size > 4096 && !inSystemDump(n) -> {
+                isVendorName(base.replace(Regex("(?i)\\.lz4$"), ""), bare) && e.isFile && e.size > 4096 && !inSystemDump(n) -> {
                     val t = spill(maybeLz4(tar, base), base)
                     try { FileChannel.open(t.toPath(), StandardOpenOption.READ).use { c -> importVendor(ChannelSource(c)) } } finally { t.delete() }
                 }
-                base.matches(Regex("(?i)(boot\\.img|boot_signed(\\.img)?|zImage|kernel)(\\.lz4)?")) && e.isFile && !inSystemDump(n) -> takeBoot(maybeLz4(tar, base).readBytes())
-                isRecoveryName(base) && e.isFile && e.size < 64_000_000 && !inSystemDump(n) -> takeRecovery(tar.nonClosing(), base)
+                (base.matches(Regex("(?i)(boot\\.img|boot_signed(\\.img)?|zImage|kernel)(\\.lz4)?")) || isBootName(base, bare)) && e.isFile && !inSystemDump(n) -> takeBoot(maybeLz4(tar, base).readBytes())
+                isRecoveryName(base, bare) && e.isFile && e.size < 64_000_000 && !inSystemDump(n) -> takeRecovery(tar.nonClosing(), base)
                 base.matches(Regex("(?i).*\\.(tar|tar\\.md5)")) && e.isFile && e.size > 20_000_000 -> importTarStream(tar.nonClosing(), base, depth + 1)
                 // factory-образы Google: tgz → image-*.zip → system.img/boot.img; Samsung: zip внутри tar
                 base.lowercase().endsWith(".zip") && e.isFile && e.size > 20_000_000 -> {
@@ -1752,7 +1778,10 @@ class Importer(
         onProgress(lt(R.string.imp_reading_image_ext_block, mount, fs.blockSize), -1f)
         var n = 0
         // what is needed to rebuild this image later from the files (block-based OTAs work on the image)
-        val cap = if (mount == "system" && !asRoot) SystemLayout.Capture(fs, src) else null
+        // every ext4 partition a block OTA can touch gets its layout recorded (system, vendor, product, system_ext, odm);
+        // a system-as-root partition too: its top level is the guest root, which the layout's prefix says
+        val layoutPartition = SystemLayout.partitionOf(mount)
+        val cap = if (layoutPartition != null) SystemLayout.Capture(fs, src, SystemLayout.prefixOf(mount, asRoot)) else null
         fs.walk { path, node ->
             if (cancelled) throw IOException("cancelled")
             if (asRoot && AbLayout.skipRootEntry(path, node.isFile, node.isLink)) return@walk
@@ -1772,12 +1801,12 @@ class Importer(
             }
             if (++n % 150 == 0) onProgress(lt(R.string.ota_detail_with_name, mount, path.substringAfterLast('/')), -1f)
         }
-        if (cap != null) {
+        if (cap != null && layoutPartition != null) {
             onProgress(lt(R.string.imp_recording_the_layout_of_image, mount), -1f)
-            val lf = SystemLayout.file(paths.dir)
+            val lf = SystemLayout.file(paths.dir, layoutPartition)
             runCatching { cap.finish(lf) }.onFailure {
                 lf.delete()
-                log("image $mount: layout not kept (${it.message}); block-based OTAs cannot be applied to this VM")
+                log("image $mount: layout not kept (${it.message}); block-based OTAs cannot be applied to this partition of the VM")
             }
         }
         if (mount == "system") gotSystem = true
@@ -2283,7 +2312,7 @@ class Importer(
     }
 
     /** Image names that always mean the system partition (RFS dumps call it factoryfs). */
-    private fun isSystemImageName(base: String) = PartitionNames.isSystem(base)
+    private fun isSystemImageName(base: String, bare: Boolean = false) = PartitionNames.isSystem(base, bare)
 
     /**
      * Folder dump of the system partition at any depth ("system/…", "Firmware/system/…").

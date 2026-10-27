@@ -32,7 +32,7 @@ internal object OemPartitionSource {
                 while (true) {
                     val e = zip.nextZipEntry ?: break
                     val base = e.name.substringAfterLast('/')
-                    if (!e.isDirectory && PartitionNames.isOem(base.removeSuffix(".lz4"))) return read(zip, base, scratch, depth + 1)
+                    if (!e.isDirectory && PartitionNames.isOem(base.removeSuffix(".lz4"), PartitionNames.bareOk(e.name, e.size))) return read(zip, base, scratch, depth + 1)
                 }
             }
             error("No oem partition in ZIP archive")
@@ -48,7 +48,7 @@ internal object OemPartitionSource {
                 while (true) {
                     val e = tar.nextTarEntry ?: break
                     val base = e.name.substringAfterLast('/')
-                    if (e.isFile && PartitionNames.isOem(base.removeSuffix(".lz4"))) return read(tar, base, scratch, depth + 1)
+                    if (e.isFile && PartitionNames.isOem(base.removeSuffix(".lz4"), !e.isSymbolicLink && !e.isLink && PartitionNames.bareOk(e.name, e.size))) return read(tar, base, scratch, depth + 1)
                 }
             }
             error("No oem partition in TAR archive")

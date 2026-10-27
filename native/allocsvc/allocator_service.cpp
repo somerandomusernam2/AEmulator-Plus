@@ -53,9 +53,9 @@ int main() {
     if (!cxx || !ht) { ERR("libc++.so / libhidltransport.so: %s", dlerror()); return 1; }
 
     get_service_fn get_service = (get_service_fn)need(iface,
-        "_ZN7android8hardware8graphics9allocator4V2_010IAllocator10getServiceERKNSt3__112basic_stringIcNS5_11char_traitsIcENS5_9allocatorIcEEEEb");
+        "_ZN7android8hardware8graphics9allocator4V2_010IAllocator10getServiceERKNSt3__112basic_stringIcNS5_11char_traitsIcEENS5_9allocatorIcEEEEb");
     register_fn register_as_service = (register_fn)need(iface,
-        "_ZN7android8hardware8graphics9allocator4V2_010IAllocator17registerAsServiceERKNSt3__112basic_stringIcNS5_11char_traitsIcENS5_9allocatorIcEEEE");
+        "_ZN7android8hardware8graphics9allocator4V2_010IAllocator17registerAsServiceERKNSt3__112basic_stringIcNS5_11char_traitsIcEENS5_9allocatorIcEEEE");
     assign_fn assign = (assign_fn)need(cxx, "_ZNSt3__112basic_stringIcNS_11char_traitsIcEENS_9allocatorIcEEE6assignEPKc");
     configure_fn configure = (configure_fn)need(ht, "_ZN7android8hardware20configureRpcThreadpoolEjb");
     join_fn join = (join_fn)need(ht, "_ZN7android8hardware17joinRpcThreadpoolEv");

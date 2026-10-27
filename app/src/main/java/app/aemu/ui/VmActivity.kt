@@ -1,6 +1,7 @@
 /* Modified for AEmulator Sunset through 2026-10-03: natural-edge controls, cutout and
  * compatibility and camera integration.
- * Modified for AEmulator Plus, 2026-10-12: VM screen themes, device skins (merged from Super Plus). GPL-3.0; see LICENSE and NOTICE.md. */
+ * Modified for AEmulator Plus, 2026-10-12: VM screen themes, device skins (merged from Super Plus).
+ * Modified for AEmulator Plus, 2026-10-25: emulated wireless emergency alerts. GPL-3.0; see LICENSE and NOTICE.md. */
 package app.aemu.ui
 
 import app.aemu.R
@@ -18,6 +19,8 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.viewinterop.AndroidView
 import app.aemu.core.SmsStore
+import app.aemu.core.AlertType
+import app.aemu.core.WirelessAlert
 import app.aemu.core.NavButton
 import app.aemu.core.NavControls
 import app.aemu.core.HeldNavKeys
@@ -46,6 +49,7 @@ import androidx.compose.material.icons.rounded.Screenshot
 import androidx.compose.material.icons.rounded.Videocam
 import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material.icons.rounded.Sms
+import androidx.compose.material.icons.rounded.Warning
 import androidx.compose.material.icons.rounded.Call
 import androidx.compose.material.icons.rounded.Lan
 import androidx.compose.material.icons.rounded.Search
@@ -509,6 +513,8 @@ class VmActivity : ComponentActivity() {
                     return
                 }
                 i.getStringExtra("sms")?.let { sendSms("+15550001234", it); return }
+                // --es wea "text" [--ei weatype 0..4]: wireless emergency alert (presidential, extreme, severe, AMBER, test)
+                i.getStringExtra("wea")?.let { sendAlert(AlertType.values().getOrElse(i.getIntExtra("weatype", 0)) { AlertType.PRESIDENTIAL }, it); return }
                 if (i.getBooleanExtra("shot", false)) { runOnUiThread { screenshot() }; return }
                 // --ez frames true --es out <name>: the count of frames shown and the clock, for the testers
                 if (i.getBooleanExtra("frames", false)) {
@@ -584,7 +590,7 @@ class VmActivity : ComponentActivity() {
         }
     }
 
-    private enum class Dlg { NONE, SMS, CALL, BATTERY, ADB, SHELL, DEVICE }
+    private enum class Dlg { NONE, SMS, CALL, WEA, BATTERY, ADB, SHELL, DEVICE }
 
     // position of the floating menu button; only lasts until the emulator is started again (see resetMenuOffset)
     private var menuOffset by mutableStateOf(Offset.Zero)
@@ -872,6 +878,60 @@ class VmActivity : ComponentActivity() {
             dismissButton = { OutlinedButton(onClick = onDone) { Text(stringResource(R.string.close)) } })
     }
 
+    private fun sendAlert(type: AlertType, text: String) {
+        thread { toast(getString(if (vm.ril.deliverAlert(type, text.trim())) R.string.m_wea_sent else R.string.m_wea_failed)) }
+    }
+
+    private fun alertLabel(t: AlertType): String = getString(when (t) {
+        AlertType.PRESIDENTIAL -> R.string.wea_presidential
+        AlertType.EXTREME -> R.string.wea_extreme
+        AlertType.SEVERE -> R.string.wea_severe
+        AlertType.AMBER -> R.string.wea_amber
+        AlertType.TEST -> R.string.wea_test
+    })
+
+    /** the text a new alert of this class starts with, until the user types their own */
+    private fun alertDefaultBody(t: AlertType): String = getString(when (t) {
+        AlertType.PRESIDENTIAL -> R.string.wea_body_presidential
+        AlertType.EXTREME -> R.string.wea_body_extreme
+        AlertType.SEVERE -> R.string.wea_body_severe
+        AlertType.AMBER -> R.string.wea_body_amber
+        AlertType.TEST -> R.string.wea_body_test
+    })
+
+    @Composable
+    private fun WeaDialog(onDone: () -> Unit) {
+        var type by remember { mutableStateOf(AlertType.PRESIDENTIAL) }
+        var body by remember { mutableStateOf(alertDefaultBody(AlertType.PRESIDENTIAL)) }
+        var edited by remember { mutableStateOf(false) }   // once the text is the user's own, picking another class leaves it alone
+        var open by remember { mutableStateOf(false) }
+        AlertDialog(onDismissRequest = onDone,
+            title = { Text(stringResource(R.string.m_wea)) },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(stringResource(R.string.m_wea_type), Modifier.weight(1f))
+                        Box {
+                            TextButton(onClick = { open = true }) { Text(alertLabel(type)) }
+                            DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
+                                AlertType.values().forEach { t ->
+                                    DropdownMenuItem(text = { Text(alertLabel(t)) }, onClick = {
+                                        open = false
+                                        type = t
+                                        if (!edited) body = alertDefaultBody(t)
+                                    })
+                                }
+                            }
+                        }
+                    }
+                    OutlinedTextField(body, { body = it.take(WirelessAlert.MAX_TEXT); edited = true }, Modifier.fillMaxWidth(),
+                        label = { Text(stringResource(R.string.m_sms_body)) }, minLines = 3, maxLines = 6)
+                }
+            },
+            confirmButton = { Button(enabled = body.isNotBlank(), onClick = { sendAlert(type, body); onDone() }) { Text(stringResource(R.string.m_send)) } },
+            dismissButton = { OutlinedButton(onClick = onDone) { Text(stringResource(R.string.close)) } })
+    }
+
     @Composable
     private fun DeviceDialog(onDone: () -> Unit) {
         var airplane by remember { mutableStateOf(false) }
@@ -904,7 +964,7 @@ class VmActivity : ComponentActivity() {
                             Box {
                                 TextButton(onClick = { open = true }) { Text(NetworkType.label(net)) }
                                 DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
-                                    NetworkType.available(vm.img.api).forEach { e ->
+                                    NetworkType.available(vm.img.api, vm.ril.cdma, vm.ril.lteOnCdma).forEach { e ->
                                         DropdownMenuItem(text = { Text(e.label) },
                                             onClick = { open = false; net = e.tech; thread { vm.ril.setNetworkType(e.tech) } })
                                     }
@@ -1169,6 +1229,8 @@ class VmActivity : ComponentActivity() {
                         enabled = running, onClick = { menu = false; dialog = Dlg.SMS })
                     DropdownMenuItem(text = { Text(stringResource(R.string.m_call)) }, leadingIcon = { Icon(Icons.Rounded.Call, null) },
                         enabled = running, onClick = { menu = false; dialog = Dlg.CALL })
+                    DropdownMenuItem(text = { Text(stringResource(R.string.m_wea)) }, leadingIcon = { Icon(Icons.Rounded.Warning, null) },
+                        enabled = running && vm.img.api >= 17, onClick = { menu = false; dialog = Dlg.WEA })   // CMAS exists since 4.2
                     DropdownMenuItem(text = { Text(stringResource(R.string.m_battery)) }, leadingIcon = { Icon(Icons.Rounded.BatteryStd, null) },
                         enabled = running && vm.img.api >= 19, onClick = { menu = false; dialog = Dlg.BATTERY })
                     DropdownMenuItem(text = { Text(stringResource(R.string.m_install_apk)) }, leadingIcon = { Icon(Icons.Rounded.InstallMobile, null) },
@@ -1214,6 +1276,7 @@ class VmActivity : ComponentActivity() {
             when (dialog) {
                 Dlg.SMS -> SmsDialog { dialog = Dlg.NONE }
                 Dlg.CALL -> CallDialog { dialog = Dlg.NONE }
+                Dlg.WEA -> WeaDialog { dialog = Dlg.NONE }
                 Dlg.BATTERY -> BatteryDialog { dialog = Dlg.NONE }
                 Dlg.ADB -> AdbDialog { dialog = Dlg.NONE }
                 Dlg.SHELL -> ShellDialog { dialog = Dlg.NONE }

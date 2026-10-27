@@ -26,10 +26,20 @@ object ElfPatch {
         symbolsMatching(d, includeSymtab) { it in names }
 
     /** Like [symbolsIn], for every function whose name satisfies [wanted] (a pattern instead of a fixed list). */
-    fun symbolsMatching(d: ByteArray, includeSymtab: Boolean = false, wanted: (String) -> Boolean): Map<String, Long>? {
+    fun symbolsMatching(d: ByteArray, includeSymtab: Boolean = false, wanted: (String) -> Boolean): Map<String, Long>? =
+        elfSymbols(d, 40, includeSymtab, wanted) // EM_ARM only: every caller of this writes ARM code
+
+    private const val EM_386 = 3
+    private const val EM_ARM = 40
+
+    /**
+     * [symbolsMatching] for the ELF32 machine [machine] (EM_ARM or EM_386). Only an ARM symbol carries the Thumb bit (bit 40 of
+     * the result); an x86 function address is used as it is.
+     */
+    private fun elfSymbols(d: ByteArray, machine: Int, includeSymtab: Boolean, wanted: (String) -> Boolean): Map<String, Long>? {
         if (d.size < 52 || d[0] != 0x7f.toByte() || d[1] != 'E'.code.toByte() || d[4] != 1.toByte()) return null
         val b = ByteBuffer.wrap(d).order(ByteOrder.LITTLE_ENDIAN)
-        if (b.getShort(18).toInt() != 40) return null // EM_ARM
+        if (b.getShort(18).toInt() != machine) return null
         val shoff = b.getInt(32); val shentsize = b.getShort(46).toInt() and 0xffff; val shnum = b.getShort(48).toInt() and 0xffff
         val phoff = b.getInt(28); val phentsize = b.getShort(42).toInt() and 0xffff; val phnum = b.getShort(44).toInt() and 0xffff
         if (shoff <= 0 || shoff + shnum * shentsize > d.size) return null
@@ -51,7 +61,7 @@ object ElfPatch {
                     val name = String(d, strOff + nameOff, e - strOff - nameOff, Charsets.US_ASCII)
                     if (wanted(name)) {
                         // виртуальный адрес → смещение в файле по заголовкам программы
-                        val va = value and 0xfffffffeL
+                        val va = if (machine == EM_ARM) value and 0xfffffffeL else value
                         for (p in 0 until phnum) {
                             val ph = phoff + p * phentsize
                             if (b.getInt(ph) != 1) continue
@@ -59,7 +69,7 @@ object ElfPatch {
                             val vaddr = b.getInt(ph + 8).toLong() and 0xffffffffL
                             val filesz = b.getInt(ph + 16).toLong() and 0xffffffffL
                             if (va >= vaddr && va + 8 <= vaddr + filesz) {
-                                out[name] = (off + va - vaddr) or ((value and 1L) shl 40) // бит 40 — Thumb
+                                out[name] = (off + va - vaddr) or (if (machine == EM_ARM) (value and 1L) shl 40 else 0L) // бит 40 — Thumb
                             }
                         }
                     }
@@ -141,6 +151,79 @@ object ElfPatch {
             var end = start.toInt(); while (end < d.size && d[end] != 0.toByte()) end++
             String(d, start.toInt(), end - start.toInt(), Charsets.US_ASCII)
         }
+    }
+
+    /** The DT_NEEDED names of an ELF32 (little endian) file; null when it is not one. The 32-bit twin of [needed64]. */
+    fun needed32(f: File): List<String>? {
+        if (f.length() < 52 || f.length() > 64L shl 20) return null
+        val d = runCatching { f.readBytes() }.getOrNull() ?: return null
+        if (d[0] != 0x7f.toByte() || d[1] != 'E'.code.toByte() || d[4] != 1.toByte()) return null
+        val b = ByteBuffer.wrap(d).order(ByteOrder.LITTLE_ENDIAN)
+        val phoff = b.getInt(28); val phentsize = b.getShort(42).toInt() and 0xffff; val phnum = b.getShort(44).toInt() and 0xffff
+        if (phoff <= 0 || phentsize < 32 || phoff.toLong() + phnum.toLong() * phentsize > d.size) return null
+        class Load(val off: Long, val va: Long, val size: Long)
+        val loads = ArrayList<Load>()
+        var dynOff = -1L; var dynSize = 0L
+        for (i in 0 until phnum) {
+            val ph = phoff + i * phentsize
+            val off = b.getInt(ph + 4).toLong() and 0xffffffffL
+            val va = b.getInt(ph + 8).toLong() and 0xffffffffL
+            val filesz = b.getInt(ph + 16).toLong() and 0xffffffffL
+            when (b.getInt(ph)) { 1 -> loads.add(Load(off, va, filesz)); 2 -> { dynOff = off; dynSize = filesz } }
+        }
+        if (dynOff < 0 || dynOff + dynSize > d.size) return null
+        var strVa = -1L
+        val names = ArrayList<Long>()
+        var e = dynOff
+        while (e + 8 <= dynOff + dynSize) {
+            val tag = b.getInt(e.toInt()); val v = b.getInt(e.toInt() + 4).toLong() and 0xffffffffL
+            if (tag == 0) break
+            if (tag == 5) strVa = v
+            if (tag == 1) names.add(v)
+            e += 8
+        }
+        val strOff = loads.firstOrNull { strVa >= it.va && strVa < it.va + it.size }?.let { it.off + strVa - it.va } ?: return null
+        return names.mapNotNull { n ->
+            val start = strOff + n
+            if (start < 0 || start >= d.size) return@mapNotNull null
+            var end = start.toInt(); while (end < d.size && d[end] != 0.toByte()) end++
+            String(d, start.toInt(), end - start.toInt(), Charsets.US_ASCII)
+        }
+    }
+
+    /** What an ELF32 (little endian) file defines and what it needs from others (undefined, not weak), by its .dynsym section; null when unreadable. */
+    fun dynSyms32(f: File): DynSyms? {
+        if (f.length() < 52 || f.length() > 64L shl 20) return null
+        val d = runCatching { f.readBytes() }.getOrNull() ?: return null
+        if (d[0] != 0x7f.toByte() || d[1] != 'E'.code.toByte() || d[4] != 1.toByte()) return null
+        val b = ByteBuffer.wrap(d).order(ByteOrder.LITTLE_ENDIAN)
+        val shoff = b.getInt(32); val shentsize = b.getShort(46).toInt() and 0xffff; val shnum = b.getShort(48).toInt() and 0xffff
+        if (shoff <= 0 || shentsize < 40 || shoff.toLong() + shnum.toLong() * shentsize > d.size) return null
+        for (i in 0 until shnum) {
+            val sh = shoff + i * shentsize
+            if (b.getInt(sh + 4) != 11) continue                                  // SHT_DYNSYM
+            val off = b.getInt(sh + 16).toLong() and 0xffffffffL; val size = b.getInt(sh + 20).toLong() and 0xffffffffL; val link = b.getInt(sh + 24)
+            if (link <= 0 || link >= shnum || off + size > d.size) return null
+            val strSh = shoff + link * shentsize
+            val strOff = b.getInt(strSh + 16).toLong() and 0xffffffffL; val strSize = b.getInt(strSh + 20).toLong() and 0xffffffffL
+            if (strOff + strSize > d.size) return null
+            fun name(n: Int): String {
+                var e = (strOff + n).toInt(); val s0 = e
+                while (e < d.size && d[e] != 0.toByte()) e++
+                return String(d, s0, e - s0, Charsets.US_ASCII)
+            }
+            val defined = HashSet<String>(); val undefined = HashSet<String>()
+            var o = off
+            while (o + 16 <= off + size) {
+                val nm = b.getInt(o.toInt()); val bind = (d[(o + 12).toInt()].toInt() and 0xff) shr 4; val shndx = b.getShort((o + 14).toInt()).toInt() and 0xffff
+                if (nm != 0) {
+                    if (shndx != 0) defined.add(name(nm)) else if (bind != 2) undefined.add(name(nm))
+                }
+                o += 16
+            }
+            return DynSyms(defined, undefined)
+        }
+        return null
     }
 
     /**
@@ -503,6 +586,33 @@ object ElfPatch {
                 raf.seek(off); raf.readFully(have)
                 if (have.contentEquals(want.copyOf(have.size))) continue
                 raf.seek(off); raf.write(want, 0, have.size)
+                n++
+            }
+        }
+        return n
+    }
+
+    /**
+     * Added for AEmulator Plus, 2026-10-27. [returnZero] for the functions in [names] of an ELF32 file of either machine: ARM code
+     * for an ARM file, `xor eax,eax ; ret` for an x86-32 file, 0 for anything else. Used for the glibc of a Google TV firmware
+     * (ARM Berlin libc-2.12.2.so, x86 Revue libc-2.7.so). The other [returnZero] callers stay ARM-only on purpose.
+     */
+    fun returnZeroAnyArch(f: File, names: Set<String>, includeSymtab: Boolean = false): Int {
+        val d = runCatching { f.readBytes() }.getOrNull() ?: return 0
+        if (d.size < 52) return 0
+        val machine = (d[18].toInt() and 0xff) or ((d[19].toInt() and 0xff) shl 8)
+        if (machine == EM_ARM) return returnZero(f, names, includeSymtab)
+        if (machine != EM_386) return 0
+        val syms = elfSymbols(d, EM_386, includeSymtab) { it in names } ?: return 0
+        val want = byteArrayOf(0x31, 0xC0.toByte(), 0xC3.toByte())   // xor eax, eax ; ret
+        var n = 0
+        RandomAccessFile(f, "rw").use { raf ->
+            for ((_, v) in syms) {
+                val off = v and 0xffffffffffL
+                val have = ByteArray(want.size)
+                raf.seek(off); raf.readFully(have)
+                if (have.contentEquals(want)) continue
+                raf.seek(off); raf.write(want)
                 n++
             }
         }

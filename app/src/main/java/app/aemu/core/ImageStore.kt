@@ -118,7 +118,7 @@ object ImageStore {
             File(to.root, "dev").mkdirs()
             // ownership table is keyed by inode: the fresh copy gets its own on first boot
             if (!copyData) { File(to.root, "dhd.owners").delete(); File(to.root, "dhd.owners.seeded").delete() }
-            listOf("props.base", "system.layout", "system.base.img").forEach { n -> File(from.dir, n).takeIf { it.isFile }?.copyTo(File(to.dir, n), true) }
+            (listOf("props.base", "system.base.img") + SystemLayout.ALL_NAMES).forEach { n -> File(from.dir, n).takeIf { it.isFile }?.copyTo(File(to.dir, n), true) }
             val img = src.copy(id = id, name = name, baseId = src.baseId.ifEmpty { src.id },
                 settings = customSettings ?: src.settings,
                 createdAt = System.currentTimeMillis(),

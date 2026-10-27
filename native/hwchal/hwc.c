@@ -135,6 +135,9 @@ enum { L_FRAMEBUFFER = 0, L_OVERLAY = 1, L_BACKGROUND = 2, L_TARGET = 3 };
 #define BLEND_COVERAGE 0x405
 #define FMT_RGBA 1
 #define FMT_RGBX 2
+#define FMT_RGB888 3
+#define FMT_RGB565 4
+#define FMT_BGRA 5
 #define VSYNC_NS 16666666L
 
 static void *base_of(struct hwc *d, const void *handle) {
@@ -243,6 +246,51 @@ static void draw(struct hwc *d, const struct layer *l, const struct rgb_note *n)
                   x1 - x0, l->plane_alpha, solid, l->blending == BLEND_COVERAGE);
 }
 
+/* The framebuffer target as RGBA in d->back. SurfaceFlinger on a software EGL that offers no 8888 config draws into an
+ * RGB565 target (EGLSurface 5-6-5-0), a buffer of half the size the frame has in d->back, and copying w*h*4 bytes out of
+ * it ran off the end of the mapping (SIGSEGV in memcpy in the composer service, then DEAD_OBJECT in SurfaceFlinger and its
+ * abort). A buffer whose note says 32 bits per pixel, the frame's size and a stride of its width is copied in one piece
+ * as before; other shapes are read row by row and converted, never further than the buffer (the size in its handle)
+ * goes. A buffer with no note is taken for 32-bit as before, only bounded by that size. 0: nothing to show (black). */
+static int load_target(struct hwc *d, const void *handle) {
+    const uint8_t *src = base_of(d, handle);
+    if (!src) return 0;
+    const struct rgb_note_handle *hd = handle;
+    const struct rgb_note *n = rgb_note_of(handle);
+    size_t bytes = (size_t)d->w * d->h * 4;
+    size_t room = hd && hd->size >= 4096 ? (size_t)hd->size : bytes;
+    int bpp = !n ? 4 : n->format == FMT_RGBA || n->format == FMT_RGBX || n->format == FMT_BGRA ? 4
+            : n->format == FMT_RGB888 ? 3 : n->format == FMT_RGB565 ? 2 : 0;
+    if (!bpp) return 0;
+    if (!n || (bpp == 4 && n->format != FMT_BGRA && n->w == d->w && n->h >= d->h && n->stride == d->w)) {
+        size_t c = bytes < room ? bytes : room;
+        memcpy(d->back, src, c);
+        if (c < bytes) memset((uint8_t *)d->back + c, 0, bytes - c);
+        return 1;
+    }
+    room -= sizeof(struct rgb_note);                              /* the note sits in the buffer's last bytes */
+    size_t row = (size_t)n->stride * (size_t)bpp;
+    int w = n->w < d->w ? n->w : d->w, h = n->h < d->h ? n->h : d->h;
+    if (w > n->stride) w = n->stride;
+    while (h > 0 && (size_t)h * row > room) h--;                  /* (no division: the guest libc has no __aeabi_uidiv) */
+    if (w < d->w || h < d->h) memset(d->back, 0, bytes);
+    for (int y = 0; y < h; y++) {
+        const uint8_t *s = src + (size_t)y * row;
+        uint8_t *o = (uint8_t *)(d->back + (size_t)y * d->w);
+        if (bpp == 4 && n->format != FMT_BGRA) { memcpy(o, s, (size_t)w * 4); continue; }
+        for (int x = 0; x < w; x++) {
+            uint8_t r, g, b;
+            if (bpp == 2) {
+                unsigned v = s[x * 2] | (s[x * 2 + 1] << 8);
+                r = (uint8_t)(((v >> 11) & 31) * 255 / 31); g = (uint8_t)(((v >> 5) & 63) * 255 / 63); b = (uint8_t)((v & 31) * 255 / 31);
+            } else if (bpp == 3) { r = s[x * 3]; g = s[x * 3 + 1]; b = s[x * 3 + 2]; }
+            else { b = s[x * 4]; g = s[x * 4 + 1]; r = s[x * 4 + 2]; }     /* BGRA */
+            o[x * 4] = r; o[x * 4 + 1] = g; o[x * 4 + 2] = b; o[x * 4 + 3] = 255;
+        }
+    }
+    return 1;
+}
+
 static int hwc_set(struct hwc *d, size_t nd, struct contents **cs) {
     struct contents *c = nd && cs ? cs[0] : 0;
     if (!c) return 0;
@@ -258,8 +306,7 @@ static int hwc_set(struct hwc *d, size_t nd, struct contents **cs) {
     if (d->direct && target && target->handle && present(d, target->handle)) return 0;
     if (!d->fb) return 0;
     size_t bytes = (size_t)d->w * d->h * 4;
-    const void *under = target && (theirs || !ours) ? base_of(d, target->handle) : 0;
-    if (under) memcpy(d->back, under, bytes); else memset(d->back, 0, bytes);
+    if (!(target && (theirs || !ours) && load_target(d, target->handle))) memset(d->back, 0, bytes);
     for (size_t i = 0; i < c->n; i++) {
         const struct layer *l = &c->layers[i];
         const struct rgb_note *n = l->type == L_OVERLAY ? rgb_note_of(l->handle) : 0;

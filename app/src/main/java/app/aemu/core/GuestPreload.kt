@@ -41,9 +41,14 @@ object GuestPreload {
     /** glibc-only: emulates the Marvell /dev/shm_cache + /dev/shm_noncache devices (see shm_shim.c) */
     const val SHMSHIM = "/system/lib/libshmshim.so"
 
-    /** glibc dynamic loader in the tree and no bionic linker */
+    /**
+     * glibc dynamic loader in the tree and no bionic linker. ld-linux.so.3 is the ARM EABI loader (Marvell Berlin Google TV);
+     * ld-linux.so.2 is the x86-32 one (Logitech Revue / Intel CE4100 Google TV, glibc 2.7). Modified for AEmulator Plus,
+     * 2026-10-27: the x86 name was missing, so an x86 glibc firmware got none of the glibc-only handling.
+     */
     fun isGlibcFirmware(root: File): Boolean =
-        File(root, "lib/ld-linux.so.3").exists() && !File(root, "system/bin/linker").exists()
+        (File(root, "lib/ld-linux.so.3").exists() || File(root, "lib/ld-linux.so.2").exists()) &&
+            !File(root, "system/bin/linker").exists()
 
     fun value(glibc: Boolean, xattr: Boolean = false, xattrPath: String = XATTR): String =
         if (glibc) "$ASHMEM:$SHMSHIM" else "$ASHMEM:$SHIM:$RLIMIT" + (if (xattr) ":$xattrPath" else "")

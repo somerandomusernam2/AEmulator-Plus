@@ -61,6 +61,26 @@ extern int __android_log_print(int prio, const char *tag, const char *fmt, ...) 
 #endif
 #define AEMU_MFD_CLOEXEC 1u
 
+/* ARM EABI raw syscalls for the two calls that take an off_t.  This module has been built with a 64-bit off_t but
+ * linked against bionic's 32-bit-off_t ftruncate()/mmap(): the compiler passed the length in r2:r3 (and the mmap
+ * offset at [sp+8]) while bionic read r1 (the leftover memfd_create flags, i.e. a 1-byte memfd) and [sp+4]; any write
+ * past the first page of a buffer then died with SIGBUS (BUS_ADRERR) under qemu-user.  The kernel ABI does not depend
+ * on _FILE_OFFSET_BITS, so go to it directly. */
+#ifndef __NR_ftruncate64
+#define __NR_ftruncate64 194
+#endif
+#ifndef __NR_mmap2
+#define __NR_mmap2 192
+#endif
+static int aemu_ftruncate(int fd, uint64_t len) {
+    /* ftruncate64(fd, pad, len_lo, len_hi): the 64-bit argument starts on an even register */
+    return (int)syscall(__NR_ftruncate64, fd, 0, (uint32_t)len, (uint32_t)(len >> 32));
+}
+static void *aemu_map_shared(size_t len, int fd) {
+    long r = syscall(__NR_mmap2, 0, len, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
+    return (r < 0 && r > -4096) ? MAP_FAILED : (void *)r;
+}
+
 /* ------------------------------------------------------------------ ABI (hardware.h / gralloc1.h / native_handle.h)
  * Declared here so the file builds with nothing but the NDK; the test build static-asserts every one of these
  * against the real AOSP headers. */
@@ -370,7 +390,7 @@ static int mk_memfd(const char *name, size_t size) {
     strncat(nm, name && *name ? name : "buf", sizeof(nm) - strlen(nm) - 1);
     fd = (int)syscall(__NR_memfd_create, nm, AEMU_MFD_CLOEXEC);
     if (fd < 0) { LOGE("memfd_create failed"); return -1; }
-    if (ftruncate(fd, (off_t)size) != 0) { LOGE("ftruncate(%zu) failed", size); close(fd); return -1; }
+    if (aemu_ftruncate(fd, (uint64_t)size) != 0) { LOGE("ftruncate(%zu) failed", size); close(fd); return -1; }
     return fd;
 }
 
@@ -641,7 +661,7 @@ static int32_t g_lock(gralloc1_device_t *dev, buffer_handle_t buffer, uint64_t p
     {
         FIND(buffer, b);
         if (!b->map) {
-            void *m = mmap(NULL, b->h->size, PROT_READ | PROT_WRITE, MAP_SHARED, b->h->fd, 0);
+            void *m = aemu_map_shared(b->h->size, b->h->fd);
             if (m == MAP_FAILED) { UNLOCK(); LOGE("lock: mmap(%u) failed", b->h->size); return G1_NO_RESOURCES; }
             b->map = m;
             b->maplen = b->h->size;
@@ -788,7 +808,7 @@ static int m0_lock(const struct hw_module_t *m, buffer_handle_t buffer, int usag
     *out = NULL;                                  /* whatever happens, never hand back a stale value */
     if (e == G1_BAD_HANDLE && handle_ok((const struct aemu_handle *)buffer)) {
         const struct aemu_handle *h = (const struct aemu_handle *)buffer;
-        void *va = mmap(NULL, h->size, PROT_READ | PROT_WRITE, MAP_SHARED, h->fd, 0);
+        void *va = aemu_map_shared(h->size, h->fd);
         if (va == MAP_FAILED) return -12;
         LOCK();
         for (i = 0; i < M0_MAX; i++) if (!g_m0[i].h) {

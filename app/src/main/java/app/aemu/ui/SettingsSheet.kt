@@ -33,6 +33,7 @@ import androidx.compose.material3.Slider
 import androidx.compose.material3.Switch
 import androidx.compose.material3.TextButton
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
@@ -40,6 +41,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.ToggleButton
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -52,6 +54,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
+import app.aemu.core.CdmaMode
 import app.aemu.core.CpuInfo
 import app.aemu.core.Engine
 import app.aemu.core.GuestImage
@@ -78,6 +81,9 @@ private val RAM_STEPS = listOf(0, 256, 512, 768, 1024, 1536, 2048, 3072, 4096)
 fun SettingsSheet(img: GuestImage, onDismiss: () -> Unit, onSave: (VmSettings) -> Unit) {
     var s by remember { mutableStateOf(img.settings) }
     val ctx = LocalContext.current
+    // CDMA modem: automatic from the firmware's telephony.lteOnCdmaDevice unless the user chose
+    val fwLteOnCdma = remember(img.id) { CdmaMode.supported(img.api) && CdmaMode.firmwareLteOnCdma(app.aemu.core.VmPaths(ctx, img.id)) }
+    val cdmaOn = CdmaMode.supported(img.api) && (s.cdma ?: fwLteOnCdma)
     val scope = rememberCoroutineScope()
     var resetConfirm by remember { mutableStateOf(false) }
     var resetting by remember { mutableStateOf(false) }
@@ -165,11 +171,12 @@ fun SettingsSheet(img: GuestImage, onDismiss: () -> Unit, onSave: (VmSettings) -
             if (img.api in 9..25) Toggle(stringResource(R.string.vs_no_sensors), stringResource(R.string.vs_no_sensors_sub), img.sensorsOff(s)) { s = s.copy(disableSensors = it) }
             if (img.api in 9..25 && !img.sensorsOff(s)) Toggle(stringResource(R.string.vs_motion), stringResource(R.string.vs_motion_sub), s.motionSensors) { s = s.copy(motionSensors = it) }
             if (img.api in 9..25 && !img.sensorsOff(s) && s.motionSensors) GyroLockPicker(s.gyroLock) { s = s.copy(gyroLock = it) }
-            if (img.api in 16..25) Toggle(stringResource(R.string.vs_skip_setup), stringResource(R.string.vs_skip_setup_sub), s.skipSetupWizard) { s = s.copy(skipSetupWizard = it) }
+            if (img.api >= 16) Toggle(stringResource(R.string.vs_skip_setup), stringResource(R.string.vs_skip_setup_sub), s.skipSetupWizard) { s = s.copy(skipSetupWizard = it) }
             if (img.api in 9..25) Toggle(stringResource(R.string.vs_disable_google), stringResource(R.string.vs_disable_google_sub), s.disableGoogleApps) { s = s.copy(disableGoogleApps = it) }
             if (img.api in 9..25) {
                 Toggle(stringResource(R.string.vs_bluetooth), stringResource(R.string.vs_bluetooth_sub), s.bluetooth) { s = s.copy(bluetooth = it) }
             }
+            if (img.api >= 26) Toggle(stringResource(R.string.vs_sf_tombstone), stringResource(R.string.vs_sf_tombstone_sub), s.sfTombstone) { s = s.copy(sfTombstone = it) }
             if (WifiEmu.supported(img.engine, img.api, false, false)) {
                 Toggle(stringResource(R.string.vs_wifi), stringResource(R.string.vs_wifi_sub), s.wifi) { s = s.copy(wifi = it) }
                 if (s.wifi) WifiFields(s) { s = it }
@@ -190,7 +197,8 @@ fun SettingsSheet(img: GuestImage, onDismiss: () -> Unit, onSave: (VmSettings) -
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), modifier = Modifier.weight(1f))
                 TextButton(onClick = { s = s.copy(imei = VmSettings.randomImei()) }) { Text(stringResource(R.string.vs_random)) }
             }
-            if (s.radio) NetworkTypePicker(s.networkType, img.api) { s = s.copy(networkType = it) }
+            if (s.radio && CdmaMode.supported(img.api)) CdmaToggle(s, fwLteOnCdma) { s = it }
+            if (s.radio) NetworkTypePicker(s.networkType, img.api, cdmaOn, cdmaOn && fwLteOnCdma) { s = s.copy(networkType = it) }
             if (s.radio) SimSection(img, s) { s = it }
 
             Spacer(Modifier.height(8.dp))
@@ -389,16 +397,16 @@ private fun GyroLockPicker(mode: Int, set: (Int) -> Unit) {
 
 /** Radio technology the fake modem reports (2G ... LTE); only the values the firmware's API level knows are offered. */
 @Composable
-private fun NetworkTypePicker(tech: Int, api: Int, set: (Int) -> Unit) {
+private fun NetworkTypePicker(tech: Int, api: Int, cdma: Boolean, lteOnCdma: Boolean, set: (Int) -> Unit) {
     var open by remember { mutableStateOf(false) }
     ListItem(
         headlineContent = { Text(stringResource(R.string.vs_network)) },
         supportingContent = { Text(stringResource(R.string.vs_network_sub)) },
         trailingContent = {
             Box {
-                TextButton(onClick = { open = true }) { Text(NetworkType.label(NetworkType.sanitize(tech, api))) }
+                TextButton(onClick = { open = true }) { Text(NetworkType.label(NetworkType.sanitize(tech, api, cdma, lteOnCdma))) }
                 DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
-                    NetworkType.available(api).forEach { e ->
+                    NetworkType.available(api, cdma, lteOnCdma).forEach { e ->
                         DropdownMenuItem(text = { Text(e.label) }, onClick = { open = false; set(e.tech) })
                     }
                 }
@@ -432,9 +440,16 @@ private fun HardwarePicker(value: String, set: (String) -> Unit) {
 
 @Composable
 private fun NumField(label: String, value: Int, modifier: Modifier, set: (Int) -> Unit) {
-    var text by remember(value) { mutableStateOf(value.toString()) }
+    // The setter rounds/clamps (width and height are forced even, dpi is clamped), so the value that comes back
+    // can differ from what was typed: 5 -> 4, 9 -> 8, or a lone "1" -> 2. While the field has focus the typed text
+    // must stay as typed; it is only replaced by the stored value once focus leaves (or the value changes elsewhere,
+    // e.g. a preset is picked).
+    var text by remember { mutableStateOf(value.toString()) }
+    var focused by remember { mutableStateOf(false) }
+    LaunchedEffect(value, focused) { if (!focused) text = value.toString() }
     OutlinedTextField(value = text, onValueChange = { v -> text = v.filter(Char::isDigit).take(4); text.toIntOrNull()?.let(set) },
-        label = { Text(label) }, singleLine = true, modifier = modifier,
+        label = { Text(label) }, singleLine = true,
+        modifier = modifier.onFocusChanged { focused = it.isFocused },
         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number))
 }
 

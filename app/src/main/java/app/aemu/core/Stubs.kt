@@ -1,4 +1,6 @@
-/* Modified for AEmulator Super Plus, 2026-10-11: configurable SIM card, empty SIM slot. GPL-3.0; see LICENSE and NOTICE.md. */
+/* Modified for AEmulator Super Plus, 2026-10-11: configurable SIM card, empty SIM slot.
+ * Modified for AEmulator Super Plus, 2026-10-23: CDMA modem mode.
+ * Modified for AEmulator Plus, 2026-10-25: wireless emergency alerts. GPL-3.0; see LICENSE and NOTICE.md. */
 package app.aemu.core
 
 import android.net.LocalSocket
@@ -20,6 +22,10 @@ import java.util.Collections
  *
  * Response layouts follow the guest's RIL.java: RIL v6 parcels for 4.x, the string lists of 2.3.
  * Extra trailing fields are harmless — Parcel reads past the end as zero/null.
+ *
+ * With [cdma] the same modem speaks CDMA (see [CdmaMode]): 1x / EV-DO registration with the CDMA state layout, CDMA
+ * signal levels, MEID / ESN, the CDMA subscription (MDN / MIN / SID / NID) and CDMA short messages. [lteOnCdma] says
+ * that the firmware is an LTE-on-CDMA device: voice stays 1x, data may be LTE, the SIM carries the subscription.
  */
 class RilStub(
     private val paths: VmPaths,
@@ -29,6 +35,10 @@ class RilStub(
     private val baseband: String = VmSettings.DEFAULT_BASEBAND,
     networkType: Int = NetworkType.DEFAULT,
     private val sim: SimCard = SimCard(),
+    /** CDMA modem instead of GSM */
+    val cdma: Boolean = false,
+    /** CDMA on an LTE-on-CDMA firmware (voice 1x, data up to LTE, subscription from the SIM) */
+    val lteOnCdma: Boolean = false,
 ) {
     @Volatile var answered = 0L
         private set
@@ -47,16 +57,35 @@ class RilStub(
     }
 
     /** radio technology reported in the voice/data registration state (ServiceState.RIL_RADIO_TECHNOLOGY_*) */
-    @Volatile var networkType: Int = NetworkType.sanitize(networkType, api)
+    @Volatile var networkType: Int = NetworkType.sanitize(networkType, api, cdma, lteOnCdma)
         private set
 
     /** Changes the reported network on the fly: telephony is told to poll the registration state again. False when telephony is not up. */
     fun setNetworkType(tech: Int): Boolean {
-        networkType = NetworkType.sanitize(tech, api)
+        networkType = NetworkType.sanitize(tech, api, cdma, lteOnCdma)
         val o = out ?: return false
         unsol(o, UNSOL_RESPONSE_VOICE_NETWORK_STATE_CHANGED, ByteArray(0))
         return true
     }
+
+    /** technology of the voice registration: with LTE on CDMA voice is always 1x, data follows [networkType]; a plain CDMA or GSM modem has one */
+    private val voiceTech: Int get() = if (cdma && lteOnCdma) NetworkType.ONE_X_RTT else networkType
+
+    /** a plain CDMA phone registers on the network with no card (its subscription is in the modem's NV) */
+    private val registered: Boolean get() = sim.present || (cdma && !lteOnCdma)
+
+    /** operator of the SIM as the guest sees it (MCC+MNC, name): the home operator of a plain CDMA phone */
+    val operatorNumeric: String get() = card.mcc + card.mnc
+    val operatorName: String get() = card.operator
+
+    private val meid: String by lazy { CdmaMode.meid(imei) }
+    private val esn: String by lazy { CdmaMode.esn(meid) }
+    /** RIL_REQUEST_CDMA_GET_SUBSCRIPTION_SOURCE: 0 = RUIM / SIM, 1 = modem NV. An LTE-on-CDMA phone takes the SIM, a plain one needs no card. */
+    private val cdmaSubscriptionSource: Int get() = if (lteOnCdma) 0 else 1
+    @Volatile private var preferredNetwork: Int = if (this.networkType == NetworkType.LTE) 8 else 4   // LTE/CDMA/EV-DO, CDMA/EV-DO auto
+    private val smsIds = java.util.concurrent.atomic.AtomicInteger((System.nanoTime() and 0x7fff).toInt())
+    /** serial number of the next alert: every alert needs a new one or the guest drops it as a repeat */
+    private val alertIds = java.util.concurrent.atomic.AtomicInteger((System.nanoTime() and 0x3ff).toInt())
 
     fun serve() = server.start(log)
     fun stop() = server.stop()
@@ -84,11 +113,27 @@ class RilStub(
     /**
      * Incoming SMS from [from], like "sms send" in the SDK emulator console: an SMS-DELIVER PDU goes to the guest's
      * telephony as RIL_UNSOL_RESPONSE_NEW_SMS, so the stock messaging app (TouchWiz included) gets it the normal way,
-     * with no shell and no `content` tool. False when telephony is not up.
+     * with no shell and no `content` tool. A CDMA modem delivers it as a CDMA message (see [CdmaSms]). False when telephony is not up.
      */
     fun deliverSms(from: String, body: String): Boolean {
         val o = out ?: return false
-        unsol(o, UNSOL_RESPONSE_NEW_SMS, str(smsDeliverPdu(from, body)))
+        if (cdma) unsol(o, UNSOL_RESPONSE_CDMA_NEW_SMS, CdmaSms.deliverParcel(from, body, smsIds.incrementAndGet()))
+        else unsol(o, UNSOL_RESPONSE_NEW_SMS, str(smsDeliverPdu(from, body)))
+        return true
+    }
+
+    /**
+     * Wireless Emergency Alert (CMAS) with the given [text], like the cell broadcast a carrier sends: the guest's cell
+     * broadcast receiver shows it full screen with the alert sound. A GSM / UMTS modem sends it as RIL_UNSOL_RESPONSE_NEW_
+     * BROADCAST_SMS, one 88-byte page after the other (see [WirelessAlert]); a CDMA modem as a broadcast CDMA message
+     * (see [CdmaSms.cmasParcel]). False when telephony is not up. Needs Android 4.2 (API 17) or newer.
+     */
+    fun deliverAlert(type: AlertType, text: String): Boolean {
+        val o = out ?: return false
+        val id = alertIds.incrementAndGet()
+        if (cdma) unsol(o, UNSOL_RESPONSE_CDMA_NEW_SMS, CdmaSms.cmasParcel(type, text, id))
+        else for (page in WirelessAlert.gsmPages(type, text, id)) unsol(o, UNSOL_RESPONSE_NEW_BROADCAST_SMS, raw(page))
+        log("radio: wireless alert ${type.name.lowercase()} (${text.length} chars)")
         return true
     }
 
@@ -166,6 +211,7 @@ class RilStub(
         out = o
         if (api >= 14) unsol(o, UNSOL_RIL_CONNECTED, ints(RIL_VERSION))
         unsol(o, UNSOL_RADIO_STATE_CHANGED, le(0))
+        if (cdma) log("radio: CDMA modem (${if (lteOnCdma) "LTE on CDMA" else "CDMA only"}), ${NetworkType.label(networkType)}, MEID $meid")
         log(if (sim.present) "radio: telephony connected, SIM \"${card.operator}\" ${card.mcc}-${card.mnc}" +
             (if (card.number.isNotEmpty()) ", number ${card.number}" else "") else "radio: telephony connected, no SIM card")
         val din = DataInputStream(c.inputStream)
@@ -212,7 +258,7 @@ class RilStub(
                 RIL_REQUEST_GET_IMEI -> str(imei)
                 RIL_REQUEST_GET_IMEISV -> str(IMEISV)
                 RIL_REQUEST_BASEBAND_VERSION -> str(baseband)
-                RIL_REQUEST_DEVICE_IDENTITY -> strs(imei, IMEISV, "", "")
+                RIL_REQUEST_DEVICE_IDENTITY -> deviceIdentity()
                 else -> null
             }
             val err = if (request == RIL_REQUEST_RADIO_POWER || data != null) 0 else E_RADIO_NOT_AVAILABLE
@@ -228,6 +274,8 @@ class RilStub(
     private fun handle(req: Int, args: ByteBuffer): Pair<Int, ByteArray> {
         val (mcc, mnc) = operator
         val present = sim.present
+        val up = registered
+        if (cdma) handleCdma(req, args)?.let { return it }
         return when (req) {
             RIL_REQUEST_GET_SIM_STATUS -> 0 to simStatus()
             RIL_REQUEST_GET_CURRENT_CALLS -> 0 to callList()
@@ -235,23 +283,23 @@ class RilStub(
             in HANGUPS -> { call = null; 0 to ByteArray(0) }
             RIL_REQUEST_LAST_CALL_FAIL_CAUSE -> 0 to ints(16)   // normal clearing
             RIL_REQUEST_GET_IMSI -> if (present) 0 to str(card.imsi) else E_GENERIC_FAILURE to ByteArray(0)
-            RIL_REQUEST_SIGNAL_STRENGTH -> 0 to ints(20, 99, -1, -1, -1, -1, -1, 99, -1, -1, -1, -1, -1)
+            RIL_REQUEST_SIGNAL_STRENGTH -> 0 to (if (cdma) cdmaSignal() else ints(20, 99, -1, -1, -1, -1, -1, 99, -1, -1, -1, -1, -1))
             // no SIM: the network still answers (emergency calls only), but there is no data registration
-            RIL_REQUEST_VOICE_REGISTRATION_STATE -> 0 to strs(if (present) "1" else "0", "0001", "00000001", networkType.toString())
-            RIL_REQUEST_DATA_REGISTRATION_STATE -> 0 to strs(if (present) "1" else "0", "0001", "00000001", networkType.toString(), "0", "1")
-            RIL_REQUEST_OPERATOR -> 0 to (if (present) strs(card.operator, card.operator.take(8), mcc + mnc) else nullStrs(3))
-            RIL_REQUEST_SETUP_DATA_CALL -> if (present) 0 to dataCall(single = true) else E_GENERIC_FAILURE to ByteArray(0)
-            RIL_REQUEST_DATA_CALL_LIST -> 0 to (if (present) dataCall(single = false) else noDataCalls())
+            RIL_REQUEST_VOICE_REGISTRATION_STATE -> 0 to (if (cdma) cdmaVoiceRegistration(up) else strs(if (up) "1" else "0", "0001", "00000001", voiceTech.toString()))
+            RIL_REQUEST_DATA_REGISTRATION_STATE -> 0 to strs(if (up) "1" else "0", "0001", "00000001", networkType.toString(), "0", "1")
+            RIL_REQUEST_OPERATOR -> 0 to (if (up) strs(card.operator, card.operator.take(8), mcc + mnc) else nullStrs(3))
+            RIL_REQUEST_SETUP_DATA_CALL -> if (up) 0 to dataCall(single = true) else E_GENERIC_FAILURE to ByteArray(0)
+            RIL_REQUEST_DATA_CALL_LIST -> 0 to (if (up) dataCall(single = false) else noDataCalls())
             RIL_REQUEST_SIM_IO -> if (!present) E_GENERIC_FAILURE to ByteArray(0)
                 else LegacySimIo.handle(args, simFiles).let { 0 to (le(it.sw1) + le(it.sw2) + str(it.hex)) }
             RIL_REQUEST_GET_IMEI -> 0 to str(imei)
             RIL_REQUEST_GET_IMEISV -> 0 to str(IMEISV)
             RIL_REQUEST_BASEBAND_VERSION -> 0 to str(baseband)
-            RIL_REQUEST_DEVICE_IDENTITY -> 0 to strs(imei, IMEISV, "", "")
+            RIL_REQUEST_DEVICE_IDENTITY -> 0 to deviceIdentity()
             RIL_REQUEST_QUERY_NETWORK_SELECTION_MODE -> 0 to ints(0)
             RIL_REQUEST_GET_PREFERRED_NETWORK_TYPE -> 0 to ints(0)
             RIL_REQUEST_GET_NEIGHBORING_CELL_IDS -> 0 to le(0)
-            RIL_REQUEST_VOICE_RADIO_TECH -> 0 to ints(networkType)
+            RIL_REQUEST_VOICE_RADIO_TECH -> 0 to ints(voiceTech)
             RIL_REQUEST_SMS_ACKNOWLEDGE -> 0 to ByteArray(0)
             RIL_REQUEST_GET_SMSC_ADDRESS -> 0 to str("+10000000000")
             RIL_REQUEST_QUERY_FACILITY_LOCK -> 0 to ints(0)
@@ -263,6 +311,51 @@ class RilStub(
             // shorter payloads crash com.android.phone (Samsung reads [0], Qualcomm IMS state reads [1])
             else -> { log("radio: unhandled request $req"); 0 to (le(4) + ByteArray(32)) }
         }
+    }
+
+    /** IMEI, IMEISV, ESN, MEID: a CDMA modem knows its ESN and MEID (GsmCdmaPhone.getDeviceId() shows the MEID) */
+    private fun deviceIdentity(): ByteArray = if (cdma) strs(imei, IMEISV, esn, meid) else strs(imei, IMEISV, "", "")
+
+    /** requests only a CDMA modem answers differently; null = the common handler decides */
+    private fun handleCdma(req: Int, args: ByteBuffer): Pair<Int, ByteArray>? = when (req) {
+        RIL_REQUEST_CDMA_SET_SUBSCRIPTION_SOURCE -> 0 to ByteArray(0)           // the answer to the next query stays our own
+        RIL_REQUEST_CDMA_GET_SUBSCRIPTION_SOURCE -> 0 to ints(cdmaSubscriptionSource)
+        RIL_REQUEST_CDMA_SUBSCRIPTION -> 0 to cdmaSubscription()
+        RIL_REQUEST_CDMA_SET_ROAMING_PREFERENCE -> 0 to ByteArray(0)
+        RIL_REQUEST_CDMA_QUERY_ROAMING_PREFERENCE -> 0 to ints(2)               // any system
+        RIL_REQUEST_CDMA_SET_PREFERRED_VOICE_PRIVACY_MODE -> 0 to ByteArray(0)
+        RIL_REQUEST_CDMA_QUERY_PREFERRED_VOICE_PRIVACY_MODE -> 0 to ints(0)
+        RIL_REQUEST_CDMA_FLASH, RIL_REQUEST_CDMA_BURST_DTMF, RIL_REQUEST_EXIT_EMERGENCY_CALLBACK_MODE -> 0 to ByteArray(0)
+        RIL_REQUEST_CDMA_SEND_SMS -> 0 to (le(1) + str(null) + le(-1))
+        RIL_REQUEST_CDMA_SMS_ACKNOWLEDGE -> 0 to ByteArray(0)
+        RIL_REQUEST_SET_PREFERRED_NETWORK_TYPE -> {
+            runCatching { args.position(12); preferredNetwork = args.getInt() }
+            0 to ByteArray(0)
+        }
+        RIL_REQUEST_GET_PREFERRED_NETWORK_TYPE -> 0 to ints(preferredNetwork)
+        else -> null
+    }
+
+    /**
+     * CDMA voice registration, RIL v6 layout: state, two unused, radio technology, base station id and position, concurrent
+     * services, SID, NID, roaming indicator (1 = home), in PRL, default roaming indicator, denial reason, one spare.
+     */
+    private fun cdmaVoiceRegistration(up: Boolean): ByteArray = strs(
+        if (up) "1" else "0", "0", "0", voiceTech.toString(), "1", "0", "0", "0", CDMA_SID, CDMA_NID, "1", "1", "1", "0", "0")
+
+    /** MDN, SID, NID, MIN, PRL version. A MIN of zeros (or the factory 1111110111) would start the OTASP activation wizard. */
+    private fun cdmaSubscription(): ByteArray {
+        val min = card.imsi.filter(Char::isDigit).takeLast(10).takeIf { it.length == 10 && !it.startsWith("000000") && it != "1111110111" } ?: "5555550100"
+        return strs(card.number.filter(Char::isDigit), CDMA_SID, CDMA_NID, min, "1")
+    }
+
+    /** gsm, ber, CDMA dBm and Ec/Io, EV-DO dBm, Ec/Io and SNR, LTE signal, RSRP, RSRQ, RSSNR, CQI, TD-SCDMA; the technologies the modem is not on stay unknown */
+    private fun cdmaSignal(): ByteArray {
+        val t = networkType
+        val evdo = t == NetworkType.EVDO_0 || t == NetworkType.EVDO_A || t == NetworkType.EVDO_B || t == NetworkType.EHRPD || t == NetworkType.LTE
+        val e = if (evdo) intArrayOf(85, 100, 6) else intArrayOf(-1, -1, -1)
+        return if (t == NetworkType.LTE) ints(99, -1, 85, 100, e[0], e[1], e[2], 20, 90, 10, 100, 10, -1)
+        else ints(99, -1, 85, 100, e[0], e[1], e[2], 99, -1, -1, -1, -1, -1)
     }
 
     private fun afterPower(o: OutputStream, args: ByteBuffer) {
@@ -308,14 +401,24 @@ class RilStub(
             return b.toByteArray()
         }
         b.write(le(1)); b.write(le(0))                    // card present, universal PIN unknown
-        b.write(le(0)); b.write(le(-1))                   // GSM/UMTS app 0, no CDMA app
+        // GSM/UMTS app 0. CDMA modem: a second application, CSIM, is the CDMA subscription. IccCardProxy of a CDMA phone only
+        // takes the 3GPP2 application (the 1xRTT voice tech is forced on LTE-on-CDMA builds) and UiccCard refuses any index
+        // that is not a CSIM / RUIM, so without it the card stays "not ready" although SIMRecords loaded. Its files are not
+        // emulated (reads fail, which the records tolerate); the phone's IMSI, number and operator come from the USIM.
+        b.write(le(0)); b.write(le(if (cdma) 1 else -1))
         if (api >= 16) b.write(le(-1))                    // no IMS app (field added in 4.1)
-        b.write(le(1))                                    // one application
+        b.write(le(if (cdma) 2 else 1))                   // applications
         b.write(le(if (api >= 14) 2 else 1))              // USIM (SIM on 2.3)
         b.write(le(5))                                    // APPSTATE_READY
         b.write(le(0))                                    // perso substate
         b.write(str(null)); b.write(str(null))            // aid, label
         b.write(le(0)); b.write(le(0)); b.write(le(0))    // pin1 replaced, pin1, pin2
+        if (cdma) {
+            b.write(le(if (api >= 14) 4 else 3))          // CSIM (RUIM before 4.0)
+            b.write(le(5)); b.write(le(0))                // ready, no perso substate
+            b.write(str(CSIM_AID)); b.write(str(null))
+            b.write(le(0)); b.write(le(0)); b.write(le(0))
+        }
         return b.toByteArray()
     }
 
@@ -366,6 +469,9 @@ class RilStub(
     private fun ints(vararg v: Int) = le(v.size) + v.fold(ByteArray(0)) { acc, x -> acc + le(x) }
     private fun strs(vararg v: String) = le(v.size) + v.fold(ByteArray(0)) { acc, x -> acc + str(x) }
 
+    /** Parcel.writeByteArray: length, then the bytes padded to 4 (what the guest's RIL.responseRaw reads) */
+    private fun raw(b: ByteArray): ByteArray = le(b.size) + b + ByteArray((4 - b.size % 4) % 4)
+
     /** Parcel.writeString: length (-1 for null), UTF-16 with a terminator, padded to 4 bytes */
     private fun str(s: String?): ByteArray {
         if (s == null) return le(-1)
@@ -393,6 +499,11 @@ class RilStub(
         private val HANGUPS = setOf(12, 13, 14, 17)   // hangup, waiting, foreground, reject (UDUB)
         private const val UNSOL_RESPONSE_VOICE_NETWORK_STATE_CHANGED = 1002
         private const val UNSOL_RESPONSE_SIM_STATUS_CHANGED = 1019
+        private const val UNSOL_RESPONSE_CDMA_NEW_SMS = 1020
+        private const val UNSOL_RESPONSE_NEW_BROADCAST_SMS = 1021
+        private const val CSIM_AID = "A0000003431002F310FFFF89020000FF"
+        private const val CDMA_SID = "1"
+        private const val CDMA_NID = "65535"
         private const val UNSOL_RIL_CONNECTED = 1034
         private const val E_GENERIC_FAILURE = 2
         private const val E_RADIO_NOT_AVAILABLE = 1
@@ -416,7 +527,20 @@ class RilStub(
         private const val RIL_REQUEST_QUERY_NETWORK_SELECTION_MODE = 45
         private const val RIL_REQUEST_BASEBAND_VERSION = 51
         private const val RIL_REQUEST_DATA_CALL_LIST = 57
+        private const val RIL_REQUEST_SET_PREFERRED_NETWORK_TYPE = 73
         private const val RIL_REQUEST_GET_PREFERRED_NETWORK_TYPE = 74
+        private const val RIL_REQUEST_CDMA_SET_SUBSCRIPTION_SOURCE = 77
+        private const val RIL_REQUEST_CDMA_SET_ROAMING_PREFERENCE = 78
+        private const val RIL_REQUEST_CDMA_QUERY_ROAMING_PREFERENCE = 79
+        private const val RIL_REQUEST_CDMA_SET_PREFERRED_VOICE_PRIVACY_MODE = 82
+        private const val RIL_REQUEST_CDMA_QUERY_PREFERRED_VOICE_PRIVACY_MODE = 83
+        private const val RIL_REQUEST_CDMA_FLASH = 84
+        private const val RIL_REQUEST_CDMA_BURST_DTMF = 85
+        private const val RIL_REQUEST_CDMA_SEND_SMS = 87
+        private const val RIL_REQUEST_CDMA_SMS_ACKNOWLEDGE = 88
+        private const val RIL_REQUEST_CDMA_SUBSCRIPTION = 95
+        private const val RIL_REQUEST_EXIT_EMERGENCY_CALLBACK_MODE = 99
+        private const val RIL_REQUEST_CDMA_GET_SUBSCRIPTION_SOURCE = 104
         private const val RIL_REQUEST_GET_NEIGHBORING_CELL_IDS = 75
         private const val RIL_REQUEST_DEVICE_IDENTITY = 98
         private const val RIL_REQUEST_GET_SMSC_ADDRESS = 100

@@ -135,10 +135,13 @@ class GuestVm(val ctx: Context, val img: GuestImage, val lowPowerBoot: Boolean =
     // 2.x пишет в /dev/eac через AudioHardwareGeneric на 44,1 кГц, HAL 4.x движка — на 48 кГц
     val audio = AudioOut(paths, ::log, if (img.api < 14) 44100 else AudioOut.RATE,
         if (TreeFixer.isMtkAudio(paths.root)) "dev/aemu_pcm" else "dev/eac")
+    /** CDMA modem or GSM, decided once per start: the modem and the guest's telephony properties must agree */
+    private val cdmaPlan = CdmaMode.plan(img.settings, img.api, paths)
     val ril = RilStub(paths, ::log, img.settings.imei.ifBlank { VmSettings.DEFAULT_IMEI }, img.api,
         VmSettings.cleanBaseband(img.settings.baseband).ifBlank { VmSettings.DEFAULT_BASEBAND },
-        img.settings.networkType, img.settings.sim)
-    val vold = VoldStub(paths, img.sdcardPath, ::log, others = img.volumes, api = img.api, onStorageState = ::setStorageState)
+        img.settings.networkType, img.settings.sim, cdmaPlan.cdma, cdmaPlan.lteOnCdma)
+    // vold speaks the 6.0 volume protocol when the tree is 6.0 inside, whatever API a preview build reports
+    val vold = VoldStub(paths, img.sdcardPath, ::log, others = img.volumes, api = BionicProbe.ruleApi(paths.root, img.api), onStorageState = ::setStorageState)
     /** Android 1.0-2.1 take the card state from this property (Settings > Storage shows "unknown" without it) */
     private fun setStorageState(v: String) { if (img.api in 1..7) props.put(VoldStub.STATE_PROP, v) }
     var onFrame: (() -> Unit)? = null
@@ -681,6 +684,9 @@ class GuestVm(val ctx: Context, val img: GuestImage, val lowPowerBoot: Boolean =
         // RuntimeException that SMSDispatcher.handleSendComplete casts to CommandException -> com.android.phone dies).
         if (!s.radio) overrides["ro.radio.noril"] = "true"
         else if (img.api <= 8) overrides["ro.radio.noril"] = ""
+        // CDMA off: lteOnCdmaDevice stays 0 even if a guest init script sets it
+        props.pinned = props.pinned + CdmaMode.pinnedProps(cdmaPlan, img.api)
+        overrides.putAll(CdmaMode.propOverrides(cdmaPlan, img.api, ril.operatorNumeric, ril.operatorName) { CdmaMode.firmwareProp(paths, it) })
         if (!s.hwui) overrides["debug.hwui.renderer"] = "skia"
         // the 64-bit engine has GLES only (bridge or SwiftShader), no Vulkan device: hwui of firmwares that default to
         // Vulkan (HyperOS 2, MediaTek) aborts "Assertion failed: !gpuCount" in system_server's RenderThread
@@ -843,7 +849,11 @@ class GuestVm(val ctx: Context, val img: GuestImage, val lowPowerBoot: Boolean =
         if (s.microphone && microphoneSupported) microphone.serve()
         if (s.bluetooth && bluetoothSupported) bluetooth.serve()
         frames.serve()
-        if (s.radio) ril.serve() else log("radio: emulation disabled in settings")
+        if (s.radio) {
+            if (cdmaPlan.cdma) log("radio: CDMA emulation on (" + (if (cdmaPlan.lteOnCdma) "firmware is LTE on CDMA" else "CDMA-only phone") + ")")
+            else if (cdmaPlan.firmwareLteOnCdma) log("radio: firmware declares LTE on CDMA, CDMA emulation is off in settings: telephony.lteOnCdmaDevice cleared, GSM phone")
+            ril.serve()
+        } else log("radio: emulation disabled in settings")
         vold.serve()
         // 1.0-1.5: the framework talks to mountd, not vold; the real daemon is not started (InitPlan.SKIP)
         if (img.api in 1..3) VoldStub(paths, img.sdcardPath, ::log, "mountd", api = img.api, onStorageState = ::setStorageState)
@@ -972,8 +982,9 @@ class GuestVm(val ctx: Context, val img: GuestImage, val lowPowerBoot: Boolean =
             if (!glDone && (svc.name == "surfaceflinger" || svc.name == "zygote" || svc.name == "bootanim")) {
                 glUp(); glDone = true
             }
+            // (not on API 1, Pre-1.0 and 1.0: the placeholder services crash system_server there, see TreeFixer.installEngineFiles)
             // Samsung: native SensorService/libsensorhub wait for "sensorhubservice" forever; a placeholder binder ends the wait
-            if (svc.name == "zygote" && !legacyFw && engine == Engine.KK && File(paths.root, "system/framework/aemu-sensorhub.jar").isFile) {
+            if (svc.name == "zygote" && !legacyFw && img.api >= 2 && engine == Engine.KK && File(paths.root, "system/framework/aemu-sensorhub.jar").isFile) {
                 synchronized(procs) { procs.remove("aemu-sensorhub") }?.let { runCatching { it.destroyForcibly() } }
                 startService(GuestService("aemu-sensorhub", listOf(appProcess,
                     "-Djava.class.path=/system/framework/aemu-sensorhub.jar", "/system/bin",
@@ -984,7 +995,7 @@ class GuestVm(val ctx: Context, val img: GuestImage, val lowPowerBoot: Boolean =
             // apps then die in BluetoothA2dp.<init> ("Bluetooth A2DP service not available!", com.android.WizBTsettings
             // crashing at every BOOT_COMPLETED). The same placeholder binder answers every call "empty"; it exits at once
             // when a real service is already registered.
-            if (svc.name == "zygote" && !legacyFw && img.api < 9 && engine == Engine.KK && File(paths.root, "system/framework/aemu-stubs.jar").isFile) {
+            if (svc.name == "zygote" && !legacyFw && img.api in 2..8 && engine == Engine.KK && File(paths.root, "system/framework/aemu-stubs.jar").isFile) {
                 synchronized(procs) { procs.remove("aemu-a2dp") }?.let { runCatching { it.destroyForcibly() } }
                 startStub(GuestService("aemu-a2dp", listOf(appProcess,
                     "-Djava.class.path=/system/framework/aemu-stubs.jar", "/system/bin",
@@ -1046,6 +1057,20 @@ class GuestVm(val ctx: Context, val img: GuestImage, val lowPowerBoot: Boolean =
                 synchronized(procs) { procs.remove("aemu-standin") }?.let { runCatching { it.destroyForcibly() } }
                 if (names.isNotEmpty()) startService(GuestService("aemu-standin", listOf("/system/bin/app_process",
                     "-Djava.class.path=/system/framework/aemu-stubs.jar", "/system/bin", "app.aemu.stub.StandIn") + names, optional = true))
+            }
+            // 6.0-12: system_server's TrustManagerService calls KeyStore.onUserLockedStateChanged at boot phase 600 without a
+            // null check. With no keymaster HAL (a 32-bit Qualcomm firmware: the engine's software keymaster cannot load its
+            // libraries) keystore never registers "android.security.keystore", the call hits a null IKeystoreService,
+            // system_server dies ("Failure starting system services") and zygote exits with 137. A stand-in answers
+            // "no error" to every call so the system can come up (keys cannot be created without a real keymaster); a name
+            // that a real keystore registered is left alone, and a real keystore that comes later replaces the stand-in.
+            if (svc.name == "zygote" && engine == Engine.N64 && img.api in 23..32 &&
+                File(paths.root, "system/framework/aemu-stubs.jar").isFile &&
+                synchronized(procs) { procs.filter { (n, _) -> n.startsWith("keymaster") }.none { (_, p) -> p.isAlive } }) {
+                log("keymaster: no keymaster HAL is running, so keystore cannot register; a stand-in answers the \"android.security.keystore\" calls")
+                synchronized(procs) { procs.remove("aemu-keystore") }?.let { runCatching { it.destroyForcibly() } }
+                startService(GuestService("aemu-keystore", listOf("/system/bin/app_process",
+                    "-Djava.class.path=/system/framework/aemu-stubs.jar", "/system/bin", "app.aemu.stub.StandIn", "android.security.keystore"), optional = true))
             }
             // 4.4+: BatteryService.onStart dies on a null "batteryproperties" (healthd publishes it), and without the
             // battery state healthd pushes to its listener, the first isPowered() kills system_server. A 32-bit
@@ -1333,9 +1358,11 @@ class GuestVm(val ctx: Context, val img: GuestImage, val lowPowerBoot: Boolean =
         var props = propsFile
         // звук: с ro.kernel.qemu=1 mediaserver берёт эмуляторный вывод в /dev/eac
         if (svc.name == "mediaserver") props = this.props.privateCopy("media", mapOf("ro.kernel.qemu" to "1"))
-        // (-Xint:fast is an option of app_process' VM; the pre-1.0 runtime takes no options)
-        val argv = if (svc.name == "zygote" && !legacyFw && !settings.jit && img.runtime == "dalvik")
+        // (-Xint:fast is an option of app_process' VM; the pre-1.0 runtime takes no options, with or without the legacy layout:
+        // "Unrecognized option '-Xint:fast'", JNI_CreateJavaVM failed, zygote exits with code 0)
+        val argv = if (svc.name == "zygote" && !legacyFw && img.api >= 2 && !settings.jit && img.runtime == "dalvik")
             svc.argv.take(1) + "-Xint:fast" + svc.argv.drop(1) else svc.argv
+        if (svc.name == "zygote") log("zygote argv: " + argv.joinToString(" "))
         // отладка: файл run/strace.<служба> включает трассировку системных вызовов qemu
         // tracing slows a service down and fills its log: only for the services named in the VM settings
         // ("mediaserver,zygote"), or by the debugging file run/strace.<service>
@@ -1883,7 +1910,8 @@ class GuestVm(val ctx: Context, val img: GuestImage, val lowPowerBoot: Boolean =
      * with the wizard disabled and the device marked as set up while it is down.
      */
     private fun skipWizardNow(): Boolean {
-        if (wizardSkipped || zygoteRestarts > 0 || img.bootCount > 0) return false
+        // only when the person asked for it (Settings > Skip setup wizard): the restart used to happen on every first boot
+        if (!img.settings.skipSetupWizard || wizardSkipped || zygoteRestarts > 0 || img.bootCount > 0) return false
         // MIUI ships its own wizard under the AOSP provisioner's name, and it does not finish by itself
         val wizards = TreeFixer.FIRST_RUN_WIZARDS + (if (File(paths.root, "system/app/miui/miui.apk").isFile) listOf("com.android.provision") else emptyList())
         val pkgFile = File(paths.root, "data/system/packages.xml")
@@ -2018,6 +2046,8 @@ class GuestVm(val ctx: Context, val img: GuestImage, val lowPowerBoot: Boolean =
                             // zygote kills itself with SIGKILL when system_server dies, so 137 is only the end of the chain
                             if (code == 137 && guestLogHas("Failure starting system services"))
                                 failure = Msg("system_server failed to start its services (zygote exited with 137 as a result); see the first BOOT FAILURE in the guest log", R.string.vmfail_system_server_services)
+                            if (code == 137 && guestLogHas("IKeystoreService"))
+                                failure = Msg("system_server died because the keystore service does not exist (no keymaster HAL registered); see the \"keymaster:\" lines of this log")
                             if (code == 137 && guestLogHas("IBatteryPropertiesRegistrar.registerListener")) {
                                 // registered but not found by system_server, or never registered? record what the guest says now
                                 runCatching {
@@ -2045,6 +2075,11 @@ class GuestVm(val ctx: Context, val img: GuestImage, val lowPowerBoot: Boolean =
                                 failure = Msg("system keeps crashing: $name exited $recentCrashesIn1Min times in 1 min (${zygoteCrashes.size} times in 10 min, last code $code)")
                                 log("✖ $failure"); setState(State.FAILED)
                             } else {
+                                // (system_server's LockSettingsService thread died on KeyStore.state(): AssertionError(1) is what it throws
+                                // when the keystore service answers getState with anything but NO_ERROR / LOCKED / UNINITIALIZED)
+                                if (code == 137 && guestLogHas("android.security.KeyStore.state"))
+                                    log("keymaster: system_server died in KeyStore.state(): the \"android.security.keystore\" service gave getState an answer " +
+                                        "it does not know (the stand-in must say NO_ERROR; the real keystore needs the keymaster HAL, see the \"keymaster:\" lines)")
                                 log("✖ $name crashed (code $code), restarting system ($zygoteRestarts)")
                                 restartZygote()
                             }
@@ -2066,6 +2101,19 @@ class GuestVm(val ctx: Context, val img: GuestImage, val lowPowerBoot: Boolean =
                     val n = restarts.getOrDefault(name, 0)
                     val svc = storedServices().firstOrNull { it.name == name }
                         ?: if (name.contains("-hal-") && n < 3) servicePlan().firstOrNull { it.name == name } else null
+                    // The engine's composer ("hwcomposer-2-1") is not a "-hal-" service and nothing started it again: after its
+                    // crash SurfaceFlinger (which aborts on the DEAD_OBJECT) waited for IComposer for ever. Start it again;
+                    // SurfaceFlinger, restarted below, finds it.
+                    if (engine == Engine.N64 && (name.startsWith("hwcomposer") || name.contains("graphics.composer")) &&
+                        (code == 139 || code == 135 || code == 134) && n < 6) {
+                        val composer = svc ?: servicePlan().firstOrNull { it.name == name }
+                        if (composer != null) {
+                            restarts[name] = n + 1
+                            log("service $name crashed (code $code), restarting (${n + 1}/6)")
+                            runCatching { startService(composer) }
+                            continue
+                        }
+                    }
                     // init restarts surfaceflinger and then zygote ("onrestart restart zygote"); without that a
                     // crashed compositor leaves the last frame on screen forever
                     // The engine's SurfaceFlinger (AOSP) died during the boot: with a libgui whose BufferItem is laid out

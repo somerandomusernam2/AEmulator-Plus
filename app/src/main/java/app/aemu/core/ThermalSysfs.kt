@@ -45,15 +45,41 @@ object ThermalSysfs {
         while (d != null && d != root && d.path.startsWith(root.path)) { d.setReadable(true, false); d.setExecutable(true, false); d = d.parentFile }
     }
 
+    /**
+     * Sensor and cooling device names the firmware's own thermal HAL config asks for (Pixel's HAL: the "Sensors" and
+     * "CoolingDevices" arrays of vendor/etc/thermal_info_config*.json, each entry's "Name"). Pixel Watch (Wear 11)
+     * wants PPG_NTC, SOC_NTC, AUDIO_NTC and BATT_NTC and aborts without any one of them; so the names are read from the
+     * config the HAL will read instead of being guessed per device.
+     */
+    private fun configNames(root: File): Pair<List<String>, List<String>> {
+        val zones = LinkedHashSet<String>(); val cooling = LinkedHashSet<String>()
+        val dirs = listOf("vendor/etc", "system/vendor/etc", "odm/etc")
+        for (d in dirs) File(root, d).listFiles()
+            ?.filter { it.isFile && it.name.startsWith("thermal_info_config") && it.name.endsWith(".json") }
+            ?.sortedBy { it.name }?.forEach { f ->
+                runCatching {
+                    val o = org.json.JSONObject(f.readText())
+                    for ((key, into) in listOf("Sensors" to zones, "CoolingDevices" to cooling)) {
+                        val a = o.optJSONArray(key) ?: continue
+                        for (i in 0 until a.length()) a.optJSONObject(i)?.optString("Name")?.takeIf { it.isNotEmpty() }?.let { into.add(it) }
+                    }
+                }
+            }
+        return zones.toList() to cooling.toList()
+    }
+
     private fun applyExtras(root: File, milli: Int) {
-        EXTRA_ZONES.forEachIndexed { i, name ->
+        val (cfgZones, cfgCooling) = configNames(root)
+        val zoneNames = (EXTRA_ZONES + cfgZones).distinct()
+        val coolingNames = (EXTRA_COOLING + cfgCooling).distinct()
+        zoneNames.forEachIndexed { i, name ->
             val z = File(root, "$THERMAL_DIR/thermal_zone${EXTRA_BASE + i}")
             put(File(z, "type"), "$name\n")
             put(File(z, "temp"), "$milli\n")
             put(File(z, "policy"), "step_wise\n")
             openDirs(root, z)
         }
-        EXTRA_COOLING.forEachIndexed { i, name ->
+        coolingNames.forEachIndexed { i, name ->
             val c = File(root, "$THERMAL_DIR/cooling_device${EXTRA_BASE + i}")
             put(File(c, "type"), "$name\n")
             File(c, "cur_state").apply { if (!isFile) put(this, "0\n") }

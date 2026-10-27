@@ -37,12 +37,17 @@ class SystemLayout private constructor(
     val links: Map<String, String>,
     /** path → permission bits */
     val dirs: Map<String, Int>,
+    /**
+     * Where the partition's root is in the guest, relative to the VM's root and with a trailing slash: "system/",
+     * "system/product/", "vendor/"... or "" for a system-as-root partition, whose top level IS the guest root.
+     */
+    val prefix: String = DEFAULT_PREFIX,
 ) {
     /** [extents] is a flat list of (logical block, physical block, length) triples, clipped to the file's size. */
     class LFile(val path: String, val size: Long, val sha1: String, val perm: Int, val extents: LongArray)
 
     /** Collects the layout while an ext4 image is walked, then writes it with [finish]. */
-    class Capture(private val fs: Ext4Reader, private val src: RandomSource) {
+    class Capture(private val fs: Ext4Reader, private val src: RandomSource, private val prefix: String = DEFAULT_PREFIX) {
         private val files = ArrayList<LFile>()
         private val links = ArrayList<Pair<String, String>>()
         private val dirs = ArrayList<Pair<String, Int>>()
@@ -102,6 +107,7 @@ class SystemLayout private constructor(
             try {
                 DataOutputStream(DeflaterOutputStream(BufferedOutputStream(FileOutputStream(tmp), 1 shl 16), def)).use { o ->
                     o.writeUTF(SystemLayout.MAGIC)
+                    o.writeUTF(prefix)
                     o.writeInt(bs)
                     o.writeLong(total)
                     o.writeInt(files.size)
@@ -167,17 +173,42 @@ class SystemLayout private constructor(
 
     companion object {
         const val NAME = "system.layout"
-        internal const val MAGIC = "AEL2"
+        /** AEL3 = AEL2 plus the guest prefix of the partition; AEL2 files (system only) are still read */
+        internal const val MAGIC = "AEL3"
+        internal const val MAGIC_V2 = "AEL2"
+        internal const val DEFAULT_PREFIX = "system/"
         internal const val INLINE_DATA = 0x10000000
 
-        fun file(vmDir: File) = File(vmDir, NAME)
+        /** Partitions whose layout is recorded at import; the file of "system" is [NAME], the others are "<name>.layout". */
+        val PARTITIONS = listOf("system", "vendor", "product", "system_ext", "odm")
+        val ALL_NAMES: List<String> get() = PARTITIONS.map { nameOf(it) }
+
+        fun nameOf(partition: String) = if (partition == "system") NAME else "$partition.layout"
+        fun file(vmDir: File, partition: String = "system") = File(vmDir, nameOf(partition))
+
+        /** The layout partition an import mount point ("system", "system/product", "vendor"...) belongs to, null if none is recorded. */
+        fun partitionOf(mount: String): String? = when (mount) {
+            "system", "vendor", "odm" -> mount
+            "system/product" -> "product"
+            "system/system_ext" -> "system_ext"
+            else -> null
+        }
+
+        /** The guest prefix of a partition imported at [mount]; a system-as-root partition fills the guest root. */
+        fun prefixOf(mount: String, asRoot: Boolean) = if (asRoot) "" else "$mount/"
 
         /** The tables only (files, links, folders); the stored blocks are skipped. */
         fun load(f: File): SystemLayout =
             DataInputStream(InflaterInputStream(FileInputStream(f).buffered(1 shl 16))).use { readTables(it) }
 
         private fun readTables(i: DataInputStream): SystemLayout {
-            if (i.readUTF() != MAGIC) throw IOException("not a system layout")
+            val prefix = when (i.readUTF()) {
+                MAGIC_V2 -> DEFAULT_PREFIX
+                MAGIC -> i.readUTF()
+                else -> throw IOException("not a system layout")
+            }
+            if (prefix.isNotEmpty() && (!prefix.endsWith("/") || prefix.startsWith("/") || prefix.split('/').any { it == ".." || it == "." }))
+                throw IOException("corrupt system layout")
             val bs = i.readInt()
             val bc = i.readLong()
             if (bs < 1024 || bs > 65536 || bc <= 0) throw IOException("corrupt system layout")
@@ -201,7 +232,7 @@ class SystemLayout private constructor(
             val nd = i.readInt()
             val dirs = LinkedHashMap<String, Int>()
             repeat(nd) { val p = i.readUTF(); dirs[p] = i.readInt() }
-            return SystemLayout(bs, bc, files, links, dirs)
+            return SystemLayout(bs, bc, files, links, dirs, prefix)
         }
 
         /**

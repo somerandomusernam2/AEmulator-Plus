@@ -39,6 +39,19 @@ class GptDiskTest {
         assertEquals(listOf("boot_a", "oem_a", "system_a", "gapps_a"), picks.map { it.second.name })
     }
 
+    /** Android Things on a Raspberry Pi 3 (iot_rpi3.img): the HAL services and impls live in vendor_a, not in system_a. */
+    @Test fun picksVendorAfterSystem() {
+        val d = disk(Triple("rpiboot", 40, 131111), Triple("boot_a", 135208, 200743), Triple("boot_b", 200744, 266279),
+            Triple("system_a", 266280, 1314855), Triple("system_b", 1314856, 2363431), Triple("misc", 2363688, 2365735),
+            Triple("vendor_a", 2365736, 2496807), Triple("vendor_b", 2496808, 2627879), Triple("oem_a", 2742568, 3791143),
+            Triple("userdata", 4839720, 8388567))
+        val picks = GptDisk.pick(GptDisk.parse(d)!!)
+        assertEquals(listOf(GptDisk.Kind.BOOT, GptDisk.Kind.OEM, GptDisk.Kind.SYSTEM, GptDisk.Kind.VENDOR), picks.map { it.first })
+        assertEquals(listOf("boot_a", "oem_a", "system_a", "vendor_a"), picks.map { it.second.name })
+        assertEquals(2365736L * 512, picks[3].second.start)
+        assertEquals(131072L * 512, picks[3].second.size)
+    }
+
     @Test fun rejectsNonGpt() {
         assertFalse(GptDisk.probe(ByteArray(8192)))
         assertNull(GptDisk.headSize(ByteArray(8192), 8192))

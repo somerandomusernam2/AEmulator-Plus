@@ -163,7 +163,7 @@ object InitPlan {
             val bin = sv.argv.first()
             val base = bin.substringAfterLast('/')
             // (a HAL marked oneshot is one its client restarts: the audio service)
-            (!sv.disabled || isThermalHal(sv)) && (!sv.oneshot || bin.substringBeforeLast('/').endsWith("/bin/hw")) && sv.cls != "charger" && !isLpm(sv.name, base, sv.cls) &&
+            (!sv.disabled || isStartedDisabledHal(sv)) && (!sv.oneshot || bin.substringBeforeLast('/').endsWith("/bin/hw")) && sv.cls != "charger" && !isLpm(sv.name, base, sv.cls) &&
                 sv.name !in known && sv.name !in SKIP && base !in SKIP_BIN &&
                 // префиксом совпадают только явные «xxx_» и длинные имена: иначе «sh» отсекал бы shelld (MIUI) и т.п.
                 // Samsung's sensorhubservice is a binder service system_server waits for without a timeout (S4/S5 TouchWiz), not a sensor daemon
@@ -202,6 +202,35 @@ object InitPlan {
         return bin.substringBeforeLast('/').endsWith("/bin/hw") &&
             (sv.name.contains("thermal", true) || bin.substringAfterLast('/').contains("thermal-service", true))
     }
+
+    /**
+     * The AIDL vibrator HAL (android.hardware.vibrator-service.*, service vendor.vibrator.*) is "disabled" in its rc too
+     * (Pixel Watch / Wear 11: cs40l25): the vendor init starts it from its own init.<board>.rc or lazily, and neither
+     * happens here. The VINTF manifest still declares android.hardware.vibrator.IVibrator/default, so servicemanager
+     * logged "trying to start it as a lazy AIDL service" and system_server (VibratorManagerService) logged "Waited one
+     * second for ...IVibrator/default" for ever. It is started at boot like the other HALs of /bin/hw.
+     */
+    private fun isVibratorHal(sv: RcService): Boolean {
+        val bin = sv.argv.first()
+        return bin.substringBeforeLast('/').endsWith("/bin/hw") &&
+            (sv.name.contains("vibrator", true) || bin.substringAfterLast('/').contains("vibrator-service", true))
+    }
+
+    /**
+     * The Wi-Fi HAL (android.hardware.wifi@1.0-service-lazy, service vendor.wifi_hal_legacy) is a lazy HIDL service:
+     * "oneshot disabled" in its rc, started by init when hwservicemanager asks for IWifi/default (ctl.interface_start,
+     * which PropService drops for HIDL interfaces). WifiService of 11 then logged "Waited one second for
+     * android.hardware.wifi@1.0::IWifi/default" for ever and "mWifi is null", so Wi-Fi never came up. It is started
+     * at boot like the other HALs of /bin/hw; where the board has no wireless chip the HAL still registers and Wi-Fi
+     * reports a failed start instead of waiting without end.
+     */
+    private fun isWifiHal(sv: RcService): Boolean {
+        val bin = sv.argv.first()
+        return bin.substringBeforeLast('/').endsWith("/bin/hw") &&
+            (sv.name.startsWith("vendor.wifi_hal", true) || bin.substringAfterLast('/').startsWith("android.hardware.wifi@", true))
+    }
+
+    private fun isStartedDisabledHal(sv: RcService) = isThermalHal(sv) || isVibratorHal(sv) || isWifiHal(sv)
 
     /** Службы init, которые не запускаем: их роль играет хост, или они лезут в железо. */
     /**

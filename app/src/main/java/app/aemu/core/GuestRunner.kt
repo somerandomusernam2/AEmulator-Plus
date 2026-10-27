@@ -126,7 +126,12 @@ class GuestRunner(
         // debugging: run/crash.report makes the runner print pc/lr and their mappings on a fatal signal
         // SurfaceFlinger is C++ only (no ART fault handler that the report would replace), so its fatal signals are
         // always reported: pc/lr, the fault address and the registers go to <root>/dev/aemu_crash.log (and the log export)
-        if (File(paths.bin, "crash.report").exists() || program == "/system/bin/surfaceflinger") e["AEMU64_CRASH"] = "1"
+        // Setting "SurfaceFlinger crash tombstone" (opt-in): leave SurfaceFlinger's fatal signals to the guest's own handler. With AEMU64_CRASH the
+        // runner reports and exits at once, so the firmware's debuggerd never runs: no guest pc, no symbolised backtrace.
+        // Without it a guest crash gives the normal "F DEBUG" tombstone in logcat (and the runner still reports if the
+        // guest has no handler left).
+        val sfTombstone = program == "/system/bin/surfaceflinger" && img.settings.sfTombstone
+        if (File(paths.bin, "crash.report").exists() || (program == "/system/bin/surfaceflinger" && !sfTombstone)) e["AEMU64_CRASH"] = "1"
         for (t in userTokens.filter(::isEnvToken)) e[t.substringBefore('=')] = t.substringAfter('=')
         for ((k, v) in extra) when {
             k.startsWith("DHD_SOCK_") -> e["AEMU64_SOCK_" + k.removePrefix("DHD_SOCK_")] = v

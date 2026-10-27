@@ -73,7 +73,7 @@ class DnsProxy(private val paths: VmPaths, private val api: Int, private val log
                 log("dns: struct addrinfo goes " + if (hungUp) "as one block" else "field by field")
                 if (hungUp) return
             }
-            while (sent < bytes.size) { val n = minOf(4, bytes.size - sent); sock.write(bytes, sent, n); sock.flush(); sent += n; if (DEBUG_SLOW) Thread.sleep(20) }
+            while (sent < bytes.size) { val n = minOf(4, bytes.size - sent); sock.write(bytes, sent, n); sock.flush(); sent += n }
         } catch (e: java.io.IOException) { log("dns: client closed after $sent of ${bytes.size} bytes") }
         if (queries <= 6) log("dns: reply " + out.toByteArray().take(96).joinToString("") { "%02x".format(it) })
         if (queries <= 40) log("dns: " + t.getOrElse(1) { "" } + " answered in " + (System.currentTimeMillis() - t0) + " ms")
@@ -173,7 +173,6 @@ class DnsProxy(private val paths: VmPaths, private val api: Int, private val log
     }
 
     private companion object {
-        const val DEBUG_SLOW = false
         const val AF_INET = 2
         const val AF_INET6 = 10
         const val AI_PASSIVE = 1

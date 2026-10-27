@@ -1,4 +1,19 @@
 /*
+ * FIXED (display stayed blank, SurfaceFlinger logged "createLayer ... Unsupported (8)" and 600+ times
+ * "presentAndGetReleaseFences: present failed ... Unsupported (8)"): MediaTek's HWC3 adapter does not call the stock
+ * HWC2 entry points CREATE_LAYER (2) and SET_CLIENT_TARGET (23) at all. It asks getFunction() for vendor descriptors
+ * instead and calls those, and every vendor slot used to return HWC2_ERROR_UNSUPPORTED. Now implemented (signatures
+ * decoded from the argument traces in the guest log, AAPCS: a 64-bit hwc2_display_t sits in r2:r3, r1 is padding):
+ *   81  createLayer(dev, display, uint32 bufferSlotCount, hwc2_layer_t *outLayer)
+ *   85  setClientTargetSlotCount(dev, display, uint32 count)
+ *   86  setClientTarget(dev, display, uint32 slot, uint32 cached, buffer_handle_t buf, int32 acquireFence)
+ *         (buf is only non-NULL the first time a slot is used; cached==1 means "reuse the buffer last given for slot")
+ *   79  setExpectedPresentTime(dev, display, int64 ts, int32 frameInterval)  -> accepted and ignored
+ * FIXED (latent, exposed by the above): once layers exist, getChangedCompositionTypes / getReleaseFences were still
+ * written for the stock (uint32 *n, T *arr) convention, but the adapter passes two std::vector objects there. Writing
+ * a count into a vector's begin pointer is the same "non-null array but length is -1" -> Scudo abort as for
+ * getDisplayConfigs. They now fill the vectors the way libc++ expects.
+ *
  * FIXED (composer@3.2-service abort: "Scudo ERROR: misaligned pointer when deallocating
  * address 0x00000001", preceded by "WriteAndValidateArraySize: non-null array but length is -1"):
  * MediaTek's HWC3 adapter calls getDisplayConfigs with only THREE arguments
@@ -43,8 +58,30 @@
 #define LOG_TAG "hwc2fb"
 extern int __android_log_print(int prio, const char *tag, const char *fmt, ...)
     __attribute__((weak));
-#define LOGI(...) do { if (__android_log_print) __android_log_print(4, LOG_TAG, __VA_ARGS__); } while (0)
-#define LOGE(...) do { if (__android_log_print) __android_log_print(6, LOG_TAG, __VA_ARGS__); } while (0)
+extern int vsnprintf(char *, size_t, const char *, __builtin_va_list);
+/* If this module was linked without liblog the weak symbol is NULL and every trace used to vanish silently (no
+ * "hwc2fb:" lines in the guest log).  Fall back to appending to /data/local/tmp/hwc2fb.log. */
+static void hwc_log(int prio, const char *fmt, ...) {
+    __builtin_va_list ap;
+    __builtin_va_start(ap, fmt);
+    if (__android_log_print) {
+        char b[256];
+        vsnprintf(b, sizeof(b), fmt, ap);
+        __android_log_print(prio, LOG_TAG, "%s", b);
+    } else {
+        char b[300];
+        int n = vsnprintf(b, sizeof(b) - 1, fmt, ap);
+        if (n > 0) {
+            if (n > (int)sizeof(b) - 2) n = (int)sizeof(b) - 2;
+            b[n++] = '\n';
+            int fd = open("/data/local/tmp/hwc2fb.log", O_WRONLY | O_CREAT | O_APPEND, 0666);
+            if (fd >= 0) { write(fd, b, (size_t)n); close(fd); }
+        }
+    }
+    __builtin_va_end(ap);
+}
+#define LOGI(...) hwc_log(4, __VA_ARGS__)
+#define LOGE(...) hwc_log(6, __VA_ARGS__)
 
 /* log the first few calls of a function (name, formatted args) so a crash log shows what the caller really passes */
 #define TR(name, ...) do { static unsigned c_; if (c_ < 6) { c_++; LOGI(name ": " __VA_ARGS__); } } while (0)
@@ -56,6 +93,10 @@ extern int __android_log_print(int prio, const char *tag, const char *fmt, ...)
 
 /* ---------------------------------------------------------------- state */
 static pthread_mutex_t g_lock = PTHREAD_MUTEX_INITIALIZER;
+
+#define MAX_SLOTS 128
+static buffer_handle_t g_client_target;                 /* buffer to show on the next presentDisplay */
+static buffer_handle_t g_ct_slot[MAX_SLOTS];            /* HWC3 buffer cache: last buffer handed over per client-target slot */
 
 struct layer { int used; hwc2_layer_t id; int32_t type; };
 static struct layer g_layers[MAX_LAYERS];
@@ -157,6 +198,32 @@ static int probe_byte(const volatile void *p) {
 static int probe_rw(void *p, size_t bytes) {
     if (!p || bytes == 0 || ((uintptr_t)p & 3)) return 0;
     return probe_byte(p) && probe_byte((uint8_t *)p + bytes - 1);
+}
+
+/* libc++ std::vector<T> on 32-bit ARM: three pointers.  MediaTek's adapter hands these to the "list" getters instead of
+ * the stock (uint32_t *count, T *array) pair.  A vector that is still empty is all zero. */
+struct mtk_vec { uint8_t *begin, *end, *cap; };
+
+static int vec_is_empty_rw(void *v) {
+    if (!probe_rw(v, sizeof(struct mtk_vec))) return 0;
+    const struct mtk_vec *x = (const struct mtk_vec *)v;
+    return !x->begin && !x->end && !x->cap;
+}
+
+/* Replace the contents of *v with cnt elements of esz bytes. operator new/delete are malloc/free in bionic. */
+static int32_t vec_fill(struct mtk_vec *v, const void *vals, size_t esz, uint32_t cnt) {
+    size_t bytes = esz * (size_t)cnt;
+    if (cnt == 0) { v->end = v->begin; return HWC2_ERROR_NONE; }
+    if (!v->begin || (size_t)(v->cap - v->begin) < bytes) {
+        uint8_t *buf = (uint8_t *)malloc(bytes);
+        if (!buf) return HWC2_ERROR_NO_RESOURCES;
+        if (v->begin) free(v->begin);
+        v->begin = buf;
+        v->cap = buf + bytes;
+    }
+    memcpy(v->begin, vals, bytes);
+    v->end = v->begin + bytes;
+    return HWC2_ERROR_NONE;
 }
 
 /* ---------------------------------------------------------- framebuffer */
@@ -399,16 +466,23 @@ static int32_t h_acceptDisplayChanges(hwc2_device_t *dev, hwc2_display_t d) {
     pthread_mutex_unlock(&g_lock);
     return HWC2_ERROR_NONE;
 }
-static int32_t h_createLayer(hwc2_device_t *dev, hwc2_display_t d, hwc2_layer_t *out) {
-    TR("createLayer", "d=%u out=%p", (unsigned)d, (void *)out);
-    (void)dev; CHK_DISPLAY(d);
+static int32_t create_layer_common(hwc2_display_t d, hwc2_layer_t *out) {
+    CHK_DISPLAY(d);
     pthread_mutex_lock(&g_lock);
     for (int i = 0; i < MAX_LAYERS; i++) if (!g_layers[i].used) {
         g_layers[i].used = 1; g_layers[i].id = g_next_layer++; g_layers[i].type = HWC2_COMPOSITION_INVALID;
-        if (out) *out = g_layers[i].id; pthread_mutex_unlock(&g_lock); return HWC2_ERROR_NONE;
+        hwc2_layer_t id = g_layers[i].id;
+        pthread_mutex_unlock(&g_lock);
+        if (probe_rw(out, sizeof(*out))) *out = id;
+        return HWC2_ERROR_NONE;
     }
     pthread_mutex_unlock(&g_lock);
     return HWC2_ERROR_NO_RESOURCES;
+}
+static int32_t h_createLayer(hwc2_device_t *dev, hwc2_display_t d, hwc2_layer_t *out) {
+    TR("createLayer", "d=%u out=%p", (unsigned)d, (void *)out);
+    (void)dev;
+    return create_layer_common(d, out);
 }
 static int32_t h_destroyLayer(hwc2_device_t *dev, hwc2_display_t d, hwc2_layer_t l) {
     (void)dev; CHK_DISPLAY(d);
@@ -428,6 +502,16 @@ static int32_t h_getChangedCompositionTypes(hwc2_device_t *dev, hwc2_display_t d
     (void)dev; CHK_DISPLAY(d);
     if (!n) return HWC2_ERROR_BAD_PARAMETER;
     pthread_mutex_lock(&g_lock);
+    if (g_vecmode != 0 && ls && vec_is_empty_rw(n) && probe_rw(ls, sizeof(struct mtk_vec)) && vec_is_empty_rw(ls)) {
+        /* MediaTek adapter: n = std::vector<hwc2_layer_t>*, ls = std::vector<int32_t>*, ts is stack garbage */
+        hwc2_layer_t ids[MAX_LAYERS]; int32_t types[MAX_LAYERS];
+        uint32_t k = (uint32_t)g_changed_n;
+        for (uint32_t i = 0; i < k; i++) { ids[i] = g_changed_id[i]; types[i] = HWC2_COMPOSITION_CLIENT; }
+        int32_t r = vec_fill((struct mtk_vec *)(void *)n, ids, sizeof(ids[0]), k);
+        if (!r) r = vec_fill((struct mtk_vec *)(void *)ls, types, sizeof(types[0]), k);
+        pthread_mutex_unlock(&g_lock);
+        return r;
+    }
     if (!ls || !ts || *n == 0 || !probe_rw(ls, (size_t)*n * sizeof(*ls)) || !probe_rw(ts, (size_t)*n * sizeof(*ts))) *n = (uint32_t)g_changed_n;
     else {
         uint32_t k = *n < (uint32_t)g_changed_n ? *n : (uint32_t)g_changed_n;
@@ -590,6 +674,17 @@ static int32_t h_getReleaseFences(hwc2_device_t *dev, hwc2_display_t d, uint32_t
     (void)dev; CHK_DISPLAY(d);
     if (!n) return HWC2_ERROR_BAD_PARAMETER;
     pthread_mutex_lock(&g_lock);
+    if (g_vecmode != 0 && ls && vec_is_empty_rw(n) && probe_rw(ls, sizeof(struct mtk_vec)) && vec_is_empty_rw(ls)) {
+        /* MediaTek adapter: n = std::vector<hwc2_layer_t>*, ls = std::vector<int32_t>* (fences), 3rd arg is garbage.
+         * Every layer is client composed, so there is nothing to wait for: fence -1 for each. */
+        hwc2_layer_t ids[MAX_LAYERS]; int32_t fds[MAX_LAYERS];
+        uint32_t k = 0;
+        for (int i = 0; i < MAX_LAYERS; i++) if (g_layers[i].used) { ids[k] = g_layers[i].id; fds[k] = -1; k++; }
+        int32_t r = vec_fill((struct mtk_vec *)(void *)n, ids, sizeof(ids[0]), k);
+        if (!r) r = vec_fill((struct mtk_vec *)(void *)ls, fds, sizeof(fds[0]), k);
+        pthread_mutex_unlock(&g_lock);
+        return r;
+    }
     uint32_t cnt = 0;
     int usable = ls && fences && *n > 0 && probe_rw(ls, (size_t)*n * sizeof(*ls)) && probe_rw(fences, (size_t)*n * sizeof(*fences));
     for (int i = 0; i < MAX_LAYERS; i++) if (g_layers[i].used) {
@@ -605,7 +700,6 @@ static int32_t h_presentDisplay(hwc2_device_t *dev, hwc2_display_t d, int32_t *f
     if (fence) *fence = -1;
     return HWC2_ERROR_NONE;
 }
-static buffer_handle_t g_client_target;
 static int32_t h_presentDisplay_real(hwc2_device_t *dev, hwc2_display_t d, int32_t *fence) {
     TR("presentDisplay", "fence=%p", (void *)fence);
     int32_t e = h_presentDisplay(dev, d, fence);
@@ -789,8 +883,68 @@ static int32_t h_getClientTargetProperty(hwc2_device_t *dev, hwc2_display_t d, h
     static int32_t h_vendor_##N(uint32_t a0, uint32_t a1, uint32_t a2, uint32_t a3, uint32_t a4, uint32_t a5, uint32_t a6, uint32_t a7) { \
         TR("vendor" #N, "(%08x %08x %08x %08x | %08x %08x %08x %08x)", a0, a1, a2, a3, a4, a5, a6, a7); \
         return HWC2_ERROR_UNSUPPORTED; }
-VSTUB(71) VSTUB(72) VSTUB(73) VSTUB(74) VSTUB(75) VSTUB(76) VSTUB(77) VSTUB(78) VSTUB(79) VSTUB(80) VSTUB(81)
-VSTUB(82) VSTUB(83) VSTUB(84) VSTUB(85) VSTUB(86) VSTUB(87) VSTUB(88) VSTUB(89) VSTUB(90) VSTUB(91)
+/* Vendor slots that are implemented (signatures decoded from the traces; hwc2_display_t is a uint64_t, so on 32-bit ARM
+ * it occupies r2:r3 and r1 is padding, which is why the first trace word after the device pointer looks like garbage). */
+
+/* 79: setExpectedPresentTime(dev, display, int64 timestampNs, int32 frameIntervalNs): only a scheduling hint. */
+static int32_t h_vendor_79(hwc2_device_t *dev, hwc2_display_t d, int64_t ts, int32_t interval) {
+    TR("vendor79 setExpectedPresentTime", "d=%u ts=%lld iv=%d", (unsigned)d, (long long)ts, (int)interval);
+    (void)dev; (void)ts; (void)interval;
+    CHK_DISPLAY(d);
+    return HWC2_ERROR_NONE;
+}
+
+/* 81: createLayer(dev, display, uint32 bufferSlotCount, hwc2_layer_t *outLayer): HWC3 layers carry a buffer-slot count. */
+static int32_t h_vendor_81(hwc2_device_t *dev, hwc2_display_t d, uint32_t slots, hwc2_layer_t *out) {
+    TR("vendor81 createLayer", "d=%u slots=%u out=%p", (unsigned)d, (unsigned)slots, (void *)out);
+    (void)dev; (void)slots;
+    return create_layer_common(d, out);
+}
+
+/* 85: setClientTargetSlotCount(dev, display, uint32 count) */
+static int32_t h_vendor_85(hwc2_device_t *dev, hwc2_display_t d, uint32_t count) {
+    TR("vendor85 setClientTargetSlotCount", "d=%u count=%u", (unsigned)d, (unsigned)count);
+    (void)dev; (void)count;
+    CHK_DISPLAY(d);
+    return HWC2_ERROR_NONE;
+}
+
+/* 86: setClientTarget(dev, display, uint32 slot, uint32 cached, buffer_handle_t buffer, int32 acquireFence).
+ * HWC3 caches buffers per slot: the handle is only passed the first time a slot gets a new buffer; afterwards the call
+ * arrives with cached=1 and buffer=NULL and means "the buffer you were last given for this slot".  (Trace: slot 1,0 with
+ * a handle, then slot 1,0 with cached=1 and NULL.) */
+static int32_t h_vendor_86(hwc2_device_t *dev, hwc2_display_t d, uint32_t slot, uint32_t cached, buffer_handle_t buf, int32_t acq) {
+    TR("vendor86 setClientTarget", "d=%u slot=%u cached=%u buf=%p acq=%d", (unsigned)d, (unsigned)slot, (unsigned)cached, (const void *)buf, (int)acq);
+    (void)dev;
+    if (d != 0) { close_fence(acq); return HWC2_ERROR_BAD_DISPLAY; }
+    wait_fence(acq);
+    pthread_mutex_lock(&g_lock);
+    buffer_handle_t use = NULL;
+    if (buf && !cached) { if (slot < MAX_SLOTS) g_ct_slot[slot] = buf; use = buf; }
+    else if (slot < MAX_SLOTS) use = g_ct_slot[slot];
+    if (!use) use = buf;                       /* "cached" but nothing remembered: take what we were given */
+    if (use) g_client_target = use;            /* otherwise keep presenting the previous one */
+    pthread_mutex_unlock(&g_lock);
+    return HWC2_ERROR_NONE;
+}
+
+/* 82/83/84: the adapter logs "failed to set layer buffer / brightness / blocking region: 8" right after createLayer
+ * works, in that order, and then fails the whole presentOrValidate with the same code 8.  Everything is client composed
+ * here, so a layer's own buffer / brightness / blocking region are never used: accept them.  They are setters (no output
+ * pointers), so returning success is safe whatever the exact argument list is.  The first calls are traced so the real
+ * signatures can be confirmed.  (A layer-buffer acquire fence, if one is passed, is not closed here: its position in the
+ * argument list is not known yet.) */
+#define VSETTER(N, NAME) \
+    static int32_t h_vendor_##N(uint32_t a0, uint32_t a1, uint32_t a2, uint32_t a3, uint32_t a4, uint32_t a5, uint32_t a6, uint32_t a7) { \
+        TR("vendor" #N " " NAME, "(%08x %08x %08x %08x | %08x %08x %08x %08x)", a0, a1, a2, a3, a4, a5, a6, a7); \
+        return HWC2_ERROR_NONE; }
+VSETTER(82, "setLayerBuffer?") VSETTER(83, "setLayerBrightness?") VSETTER(84, "setLayerBlockingRegion?")
+
+/* Everything else stays "unsupported", with a trace of its first calls:
+ *   78 getPhysicalDisplayOrientation, 80 getClientTargetProperty (3 out pointers of unknown type: left unsupported, the
+ *   adapter falls back to RGBA_8888), 87 getOverlaySupport, 88 getHdrConversionCapabilities -- SurfaceFlinger tolerates all. */
+VSTUB(71) VSTUB(72) VSTUB(73) VSTUB(74) VSTUB(75) VSTUB(76) VSTUB(77) VSTUB(78) VSTUB(80)
+VSTUB(87) VSTUB(88) VSTUB(89) VSTUB(90) VSTUB(91)
 static const hwc2_function_pointer_t g_vendor_stubs[21] = {
     (hwc2_function_pointer_t)h_vendor_71, (hwc2_function_pointer_t)h_vendor_72, (hwc2_function_pointer_t)h_vendor_73,
     (hwc2_function_pointer_t)h_vendor_74, (hwc2_function_pointer_t)h_vendor_75, (hwc2_function_pointer_t)h_vendor_76,
