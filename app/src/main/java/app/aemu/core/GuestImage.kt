@@ -1,6 +1,7 @@
 /* Modified for AEmulator Sunset, 2026-10-03: persisted motion and host-display options.
  * Modified for AEmulator Super Plus, 2026-10-11: fake SIM card slots, Wi-Fi signal and neighbours.
  * Modified for AEmulator Super Plus, 2026-10-23: CDMA modem option.
+ * Modified for AEmulator Plus, 2026-10-28: Android 14+ system_server watchdog option.
  * GPL-3.0; see LICENSE and NOTICE.md. */
 package app.aemu.core
 
@@ -126,6 +127,11 @@ data class VmSettings(
     val thermalPassthrough: Boolean = false,
     /** Value of thermal_zone17/temp in millidegrees set by the user; null = follow [thermalPassthrough]. */
     val thermalTemp: Int? = null,
+    /**
+     * Android 14+ only: stop system_server's own Watchdog (see [WatchdogPatch]). A boot slower than its 60 s limit is
+     * otherwise killed over and over. A real deadlock is no longer recovered by a restart. Applies at the next full VM boot.
+     */
+    val disableWatchdog: Boolean = false,
 ) {
     fun toJson(): JSONObject = JSONObject()
         .put("width", width).put("height", height).put("density", density)
@@ -152,6 +158,7 @@ data class VmSettings(
         .put("sim", sim.toJson()).put("sim2", sim2.toJson()).put("dualSim", dualSim)
         .put("wifiSignal", wifiSignal).put("wifiNeighbors", wifiNeighbors)
         .put("thermalPassthrough", thermalPassthrough).put("thermalTemp", thermalTemp ?: JSONObject.NULL)
+        .put("disableWatchdog", disableWatchdog)
 
     companion object {
         const val NAV_DEFAULT = "back,home,recents,menu"
@@ -319,6 +326,7 @@ data class VmSettings(
                 wifiNeighbors = o.optBoolean("wifiNeighbors", d.wifiNeighbors),
                 thermalPassthrough = o.optBoolean("thermalPassthrough", d.thermalPassthrough),
                 thermalTemp = if (o.has("thermalTemp") && !o.isNull("thermalTemp")) o.optInt("thermalTemp").coerceIn(ThermalSysfs.MIN_MILLI_C, ThermalSysfs.MAX_MILLI_C) else null,
+                disableWatchdog = o.optBoolean("disableWatchdog", d.disableWatchdog),
             )
         }
     }

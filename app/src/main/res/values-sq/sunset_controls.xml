@@ -28,4 +28,6 @@
     <string name="vs_bluetooth">Bluetooth i pritësit (eksperimental)</string>
     <string name="vs_bluetooth_sub">Lejon mysafirin të skanojë, të listojë çiftimet dhe të komunikojë me pajisje Bluetooth përmes telefonit: serial klasik (RFCOMM) dhe Bluetooth LE (GATT). Kërkon leje Bluetooth dhe një rinisje të plotë të VM-së. Jo HCI i papërpunuar: mysafiri e sheh adaptorin e telefonit përmes një ure, ndaj kufjet (profilet audio) nuk mbështeten.</string>
     <string name="bluetooth_permission_denied">Leja e Bluetooth u refuzua: mysafiri do të niset pa Bluetooth të pritësit.</string>
+    <string name="vs_sf_tombstone">Tombstone i rrëzimit të SurfaceFlinger (korrigjim)</string>
+    <string name="vs_sf_tombstone_sub">Nëse SurfaceFlinger rrëzohet, lëre firmuerin të shkruajë në regjistër një tombstone normal (me funksionin që u rrëzua) në vend të një raporti të shkurtër. Përdore kur dërgon një raport gabimi. Zbatohet në nisjen e plotë të radhës të VM-së.</string>
 </resources>

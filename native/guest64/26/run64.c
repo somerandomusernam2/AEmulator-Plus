@@ -41,7 +41,7 @@ enum {
     NR_prctl = 167, NR_getpid = 172, NR_getuid = 174, NR_geteuid = 175, NR_getgid = 176, NR_getegid = 177, NR_gettid = 178,
     NR_socket = 198, NR_socketpair = 199, NR_bind = 200, NR_connect = 203, NR_getsockname = 204, NR_sendto = 206, NR_setsockopt = 208, NR_getsockopt = 209,
     NR_shutdown = 210, NR_sendmsg = 211, NR_recvmsg = 212, NR_munmap = 215, NR_execve = 221, NR_mmap = 222, NR_mprotect = 226,
-    NR_renameat2 = 276, NR_memfd_create = 279, NR_statx = 291,
+    NR_renameat2 = 276, NR_memfd_create = 279, NR_statx = 291, NR_faccessat2 = 439,
 };
 
 #define AT_FDCWD (-100)
@@ -676,7 +676,7 @@ static long trap2(long nr, long *a, void *uc, char **pbp) {
         }
         return r;
     }
-    case NR_faccessat: {
+    case NR_faccessat: case NR_faccessat2: {     // faccessat2 has the same first three arguments and takes the flags in a[3]
         char *b1 = PB(0);
         if (P(1)) {
             if (seq(P(1), "/dev/binder") || seq(P(1), "/dev/hwbinder") || seq(P(1), "/dev/vndbinder") || seq(P(1), "/dev/ashmem")) {
@@ -688,7 +688,18 @@ static long trap2(long nr, long *a, void *uc, char **pbp) {
         }
         NEEDX(1);
         if ((a[2] & 2 /* W_OK only: X_OK and R_OK must keep working */) && in_system(a[0], h1, PB(2))) return -EROFS;
-        return S4(nr, a[0], h1, a[2], a[3]);
+        {
+            long r = S4(nr, a[0], h1, a[2], a[3]);
+            // Android 17 hosts: access(R_OK) on a path of the image can come back EACCES although the app owns the file
+            // and open() still serves it (libselinux probes every *_service_contexts with R_OK, finds none, hands
+            // servicemanager a null handle and it aborts). A read probe is answered by opening the path for reading;
+            // if that is refused too, the refusal is real and stays.
+            if (r == -13 /*EACCES*/ && h1 && (a[2] & 4) && !(a[2] & 3)) {
+                long fd = S4(NR_openat, a[0], h1, 02000000 /*O_RDONLY|O_CLOEXEC*/, 0);
+                if (fd >= 0) { S1(NR_close, fd); return 0; }
+            }
+            return r;
+        }
     }
     case NR_mkdirat: case NR_unlinkat: case NR_fchmodat: case NR_utimensat: case NR_mknodat:
     case NR_statx: {
@@ -1118,6 +1129,10 @@ static void install_filter(void) {
     for (u64 i = 0; i < sizeof trapped; i++) f[n++] = JEQ(trapped[i], L_TRAP, 0);
     f[n++] = JEQ(NR_renameat2, L_TRAP, 0);
     f[n++] = JEQ(NR_statx, L_TRAP, 0);
+    // glibc 2.33+ (the static qemu-arm's) answers faccessat() with faccessat2 first and falls back to faccessat only on ENOSYS;
+    // a phone kernel has it (5.8+), so without this entry every access() of a 32-bit guest went to the kernel with the
+    // GUEST path, i.e. to the phone's own /system, /vendor... (EACCES for an app), never into the image.
+    f[n++] = JEQ(NR_faccessat2, L_TRAP, 0);
     f[n++] = JEQ(NR_rt_sigprocmask, L_SIG, 0);
     f[n++] = JEQ(NR_prctl, L_PRCTL, 0);
     f[n++] = JEQ(NR_mmap, L_MMAP, L_ALLOW);

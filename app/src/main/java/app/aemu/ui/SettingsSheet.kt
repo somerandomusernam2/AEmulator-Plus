@@ -1,5 +1,6 @@
 /* Modified for AEmulator Sunset, 2026-10-03: VM export, motion and host resolution.
  * Modified for AEmulator Super Plus, 2026-10-11: fake SIM card section, Wi-Fi signal and neighbours.
+ * Modified for AEmulator Plus, 2026-10-28: Android 14+ watchdog toggle.
  * GPL-3.0; upstream attribution retained in NOTICE.md. */
 package app.aemu.ui
 
@@ -177,6 +178,7 @@ fun SettingsSheet(img: GuestImage, onDismiss: () -> Unit, onSave: (VmSettings) -
                 Toggle(stringResource(R.string.vs_bluetooth), stringResource(R.string.vs_bluetooth_sub), s.bluetooth) { s = s.copy(bluetooth = it) }
             }
             if (img.api >= 26) Toggle(stringResource(R.string.vs_sf_tombstone), stringResource(R.string.vs_sf_tombstone_sub), s.sfTombstone) { s = s.copy(sfTombstone = it) }
+            if (img.api >= 34) Toggle(stringResource(R.string.vs_no_watchdog), stringResource(R.string.vs_no_watchdog_sub), s.disableWatchdog) { s = s.copy(disableWatchdog = it) }
             if (WifiEmu.supported(img.engine, img.api, false, false)) {
                 Toggle(stringResource(R.string.vs_wifi), stringResource(R.string.vs_wifi_sub), s.wifi) { s = s.copy(wifi = it) }
                 if (s.wifi) WifiFields(s) { s = it }

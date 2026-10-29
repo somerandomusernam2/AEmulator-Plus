@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="m_wea">Väärä hätähälytys</string>
+    <string name="m_wea_type">Hälytystyyppi</string>
+    <string name="m_wea_sent">Hätähälytys lähetetty</string>
+    <string name="m_wea_failed">Ei lähetetty: puhelimen puhelinjärjestelmä ei ole käynnissä</string>
+    <string name="wea_presidential">Presidentin hälytys</string>
+    <string name="wea_extreme">Äärimmäinen uhka</string>
+    <string name="wea_severe">Vakava uhka</string>
+    <string name="wea_amber">AMBER-hälytys</string>
+    <string name="wea_test">Pakollinen kuukausitesti</string>
+    <string name="wea_body_presidential">Presidentin hälytys: Tämä on hätähälytysjärjestelmän testi. Toimenpiteitä ei tarvita.</string>
+    <string name="wea_body_extreme">Äärimmäinen hälytys: Tornadovaroitus alueellasi. Hakeudu heti suojaan. Tämä on testi.</string>
+    <string name="wea_body_severe">Vakava hälytys: Ukkosmyrskyvaroitus alueellasi klo 18 asti. Tämä on testi.</string>
+    <string name="wea_body_amber">AMBER-hälytys: Kadonnut lapsi, sininen sedan. Soita 911, jos näet sen. Tämä on testi.</string>
+    <string name="wea_body_test">Tämä on Wireless Emergency Alert -järjestelmän testi. Toimenpiteitä ei tarvita.</string>
+</resources>

@@ -196,8 +196,6 @@
     <string name="vmfail_system_server_oat_missing">system_server راه‌اندازی نمی‌شود: کد از پیش‌کامپایل‌شده فریم‌ورک (system/framework/oat) در این محفظه وجود ندارد — نرم‌افزار را دوباره وارد کنید</string>
     <string name="warn_no_build_prop">system/build.prop وجود ندارد: نسخه Android از درخت سیستم استنباط شد.</string>
     <string name="warn_no_boot_img">boot.img در نرم‌افزار نیست: برنامه بوت و BOOTCLASSPATH حدس زده شدند.</string>
-    <string name="warn_no_healthd">healthd در برنامه بوت نیست (/sbin/healthd وجود ندارد؛ ramdisk در ورود جا افتاده؟): system_server در BatteryService از کار می‌افتد.</string>
-    <string name="warn_arm64">نرم‌افزار ۶۴ بیتی: فقط ARM ۳۲ بیتی پشتیبانی می‌شود.</string>
     <string name="warn_not_arm">نرم‌افزار ARM نیست (%1$s) و اجرا نخواهد شد.</string>
     <string name="warn_experimental">Android ‏%1$s: پشتیبانی آزمایشی است (ART، SELinux).</string>
     <string name="import_default_name">نرم‌افزار (فریمور)</string>
@@ -226,4 +224,5 @@
     <string name="update_err_wrong_variant">APK به‌روزرسانی با این نوع برنامه سازگار نیست</string>
     <string name="update_err_wrong_package">APK دانلودشده بسته برنامه نادرستی دارد</string>
     <string name="catalog_err_too_many_lines">فهرست از ۱۰۰۰۰ خط بیشتر است</string>
+    <string name="imp_iso_no_system">هیچ سیستم Android در تصویر ISO پیدا نشد (system.sfs یا system.img انتظار می‌رفت)</string>
 </resources>

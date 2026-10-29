@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="m_wea">Alertă de urgență falsă</string>
+    <string name="m_wea_type">Tip de alertă</string>
+    <string name="m_wea_sent">Alertă de urgență trimisă</string>
+    <string name="m_wea_failed">Netrimisă: telefonia telefonului nu rulează</string>
+    <string name="wea_presidential">Alertă prezidențială</string>
+    <string name="wea_extreme">Amenințare extremă</string>
+    <string name="wea_severe">Amenințare gravă</string>
+    <string name="wea_amber">Alertă AMBER</string>
+    <string name="wea_test">Test lunar obligatoriu</string>
+    <string name="wea_body_presidential">Alertă prezidențială: Acesta este un test al sistemului de alertă de urgență. Nu este necesară nicio acțiune.</string>
+    <string name="wea_body_extreme">Alertă extremă: Avertisment de tornadă în zona ta. Adăpostește-te acum. Acesta este un test.</string>
+    <string name="wea_body_severe">Alertă gravă: Avertisment de furtună în zona ta până la ora 18:00. Acesta este un test.</string>
+    <string name="wea_body_amber">Alertă AMBER: Copil dispărut, berlină albastră. Sună la 911 dacă o vezi. Acesta este un test.</string>
+    <string name="wea_body_test">Acesta este un test al sistemului Wireless Emergency Alert. Nu este necesară nicio acțiune.</string>
+</resources>

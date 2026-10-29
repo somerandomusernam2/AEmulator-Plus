@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="m_wea">Gefälschter Notfallalarm</string>
+    <string name="m_wea_type">Alarmtyp</string>
+    <string name="m_wea_sent">Notfallalarm gesendet</string>
+    <string name="m_wea_failed">Nicht gesendet: Die Telefonie des Telefons läuft nicht</string>
+    <string name="wea_presidential">Präsidentenalarm</string>
+    <string name="wea_extreme">Extreme Gefahr</string>
+    <string name="wea_severe">Schwere Gefahr</string>
+    <string name="wea_amber">AMBER-Alarm</string>
+    <string name="wea_test">Obligatorischer Monatstest</string>
+    <string name="wea_body_presidential">Präsidentenalarm: Dies ist ein Test des Notfallalarmsystems. Es ist keine Maßnahme erforderlich.</string>
+    <string name="wea_body_extreme">Extremer Alarm: Tornadowarnung in Ihrer Gegend. Suchen Sie jetzt Schutz. Dies ist ein Test.</string>
+    <string name="wea_body_severe">Schwerer Alarm: Gewitterwarnung in Ihrer Gegend bis 18 Uhr. Dies ist ein Test.</string>
+    <string name="wea_body_amber">AMBER-Alarm: Vermisstes Kind, blaue Limousine. Bei Sichtung 911 anrufen. Dies ist ein Test.</string>
+    <string name="wea_body_test">Dies ist ein Test des Wireless-Emergency-Alert-Systems. Es ist keine Maßnahme erforderlich.</string>
+</resources>

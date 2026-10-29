@@ -1,0 +1,33 @@
+<resources>
+    <string name="vs_hide_menu">Paslēpt izvēlnes pogu</string>
+    <string name="vs_hide_menu_sub">Paslēpt pogu „…”. Tālruņa poga „Atpakaļ” vai žests „atpakaļ” atver emulatora izvēlni, nevis sūta „Atpakaļ” uz Android. Viesa navigācijas pogas joprojām vada Android.</string>
+    <string name="vs_vibration">Viesa vibrācija</string>
+    <string name="vs_vibration_sub">Pārsūta vecāko viesa vibrāciju uz tālruni. Tiek lietots nākamajā palaišanā; katrs impulss ir ierobežots līdz 60 sekundēm.</string>
+    <string name="nav_buttons">Navigācijas pogas</string>
+    <string name="nav_order">Pogu secība (no kreisās uz labo)</string>
+    <string name="nav_earlier">Agrāk</string>
+    <string name="nav_later">Vēlāk</string>
+    <string name="nav_reset">Atiestatīt pogas</string>
+    <string name="nav_search">Meklēt</string>
+    <string name="nav_power">Barošana</string>
+    <string name="nav_go_to_recovery">Doties uz atkopšanas režīmu</string>
+    <string name="nav_volume_down">Skaļums uz leju</string>
+    <string name="nav_volume_up">Skaļums uz augšu</string>
+    <string name="nav_up">D-pad uz augšu</string>
+    <string name="nav_down">D-pad uz leju</string>
+    <string name="nav_left">D-pad pa kreisi</string>
+    <string name="nav_right">D-pad pa labi</string>
+    <string name="nav_center">D-pad centrs</string>
+    <string name="nav_trackball">Trekbumba</string>
+    <string name="nav_trackball_sub">Velciet pa apli virs navigācijas joslas, lai ritinātu; pieskarieties, lai izvēlētos.</string>
+    <string name="nav_dpad_mode">Bultiņu taustiņu režīms</string>
+    <string name="nav_dpad_sub">Izslēgts: īsti relatīvie trekbumbas notikumi viesa lietotnēm. Ieslēgts: tā vietā D-pad taustiņu nospiešanas. Abi netiek sūtīti.</string>
+    <string name="nav_sensitivity">Jutība: %1$d dp uz soli (mazāk — ātrāk)</string>
+    <string name="nav_trackball_waiting">Vēl nav savienojuma ar viesa trekbumbu</string>
+    <string name="nav_trackball_recovery">Atkopšanas režīms: izmantojiet bultiņu taustiņu režīmu</string>
+    <string name="vs_bluetooth">Saimnieka Bluetooth (eksperimentāls)</string>
+    <string name="vs_bluetooth_sub">Ļauj viesim caur tālruni meklēt Bluetooth ierīces, skatīt pārī savienoto sarakstu un sazināties ar tām: klasiskais seriālais ports (RFCOMM) un Bluetooth LE (GATT). Nepieciešama Bluetooth atļauja un pilna virtuālās mašīnas restartēšana. Tas nav raw HCI: viesis redz tālruņa adapteri caur tiltu, tāpēc austiņas (audio profili) netiek atbalstītas.</string>
+    <string name="vs_sf_tombstone">SurfaceFlinger avārijas tombstone (atkļūdošana)</string>
+    <string name="vs_sf_tombstone_sub">Ja SurfaceFlinger avarē, aparātprogrammatūra ieraksta žurnālā parastu tombstone (ar avarējušo funkciju) īsa ziņojuma vietā. Izmantojiet, sūtot kļūdas ziņojumu. Tiek lietots nākamajā pilnajā virtuālās mašīnas palaišanā.</string>
+    <string name="bluetooth_permission_denied">Bluetooth atļauja liegta: viesis tiks palaists bez saimnieka Bluetooth.</string>
+</resources>

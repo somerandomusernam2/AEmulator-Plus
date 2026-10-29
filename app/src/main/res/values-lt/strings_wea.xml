@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="m_wea">Netikras skubus perspėjimas</string>
+    <string name="m_wea_type">Perspėjimo tipas</string>
+    <string name="m_wea_sent">Skubus perspėjimas išsiųstas</string>
+    <string name="m_wea_failed">Neišsiųsta: telefono telefonija neveikia</string>
+    <string name="wea_presidential">Prezidento perspėjimas</string>
+    <string name="wea_extreme">Ypatinga grėsmė</string>
+    <string name="wea_severe">Rimta grėsmė</string>
+    <string name="wea_amber">AMBER perspėjimas</string>
+    <string name="wea_test">Privalomas mėnesinis bandymas</string>
+    <string name="wea_body_presidential">Prezidento perspėjimas: tai skubių perspėjimų sistemos bandymas. Jokių veiksmų atlikti nereikia.</string>
+    <string name="wea_body_extreme">Ypatingas perspėjimas: jūsų rajone paskelbtas perspėjimas dėl tornado. Nedelsdami slėpkitės. Tai bandymas.</string>
+    <string name="wea_body_severe">Rimtas perspėjimas: jūsų rajone iki 18 val. paskelbtas perspėjimas dėl perkūnijos. Tai bandymas.</string>
+    <string name="wea_body_amber">AMBER perspėjimas: dingo vaikas, mėlynas sedanas. Pamatę skambinkite 911. Tai bandymas.</string>
+    <string name="wea_body_test">Tai belaidžių skubių perspėjimų sistemos bandymas. Jokių veiksmų atlikti nereikia.</string>
+</resources>

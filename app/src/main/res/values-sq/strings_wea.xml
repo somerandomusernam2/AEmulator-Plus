@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="m_wea">Alarm i rremë emergjence</string>
+    <string name="m_wea_type">Lloji i alarmit</string>
+    <string name="m_wea_sent">Alarmi i emergjencës u dërgua</string>
+    <string name="m_wea_failed">Nuk u dërgua: telefonia e telefonit nuk është në punë</string>
+    <string name="wea_presidential">Alarm presidencial</string>
+    <string name="wea_extreme">Kërcënim ekstrem</string>
+    <string name="wea_severe">Kërcënim i rëndë</string>
+    <string name="wea_amber">Alarm AMBER</string>
+    <string name="wea_test">Testi i detyrueshëm mujor</string>
+    <string name="wea_body_presidential">Alarm presidencial: Ky është një test i sistemit të alarmit të emergjencës. Nuk nevojitet asnjë veprim.</string>
+    <string name="wea_body_extreme">Alarm ekstrem: Paralajmërim për tornado në zonën tuaj. Kërkoni strehë menjëherë. Ky është një test.</string>
+    <string name="wea_body_severe">Alarm i rëndë: Paralajmërim për stuhi në zonën tuaj deri në orën 18:00. Ky është një test.</string>
+    <string name="wea_body_amber">Alarm AMBER: Fëmijë i zhdukur, sedan blu. Telefononi 911 nëse e shihni. Ky është një test.</string>
+    <string name="wea_body_test">Ky është një test i sistemit Wireless Emergency Alert. Nuk nevojitet asnjë veprim.</string>
+</resources>

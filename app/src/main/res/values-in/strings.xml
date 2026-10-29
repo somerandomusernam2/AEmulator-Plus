@@ -465,4 +465,22 @@
     <string name="vs_nav_compact_sub">Tombol lebih kecil, layar lebih lega.</string>
     <string name="nav_dpad">Trackball</string>
     <string name="m_reset_menu_pos">Setel ulang tombol menu</string>
+    <string name="boot_minimize">Kecilkan layar boot (ketuk pil untuk menampilkannya lagi)</string>
+    <string name="vs_resolution_custom">Kustom</string>
+    <string name="as_new_home">Layar beranda baru</string>
+    <string name="as_new_home_sub">Pustaka berbentuk kisi dengan bilah bawah (gaya 0.0.0.3). Matikan untuk daftar klasik. Berlaku setelah aplikasi dimulai ulang.</string>
+    <string name="vs_thermal">Penerusan suhu</string>
+    <string name="vs_thermal_sub">Mati: thermal_zone17 tamu selalu terbaca 30 °C, sehingga firmware yang mengunci layar saat panas (overlay panas berlebih Xiaomi) tetap berfungsi. Hidup: sensor ponsel sendiri yang dibaca. Nilai yang diatur dari menu mesin selalu diutamakan. Berlaku pada mulai berikutnya.</string>
+    <string name="thermal_menu">Sensor suhu</string>
+    <string name="thermal_title">Sensor suhu</string>
+    <string name="thermal_mode">Mode: %1$s</string>
+    <string name="thermal_mode_cool">tetap 30 °C</string>
+    <string name="thermal_mode_host">sensor ponsel</string>
+    <string name="thermal_guest_now">Tamu membaca: %1$s</string>
+    <string name="thermal_host_now">Ponsel membaca: %1$s</string>
+    <string name="thermal_value">Suhu (°C)</string>
+    <string name="thermal_hint">Berlaku seketika, juga saat mesin berjalan.</string>
+    <string name="thermal_invalid">Masukkan nilai dari -40 hingga 150.</string>
+    <string name="thermal_apply">Terapkan</string>
+    <string name="thermal_reset">Gunakan default</string>
 </resources>

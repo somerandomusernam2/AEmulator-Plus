@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="vs_cdma">CDMA モデム</string>
+    <string name="vs_cdma_sub">CDMA モデムをエミュレートします：1xRTT / EV-DO の登録、MEID、CDMA 契約、CDMA テキストメッセージ。次回の完全起動時に適用されます。</string>
+    <string name="vs_cdma_fw_yes">このファームウェアは LTE on CDMA（telephony.lteOnCdmaDevice=1）です。デフォルトでオン。</string>
+    <string name="vs_cdma_fw_no">このファームウェアは LTE on CDMA ではありません。デフォルトでオフ。</string>
+</resources>

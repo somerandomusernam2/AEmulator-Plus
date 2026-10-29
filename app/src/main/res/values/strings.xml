@@ -472,6 +472,8 @@
     <string name="as_led_sub">Show the guest phone’s LED above its screen</string>
     <string name="as_new_home">New home screen</string>
     <string name="as_new_home_sub">Grid library with a bottom bar (the 0.0.0.3 style). Turn off for the classic list. Takes effect after the app restarts.</string>
+    <string name="vs_no_watchdog">Disable system watchdog (Android 14+)</string>
+    <string name="vs_no_watchdog_sub">For a boot that is slower than Android\'s 60 s watchdog limit, which kills system_server in a loop. Patches the firmware\'s services.jar so the watchdog thread ends at once; a real system deadlock is then no longer recovered by a restart. The jar\'s precompiled code is ignored, which can make the first boot slower. Turning it off restores the stock jar. Takes effect on the next full boot.</string>
     <string name="vs_thermal">Thermal passthrough</string>
     <string name="vs_thermal_sub">Off: the guest\'s thermal_zone17 always reads 30 °C, so firmware that blocks the screen when hot (Xiaomi overheat overlay) keeps working. On: it reads the phone\'s own sensor. A value set from the machine\'s menu always wins. Takes effect on the next start.</string>
     <string name="thermal_menu">Thermal sensor</string>

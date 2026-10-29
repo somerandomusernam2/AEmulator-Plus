@@ -28,4 +28,6 @@
     <string name="vs_bluetooth">Bluetooth hostitele (experimentální)</string>
     <string name="vs_bluetooth_sub">Umožní hostovanému systému vyhledávat zařízení Bluetooth, zobrazovat spárovaná a komunikovat s nimi přes telefon: klasický sériový port (RFCOMM) a Bluetooth LE (GATT). Vyžaduje oprávnění Bluetooth a úplný restart VM. Nejde o surové HCI: hostovaný systém vidí adaptér telefonu přes most, takže sluchátka (zvukové profily) nejsou podporována.</string>
     <string name="bluetooth_permission_denied">Oprávnění Bluetooth zamítnuto: hostovaný systém se spustí bez Bluetooth hostitele.</string>
+    <string name="vs_sf_tombstone">Tombstone pádu SurfaceFlingeru (ladění)</string>
+    <string name="vs_sf_tombstone_sub">Když SurfaceFlinger spadne, firmware zapíše do protokolu běžný tombstone (s funkcí, která spadla) místo krátké zprávy. Použijte při odesílání hlášení chyby. Použije se při příštím úplném spuštění VM.</string>
 </resources>

@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="vs_cdma">CDMA 數據機</string>
+    <string name="vs_cdma_sub">模擬 CDMA 數據機：1xRTT / EV-DO 註冊、MEID、CDMA 訂閱與 CDMA 簡訊。下次完整啟動時生效。</string>
+    <string name="vs_cdma_fw_yes">此韌體為 LTE on CDMA（telephony.lteOnCdmaDevice=1）：預設開啟。</string>
+    <string name="vs_cdma_fw_no">此韌體不是 LTE on CDMA：預設關閉。</string>
+</resources>

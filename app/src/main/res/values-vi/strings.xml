@@ -465,4 +465,22 @@
     <string name="vs_nav_compact_sub">Nút nhỏ hơn, màn hình rộng hơn.</string>
     <string name="nav_dpad">Trackball</string>
     <string name="m_reset_menu_pos">Đặt lại nút menu</string>
+    <string name="boot_minimize">Thu nhỏ màn hình khởi động (chạm vào viên thuốc để hiện lại)</string>
+    <string name="vs_resolution_custom">Tùy chỉnh</string>
+    <string name="as_new_home">Màn hình chính mới</string>
+    <string name="as_new_home_sub">Thư viện dạng lưới với thanh dưới (kiểu 0.0.0.3). Tắt để dùng danh sách cổ điển. Có hiệu lực sau khi khởi động lại ứng dụng.</string>
+    <string name="vs_thermal">Chuyển tiếp nhiệt độ</string>
+    <string name="vs_thermal_sub">Tắt: thermal_zone17 của máy khách luôn đọc 30 °C, nhờ đó firmware khóa màn hình khi nóng (lớp phủ báo quá nhiệt của Xiaomi) vẫn hoạt động. Bật: đọc cảm biến của chính điện thoại. Giá trị đặt từ menu của máy luôn được ưu tiên. Có hiệu lực ở lần khởi động tiếp theo.</string>
+    <string name="thermal_menu">Cảm biến nhiệt độ</string>
+    <string name="thermal_title">Cảm biến nhiệt độ</string>
+    <string name="thermal_mode">Chế độ: %1$s</string>
+    <string name="thermal_mode_cool">cố định 30 °C</string>
+    <string name="thermal_mode_host">cảm biến của điện thoại</string>
+    <string name="thermal_guest_now">Máy khách đọc: %1$s</string>
+    <string name="thermal_host_now">Điện thoại đọc: %1$s</string>
+    <string name="thermal_value">Nhiệt độ (°C)</string>
+    <string name="thermal_hint">Có hiệu lực ngay, kể cả khi máy đang chạy.</string>
+    <string name="thermal_invalid">Nhập giá trị từ -40 đến 150.</string>
+    <string name="thermal_apply">Áp dụng</string>
+    <string name="thermal_reset">Dùng mặc định</string>
 </resources>

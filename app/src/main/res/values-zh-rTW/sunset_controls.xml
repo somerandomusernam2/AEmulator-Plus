@@ -28,4 +28,6 @@
     <string name="vs_bluetooth">主機藍牙（實驗性）</string>
     <string name="vs_bluetooth_sub">讓客體透過手機掃描藍牙裝置、列出配對裝置並與其通訊：傳統序列埠（RFCOMM）與低功耗藍牙（GATT）。需要藍牙權限並完整重新啟動虛擬機器。這不是原始 HCI：客體是透過橋接看到手機的藍牙介面卡，因此不支援耳機（音訊設定檔）。</string>
     <string name="bluetooth_permission_denied">藍牙權限遭拒：客體將在沒有主機藍牙的情況下開機。</string>
+    <string name="vs_sf_tombstone">SurfaceFlinger 當機墓碑（除錯）</string>
+    <string name="vs_sf_tombstone_sub">SurfaceFlinger 當機時，讓韌體將一般墓碑（含當機的函式）寫入記錄，而非簡短報告。提交錯誤報告時請使用。下次完整啟動虛擬機器時生效。</string>
 </resources>

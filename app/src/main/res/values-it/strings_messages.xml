@@ -196,8 +196,6 @@
     <string name="vmfail_system_server_oat_missing">system_server non può avviarsi: il codice precompilato del framework (system/framework/oat) manca da questo contenitore — importa di nuovo il firmware</string>
     <string name="warn_no_build_prop">Nessun system/build.prop: la versione di Android è stata dedotta dall’albero di sistema.</string>
     <string name="warn_no_boot_img">Nessun boot.img nel firmware: il piano di avvio e BOOTCLASSPATH sono stati ipotizzati.</string>
-    <string name="warn_no_healthd">Nessun healthd nel piano di avvio (nessun /sbin/healthd; ramdisk mancante nell’importazione?): system_server andrà in crash in BatteryService.</string>
-    <string name="warn_arm64">Firmware a 64 bit: è supportato solo ARM a 32 bit.</string>
     <string name="warn_not_arm">Il firmware non è ARM (%1$s) e non verrà eseguito.</string>
     <string name="warn_experimental">Android %1$s: il supporto è sperimentale (ART, SELinux).</string>
     <string name="import_default_name">firmware</string>
@@ -226,4 +224,5 @@
     <string name="update_err_wrong_variant">L’APK di aggiornamento non corrisponde a questa variante dell’app</string>
     <string name="update_err_wrong_package">L’APK scaricato ha il pacchetto applicazione sbagliato</string>
     <string name="catalog_err_too_many_lines">Il catalogo supera le 10000 righe</string>
+    <string name="imp_iso_no_system">Nessun sistema Android trovato nell\'immagine ISO (previsto system.sfs o system.img)</string>
 </resources>

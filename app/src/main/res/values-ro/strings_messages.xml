@@ -196,8 +196,6 @@
     <string name="vmfail_system_server_oat_missing">system_server nu poate porni: codul precompilat al framework-ului (system/framework/oat) lipsește din acest container — importă din nou firmware-ul</string>
     <string name="warn_no_build_prop">Fără system/build.prop: versiunea Android a fost dedusă din arborele sistemului.</string>
     <string name="warn_no_boot_img">Fără boot.img în firmware: planul de boot și BOOTCLASSPATH au fost presupuse.</string>
-    <string name="warn_no_healthd">Fără healthd în planul de boot (fără /sbin/healthd; lipsește ramdisk-ul din import?): system_server se va opri în BatteryService.</string>
-    <string name="warn_arm64">Firmware pe 64 de biți: este acceptat doar ARM pe 32 de biți.</string>
     <string name="warn_not_arm">Firmware-ul nu este ARM (%1$s) și nu va rula.</string>
     <string name="warn_experimental">Android %1$s: suportul este experimental (ART, SELinux).</string>
     <string name="import_default_name">firmware</string>
@@ -226,4 +224,5 @@
     <string name="update_err_wrong_variant">APK-ul de actualizare nu corespunde acestei variante a aplicației</string>
     <string name="update_err_wrong_package">APK-ul descărcat are pachetul de aplicație greșit</string>
     <string name="catalog_err_too_many_lines">Catalogul depășește 10000 de linii</string>
+    <string name="imp_iso_no_system">Nu s-a găsit niciun sistem Android în imaginea ISO (se aștepta system.sfs sau system.img)</string>
 </resources>

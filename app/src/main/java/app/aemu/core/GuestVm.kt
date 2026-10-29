@@ -64,6 +64,8 @@ class GuestVm(val ctx: Context, val img: GuestImage, val lowPowerBoot: Boolean =
     @Volatile private var everBooted = false
     @Volatile private var zygoteRestarts = 0
     @Volatile private var imeRetried = false
+    /** boots restarted after system_server's GC aborted on a corrupt heap (see the zygote exit handler) */
+    @Volatile private var heapAbortRetries = 0
     // the boot animation has gone: the lock screen or the home screen is up (7.0+ reports boot_completed only after the user unlocks)
     @Volatile var screenUpAt = 0L
     /** Times of the zygote crashes: a system that keeps dying is stopped instead of being restarted forever. */
@@ -170,6 +172,108 @@ class GuestVm(val ctx: Context, val img: GuestImage, val lowPowerBoot: Boolean =
     private val lazyStarts = HashMap<String, Int>()
     private val pgids = LinkedHashSet<Int>()
     @Volatile private var stopping = false
+
+    /**
+     * Android 17's ZygoteProcess also talks to a "zygote_compat" socket (the page-size compatibility zygote). Nothing
+     * here runs that service, so its socket never exists and system_server's connect at boot completion fails with
+     * ENOENT ("Failed to inform zygote of boot_completed"): system_server kills itself, zygote exits with 137. This
+     * stand-in listens on that socket and speaks enough of the zygote protocol for that call to finish.
+     *
+     * Swallowing the bytes is not enough: ZygoteState.connect() always sends "--query-abi-list" first and blocks in
+     * readInt() for the answer, while holding ZygoteProcess.mLock and before it gets to "--boot-completed". With no
+     * answer, system_server's boot-completion thread hung there for ever, so AMS.finishBooting never went on and
+     * sys.boot_completed was never set (the guest stayed in BOOTING with the home screen already up).
+     * Commands are "<n>\n" followed by n argument lines; "--boot-completed" is answered with an int status 0 as well (Android 17 reads it), the others answer as the
+     * real zygote does (a length-prefixed ABI list, or an int status 0). A command this stand-in cannot carry out
+     * (it cannot fork) closes the connection, so the caller gets an error instead of waiting for ever.
+     */
+    private val zygoteCompat by lazy {
+        UnixServer(paths.socket("zygote_compat"), "zygote_compat") { c ->
+            val ins = c.inputStream
+            val out = c.outputStream
+            fun line(): String? {
+                val sb = StringBuilder()
+                while (true) {
+                    val b = ins.read()
+                    if (b < 0) return if (sb.isEmpty()) null else sb.toString()
+                    if (b == '\n'.code) return sb.toString()
+                    sb.append(b.toChar())
+                }
+            }
+            fun writeInt(v: Int) {
+                out.write(byteArrayOf((v ushr 24).toByte(), (v ushr 16).toByte(), (v ushr 8).toByte(), v.toByte()))
+                out.flush()
+            }
+            while (!stopping) {
+                val n = line()?.trim()?.toIntOrNull() ?: break
+                if (n < 1 || n > 1024) break
+                val args = ArrayList<String>(n)
+                for (i in 0 until n) args += line() ?: return@UnixServer
+                val cmd = args[0].trim()
+                when {
+                    cmd == "--query-abi-list" -> {
+                        val abis = compatAbiList()
+                        val b = abis.toByteArray(Charsets.US_ASCII)
+                        writeInt(b.size)
+                        out.write(b)
+                        out.flush()
+                        log("zygote_compat: ABI list asked, answered \"$abis\"")
+                    }
+                    cmd == "--boot-completed" -> {
+                        log("zygote_compat: boot-completed received")
+                        // Android 17's ZygoteProcess waits for an int status after this command (system_server's android.display
+                        // thread sat in recvmsg on this socket for ever, inside AMS.finishBooting, so sys.boot_completed was never set)
+                        writeInt(0)
+                        forceBootFlagIfStuck()
+                    }
+                    cmd == "--set-api-denylist-exemptions" ||
+                        cmd.startsWith("--hidden-api-log-sampling-rate=") ||
+                        cmd.startsWith("--hidden-api-statslog-sampling-rate=") -> writeInt(0)
+                    else -> {
+                        log("zygote_compat: cannot carry out \"$cmd\" (no fork here), closing the connection")
+                        return@UnixServer
+                    }
+                }
+            }
+        }
+    }
+
+    /**
+     * Stand-in for tombstoned's java-trace socket. ART's SignalCatcher (SIGQUIT) and the watchdog's ANR dump ask tombstoned
+     * for a file to write the Java thread stacks into; the guest tree runs no tombstoned, so every dump failed with
+     * "failed to connect to tombstoned" and the ANR files held thread wait channels only: no way to see what system_server
+     * is blocked on. Protocol (debuggerd/protocol.h): the client sends a kDumpRequest packet over a SEQPACKET socket and
+     * receives a packet of the same size with type kPerformDump (2) and one fd to write the dump into; it closes the
+     * connection (after a kCompletedDump packet) when done. The dumps land in data/anr/trace_<n>, which the diag export picks up.
+     */
+    private val tombstonedTrace by lazy {
+        val seq = java.util.concurrent.atomic.AtomicInteger(0)
+        UnixServer(paths.socket("tombstoned_java_trace"), "tombstoned", android.net.LocalSocket.SOCKET_SEQPACKET) { c ->
+            val buf = ByteArray(64)
+            val n = c.inputStream.read(buf)
+            if (n <= 0) return@UnixServer
+            val dir = File(paths.root, "data/anr").apply { mkdirs() }
+            val f = File(dir, "trace_" + String.format("%02d", seq.getAndIncrement() % 100))
+            java.io.RandomAccessFile(f, "rw").use { raf ->
+                raf.setLength(0)
+                runCatching { android.system.Os.chmod(f.absolutePath, "666".toInt(8)) }
+                buf[0] = 2   // kPerformDump
+                c.setFileDescriptorsForSend(arrayOf(raf.fd))
+                c.outputStream.write(buf, 0, n)
+                log("tombstoned: java trace requested, writing to data/anr/${f.name}")
+                val tmp = ByteArray(64)
+                while (c.inputStream.read(tmp) > 0) { /* kCompletedDump, then EOF */ }
+            }
+        }
+    }
+
+    /** What the compat zygote reports as its ABIs: all of the guest's, so any ABI the caller matches against is there. */
+    private fun compatAbiList(): String {
+        fun prop(k: String) = props.get(k)?.trim()?.takeIf { it.isNotEmpty() }
+        return prop("ro.product.cpu.abilist")
+            ?: listOfNotNull(prop("ro.product.cpu.abilist64"), prop("ro.product.cpu.abilist32")).joinToString(",").ifEmpty { null }
+            ?: "arm64-v8a,armeabi-v7a,armeabi"
+    }
 
     // ------------------------------------------------------------------ загрузка
 
@@ -737,6 +841,19 @@ class GuestVm(val ctx: Context, val img: GuestImage, val lowPowerBoot: Boolean =
                     log("dex2oat: wrapper splits the combined dex2oat-flags argument (Samsung installd)")
             }
         }
+        // Modified for AEmulator Plus (2026-10-29): 14+ firmware whose boot.oat was built for the userfaultfd collector (oat
+        // header "concurrent-copying=false") is refused by a runtime that runs CC, as this guest has no userfaultfd:
+        // "ValidateOatFile found read barrier state mismatch (oat file: false, runtime: true)". The proper fix is a boot
+        // image built for CC by the firmware's own dex2oat (CcBootImage), once, before init starts (after derive_classpath
+        // below). Only when that fails, or was tried in vain before, the older route is used: libart is patched to accept
+        // the image (LibArtReadBarrierPatch) and the runtime stays interpreter-only.
+        val ccRebuild = CcBootImage.pending(paths.root, img.api)
+        if (ccRebuild) log("art: boot image has no read barrier: it will be rebuilt for CC before the guest starts")
+        else if (CcBootImage.needed(paths.root, img.api)) {
+            log("art: a boot image rebuild failed before for this firmware; using the libart patch")
+            applyNoReadBarrierFallback({ overrides[it] }, { k, v -> overrides[k] = v })
+        }
+
         // Android L preview (API 20, build LPW39): ART only. Its libart has no -Xrelocate/-Xnorelocate and there is no patchoat,
         // so the 5.0 settings above must NOT be applied (an unknown runtime option aborts zygote at once).
         // The firmware has no pre-built boot image, so zygote runs dex2oat on first boot. Under qemu that dex2oat dies in
@@ -912,7 +1029,7 @@ class GuestVm(val ctx: Context, val img: GuestImage, val lowPowerBoot: Boolean =
         watchFb0()
         bootAt = System.currentTimeMillis()
         bootDoneAt = 0
-        everBooted = false; zygoteRestarts = 0; imeRetried = false
+        everBooted = false; zygoteRestarts = 0; imeRetried = false; heapAbortRetries = 0
         bootAnimCheckRunning.set(false); bootAnimFixes = 0; peripheralClaimReleased = false
         touchWizMediaStarted = false
         noteBoot.interrupted()
@@ -952,6 +1069,16 @@ class GuestVm(val ctx: Context, val img: GuestImage, val lowPowerBoot: Boolean =
             val (code, msg) = r.run(listOf("/apex/com.android.sdkext/bin/derive_classpath", "/data/system/environ/classpath"), 30_000)
             if (code != 0 || !out.isFile) log("derive_classpath: exit $code ${msg.trim().takeLast(300)}")
             else r.derivedExports = out.readLines().mapNotNull { l -> l.trim().split(' ', limit = 3).takeIf { it.size == 3 && it[0] == "export" }?.let { it[1] to it[2] } }.toMap()
+        }
+
+        // CC boot image (see CcBootImage): needs the class paths derive_classpath just wrote
+        if (ccRebuild) {
+            val res = runCatching { CcBootImage.rebuild(paths.root, r, r.derivedExports, { props.get(it) }, ::log) }
+                .getOrElse { CcBootImage.Result(false, it.message ?: it.toString()) }
+            if (!res.ok) {
+                log("art: falling back to the libart patch (${res.note})")
+                applyNoReadBarrierFallback({ props.get(it) }, { k, v -> props.put(k, v) })
+            }
         }
 
         // 5. службы гостя по плану из init.rc прошивки
@@ -1155,6 +1282,43 @@ class GuestVm(val ctx: Context, val img: GuestImage, val lowPowerBoot: Boolean =
     @Volatile private var runnerRef: GuestRunner? = null
     val guestRunner: GuestRunner get() = runnerRef ?: runner
 
+    /**
+     * The libart patch route for a 14+ firmware whose boot image has no read barrier (what CcBootImage replaces):
+     * libart accepts the image, the runtime stays interpreter-only (-Xint, no JIT) and the heap collects less often.
+     * [get]/[put] are the property overrides before the property area exists, or the area itself after it.
+     */
+    private fun applyNoReadBarrierFallback(get: (String) -> String?, put: (String, String) -> Unit) {
+        val n = LibArtReadBarrierPatch.install(paths.root)
+        if (n > 0) log("art: boot image is built without a read barrier; libart accepts it now ($n library patched)")
+        if (!LibArtReadBarrierPatch.isInstalled(paths.root)) {
+            log("art: boot image is built without a read barrier and libart has no known check to switch off")
+            return
+        }
+        // "dalvik.vm.execution-mode" is a Dalvik property: ART's zygote turns it into "-Xint:fast", which does not make
+        // the runtime interpreter-only (the log of a failed boot still shows -Xusejit:true and the JIT's "Cache flush
+        // failed triggering code allocation failure"). The boot image's compiled code and the JIT's code have no read
+        // barriers, and under CC they read stale class pointers: system_server dies in Watchdog /
+        // PackageManagerService with "X cannot be cast to X", and zygote exits with it. ART's own switches: no JIT and
+        // -Xint, which also stops the runtime from entering AOT code.
+        put("dalvik.vm.execution-mode", "int:fast")
+        put("dalvik.vm.usejit", "false")
+        put("dalvik.vm.extra-opts", LibArtReadBarrierPatch.withInterpretOnly(get("dalvik.vm.extra-opts")))
+        log("art: no read barrier in the boot image: runtime kept interpreter-only (-Xint, no JIT)")
+        // Even interpreter-only, the boot image's own compiled JNI stubs still run without read barriers, so every
+        // concurrent-copying GC is a chance for a stale reference to survive the flip; system_server then aborts in the
+        // collector ("GC tried to mark invalid reference 0x0", holder klass=0x0) and zygote follows with 137. The stock
+        // low-RAM heap (Xms8m, 2m..8m free after a GC) collects every few MB, ~15 times during one boot. Fewer, bigger
+        // collections make that rare (it does not remove the cause). Values the user's firmware sets itself are kept
+        // only where they are already larger.
+        fun mb(v: String?) = v?.trim()?.removeSuffix("m")?.toIntOrNull() ?: 0
+        val growth = mb(get("dalvik.vm.heapgrowthlimit")).takeIf { it > 0 } ?: 192
+        put("dalvik.vm.heapstartsize", "${maxOf(mb(get("dalvik.vm.heapstartsize")), 32).coerceAtMost(growth)}m")
+        put("dalvik.vm.heapminfree", "${maxOf(mb(get("dalvik.vm.heapminfree")), 8)}m")
+        put("dalvik.vm.heapmaxfree", "${maxOf(mb(get("dalvik.vm.heapmaxfree")), 32)}m")
+        log("art: fewer GCs while the boot image has no read barrier (heapstartsize ${get("dalvik.vm.heapstartsize")}, " +
+            "minfree ${get("dalvik.vm.heapminfree")}, maxfree ${get("dalvik.vm.heapmaxfree")})")
+    }
+
     private fun startBinder() {
         val sock = paths.binderSock.absolutePath
         when (engine) {
@@ -1357,6 +1521,12 @@ class GuestVm(val ctx: Context, val img: GuestImage, val lowPowerBoot: Boolean =
             log("· ${svc.name}: TEE KeyMint, skipped (keystore2 uses its software KeyMint)")
             return
         }
+        // GNSS HAL (android.hardware.gnss-aidl-service-qti, gnss_service): the guest has no GNSS hardware and the service
+        // dies at once on its vendor libraries; its manifest entry is dropped too (TreeFixer.dropGnssHal)
+        if (engine == Engine.N64 && svc.argv.first().substringAfterLast('/').startsWith("android.hardware.gnss")) {
+            log("· ${svc.name}: GNSS HAL, skipped")
+            return
+        }
         if (engine == Engine.N64 && ((svc.name == "zygote_secondary" && !n64Has32) || svc.argv.first().substringAfterLast('/') in N64_SKIP)) return
         if (engine == Engine.N64 && !paths.nativeBin("libqemu_arm.so").canExecute() && !runsNatively(File(paths.root, svc.argv.first().removePrefix("/")))) {
             log("· ${svc.name}: 32-bit program, skipped by the native arm64 engine")
@@ -1420,10 +1590,19 @@ class GuestVm(val ctx: Context, val img: GuestImage, val lowPowerBoot: Boolean =
             runCatching { log.appendText("\n=== $name ${stamp()} ===\n") }
             pb.redirectInput(File("/dev/null")).redirectOutput(ProcessBuilder.Redirect.appendTo(log))
         }
+        // debugging: an empty file AEmulator/trace-native on the phone's shared storage makes the native runner trace
+        // zygote (and system_server, which inherits it) into dev/.aemu-trace.log of the guest root. The runner reads the
+        // marker only when a process starts, so it is there for this one start and removed at once: the other services stay untraced.
+        val traceMarker = File(paths.root, "dev/.aemu-trace")
+        val traceZygote = name == "zygote" && engine == Engine.N64 &&
+            runCatching { File(android.os.Environment.getExternalStorageDirectory(), "AEmulator/trace-native").exists() }.getOrDefault(false)
+        if (traceZygote) runCatching { File(paths.root, "dev/.aemu-trace.log").delete(); traceMarker.createNewFile() }
         val p = pb.start()
+        if (traceZygote) { runCatching { Thread.sleep(1500) }; runCatching { traceMarker.delete() }; log("native syscall trace of zygote on: dev/.aemu-trace.log") }
         synchronized(procs) { procs[name] = p }
         pidOf(p)?.let { pgids.add(it) }
         log("· $name started")
+        if (name == "zygote") { watchSocketDeletes(); if (img.api >= 37) zygoteCompat.start(::log); if (img.api >= 29) tombstonedTrace.start(::log) }
         // init publishes every service's state; the framework waits on it (SystemService.waitForState: the WebView
         // zygote, the boot animation)
         props.put("init.svc.$name", "running")
@@ -1443,6 +1622,33 @@ class GuestVm(val ctx: Context, val img: GuestImage, val lowPowerBoot: Boolean =
             // a restarted service is already running again under this name
             synchronized(procs) { if (procs[name].let { it == null || it === p }) props.put("init.svc.$name", "stopped") }
         }, "log-$name").apply { isDaemon = true; start() }
+    }
+
+    @Volatile private var socketDirObserver: android.os.FileObserver? = null
+
+    /**
+     * Logs every zygote socket file that leaves the guest's dev/socket while the system runs. The sockets are bound by
+     * the guest runner when the service starts; if one is unlinked later, system_server's connect fails with ENOENT
+     * (boot_completed, new apps) and the system is killed. The log line carries the time, to be matched with the guest log.
+     */
+    private fun watchSocketDeletes() {
+        runCatching {
+            socketDirObserver?.stopWatching()
+            val dir = File(paths.root, "dev/socket")
+            if (!dir.isDirectory) return
+            val mask = android.os.FileObserver.DELETE or android.os.FileObserver.MOVED_FROM
+            @Suppress("DEPRECATION")
+            val o = object : android.os.FileObserver(dir.path, mask) {
+                override fun onEvent(event: Int, path: String?) {
+                    if (path == null || stopping) return
+                    // (the guest runner unlinks a stale file just before it binds the socket at service start: that one is normal)
+                    if (path.startsWith("zygote") || path.startsWith("usap_pool"))
+                        log("dev/socket: removed $path")
+                }
+            }
+            o.startWatching()
+            socketDirObserver = o
+        }
     }
 
     private val binderProtocolRetried = java.util.concurrent.atomic.AtomicBoolean(false)
@@ -1633,6 +1839,29 @@ class GuestVm(val ctx: Context, val img: GuestImage, val lowPowerBoot: Boolean =
         if (k == "service.bootanim.exit" && v == "1" && screenUpAt == 0L) screenUpAt = System.currentTimeMillis()
         if ((k == "sys.boot_completed" || k == "dev.bootcomplete") && v == "1" && bootDoneAt == 0L)
             completeBoot("guest reported boot completion")
+    }
+
+    /**
+     * system_server sends "--boot-completed" to the zygotes from AMS.finishBooting, which sets sys.boot_completed only
+     * afterwards. When something in finishBooting stalls (the android.display thread blocks for 15 s in the logs), the
+     * property is never written and the guest stays in BOOTING for ever. If the flag has not arrived a while after the
+     * zygotes were told boot was over, it is applied here, the way the guest would have.
+     */
+    private fun forceBootFlagIfStuck() {
+        val gen = bootAt
+        Thread({
+            val deadline = System.currentTimeMillis() + 20_000
+            while (System.currentTimeMillis() < deadline) {
+                if (stopping || bootDoneAt != 0L || bootAt != gen) return@Thread
+                Thread.sleep(500)
+            }
+            if (stopping || bootDoneAt != 0L || bootAt != gen) return@Thread
+            if (props.get("sys.boot_completed") == "1") { completeBoot("sys.boot_completed was already set"); return@Thread }
+            log("boot flag: sys.boot_completed not set 20 s after the zygotes got --boot-completed (finishBooting stalled), applying it from the host")
+            props.put("sys.boot_completed", "1")
+            props.put("dev.bootcomplete", "1")
+            completeBoot("boot flag applied by the host")
+        }, "boot-flag-fallback").apply { isDaemon = true; start() }
     }
 
     /** Boot is over: state RUNNING (touch, adb, the library status and the rest wait for it), afterBoot() once. */
@@ -2030,6 +2259,17 @@ class GuestVm(val ctx: Context, val img: GuestImage, val lowPowerBoot: Boolean =
                     // a clean exit (code 0) is the normal end of the animation; anything else is a crash or a kill
                     if (name == "bootanim" && code != 0) checkDeadBootAnimLayer(code)
                     if (name == "zygote" || name == "zygote_secondary") {
+                        // which init sockets are still on disk when a zygote dies (system_server's connect to one of them
+                        // can fail with ENOENT at boot completion): name, type, size, last change
+                        runCatching {
+                            val d = File(paths.root, "dev/socket")
+                            val rows = d.listFiles()?.sortedBy { it.name }?.joinToString("; ") { f ->
+                                val st = runCatching { android.system.Os.lstat(f.path) }.getOrNull()
+                                val kind = if (st == null) "?" else when (st.st_mode and 0xF000) { 0xC000 -> "sock"; 0x8000 -> "file"; 0xA000 -> "link"; else -> "other" }
+                                "${f.name}[$kind ${java.text.SimpleDateFormat("HH:mm:ss", java.util.Locale.US).format(java.util.Date(f.lastModified()))}]"
+                            }
+                            log("dev/socket when $name exited (code $code): ${rows ?: "directory missing"}")
+                        }
                         // 2.x with "Phone GPU" off: the firmware's software renderer (pixelflinger, libGLES_android.so) crashes
                         // under qemu inside SurfaceFlinger, which lives in system_server, so zygote dies with 137 on every boot
                         // and the loop never ends. The GL bridge is the working path: switch it on and restart the VM once.
@@ -2049,11 +2289,22 @@ class GuestVm(val ctx: Context, val img: GuestImage, val lowPowerBoot: Boolean =
                                 continue
                             }
                         }
+                        // system_server's GC found a null class pointer and aborted (the boot image has no read barrier but the runtime
+                        // runs CC, see BootImageGc). Which GC trips on it is a matter of timing, so a second boot usually gets further.
+                        val heapAbort = code == 137 && guestLogHas("GC tried to mark invalid reference", 3_000_000L)
+                        if (state != State.FAILED && !everBooted && heapAbort && heapAbortRetries < 2) {
+                            heapAbortRetries++
+                            log("✖ system_server aborted: the garbage collector met a corrupt heap (boot image without read barrier); starting the system again ($heapAbortRetries/2)")
+                            restartZygote()
+                            continue
+                        }
                         if (state != State.FAILED && bootDoneAt == 0L && !(everBooted && zygoteRestarts < 6)) {
                             failure = if (name != "zygote") Msg("$name exited (code $code)" + if (code == 137) " — killed: the phone ran out of memory, or system_server died and took zygote with it (see the guest log)" else "")
                                 else if (code == 137) Msg("zygote exited (code $code) — SIGKILL (cause not established)", R.string.vmfail_zygote_exited_sigkill, code)
                                 else Msg("zygote exited (code $code)", R.string.vmfail_zygote_exited, code)
                             // zygote kills itself with SIGKILL when system_server dies, so 137 is only the end of the chain
+                            if (heapAbort)
+                                failure = Msg("system_server aborted: its garbage collector found a corrupt heap (GC tried to mark invalid reference). This firmware's boot image was built without a read barrier but the guest runs the concurrent-copying collector; zygote exited with 137 as a result. See the first \"Runtime aborting\" in the guest log")
                             if (code == 137 && guestLogHas("Failure starting system services"))
                                 failure = Msg("system_server failed to start its services (zygote exited with 137 as a result); see the first BOOT FAILURE in the guest log", R.string.vmfail_system_server_services)
                             if (code == 137 && guestLogHas("IKeystoreService"))
@@ -2069,6 +2320,11 @@ class GuestVm(val ctx: Context, val img: GuestImage, val lowPowerBoot: Boolean =
                                 failure = Msg("system_server cannot start: healthd did not register the \"batteryproperties\" service (BatteryService got null); see the healthd log in the VM log folder", R.string.vmfail_system_server_healthd)
                             if (code == 137 && guestLogHas("No original dex files found"))
                                 failure = Msg("system_server cannot start: the precompiled code of the framework (system/framework/oat) is missing from this container — import the firmware again", R.string.vmfail_system_server_oat_missing)
+                            // system_server's last act of the boot is to tell both zygotes "--boot-completed"; when the connect to a
+                            // zygote socket fails (ENOENT: the socket file is gone from the guest's dev/socket) it throws
+                            // "Failed to inform zygote of boot_completed" on the android.display thread, dies, and zygote follows with 137
+                            if (code == 137 && guestLogHas("Failed to inform zygote of boot_completed"))
+                                failure = Msg("system_server died at the end of the boot: its connect to a zygote socket failed with ENOENT (\"Failed to inform zygote of boot_completed\") although the socket files exist, so the boot finished but the system was killed; zygote exited with 137 as a result. Run with strace on to see which path the connect used")
                             log("✖ $failure"); setState(State.FAILED)
                         } else if (plannedRestart) {
                             plannedRestart = false
@@ -2358,11 +2614,11 @@ class GuestVm(val ctx: Context, val img: GuestImage, val lowPowerBoot: Boolean =
         }
     }
 
-    private fun guestLogHas(text: String): Boolean = runCatching {
+    private fun guestLogHas(text: String, window: Long = 400_000L): Boolean = runCatching {
         val f = File(paths.root, "dev/log/main")
         val len = f.length()
         java.io.RandomAccessFile(f, "r").use { r ->
-            val n = minOf(len, 400_000L).toInt(); r.seek(len - n)
+            val n = minOf(len, window).toInt(); r.seek(len - n)
             val b = ByteArray(n); r.readFully(b)
             String(b, Charsets.ISO_8859_1).contains(text)
         }
@@ -2423,6 +2679,8 @@ class GuestVm(val ctx: Context, val img: GuestImage, val lowPowerBoot: Boolean =
             step("kill") { killAll() }
             step("adb") { adb.stop() }
             step("props") { props.stop() }
+            step("zygoteCompat") { zygoteCompat.stop() }
+            step("tombstonedTrace") { tombstonedTrace.stop() }
             step("input") { input.stop() }
             step("frames") { frames.stop() }
             step("ril") { ril.stop() }

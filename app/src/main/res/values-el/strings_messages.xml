@@ -196,8 +196,6 @@
     <string name="vmfail_system_server_oat_missing">το system_server δεν μπορεί να εκκινήσει: ο προμεταγλωττισμένος κώδικας του framework (system/framework/oat) λείπει από αυτό το κοντέινερ — εισαγάγετε ξανά το firmware</string>
     <string name="warn_no_build_prop">Δεν υπάρχει system/build.prop: η έκδοση Android συνάχθηκε από το δέντρο του συστήματος.</string>
     <string name="warn_no_boot_img">Δεν υπάρχει boot.img στο firmware: το σχέδιο εκκίνησης και το BOOTCLASSPATH εικάστηκαν.</string>
-    <string name="warn_no_healthd">Δεν υπάρχει healthd στο σχέδιο εκκίνησης (δεν υπάρχει /sbin/healthd· λείπει το ramdisk από την εισαγωγή;): το system_server θα καταρρεύσει στο BatteryService.</string>
-    <string name="warn_arm64">Firmware 64 bit: υποστηρίζεται μόνο ARM 32 bit.</string>
     <string name="warn_not_arm">Το firmware δεν είναι ARM (%1$s) και δεν θα εκτελεστεί.</string>
     <string name="warn_experimental">Android %1$s: η υποστήριξη είναι πειραματική (ART, SELinux).</string>
     <string name="import_default_name">firmware</string>
@@ -226,4 +224,5 @@
     <string name="update_err_wrong_variant">Το APK ενημέρωσης δεν ταιριάζει με αυτήν την παραλλαγή της εφαρμογής</string>
     <string name="update_err_wrong_package">Το APK που λήφθηκε έχει λάθος πακέτο εφαρμογής</string>
     <string name="catalog_err_too_many_lines">Ο κατάλογος υπερβαίνει τις 10000 γραμμές</string>
+    <string name="imp_iso_no_system">Δεν βρέθηκε σύστημα Android στην εικόνα ISO (αναμενόταν system.sfs ή system.img)</string>
 </resources>

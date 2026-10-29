@@ -196,8 +196,6 @@
     <string name="vmfail_system_server_oat_missing">system_server se ne more zagnati: vnaprej prevedene kode ogrodja (system/framework/oat) v tem vsebniku ni — znova uvozite vdelano programsko opremo</string>
     <string name="warn_no_build_prop">Ni system/build.prop: različica Androida je bila sklepana iz drevesa sistema.</string>
     <string name="warn_no_boot_img">V vdelani programski opremi ni boot.img: načrt zagona in BOOTCLASSPATH sta bila ugibana.</string>
-    <string name="warn_no_healthd">V načrtu zagona ni healthd (ni /sbin/healthd; ramdisk manjka pri uvozu?): system_server se bo sesul v BatteryService.</string>
-    <string name="warn_arm64">64-bitna vdelana programska oprema: podprt je samo 32-bitni ARM.</string>
     <string name="warn_not_arm">Vdelana programska oprema ni ARM (%1$s) in se ne bo zagnala.</string>
     <string name="warn_experimental">Android %1$s: podpora je poskusna (ART, SELinux).</string>
     <string name="import_default_name">vdelana programska oprema</string>
@@ -226,4 +224,5 @@
     <string name="update_err_wrong_variant">APK posodobitve se ne ujema z različico te aplikacije</string>
     <string name="update_err_wrong_package">Preneseni APK ima napačen paket aplikacije</string>
     <string name="catalog_err_too_many_lines">Katalog presega 10000 vrstic</string>
+    <string name="imp_iso_no_system">V sliki ISO ni najdenega sistema Android (pričakovano system.sfs ali system.img)</string>
 </resources>

@@ -28,4 +28,6 @@
     <string name="vs_bluetooth">Bluetooth ng host (eksperimental)</string>
     <string name="vs_bluetooth_sub">Hayaang mag-scan, mag-pair-list at makipag-usap ang guest sa mga Bluetooth device sa pamamagitan ng telepono: classic serial (RFCOMM) at Bluetooth LE (GATT). Kailangan ng pahintulot sa Bluetooth at buong pag-restart ng VM. Walang direktang (raw) HCI access: nakikita ng guest ang adapter ng telepono sa pamamagitan ng bridge, kaya hindi suportado ang mga headset (audio profile).</string>
     <string name="bluetooth_permission_denied">Tinanggihan ang pahintulot sa Bluetooth: magbo-boot ang guest nang walang Bluetooth ng host.</string>
+    <string name="vs_sf_tombstone">Tombstone ng pag-crash ng SurfaceFlinger (debug)</string>
+    <string name="vs_sf_tombstone_sub">Kung mag-crash ang SurfaceFlinger, hayaang magsulat ang firmware ng normal na tombstone sa log (kasama ang function na nag-crash) sa halip na maikling ulat. Gamitin ito kapag magpapadala ng bug report. Ilalapat sa susunod na buong boot ng VM.</string>
 </resources>

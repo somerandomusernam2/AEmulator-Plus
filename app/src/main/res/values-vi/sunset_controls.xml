@@ -28,4 +28,6 @@
     <string name="vs_bluetooth">Bluetooth của máy chủ (thử nghiệm)</string>
     <string name="vs_bluetooth_sub">Cho phép máy khách quét, liệt kê thiết bị đã ghép đôi và giao tiếp với thiết bị Bluetooth qua điện thoại: nối tiếp cổ điển (RFCOMM) và Bluetooth LE (GATT). Cần quyền Bluetooth và khởi động lại hoàn toàn máy ảo. Không phải HCI thô: máy khách thấy bộ điều hợp của điện thoại qua một cầu nối, nên tai nghe (cấu hình âm thanh) không được hỗ trợ.</string>
     <string name="bluetooth_permission_denied">Quyền Bluetooth bị từ chối: máy khách sẽ khởi động mà không có Bluetooth của máy chủ.</string>
+    <string name="vs_sf_tombstone">Tombstone khi SurfaceFlinger gặp sự cố (gỡ lỗi)</string>
+    <string name="vs_sf_tombstone_sub">Nếu SurfaceFlinger gặp sự cố, để firmware ghi một tombstone thông thường (kèm hàm gây sự cố) vào nhật ký thay vì báo cáo ngắn. Dùng khi gửi báo cáo lỗi. Áp dụng ở lần khởi động đầy đủ máy ảo tiếp theo.</string>
 </resources>

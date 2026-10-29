@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="vs_cdma">CDMA-modem</string>
+    <string name="vs_cdma_sub">Emulerer et CDMA-modem: 1xRTT / EV-DO-registrering, MEID, CDMA-abonnement og CDMA-sms. Anvendes ved næste fulde opstart.</string>
+    <string name="vs_cdma_fw_yes">Denne firmware er LTE på CDMA (telephony.lteOnCdmaDevice=1): slået til som standard.</string>
+    <string name="vs_cdma_fw_no">Denne firmware er ikke LTE på CDMA: slået fra som standard.</string>
+</resources>

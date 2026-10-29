@@ -28,4 +28,6 @@
     <string name="vs_bluetooth">Host-Bluetooth (experimentell)</string>
     <string name="vs_bluetooth_sub">Lässt den Gast Bluetooth-Geräte über das Telefon suchen, auflisten und mit ihnen kommunizieren: klassisch seriell (RFCOMM) und Bluetooth LE (GATT). Erfordert die Bluetooth-Berechtigung und einen vollständigen Neustart der VM. Kein rohes HCI: Der Gast sieht den Telefonadapter über eine Bridge, daher werden Headsets (Audioprofile) nicht unterstützt.</string>
     <string name="bluetooth_permission_denied">Bluetooth-Berechtigung verweigert: Der Gast startet ohne Host-Bluetooth.</string>
+    <string name="vs_sf_tombstone">SurfaceFlinger-Absturz-Tombstone (Debug)</string>
+    <string name="vs_sf_tombstone_sub">Wenn SurfaceFlinger abstürzt, schreibt die Firmware einen normalen Tombstone (mit der abstürzenden Funktion) ins Protokoll statt eines kurzen Berichts. Nutze dies, wenn du einen Fehlerbericht sendest. Wird beim nächsten vollständigen VM-Start wirksam.</string>
 </resources>

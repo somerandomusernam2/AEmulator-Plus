@@ -25,7 +25,12 @@ object AppPrefs {
         "nl" to "Nederlands",
         "sv" to "Svenska",
         "nb" to "Norsk bokmål",
+        "da" to "Dansk",
         "fi" to "Suomi",
+        // Baltic
+        "et" to "Eesti",
+        "lv" to "Latviešu",
+        "lt" to "Lietuvių",
         // Eastern Europe
         "pl" to "Polski",
         "cs" to "Čeština",
@@ -42,7 +47,11 @@ object AppPrefs {
         "sq" to "Shqip",
         "ru" to "Русский",
         "uk" to "Українська",
+        "be" to "Беларуская",
         "kk" to "Қазақша",
+        // Caucasus
+        "hy" to "Հայերեն",
+        "ka" to "ქართული",
         // South and Southeast Asia
         "hi" to "हिन्दी",
         "bn" to "বাংলা",

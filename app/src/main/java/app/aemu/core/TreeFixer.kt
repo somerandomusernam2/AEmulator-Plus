@@ -1,5 +1,6 @@
 /* Modified for AEmulator Sunset, 2026-10-03: source-backed host motion HAL.
  * Modified for AEmulator Super Plus, 2026-10-11: camcorder profiles for video.
+ * Modified for AEmulator Plus, 2026-10-28: optional system_server watchdog patch (Android 14+).
  * GPL-3.0; see LICENSE and NOTICE.md. */
 package app.aemu.core
 
@@ -696,12 +697,21 @@ class TreeFixer(
         // 10+ over the 8.1 vendor side: the codec service there is 8.1's, and its minijail takes one @include in a
         // policy; the system image's policy has a second one (code coverage, empty in a release build), and the
         // service gives up on it. That line goes.
-        if (kernel.oneIncludePolicy) File(root, "system/etc/seccomp_policy/mediacodec.policy").let { f ->
-            runCatching {
-                val lines = f.readLines()
-                // (11 also names a constant that minijail's table of 8.1 does not have)
-                val kept = lines.filterNot { it.startsWith("@include") && "code_coverage" in it }.map { it.replace("MREMAP_MAYMOVE", "1") }
-                if (kept != lines) f.writeText(kept.joinToString("\n", postfix = "\n"))
+        // Modified for AEmulator Plus, 2026-10-28: not only system/etc's mediacodec.policy. From 10 on the policies of the
+        // media services live in the apexes too (com.android.media: mediaextractor.policy, com.android.media.swcodec:
+        // mediaswcodec.policy), and each has the same second @include: mediaextractor and media.swcodec died with
+        // "failed to compile seccomp filter BPF program" (code 139) on every boot, which took sysui down with them
+        // (media.extractor never registered: setDataSource failed). Every .policy file in those directories is covered.
+        if (kernel.oneIncludePolicy) {
+            val policyDirs = listOf(File(root, "system/etc/seccomp_policy")) +
+                File(root, "apex").listFiles().orEmpty().filter { it.isDirectory }.map { File(it, "etc/seccomp_policy") }
+            for (d in policyDirs) d.listFiles { f -> f.isFile && f.name.endsWith(".policy") }.orEmpty().forEach { f ->
+                runCatching {
+                    val lines = f.readLines()
+                    // (11 also names a constant that minijail's table of 8.1 does not have)
+                    val kept = lines.filterNot { it.startsWith("@include") && "code_coverage" in it }.map { it.replace("MREMAP_MAYMOVE", "1") }
+                    if (kept != lines) f.writeText(kept.joinToString("\n", postfix = "\n"))
+                }
             }
         }
         // A system image with no vendor side of its own (a GSI): libselinux of 8.x opens the platform's and the
@@ -1265,6 +1275,7 @@ class TreeFixer(
         parkCodec2HalOfPure32Treble()
         disableTeeKeyMint()
         dropHalsWithoutService()
+        disableHardwareVibratorHalOfPure32()
         useSoftwareGrallocOnPure32()
         useEngineComposerOnPure32()
         useSoftwareKeymasterOnPure32()
@@ -1364,7 +1375,13 @@ class TreeFixer(
             f.inputStream().use { i -> ByteArray(5).also { i.read(it) }.let { h -> h[0] == 0x7f.toByte() && h[1] == 'E'.code.toByte() && h[4] == 1.toByte() } }
         }.getOrDefault(false)
         val svc = listOf("vendor/bin/hw", "system/vendor/bin/hw").map { File(root, "$it/android.hardware.graphics.composer@2.1-service") }
-            .firstOrNull { it.isFile } ?: return
+            .firstOrNull { it.isFile } ?: run {
+                // Modified for AEmulator Plus (2026-10-28): no engine service in the tree (the kernel's layer ships none):
+                // say so and take back anything an earlier start did, instead of leaving without a word
+                undoEngineComposer()
+                log("composer: the engine's composer@2.1 service is not in the tree, the board's stays")
+                return
+            }
         val libDirs = listOf("vendor/lib/hw", "system/vendor/lib/hw")
         fun hasLib(n: String) = libDirs.any { File(root, "$it/$n").isFile }
         if (!is32BitElf(svc) || !hasLib("android.hardware.graphics.composer@2.1-impl.so") || !hasLib("hwcomposer.default.so")) {
@@ -1379,7 +1396,15 @@ class TreeFixer(
         // can no longer tell which HALs may register, and every HIDL/AIDL service of the guest aborts in registerAsService()
         // (-2147483648): audio, health, lights, NFC, wifi, cas, drm, keystore, then SurfaceFlinger. The fragment is the only
         // composer declaration left, whatever version the board had.
-        val gone = setOf("vendor.qti.hardware.display.composer", "vendor.display.config", "android.hardware.graphics.composer")
+        // Modified for AEmulator Plus (2026-10-28): android.hardware.graphics.composer3 (the AIDL composer, e.g. Wear OS 4's
+        // vendor.qti.hardware.display.composer-service-low-ram.xml: composer3@2) goes too. SurfaceFlinger of Android 14 asks the
+        // service manager whether IComposer/default is DECLARED as an AIDL service before it looks at HIDL; while the board's
+        // declaration stands it waits for that service for ever ("Waited one second for
+        // android.hardware.graphics.composer3.IComposer/default") even though the engine's composer@2.1 is registered, never
+        // registers SurfaceFlingerAIDL, and system_server's DisplayManagerService then blocks in getCompositionColorSpaces
+        // (watchdog: "Blocked in handler on main thread"). The board's AIDL composer is set aside below, so nothing serves it.
+        val gone = setOf("vendor.qti.hardware.display.composer", "vendor.display.config", "android.hardware.graphics.composer",
+            "android.hardware.graphics.composer3")
         val hal = Regex("[ \\t]*<hal\\b[^>]*>.*?</hal>[ \\t]*\\r?\\n?", RegexOption.DOT_MATCHES_ALL)
         val name = Regex("<name>\\s*([^<\\s]+)\\s*</name>")
         val origDir = File(root, "system/.aemu-vintf-orig")
@@ -1450,7 +1475,71 @@ class TreeFixer(
         }
     }
 
+    /**
+     * Modified for AEmulator Plus (2026-10-28). A 32-bit-only Wear OS 4 firmware (Pixel Watch, android.hardware.vibrator-service.eos
+     * over the Cirrus cs40l26 haptic driver) has a vibrator HAL that only works with that chip: it looks for the driver's input
+     * device ("Retry #n to search in 1 input devices", ten times, ~10 s), finds none, registers IVibrator/default anyway with
+     * no file descriptors ("Fail to get an input event with name (null)", "Failed to set the gain to 0 (9): Bad file
+     * descriptor") and dies with a signal in the first call (BootAnimation's vibratorOn: "Status(-4, EX_NULL_POINTER)", exit
+     * 139). Before that, with its impl library set aside by sanitize(), the program did not even link ("CANNOT LINK
+     * EXECUTABLE ... library android.hardware.vibrator-impl.eos.so not found") and system_server waited for
+     * android.hardware.vibrator.IVibrator/default for ever, because the VINTF manifest still declares it.
+     * There is no haptic hardware in the guest, so a vendor's program of this kind goes aside and its declaration is taken out of the manifests:
+     * the framework then sees no vibrator HAL and reports no vibrator, which it handles, instead of waiting or crashing.
+     * Runs on every start (after dropHalsWithoutService(), which puts the stock fragments back first).
+     */
+    private fun disableHardwareVibratorHalOfPure32() {
+        if (!kernel.treble || !isPure32Tree(root)) return
+        // only a vendor's own HAL (android.hardware.vibrator-service.eos, ...-cs40l26, ...): AOSP's reference services
+        // (.default, .example) drive no chip and are left alone, as is any HIDL vibrator HAL
+        val vendorBin = Regex("^android\\.hardware\\.vibrator-service\\.(?!(default|example)$).+$")
+        val bin = vendorBin
+        val seen = HashSet<String>()
+        var parked = 0
+        for (d in listOf("vendor/bin/hw", "system/vendor/bin/hw", "odm/bin/hw")) File(root, d).listFiles()?.forEach { f ->
+            if (!bin.matches(f.name) || (!f.isFile && !isLink(f))) return@forEach
+            if (!seen.add(runCatching { f.canonicalPath }.getOrDefault(f.path))) return@forEach
+            if (parkFile(f)) { parked++; log("${f.name}: set aside (no haptic hardware in the guest; it dies on its first call)") }
+        }
+        // (an earlier start may have set it aside already: the declaration is still dropped)
+        val parkedBefore = File(root, "system/.aemu-parked").list().orEmpty().any { bin.matches(it.substringAfterLast('#')) }
+        if (parked == 0 && !parkedBefore) return
+        val fragDirs = listOf("vendor/etc/vintf/manifest", "system/vendor/etc/vintf/manifest")
+        val origDir = File(root, "system/.aemu-vintf-orig")
+        val hal = Regex("[ \\t]*<hal\\b[^>]*>.*?</hal>[ \\t]*\\r?\\n?", RegexOption.DOT_MATCHES_ALL)
+        val name = Regex("<name>\\s*android\\.hardware\\.vibrator\\s*</name>")
+        val done = HashSet<String>()
+        val files = listOf("vendor/etc/vintf/manifest.xml", "vendor/manifest.xml", "system/vendor/manifest.xml", "system/vendor/etc/vintf/manifest.xml")
+            .map { File(root, it) } +
+            fragDirs.flatMap { d -> File(root, d).listFiles()?.filter { it.name.endsWith(".xml") }.orEmpty() }
+        for (f in files) {
+            if (!f.isFile || !done.add(runCatching { f.canonicalPath }.getOrDefault(f.path))) continue
+            runCatching {
+                val text = f.readText()
+                var removed = 0
+                val out = hal.replace(text) { m -> if (name.containsMatchIn(m.value)) { removed++; "" } else m.value }
+                if (removed > 0) {
+                    if (f.parentFile?.relativeTo(root)?.path in fragDirs) backupOnce(f, File(origDir, f.relativeTo(root).path.replace('/', '#')))
+                    f.setWritable(true)
+                    f.writeText(out)
+                    log("${f.relativeTo(root).path}: vibrator HAL declaration dropped")
+                }
+            }.onFailure { log("${f.name}: vibrator declaration not checked: ${it.message}") }
+        }
+    }
+
     private val FRAG_KEYMASTER3 = "aemu.keymaster3.xml"
+
+    /**
+     * Modified for AEmulator Plus (2026-10-28): the device manifest of a firmware can be a per-SKU file next to the
+     * fragment directory (Xiaomi Watch 2 Pro: /vendor/etc/vintf/manifest_monaco.xml, which libvintf reads and in which
+     * the QSEE gatekeeper/KeyMint are declared). The fixes that drop declarations only looked at manifest.xml and the
+     * fragment directories, so the declaration stayed and gatekeeperd waited for IGatekeeper/default for ever.
+     */
+    private fun skuManifests(): List<File> =
+        listOf("vendor/etc/vintf", "system/vendor/etc/vintf", "odm/etc/vintf").flatMap { d ->
+            File(root, d).listFiles()?.filter { it.isFile && it.name.startsWith("manifest_") && it.name.endsWith(".xml") }?.sortedBy { it.name }.orEmpty()
+        }
 
     /**
      * Modified for AEmulator Plus (2026-10-25). A 32-bit-only Qualcomm Treble firmware (Wear OS 3, Android 11) has no
@@ -1473,8 +1562,13 @@ class TreeFixer(
         if (!kernel.treble || !isPure32Tree(root)) return
         val binDirs = listOf("vendor/bin/hw", "system/vendor/bin/hw", "odm/bin/hw")
         val libDirs = listOf("vendor/lib/hw", "system/vendor/lib/hw", "odm/lib/hw")
-        val qseeBin = Regex("^android\\.hardware\\.(keymaster|gatekeeper)@[0-9.]+-service[.-]qti$")
-        val qseeLib = Regex("^android\\.hardware\\.(keymaster|gatekeeper)@[0-9.]+-impl[.-]qti\\.so$")
+        // Modified for AEmulator Plus (2026-10-28): Wear OS 4 (Android 14) ships the AIDL gatekeeper without a version in the
+        // name (android.hardware.gatekeeper-service-qti). It needs /dev/qseecom like the HIDL one, never registers, and the
+        // manifest still declares IGatekeeper/default, so gatekeeperd waits for it for ever, never registers
+        // "android.service.gatekeeper.IGateKeeperService" and system_server dies in BiometricService ("Gatekeeper service
+        // not available", zygote exit 137).
+        val qseeBin = Regex("^android\\.hardware\\.(keymaster|gatekeeper)(@[0-9.]+)?-service[.-]qti$")
+        val qseeLib = Regex("^android\\.hardware\\.(keymaster|gatekeeper)(@[0-9.]+)?-impl[.-]qti\\.so$")
         // Modified for AEmulator Plus (2026-10-26): a Samsung/Exynos Wear OS 3 firmware (Pixel Watch, r11btwifi) has no
         // "-qti" programs but a TEE-backed keymaster of its own: android.hardware.keymaster@4.0_tee-service (Trustonic).
         // It cannot start here (its libkeymaster4.so names keymaster::PureSoftKeymasterContext(keymaster_security_level_t),
@@ -1545,7 +1639,7 @@ class TreeFixer(
         val hal = Regex("[ \\t]*<hal\\b[^>]*>.*?</hal>[ \\t]*\\r?\\n?", RegexOption.DOT_MATCHES_ALL)
         val name = Regex("<name>\\s*([^<\\s]+)\\s*</name>")
         val files = listOf("vendor/etc/vintf/manifest.xml", "vendor/manifest.xml", "system/vendor/manifest.xml", "system/vendor/etc/vintf/manifest.xml",
-            "odm/etc/vintf/manifest.xml").map { File(root, it) } +
+            "odm/etc/vintf/manifest.xml").map { File(root, it) } + skuManifests() +
             listOf("vendor/etc/vintf/manifest", "system/vendor/etc/vintf/manifest", "odm/etc/vintf/manifest").flatMap { d ->
                 File(root, d).listFiles()?.filter { it.name.endsWith(".xml") && it.name != FRAG_KEYMASTER3 }.orEmpty()
             }
@@ -1614,7 +1708,10 @@ class TreeFixer(
         // The host (keymaster-3-0) dlopen()s the impl, and the impl needs libsoftkeymasterdevice / libkeymaster_portable /
         // libkeymaster_messages, which a Qualcomm firmware does not carry in /vendor/lib ("library libsoftkeymasterdevice.so
         // not found ... namespace (default)", keymaster-3-0 exits 1, keystore never registers). Bring them over from where the
-        // tree has them, and say what is still missing: the 64-bit checks above do not apply to this tree.
+        // tree has them, and say what is still missing: the 64-bit checks above do not apply to this tree. The family has to
+        // be of ONE release (a firmware that has part of it in /vendor/lib gets the platform's copy of every member, see
+        // KeymasterLibs): libkeymaster_portable and libsoftkeymasterdevice share vtables, and a mixture of two releases
+        // crashes the HAL inside importKey (exit 139), which is where "Failed to encrypt blob" and zygote's 137 come from.
         runCatching { KeymasterLibs.complete(root, log) }.onFailure { log("keymaster: library check failed: ${it.message}") }
     }
 
@@ -1635,7 +1732,9 @@ class TreeFixer(
      */
     private fun disableTeeKeyMint() {
         if (!kernel.treble) return
-        val teeService = Regex("^android\\.hardware\\.security\\.keymint@[0-9.]+-service(\\..*)?$")
+        // (2026-10-28: also the unversioned Qualcomm one of Wear OS 4, android.hardware.security.keymint-service-qti, which
+        // talks to the QSEE and exits with code 1 on every start while the manifest still declares IKeyMintDevice)
+        val teeService = Regex("^android\\.hardware\\.security\\.keymint(@[0-9.]+-service(\\..*)?|-service[.-]qti)$")
         var parkedBins = 0
         val seenBins = HashSet<String>()
         for (dir in listOf("vendor/bin/hw", "system/vendor/bin/hw", "odm/bin/hw")) {
@@ -1656,7 +1755,7 @@ class TreeFixer(
             File(root, d).list().orEmpty().any { teeService.matches(it) } }
         if (stillThere) return   // (a KeyMint program that could not be moved: leave the manifests as they are)
         val files = listOf("vendor/etc/vintf/manifest.xml", "vendor/manifest.xml", "system/vendor/manifest.xml", "system/vendor/etc/vintf/manifest.xml",
-            "odm/etc/vintf/manifest.xml").map { File(root, it) } +
+            "odm/etc/vintf/manifest.xml").map { File(root, it) } + skuManifests() +
             listOf("vendor/etc/vintf/manifest", "system/vendor/etc/vintf/manifest", "odm/etc/vintf/manifest").flatMap { d ->
                 File(root, d).listFiles()?.filter { it.name.endsWith(".xml") }.orEmpty()
             }
@@ -1848,12 +1947,22 @@ class TreeFixer(
     private fun parkCodec2HalOfPure32Treble() {
         if (!kernel.treble || !isPure32Tree(root)) return
         var n = 0
-        for (f in hwPrograms("android.hardware.media.c2@")) {
+        for (prefix in C2_HAL_PREFIXES) for (f in hwPrograms(prefix)) {
             for (rc in rcFilesRunning(f.name)) if (parkFile(rc)) n++
             if (parkFile(f)) n++
         }
-        if (n > 0) log("media: the 32-bit Codec2 HAL crashes qemu-arm, its service is set aside ($n); software codecs are used")
+        if (n > 0) log("media: the board's Codec2 HAL fronts hardware codecs that are not here, its service is set aside ($n); software codecs are used")
     }
+
+    /**
+     * Modified for AEmulator Plus (2026-10-28): the programs of a board's Codec2 HAL. Besides the AOSP/MediaTek name
+     * (android.hardware.media.c2@1.2-mediatek) a Qualcomm board runs vendor.qti.media.c2@1.0-service ("media HW codec (32-bit)
+     * service"). It starts and registers all its codecs (c2.qti.avc.decoder, ...), but every one of them drives the Venus
+     * V4L2 device: "QC2V4l2Driver: Opening the device: /dev/video32 returned failure, errno: 2", hundreds of times as the
+     * framework builds its codec list, and no hardware codec ever opens. There is no such device here and nothing to
+     * emulate it with, so the service goes aside like the MediaTek one and media.swcodec's software codecs do the work.
+     */
+    private val C2_HAL_PREFIXES = listOf("android.hardware.media.c2@", "vendor.qti.media.c2@")
 
     /**
      * A HAL the vendor manifest declares whose init service cannot start (its rc file names a /bin/hw/ program that
@@ -1918,8 +2027,8 @@ class TreeFixer(
         // every client waits for ever ("Waited one second for android.hardware.media.c2@1.0::IComponentStore/default").
         val parkedNames = File(root, "system/.aemu-parked").list().orEmpty().map { it.substringAfterLast('#') }
         val c2Parked = kernel.treble && isPure32Tree(root) &&
-            present.none { it.startsWith("android.hardware.media.c2@") } &&
-            parkedNames.any { it.startsWith("android.hardware.media.c2@") }
+            present.none { n -> C2_HAL_PREFIXES.any { n.startsWith(it) } } &&
+            parkedNames.any { n -> C2_HAL_PREFIXES.any { n.startsWith(it) } }
         if (missing.isEmpty() && !c2Parked) return
         // (a board's services are not all named "<package>@<version>-service": the AIDL ones are "<package>-service...",
         // "<package>.service.<vendor>" or "<package>-V1-...", and a package with such a program in the tree is not dead)
@@ -2152,6 +2261,25 @@ class TreeFixer(
                 if (romGralloc.renameTo(parked)) log("firmware gralloc uses ION, replaced with engine gralloc")
             }
         }
+        // Broadcom (BCM21553 and friends: Samsung GT-S5302 / S5360-class 2.3 firmware): the firmware's gralloc allocates every
+        // buffer from /dev/gememalloc (and its SurfaceFlinger composes through /dev/v3d). Neither device exists here, so
+        // "gralloc: failed to open: /dev/gememalloc" -> "FramebufferNativeWindow: fb buffer 0 allocation failed ... Operation
+        // not permitted" -> SurfaceFlinger (inside system_server) gets NULL buffers, fb0 stays all zeros, and the first
+        // composition dereferences a NULL pointer in libsurfaceflinger: zygote exits with 137 on every boot. The firmware's
+        // gralloc is set aside (any gralloc.<board>.so too: libhardware prefers ro.product.board over "default") and the
+        // engine's takes over.
+        if (img.arch == GuestArch.ARM) {
+            val parkDir = File(root, "system/.aemu-parked")
+            for (dir in listOf("system/lib/hw", "vendor/lib/hw", "system/vendor/lib/hw")) {
+                File(root, dir).listFiles()?.forEach { g ->
+                    if (!g.isFile || isLink(g) || !g.name.startsWith("gralloc.") || !g.name.endsWith(".so") || g.length() >= 2_000_000) return@forEach
+                    if (!usesGememalloc(runCatching { g.readBytes() }.getOrNull())) return@forEach
+                    val parked = File(parkDir, "${g.relativeTo(root).path.replace('/', '#')}.gememalloc")
+                    parkDir.mkdirs(); parked.delete()
+                    if (g.renameTo(parked)) log("firmware gralloc ${g.name} uses /dev/gememalloc (Broadcom), replaced with engine gralloc")
+                }
+            }
+        }
         // Eclair (API 5..7): the Droid firmware gralloc.default blocks forever on its own module mutex (strace: FUTEX_WAIT on an address
         // inside gralloc.default.so, right after mmap of fb0) once fb0 offers a single page, so SurfaceFlinger never finishes readyToRun and
         // system_init never starts the Java services. The engine gralloc (AOSP) handles the single-page case with a plain ashmem buffer.
@@ -2168,10 +2296,14 @@ class TreeFixer(
         // firmware's gralloc leaves them alone (see GtiGralloc / GrallocProbe). Only then the Eclair-behaviour variant is installed.
         val eclairParkedGralloc = File(root, "system/.aemu-parked/system#lib#hw#gralloc.default.so.eclair")
         val ionParkedGralloc = File(root, "system/.aemu-parked/system#lib#hw#gralloc.default.so.ion")
-        val replacedGralloc = listOf(eclairParkedGralloc.takeIf { eclairGralloc }, ionParkedGralloc)
+        // the Broadcom gralloc set aside above (the default-named one first), whatever the board called it
+        val gememParkedGralloc = File(root, "system/.aemu-parked").listFiles()
+            ?.filter { it.isFile && it.name.endsWith(".gememalloc") && it.name.contains("#gralloc.") }
+            ?.minByOrNull { if (it.name.endsWith("#gralloc.default.so.gememalloc")) 0 else 1 }
+        val replacedGralloc = listOf(eclairParkedGralloc.takeIf { eclairGralloc }, ionParkedGralloc, gememParkedGralloc)
             .firstOrNull { it != null && it.isFile }
             ?.let { runCatching { it.readBytes() }.getOrNull() }
-        val replacingFirmwareGralloc = eclairGralloc || ionParkedGralloc.isFile
+        val replacingFirmwareGralloc = eclairGralloc || ionParkedGralloc.isFile || gememParkedGralloc != null
         val engineGralloc = if (replacedGralloc == null) null
             else runCatching { eaOpen("engines/${engine.id}/gralloc.default.so").use { it.readBytes() } }.getOrNull()
         val grallocVariant = GtiGralloc.applies(replacedGralloc, engineGralloc)
@@ -3542,7 +3674,8 @@ class TreeFixer(
         javaIfInet6Redirect()
         settingsCpuinfoRedirect()
         launcherProximityGuard()
-        lockSettingsBlobGuard()
+        systemWatchdogGuard()
+        dropGnssHal()
         libRsUploadGuard()
         tungstenLedNodes()
         tungstenLedInitPatch()
@@ -3706,38 +3839,74 @@ class TreeFixer(
     }.onFailure { log("settings: cpuinfo redirect failed: ${it.message}") }
 
     /**
-     * Added for AEmulator Plus (2026-10-25). Google TV Streamer Pro (ro.product.device "kirkwoodpro"): keystore2 has no
-     * KeyMint there and wraps the engine's software keymaster 3.0, which refuses to import an AES key
-     * (UNSUPPORTED_ALGORITHM). LockSettingsService does that at boot (SyntheticPasswordCrypto.createBlob), system_server dies
-     * with "Failed to encrypt blob" and zygote exits with 137. [LockSettingsBlobPatch] makes createBlob() skip the keystore
-     * copy of its key instead of throwing. Only for that device name; runs at every start (idempotent) and keeps the stock
-     * jar as system/.aemu-parked/system#framework#services.jar.orig. The firmware's own services.odex/.vdex no longer match
-     * the jar's dex checksum afterwards and are ignored by the runtime, so the code runs from the jar's dex.
+     * The GNSS HAL is not run (see GuestVm.startService), so its manifest entries (android.hardware.gnss, also the
+     * vendor.qti.gnss ones) are removed: a declared HAL that never registers makes system_server wait for it
+     * ("Waited one second for android.hardware.gnss.IGnss/default"). The original files are kept once in system/.aemu-vintf-orig.
      */
-    private fun lockSettingsBlobGuard() = runCatching {
-        val propFiles = listOf("system/build.prop", "vendor/build.prop", "system/vendor/build.prop", "odm/etc/build.prop",
-            "product/etc/build.prop", "system/system/build.prop").map { File(root, it) }.filter { it.isFile }
-        fun prop(key: String): String? = propFiles.firstNotNullOfOrNull { f ->
-            runCatching { Regex("(?m)^\\s*" + Regex.escape(key) + "\\s*=\\s*(\\S+)").find(f.readText())?.groupValues?.get(1) }.getOrNull()
-        }
-        // (ro.product.device; a build.prop that only carries the per-partition names is read through those)
-        val device = prop("ro.product.device")
-            ?: listOf("vendor", "system", "odm", "product").firstNotNullOfOrNull { prop("ro.product.$it.device") }
-        if (!LockSettingsBlobPatch.isTargetDevice(device)) return@runCatching
-        val jar = File(root, "system/framework/services.jar").takeIf { it.isFile }
-        if (jar == null) { log("lock settings: no system/framework/services.jar to patch"); return@runCatching }
-        val backup = File(root, "system/.aemu-parked/system#framework#services.jar.orig")
-        val r = LockSettingsBlobPatch.patchJar(jar, backup)
-        when (r.outcome) {
-            LockSettingsBlobPatch.Outcome.PATCHED -> {
-                Os.chmod(jar.path, 0b110_100_100)
-                log("lock settings: services.jar patched (${r.calls} KeyStore.setEntry call(s) in SyntheticPasswordCrypto.createBlob skipped, ${r.keyChecks} missing-key throw(s) in decryptBlob turned into null, ${r.unlockSkips} unlockUserKeyIfUnsecured skipped): the device's keystore cannot import AES keys")
+    private fun dropGnssHal() = runCatching {
+        val hal = Regex("[ \\t]*<hal\\b[^>]*>.*?</hal>[ \\t]*\\r?\\n?", RegexOption.DOT_MATCHES_ALL)
+        val name = Regex("<name>\\s*([^<\\s]+)\\s*</name>")
+        val origDir = File(root, "system/.aemu-vintf-orig")
+        val files = listOf("vendor/etc/vintf/manifest.xml", "vendor/manifest.xml", "system/vendor/manifest.xml",
+            "system/vendor/etc/vintf/manifest.xml", "odm/etc/vintf/manifest.xml").map { File(root, it) } +
+            listOf("vendor/etc/vintf/manifest", "system/vendor/etc/vintf/manifest", "odm/etc/vintf/manifest").flatMap { d ->
+                File(root, d).listFiles()?.filter { it.name.endsWith(".xml") }.orEmpty()
             }
-            LockSettingsBlobPatch.Outcome.ALREADY -> log("lock settings: services.jar is already patched")
-            LockSettingsBlobPatch.Outcome.ABSENT -> log("lock settings: SyntheticPasswordCrypto.createBlob not found in services.jar, left as is")
-            LockSettingsBlobPatch.Outcome.UNEXPECTED -> log("lock settings: services.jar has SyntheticPasswordCrypto, but not the code this patch knows (${r.detail}), left as is")
+        val seen = HashSet<String>()
+        for (f in files) {
+            if (!f.isFile || !seen.add(runCatching { f.canonicalPath }.getOrDefault(f.path))) continue
+            val text = runCatching { f.readText() }.getOrNull() ?: continue
+            if ("gnss" !in text) continue
+            val removed = ArrayList<String>()
+            val out = hal.replace(text) { m ->
+                val n = name.find(m.value)?.groupValues?.get(1)
+                if (n != null && (n == "android.hardware.gnss" || n.contains(".gnss"))) { removed += n; "" } else m.value
+            }
+            if (removed.isEmpty()) continue
+            runCatching {
+                backupOnce(f, File(origDir, f.relativeTo(root).path.replace('/', '#')))
+                f.setWritable(true); f.writeText(out)
+                log("${f.relativeTo(root).path}: GNSS HAL dropped: ${removed.distinct().joinToString()}")
+            }.onFailure { log("${f.name}: GNSS HAL not dropped: ${it.message}") }
         }
-    }.onFailure { log("lock settings: services.jar patch failed: ${it.message}") }
+    }.onFailure { log("gnss: manifest check failed: ${it.message}") }
+
+    /**
+     * Added for AEmulator Plus (2026-10-28). Android 14+, opt-in ([VmSettings.disableWatchdog]): [WatchdogPatch] makes
+     * system_server's Watchdog thread return at once, so a boot that is slower than the Watchdog's 60 s limit (qemu, runtime
+     * kept interpreter-only) is not killed in PermissionPolicyService.synchronizePermissionsAndAppOpsForUser. Runs at every
+     * start (idempotent). The stock jar is kept once as system/.aemu-parked/system#framework#services.jar.orig and is the only
+     * thing a patched jar is ever derived from: with the option off the stock jar is put back, with it on the jar must be the
+     * stock one plus this patch and nothing else (an earlier build that also edited LockSettingsService in the same jar is
+     * undone that way). The firmware's services.odex/.vdex do not match a patched jar's dex and are ignored by the runtime.
+     */
+    private fun systemWatchdogGuard() = runCatching {
+        val jar = listOf("system/framework/services.jar", "system/system/framework/services.jar")
+            .map { File(root, it) }.firstOrNull { it.isFile }
+        val backup = File(root, "system/.aemu-parked/system#framework#services.jar.orig")
+        val wanted = img.api >= 34 && img.settings.disableWatchdog
+        fun restoreStock(why: String) {
+            backup.copyTo(jar!!, overwrite = true)
+            Os.chmod(jar.path, 0b110_100_100)
+            log("watchdog: $why, services.jar restored to the stock one")
+        }
+        if (!wanted) {
+            if (jar != null && backup.isFile && !backup.readBytes().contentEquals(jar.readBytes())) restoreStock("option is off")
+            return@runCatching
+        }
+        if (jar == null) { log("watchdog: no system/framework/services.jar to patch"); return@runCatching }
+        if (backup.isFile && !WatchdogPatch.isStockPlusPatch(jar, backup)) restoreStock("the jar was edited by something else")
+        val r = WatchdogPatch.patchJar(jar, backup)
+        when (r.outcome) {
+            WatchdogPatch.Outcome.PATCHED -> {
+                Os.chmod(jar.path, 0b110_100_100)
+                log("watchdog: services.jar patched, system_server's Watchdog thread now ends at once (a real deadlock is no longer recovered by a restart) and the boot no longer waits for the permission controller's default grants")
+            }
+            WatchdogPatch.Outcome.ALREADY -> log("watchdog: services.jar is already patched")
+            WatchdogPatch.Outcome.ABSENT -> log("watchdog: com.android.server.Watchdog not found in services.jar, left as is")
+            WatchdogPatch.Outcome.UNEXPECTED -> log("watchdog: services.jar has the Watchdog, but not the code this patch knows (${r.detail}), left as is")
+        }
+    }.onFailure { log("watchdog: services.jar patch failed: ${it.message}") }
 
     /**
      * "xhl" firmware (NDLauncher): Launcher.onCreate() ends with getSensorList(TYPE_PROXIMITY).get(0), and the guest's
@@ -4712,6 +4881,10 @@ val db = settingsDb()
     private fun wipe(f: File) = ImageStore.wipe(f)
 
     companion object {
+        /** True for a gralloc module that allocates from Broadcom's /dev/gememalloc (that device does not exist under the emulator). */
+        fun usesGememalloc(elf: ByteArray?): Boolean =
+            elf != null && String(elf, Charsets.ISO_8859_1).contains("/dev/gememalloc")
+
         /** GPIO numbers 0..511 get a sysfs node (MT8516 pins sit at 387 + EINTn, i.e. EINT13 = 400, EINT24 = 411). */
         private const val GPIO_STAND_IN_PINS = 512
         /** hw_module_t.id that MediaTek's AudioFlinger requests for libaudio.primary.default.so. */

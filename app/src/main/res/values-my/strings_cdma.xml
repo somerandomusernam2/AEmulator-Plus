@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="vs_cdma">CDMA မိုဒမ်</string>
+    <string name="vs_cdma_sub">CDMA မိုဒမ်ကို အတုယူပါသည်- 1xRTT / EV-DO မှတ်ပုံတင်ခြင်း၊ MEID၊ CDMA စာရင်းသွင်းမှုနှင့် CDMA စာတိုများ။ နောက်အပြည့်စတင်ချိန်တွင် သက်ရောက်ပါမည်။</string>
+    <string name="vs_cdma_fw_yes">ဤဖမ်းဝဲသည် LTE on CDMA (telephony.lteOnCdmaDevice=1) ဖြစ်သည်- မူလအားဖြင့် ဖွင့်ထားသည်။</string>
+    <string name="vs_cdma_fw_no">ဤဖမ်းဝဲသည် LTE on CDMA မဟုတ်ပါ- မူလအားဖြင့် ပိတ်ထားသည်။</string>
+</resources>

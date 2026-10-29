@@ -28,4 +28,6 @@
     <string name="vs_bluetooth">ホストのBluetooth(試験的)</string>
     <string name="vs_bluetooth_sub">ゲストがスマートフォン経由でBluetoothデバイスのスキャン、ペア済み一覧の表示、通信を行えるようにします。クラシックシリアル(RFCOMM)とBluetooth LE(GATT)に対応。Bluetoothの権限とVMの完全な再起動が必要です。生のHCIではありません。ゲストはブリッジ経由でスマートフォンのアダプターを認識するため、ヘッドセット(オーディオプロファイル)には対応していません。</string>
     <string name="bluetooth_permission_denied">Bluetoothの権限が拒否されました。ゲストはホストのBluetoothなしで起動します。</string>
+    <string name="vs_sf_tombstone">SurfaceFlinger クラッシュトゥームストーン（デバッグ）</string>
+    <string name="vs_sf_tombstone_sub">SurfaceFlinger がクラッシュしたとき、短いレポートの代わりに、通常のトゥームストーン（クラッシュした関数を含む）をファームウェアにログへ書き込ませます。バグレポートを送るときに使用してください。次回の VM 完全起動時に適用されます。</string>
 </resources>

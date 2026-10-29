@@ -28,4 +28,6 @@
     <string name="vs_bluetooth">Värdens Bluetooth (experimentell)</string>
     <string name="vs_bluetooth_sub">Låt gästen söka efter, lista parkopplade och kommunicera med Bluetooth-enheter via telefonen: klassisk seriell (RFCOMM) och Bluetooth LE (GATT). Kräver Bluetooth-behörighet och en fullständig omstart av den virtuella maskinen. Inte rå HCI: gästen ser telefonens adapter genom en brygga, så headset (ljudprofiler) stöds inte.</string>
     <string name="bluetooth_permission_denied">Bluetooth-behörighet nekad: gästen startar utan värdens Bluetooth.</string>
+    <string name="vs_sf_tombstone">SurfaceFlinger-kraschens tombstone (felsökning)</string>
+    <string name="vs_sf_tombstone_sub">Om SurfaceFlinger kraschar låter detta firmware skriva en vanlig tombstone till loggen (med den funktion som kraschade) i stället för en kort rapport. Använd det när du skickar en felrapport. Gäller vid nästa fullständiga VM-start.</string>
 </resources>

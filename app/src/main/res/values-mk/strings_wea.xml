@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="m_wea">Лажно итно предупредување</string>
+    <string name="m_wea_type">Тип на предупредување</string>
+    <string name="m_wea_sent">Итното предупредување е испратено</string>
+    <string name="m_wea_failed">Не е испратено: телефонијата на телефонот не работи</string>
+    <string name="wea_presidential">Претседателско предупредување</string>
+    <string name="wea_extreme">Екстремна закана</string>
+    <string name="wea_severe">Сериозна закана</string>
+    <string name="wea_amber">Предупредување AMBER</string>
+    <string name="wea_test">Задолжителен месечен тест</string>
+    <string name="wea_body_presidential">Претседателско предупредување: Ова е тест на системот за итни предупредувања. Не е потребна никаква дејност.</string>
+    <string name="wea_body_extreme">Екстремно предупредување: Предупредување за торнадо во вашата област. Веднаш побарајте засолниште. Ова е тест.</string>
+    <string name="wea_body_severe">Сериозно предупредување: Предупредување за невреме со грмотевици во вашата област до 18:00 ч. Ова е тест.</string>
+    <string name="wea_body_amber">Предупредување AMBER: Исчезнато дете, син седан. Ако го видите, јавете се на 911. Ова е тест.</string>
+    <string name="wea_body_test">Ова е тест на системот Wireless Emergency Alert. Не е потребна никаква дејност.</string>
+</resources>

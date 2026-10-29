@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="m_wea">ყალბი გადაუდებელი გაფრთხილება</string>
+    <string name="m_wea_type">გაფრთხილების ტიპი</string>
+    <string name="m_wea_sent">გადაუდებელი გაფრთხილება გაიგზავნა</string>
+    <string name="m_wea_failed">არ გაიგზავნა: ტელეფონზე სატელეფონო სერვისი არ მუშაობს</string>
+    <string name="wea_presidential">საპრეზიდენტო გაფრთხილება</string>
+    <string name="wea_extreme">უკიდურესი საფრთხე</string>
+    <string name="wea_severe">სერიოზული საფრთხე</string>
+    <string name="wea_amber">AMBER გაფრთხილება</string>
+    <string name="wea_test">სავალდებულო ყოველთვიური ტესტი</string>
+    <string name="wea_body_presidential">საპრეზიდენტო გაფრთხილება: ეს არის გადაუდებელი გაფრთხილების სისტემის ტესტი. რაიმე მოქმედება საჭირო არ არის.</string>
+    <string name="wea_body_extreme">უკიდურესი გაფრთხილება: თქვენს რაიონში ტორნადოს გაფრთხილებაა. დაუყოვნებლივ შეაფარეთ თავი. ეს ტესტია.</string>
+    <string name="wea_body_severe">სერიოზული გაფრთხილება: თქვენს რაიონში ჭექა-ქუხილის გაფრთხილებაა საღამოს 6 საათამდე. ეს ტესტია.</string>
+    <string name="wea_body_amber">AMBER გაფრთხილება: დაკარგულია ბავშვი, ლურჯი სედანი. დაინახვის შემთხვევაში დარეკეთ 911-ზე. ეს ტესტია.</string>
+    <string name="wea_body_test">ეს არის უსადენო გადაუდებელი გაფრთხილების სისტემის ტესტი. რაიმე მოქმედება საჭირო არ არის.</string>
+</resources>

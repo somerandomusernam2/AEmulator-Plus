@@ -669,7 +669,7 @@ private fun ImportCard(s: ImportState, onCancel: () -> Unit, onDismiss: () -> Un
                 }
                 s.done != null -> {
                     Text("${s.done.name} · ${s.done.displayVersion} · ${s.done.skin}", style = MaterialTheme.typography.bodyMedium)
-                    s.done.warnings.forEach { Text("• " + ImportWarnings.text(ctx, it), style = MaterialTheme.typography.bodySmall) }
+                    ImportWarnings.visible(s.done.warnings).forEach { Text("• " + ImportWarnings.text(ctx, it), style = MaterialTheme.typography.bodySmall) }
                 }
             }
             Spacer(Modifier.height(8.dp))
@@ -710,7 +710,7 @@ private fun ImageCard(img: GuestImage, onStart: () -> Unit, onSettings: () -> Un
                 color = MaterialTheme.colorScheme.onSurfaceVariant)
             if (img.lastBootMs > 0) Text(stringResource(R.string.last_boot, (img.lastBootMs / 1000).toInt()), style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant)
-            img.warnings.firstOrNull()?.let { Text("⚠ " + ImportWarnings.text(ctx, it), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.tertiary) }
+            ImportWarnings.visible(img.warnings).firstOrNull()?.let { Text("⚠ " + ImportWarnings.text(ctx, it), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.tertiary) }
             Spacer(Modifier.height(12.dp))
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Surface(shape = ButtonDefaults.shape, color = MaterialTheme.colorScheme.primary,

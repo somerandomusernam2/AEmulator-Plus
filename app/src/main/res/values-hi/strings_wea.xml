@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="m_wea">नकली आपातकालीन अलर्ट</string>
+    <string name="m_wea_type">अलर्ट का प्रकार</string>
+    <string name="m_wea_sent">आपातकालीन अलर्ट भेजा गया</string>
+    <string name="m_wea_failed">नहीं भेजा गया: फ़ोन की टेलीफ़ोनी नहीं चल रही</string>
+    <string name="wea_presidential">राष्ट्रपति अलर्ट</string>
+    <string name="wea_extreme">अत्यधिक ख़तरा</string>
+    <string name="wea_severe">गंभीर ख़तरा</string>
+    <string name="wea_amber">AMBER अलर्ट</string>
+    <string name="wea_test">अनिवार्य मासिक परीक्षण</string>
+    <string name="wea_body_presidential">राष्ट्रपति अलर्ट: यह आपातकालीन अलर्ट सिस्टम का परीक्षण है। किसी कार्रवाई की ज़रूरत नहीं है।</string>
+    <string name="wea_body_extreme">अत्यधिक अलर्ट: आपके क्षेत्र में टॉर्नेडो की चेतावनी। अभी आश्रय लें। यह एक परीक्षण है।</string>
+    <string name="wea_body_severe">गंभीर अलर्ट: आपके क्षेत्र में शाम 6 बजे तक आँधी-तूफ़ान की चेतावनी। यह एक परीक्षण है।</string>
+    <string name="wea_body_amber">AMBER अलर्ट: लापता बच्चा, नीली सेडान। दिखे तो 911 पर कॉल करें। यह एक परीक्षण है।</string>
+    <string name="wea_body_test">यह Wireless Emergency Alert सिस्टम का परीक्षण है। किसी कार्रवाई की ज़रूरत नहीं है।</string>
+</resources>

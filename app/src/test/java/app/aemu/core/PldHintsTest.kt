@@ -102,4 +102,78 @@ class PldHintsTest {
         assertEquals(0, ElfPatch.fixPldHints(f))
         assertTrue(bytes.contentEquals(f.readBytes()))
     }
+
+    @Test fun onlyBionicWithoutSymbolsIsPatched() {
+        // no symbol proves ARM mode: libart.so / libLLVM.so are Thumb-2 and lost calls to the old, name-blind heuristic
+        assertTrue(ElfPatch.pldHintOffsets(elf(armPrologue), "libart.so").isEmpty())
+        assertTrue(ElfPatch.pldHintOffsets(elf(armPrologue), "libLLVM.so").isEmpty())
+        assertEquals(listOf(codeOff + 6 * 4, codeOff + 7 * 4), ElfPatch.pldHintOffsets(elf(armPrologue), "libc.so"))
+        assertEquals(listOf(codeOff + 6 * 4, codeOff + 7 * 4), ElfPatch.pldHintOffsets(elf(armPrologue), "linker"))
+    }
+
+    // ---- the crash from the field: every guest process died at linker+0x60d8 with SIGILL ----------------------------
+
+    /** `pldw [r0]; pldw [r0, #0x40]; subs r2, r2, #0x40; bcc ...` exactly as qemu dumped it, in a loop full of conditional code. */
+    private val copyLoop = intArrayOf(
+        0x1A000004, 0x0A000002, 0x3A000001, 0xCA000000.toInt(), 0xDA000001.toInt(), 0xAA000002.toInt(), // conditional branches before
+        0xF5900000.toInt(), 0xF5900040.toInt(), 0xE2522040.toInt(), 0x3A00000A,
+        0x8A000003.toInt(), 0x28B150F8, 0x28A050F8, 0x2A000001, 0x4A000000, 0x5A000002 // and after: nowhere near "mostly 0xE"
+    )
+
+    @Test fun conditionalHeavyCopyLoopIsFixed() {
+        assertEquals(listOf(codeOff + 6 * 4, codeOff + 7 * 4), ElfPatch.pldHintOffsets(elf(copyLoop), "linker"))
+    }
+
+    @Test fun loneHintLookalikeInADataTableIsLeftAlone() {
+        // the real neighbourhood of 0xf59e6d5e at libGLESv1_CM_swiftshader.so+0x3c9c0: a constant, not a cache hint
+        val table = intArrayOf(
+            0x64B7A030, 0xF3216D23.toInt(), 0xC45236D2.toInt(), 0xF59E6D5E.toInt(), 0x2D500584, 0x4D0D905D, 0x6B6F335A, 0x1B2C3D4E
+        )
+        assertTrue(ElfPatch.pldHintOffsets(elf(table), "libc.so").isEmpty())
+        assertTrue(ElfPatch.pldHintOffsets(elf(table), "linker").isEmpty())
+        assertTrue(ElfPatch.pldHintOffsets(elf(table)).isEmpty())
+    }
+
+    @Test fun loneNotThumbPldwWithoutAnotherHintIsLeftAlone() {
+        val code = copyLoop.copyOf().also { it[7] = nop } // 0xf5900000 followed by a nop: no second hint
+        assertTrue(ElfPatch.pldHintOffsets(elf(code), "libc.so").isEmpty())
+    }
+
+    @Test fun copyLoopOutsideBionicIsLeftAlone() {
+        // the Thumb proof does not widen the name gate: no symbol proves ARM mode, so only libc.so / linker are patched
+        assertTrue(ElfPatch.pldHintOffsets(elf(copyLoop), "libcrypto.so").isEmpty())
+        assertTrue(ElfPatch.pldHintOffsets(elf(copyLoop), "libart.so").isEmpty())
+    }
+
+    @Test fun malformedPldNextToAnArmPldwIsFixedToo() {
+        val code = intArrayOf(
+            0x1A000004, 0x0A000002, 0x3A000001, 0xCA000000.toInt(), 0xDA000001.toInt(), 0xAA000002.toInt(),
+            0xF5D10040.toInt(), 0xF5900000.toInt(), 0xF5900040.toInt(), 0xE2522040.toInt(), 0x3A00000A,
+            0x8A000003.toInt(), 0x28B150F8, 0x28A050F8, 0x2A000001, 0x4A000000, 0x5A000002
+        )
+        assertEquals(listOf(codeOff + 6 * 4, codeOff + 7 * 4, codeOff + 8 * 4), ElfPatch.pldHintOffsets(elf(code), "linker"))
+    }
+
+    @Test fun fixedCopyLoopRunsOnAsArmPld() {
+        val f = tmp.newFile("linker")
+        f.writeBytes(elf(copyLoop))
+        assertEquals(2, ElfPatch.fixPldHints(f))
+        val b = ByteBuffer.wrap(f.readBytes()).order(ByteOrder.LITTLE_ENDIAN)
+        assertEquals(0xF5D0F000.toInt(), b.getInt(codeOff + 6 * 4))
+        assertEquals(0xF5D0F040.toInt(), b.getInt(codeOff + 7 * 4))
+        assertEquals(0xE2522040.toInt(), b.getInt(codeOff + 8 * 4)) // neighbours untouched
+        assertEquals(0, ElfPatch.fixPldHints(f))
+    }
+
+    @Test fun thumbBranchesWithAnF59xPrefixAreLeftAlone() {
+        // 0xf59x is a valid Thumb-2 prefix when the next halfword has bit 15 set (b<cond>.w / bl)
+        val code = thumb(0x4620, 0xf590, 0xf000, 0xb510, 0xf590, 0xd001, 0x4770, 0xf5d1, 0xef26, 0x4620)
+        assertTrue(ElfPatch.pldHintOffsets(elf(code), "libc.so").isEmpty())
+    }
+
+    @Test fun thumbSecondHalfOfA32BitInstructionIsLeftAlone() {
+        // 0xf59x as the second half of a 32-bit instruction (prefix 0xf8d0 / 0xe92d just before it)
+        val code = thumb(0xf8d0, 0xf590, 0x4620, 0xe92d, 0xf590, 0x4770)
+        assertTrue(ElfPatch.pldHintOffsets(elf(code), "libc.so").isEmpty())
+    }
 }

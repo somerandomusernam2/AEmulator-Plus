@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="vs_cdma">CDMA მოდემი</string>
+    <string name="vs_cdma_sub">ახდენს CDMA მოდემის ემულაციას: 1xRTT / EV-DO რეგისტრაცია, MEID, CDMA გამოწერა და CDMA ტექსტური შეტყობინებები. გამოიყენება შემდეგი სრული ჩატვირთვისას.</string>
+    <string name="vs_cdma_fw_yes">ეს ფირმვერი LTE on CDMA-ა (telephony.lteOnCdmaDevice=1): ნაგულისხმევად ჩართულია.</string>
+    <string name="vs_cdma_fw_no">ეს ფირმვერი LTE on CDMA არ არის: ნაგულისხმევად გამორთულია.</string>
+</resources>

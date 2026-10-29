@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="m_wea">模擬緊急警報</string>
+    <string name="m_wea_type">警報の種類</string>
+    <string name="m_wea_sent">緊急警報を送信しました</string>
+    <string name="m_wea_failed">未送信：端末のテレフォニーが実行されていません</string>
+    <string name="wea_presidential">大統領警報</string>
+    <string name="wea_extreme">極めて深刻な脅威</string>
+    <string name="wea_severe">深刻な脅威</string>
+    <string name="wea_amber">AMBER アラート</string>
+    <string name="wea_test">毎月の必須テスト</string>
+    <string name="wea_body_presidential">大統領警報：これは緊急警報システムのテストです。対応は不要です。</string>
+    <string name="wea_body_extreme">重大警報：お住まいの地域に竜巻警報が出ています。今すぐ避難してください。これはテストです。</string>
+    <string name="wea_body_severe">深刻な警報：お住まいの地域に午後 6 時まで雷雨警報が出ています。これはテストです。</string>
+    <string name="wea_body_amber">AMBER アラート：行方不明の子ども、青いセダン。見かけたら 911 に通報してください。これはテストです。</string>
+    <string name="wea_body_test">これはワイヤレス緊急警報システムのテストです。対応は不要です。</string>
+</resources>

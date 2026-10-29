@@ -41,7 +41,7 @@ enum {
     NR_prctl = 167, NR_getpid = 172, NR_getuid = 174, NR_geteuid = 175, NR_getgid = 176, NR_getegid = 177, NR_gettid = 178,
     NR_socket = 198, NR_socketpair = 199, NR_bind = 200, NR_connect = 203, NR_getsockname = 204, NR_sendto = 206, NR_setsockopt = 208, NR_getsockopt = 209,
     NR_shutdown = 210, NR_sendmsg = 211, NR_recvmsg = 212, NR_munmap = 215, NR_execve = 221, NR_mmap = 222, NR_mprotect = 226,
-    NR_renameat2 = 276, NR_memfd_create = 279, NR_statx = 291,
+    NR_renameat2 = 276, NR_memfd_create = 279, NR_statx = 291, NR_faccessat2 = 439,
 };
 
 #define AT_FDCWD (-100)
@@ -567,8 +567,10 @@ static long input_ioctl(u32 cmd, u64 arg) {
         memset(out, 0, len);
         switch (nr - 0x20) {
         case 0: setbit(out, len, 0); setbit(out, len, 1); setbit(out, len, 3); break;
-        case 1: for (u32 k = 1; k < 0xf0; k++) setbit(out, len, k); setbit(out, len, 580); break;
-        case 3: setbit(out, len, 48); setbit(out, len, 50); setbit(out, len, 53); setbit(out, len, 54); setbit(out, len, 57); break;
+        // (14's EventHub aborts system_server on an event the device has not declared - "received invalid EV_ABS event
+        // code: ABS_MT_PRESSURE" on the first touch: everything the host sends is declared, pressure and BTN_TOUCH too)
+        case 1: for (u32 k = 1; k < 0xf0; k++) setbit(out, len, k); setbit(out, len, 580); setbit(out, len, 330); break;
+        case 3: setbit(out, len, 48); setbit(out, len, 50); setbit(out, len, 53); setbit(out, len, 54); setbit(out, len, 57); setbit(out, len, 58); break;
         }
         return len;
     }
@@ -576,7 +578,7 @@ static long input_ioctl(u32 cmd, u64 arg) {
         int *a = (int *)arg; u32 ax = nr - 0x40;
         memset(a, 0, 24);
         if (ax == 53) a[2] = (int)g_fbw - 1; else if (ax == 54) a[2] = (int)g_fbh - 1;
-        else if (ax == 48 || ax == 50) a[2] = 255; else if (ax == 57) a[2] = 31; else return -EINVAL;
+        else if (ax == 48 || ax == 50 || ax == 58) a[2] = 255; else if (ax == 57) a[2] = 31; else return -EINVAL;
         return 0;
     }
     if (nr == 0x90 || nr == 0xa0 || nr == 0x03) return 0;                        // grab, clock id, repeat
@@ -871,7 +873,7 @@ static long trap2(long nr, long *a, void *uc, char **pbp) {
         }
         return r;
     }
-    case NR_faccessat: {
+    case NR_faccessat: case NR_faccessat2: {     // faccessat2 has the same first three arguments and takes the flags in a[3]
         char *b1 = PB(0);
         if (P(1)) {
             if (seq(P(1), "/dev/binder") || seq(P(1), "/dev/hwbinder") || seq(P(1), "/dev/vndbinder") || seq(P(1), "/dev/ashmem")) {
@@ -886,7 +888,18 @@ static long trap2(long nr, long *a, void *uc, char **pbp) {
             if (seq(P(1), "/sys/fs/selinux/enforce")) return 0;
         }
         NEEDX(1);
-        return S4(nr, a[0], h1, a[2], a[3]);
+        {
+            long r = S4(nr, a[0], h1, a[2], a[3]);
+            // Android 17 hosts: access(R_OK) on a path of the image can come back EACCES although the app owns the file
+            // and open() still serves it (libselinux of 14 probes every *_service_contexts with R_OK, finds none, hands
+            // servicemanager a null handle and it aborts). A read probe is answered by opening the path for reading;
+            // if that is refused too, the refusal is real and stays.
+            if (r == -13 /*EACCES*/ && h1 && (a[2] & 4) && !(a[2] & 3)) {
+                long fd = S4(NR_openat, a[0], h1, 02000000 /*O_RDONLY|O_CLOEXEC*/, 0);
+                if (fd >= 0) { S1(NR_close, fd); return 0; }
+            }
+            return r;
+        }
     }
     case NR_mkdirat: case NR_unlinkat: case NR_fchmodat: case NR_utimensat: case NR_mknodat:
     case NR_statx: {
@@ -987,6 +1000,18 @@ static long trap2(long nr, long *a, void *uc, char **pbp) {
         }
         NEEDX(0);
         long r = S5(nr, h0, a[1], a[2], a[3], a[4]);
+        // (a label the phone does not give out: installd of 14 reads the label of an app's data directory before and
+        // after its restorecon (lgetfilecon) and the phone answers EINVAL for the directories already in the image.
+        // installd then reports "Failed to restorecon /data/data/<pkg>", PackageManager deletes the directory and
+        // makes it again, for every such package on every boot. The same fallback as in the runner of 15, where it is
+        // what the child zygotes need)
+        if ((nr == NR_getxattr || nr == NR_lgetxattr) && r < 0 && r != -34 && r != -2 && a[1] && seq((const char *)a[1], "security.selinux")) {
+            static const char lab[] = "u:object_r:system_data_file:s0";
+            if (!a[3]) return sizeof lab;
+            if ((u64)a[3] < sizeof lab) return -34;
+            memcpy((void *)a[2], lab, sizeof lab);
+            return sizeof lab;
+        }
         if (nr == NR_statfs && r == 0) {
             // a nearly full phone reads as a nearly full guest disk (no dropbox, low-storage modes): the guest's disk
             // is what is still free plus as much again
@@ -1486,6 +1511,10 @@ static void install_filter(void) {
     for (u64 i = 0; i < sizeof trapped; i++) f[n++] = JEQ(trapped[i], L_TRAP, 0);
     f[n++] = JEQ(NR_renameat2, L_TRAP, 0);
     f[n++] = JEQ(NR_statx, L_TRAP, 0);
+    // glibc 2.33+ (the static qemu-arm's) answers faccessat() with faccessat2 first and falls back to faccessat only on ENOSYS;
+    // a phone kernel has it (5.8+), so without this entry every access() of a 32-bit guest went to the kernel with the
+    // GUEST path, i.e. to the phone's own /system, /vendor... (EACCES for an app), never into the image.
+    f[n++] = JEQ(NR_faccessat2, L_TRAP, 0);
     f[n++] = JEQ(280 /* bpf */, L_TRAP, 0);
     f[n++] = JEQ(NR_rt_sigprocmask, L_SIG, 0);
     f[n++] = JEQ(NR_prctl, L_PRCTL, 0);

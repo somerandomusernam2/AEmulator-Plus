@@ -28,4 +28,6 @@
     <string name="vs_bluetooth">ہوسٹ بلوٹوتھ (تجرباتی)</string>
     <string name="vs_bluetooth_sub">گیسٹ کو فون کے ذریعے بلوٹوتھ ڈیوائسز اسکین کرنے، پیئر لسٹ دیکھنے اور ان سے بات کرنے دیں: کلاسک سیریل (RFCOMM) اور Bluetooth LE (GATT)۔ بلوٹوتھ کی اجازت اور VM کا مکمل ری اسٹارٹ درکار ہے۔ خام HCI رسائی نہیں: گیسٹ فون کا اڈاپٹر ایک برج کے ذریعے دیکھتا ہے، اس لیے ہیڈسیٹس (آڈیو پروفائلز) معاون نہیں ہیں۔</string>
     <string name="bluetooth_permission_denied">بلوٹوتھ کی اجازت مسترد کر دی گئی: گیسٹ ہوسٹ بلوٹوتھ کے بغیر بوٹ ہوگا۔</string>
+    <string name="vs_sf_tombstone">SurfaceFlinger کریش tombstone (ڈیبگ)</string>
+    <string name="vs_sf_tombstone_sub">اگر SurfaceFlinger کریش ہو جائے تو فرم ویئر مختصر رپورٹ کے بجائے لاگ میں عام tombstone (کریش ہونے والے فنکشن کے ساتھ) لکھتا ہے۔ بگ رپورٹ بھیجتے وقت استعمال کریں۔ اگلے مکمل VM بوٹ پر لاگو ہوگا۔</string>
 </resources>

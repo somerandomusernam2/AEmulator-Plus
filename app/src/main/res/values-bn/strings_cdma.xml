@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="vs_cdma">CDMA মডেম</string>
+    <string name="vs_cdma_sub">একটি CDMA মডেম অনুকরণ করে: 1xRTT / EV-DO রেজিস্ট্রেশন, MEID, CDMA সাবস্ক্রিপশন এবং CDMA টেক্সট বার্তা। পরের পূর্ণ বুটে প্রযোজ্য হবে।</string>
+    <string name="vs_cdma_fw_yes">এই ফার্মওয়্যার LTE on CDMA (telephony.lteOnCdmaDevice=1): ডিফল্টভাবে চালু।</string>
+    <string name="vs_cdma_fw_no">এই ফার্মওয়্যার LTE on CDMA নয়: ডিফল্টভাবে বন্ধ।</string>
+</resources>

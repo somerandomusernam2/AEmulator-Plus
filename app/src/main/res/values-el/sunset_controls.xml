@@ -28,4 +28,6 @@
     <string name="vs_bluetooth">Bluetooth κεντρικού υπολογιστή (πειραματικό)</string>
     <string name="vs_bluetooth_sub">Επιτρέπει στον επισκέπτη να σαρώνει, να εμφανίζει τη λίστα ζευγαρωμένων και να επικοινωνεί με συσκευές Bluetooth μέσω του τηλεφώνου: κλασικό σειριακό (RFCOMM) και Bluetooth LE (GATT). Απαιτεί άδεια Bluetooth και πλήρη επανεκκίνηση του VM. Όχι ακατέργαστο HCI: ο επισκέπτης βλέπει τον προσαρμογέα του τηλεφώνου μέσω γέφυρας, επομένως τα ακουστικά (προφίλ ήχου) δεν υποστηρίζονται.</string>
     <string name="bluetooth_permission_denied">Η άδεια Bluetooth απορρίφθηκε: ο επισκέπτης θα εκκινήσει χωρίς το Bluetooth του κεντρικού υπολογιστή.</string>
+    <string name="vs_sf_tombstone">Tombstone κατάρρευσης του SurfaceFlinger (αποσφαλμάτωση)</string>
+    <string name="vs_sf_tombstone_sub">Αν καταρρεύσει το SurfaceFlinger, το firmware γράφει στο αρχείο καταγραφής ένα κανονικό tombstone (με τη συνάρτηση που κατέρρευσε) αντί για σύντομη αναφορά. Χρησιμοποιήστε το όταν στέλνετε αναφορά σφάλματος. Ισχύει στην επόμενη πλήρη εκκίνηση της VM.</string>
 </resources>

@@ -466,4 +466,22 @@
     <string name="vs_nav_compact_sub">دکمه‌های کوچک‌تر، جای بیشتر برای صفحه.</string>
     <string name="nav_dpad">گوی ردیاب</string>
     <string name="m_reset_menu_pos">بازنشانی دکمهٔ منو</string>
+    <string name="boot_minimize">کوچک‌کردن صفحهٔ بوت (برای نمایش دوباره روی قرص ضربه بزنید)</string>
+    <string name="vs_resolution_custom">سفارشی</string>
+    <string name="as_new_home">صفحهٔ اصلی جدید</string>
+    <string name="as_new_home_sub">کتابخانهٔ شبکه‌ای با نوار پایین (سبک 0.0.0.3). برای فهرست کلاسیک خاموش کنید. پس از راه‌اندازی مجدد برنامه اعمال می‌شود.</string>
+    <string name="vs_thermal">انتقال دما</string>
+    <string name="vs_thermal_sub">خاموش: thermal_zone17 مهمان همیشه 30 °C می‌خواند تا سفت‌افزارهایی که هنگام گرما صفحه را قفل می‌کنند (هشدار داغ‌شدن Xiaomi) به کار خود ادامه دهند. روشن: حسگر خود تلفن خوانده می‌شود. مقداری که از منوی دستگاه تنظیم شود همیشه اولویت دارد. در شروع بعدی اعمال می‌شود.</string>
+    <string name="thermal_menu">حسگر دما</string>
+    <string name="thermal_title">حسگر دما</string>
+    <string name="thermal_mode">حالت: %1$s</string>
+    <string name="thermal_mode_cool">ثابت 30 °C</string>
+    <string name="thermal_mode_host">حسگر تلفن</string>
+    <string name="thermal_guest_now">مهمان می‌خواند: %1$s</string>
+    <string name="thermal_host_now">تلفن می‌خواند: %1$s</string>
+    <string name="thermal_value">دما (°C)</string>
+    <string name="thermal_hint">بلافاصله اعمال می‌شود، حتی هنگام اجرای دستگاه.</string>
+    <string name="thermal_invalid">مقداری بین -40 تا 150 وارد کنید.</string>
+    <string name="thermal_apply">اعمال</string>
+    <string name="thermal_reset">استفاده از پیش‌فرض</string>
 </resources>

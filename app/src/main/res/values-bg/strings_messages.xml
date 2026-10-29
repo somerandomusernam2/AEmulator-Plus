@@ -196,8 +196,6 @@
     <string name="vmfail_system_server_oat_missing">system_server не може да стартира: предварително компилираният код на framework (system/framework/oat) липсва в този контейнер — импортирайте фърмуера отново</string>
     <string name="warn_no_build_prop">Няма system/build.prop: версията на Android е определена по структурата на системата.</string>
     <string name="warn_no_boot_img">Във фърмуера няма boot.img: boot планът и BOOTCLASSPATH са налучкани.</string>
-    <string name="warn_no_healthd">Няма healthd в boot плана (няма /sbin/healthd; липсва ли ramdisk в импорта?): system_server ще се срине в BatteryService.</string>
-    <string name="warn_arm64">64-битов фърмуер: поддържа се само 32-битов ARM.</string>
     <string name="warn_not_arm">Фърмуерът не е за ARM (%1$s) и няма да работи.</string>
     <string name="warn_experimental">Android %1$s: поддръжката е експериментална (ART, SELinux).</string>
     <string name="import_default_name">фърмуер</string>
@@ -226,4 +224,5 @@
     <string name="update_err_wrong_variant">APK за обновяване не съответства на този вариант на приложението</string>
     <string name="update_err_wrong_package">Изтегленият APK има грешен пакет на приложението</string>
     <string name="catalog_err_too_many_lines">Каталогът надвишава 10000 реда</string>
+    <string name="imp_iso_no_system">В ISO образа не е намерена Android система (очаква се system.sfs или system.img)</string>
 </resources>

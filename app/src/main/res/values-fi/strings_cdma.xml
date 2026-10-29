@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="vs_cdma">CDMA-modeemi</string>
+    <string name="vs_cdma_sub">Emuloi CDMA-modeemia: 1xRTT-/EV-DO-rekisteröinti, MEID, CDMA-tilaus ja CDMA-tekstiviestit. Otetaan käyttöön seuraavalla täydellä käynnistyksellä.</string>
+    <string name="vs_cdma_fw_yes">Tämä laiteohjelmisto on LTE on CDMA (telephony.lteOnCdmaDevice=1): oletuksena päällä.</string>
+    <string name="vs_cdma_fw_no">Tämä laiteohjelmisto ei ole LTE on CDMA: oletuksena pois.</string>
+</resources>

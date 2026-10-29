@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="vs_cdma">CDMA 모뎀</string>
+    <string name="vs_cdma_sub">CDMA 모뎀을 에뮬레이션합니다: 1xRTT / EV-DO 등록, MEID, CDMA 가입, CDMA 문자 메시지. 다음 전체 부팅 시 적용됩니다.</string>
+    <string name="vs_cdma_fw_yes">이 펌웨어는 LTE on CDMA(telephony.lteOnCdmaDevice=1)입니다. 기본값은 켬입니다.</string>
+    <string name="vs_cdma_fw_no">이 펌웨어는 LTE on CDMA가 아닙니다. 기본값은 끔입니다.</string>
+</resources>

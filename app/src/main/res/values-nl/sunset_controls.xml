@@ -28,4 +28,6 @@
     <string name="vs_bluetooth">Host-bluetooth (experimenteel)</string>
     <string name="vs_bluetooth_sub">Laat de gast bluetooth-apparaten scannen, de gekoppelde lijst bekijken en ermee communiceren via de telefoon: klassiek serieel (RFCOMM) en Bluetooth LE (GATT). Vereist bluetooth-toestemming en een volledige herstart van de VM. Geen ruwe HCI: de gast ziet de adapter van de telefoon via een brug, dus headsets (audioprofielen) worden niet ondersteund.</string>
     <string name="bluetooth_permission_denied">Bluetooth-toestemming geweigerd: de gast start op zonder host-bluetooth.</string>
+    <string name="vs_sf_tombstone">SurfaceFlinger-crash-tombstone (debug)</string>
+    <string name="vs_sf_tombstone_sub">Als SurfaceFlinger crasht, laat de firmware een gewone tombstone naar het logboek schrijven (met de crashende functie) in plaats van een kort rapport. Gebruik dit bij het insturen van een bugrapport. Geldt bij de volgende volledige VM-start.</string>
 </resources>

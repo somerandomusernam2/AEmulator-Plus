@@ -196,8 +196,6 @@
     <string name="vmfail_system_server_oat_missing">system_server เริ่มทำงานไม่ได้: คอนเทนเนอร์นี้ไม่มีโค้ดที่คอมไพล์ไว้ล่วงหน้าของเฟรมเวิร์ก (system/framework/oat) — นำเข้าเฟิร์มแวร์อีกครั้ง</string>
     <string name="warn_no_build_prop">ไม่มี system/build.prop: เวอร์ชัน Android ถูกอนุมานจากโครงสร้างของระบบ</string>
     <string name="warn_no_boot_img">ไม่มี boot.img ในเฟิร์มแวร์: แผนการบูตและ BOOTCLASSPATH เป็นการคาดเดา</string>
-    <string name="warn_no_healthd">ไม่มี healthd ในแผนการบูต (ไม่มี /sbin/healthd; ramdisk หายไปตอนนำเข้าหรือไม่?): system_server จะตายใน BatteryService</string>
-    <string name="warn_arm64">เฟิร์มแวร์ 64 บิต: รองรับเฉพาะ ARM 32 บิต</string>
     <string name="warn_not_arm">เฟิร์มแวร์ไม่ใช่ ARM (%1$s) และจะรันไม่ได้</string>
     <string name="warn_experimental">Android %1$s: รองรับแบบทดลอง (ART, SELinux)</string>
     <string name="import_default_name">เฟิร์มแวร์</string>
@@ -226,4 +224,5 @@
     <string name="update_err_wrong_variant">APK อัปเดตไม่ตรงกับรุ่นของแอปนี้</string>
     <string name="update_err_wrong_package">APK ที่ดาวน์โหลดมีแพ็กเกจแอปไม่ถูกต้อง</string>
     <string name="catalog_err_too_many_lines">แคตตาล็อกเกิน 10000 บรรทัด</string>
+    <string name="imp_iso_no_system">ไม่พบระบบ Android ในอิมเมจ ISO (ต้องมี system.sfs หรือ system.img)</string>
 </resources>

@@ -470,4 +470,22 @@
     <string name="vs_nav_compact_sub">أزرار أصغر ومساحة أكبر للشاشة.</string>
     <string name="nav_dpad">كرة التتبع</string>
     <string name="m_reset_menu_pos">إعادة ضبط زر القائمة</string>
+    <string name="boot_minimize">تصغير شاشة الإقلاع (انقر على الحبة لإظهارها مجددًا)</string>
+    <string name="vs_resolution_custom">مخصص</string>
+    <string name="as_new_home">شاشة رئيسية جديدة</string>
+    <string name="as_new_home_sub">مكتبة بشبكة مع شريط سفلي (نمط 0.0.0.3). أوقفها لاستخدام القائمة الكلاسيكية. يسري ذلك بعد إعادة تشغيل التطبيق.</string>
+    <string name="vs_thermal">تمرير درجة الحرارة</string>
+    <string name="vs_thermal_sub">متوقف: يقرأ thermal_zone17 في الضيف دائمًا 30 °C، بحيث يستمر عمل البرامج الثابتة التي تقفل الشاشة عند الحرارة (تنبيه ارتفاع الحرارة في Xiaomi). قيد التشغيل: يُقرأ مستشعر الهاتف نفسه. القيمة المضبوطة من قائمة الجهاز لها الأولوية دائمًا. يسري ذلك عند التشغيل التالي.</string>
+    <string name="thermal_menu">مستشعر الحرارة</string>
+    <string name="thermal_title">مستشعر الحرارة</string>
+    <string name="thermal_mode">الوضع: %1$s</string>
+    <string name="thermal_mode_cool">30 °C ثابتة</string>
+    <string name="thermal_mode_host">مستشعر الهاتف</string>
+    <string name="thermal_guest_now">يقرأ الضيف: %1$s</string>
+    <string name="thermal_host_now">يقرأ الهاتف: %1$s</string>
+    <string name="thermal_value">درجة الحرارة (°C)</string>
+    <string name="thermal_hint">يسري فورًا، حتى أثناء تشغيل الجهاز.</string>
+    <string name="thermal_invalid">أدخل قيمة من -40 إلى 150.</string>
+    <string name="thermal_apply">تطبيق</string>
+    <string name="thermal_reset">استخدام الافتراضي</string>
 </resources>

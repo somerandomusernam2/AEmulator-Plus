@@ -196,8 +196,6 @@
     <string name="vmfail_system_server_oat_missing">system_server sa nedá spustiť: v tomto kontajneri chýba predkompilovaný kód frameworku (system/framework/oat) — importujte firmvér znova</string>
     <string name="warn_no_build_prop">Chýba system/build.prop: verzia Androidu bola odvodená zo stromu systému.</string>
     <string name="warn_no_boot_img">Vo firmvéri chýba boot.img: plán spustenia a BOOTCLASSPATH boli odhadnuté.</string>
-    <string name="warn_no_healthd">V pláne spustenia chýba healthd (žiadny /sbin/healthd; chýba ramdisk v importe?): system_server zlyhá v BatteryService.</string>
-    <string name="warn_arm64">64-bitový firmvér: podporované je iba 32-bitové ARM.</string>
     <string name="warn_not_arm">Firmvér nie je ARM (%1$s) a nespustí sa.</string>
     <string name="warn_experimental">Android %1$s: podpora je experimentálna (ART, SELinux).</string>
     <string name="import_default_name">firmvér</string>
@@ -226,4 +224,5 @@
     <string name="update_err_wrong_variant">APK aktualizácie nezodpovedá variantu tejto aplikácie</string>
     <string name="update_err_wrong_package">Stiahnuté APK má nesprávny balík aplikácie</string>
     <string name="catalog_err_too_many_lines">Katalóg presahuje 10000 riadkov</string>
+    <string name="imp_iso_no_system">V obraze ISO sa nenašiel systém Android (očakáva sa system.sfs alebo system.img)</string>
 </resources>

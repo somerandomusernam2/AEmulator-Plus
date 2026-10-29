@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="vs_cdma">Modem CDMA</string>
+    <string name="vs_cdma_sub">Émule un modem CDMA : enregistrement 1xRTT / EV-DO, MEID, abonnement CDMA et SMS CDMA. S\'applique au prochain démarrage complet.</string>
+    <string name="vs_cdma_fw_yes">Ce firmware est LTE on CDMA (telephony.lteOnCdmaDevice=1) : activé par défaut.</string>
+    <string name="vs_cdma_fw_no">Ce firmware n\'est pas LTE on CDMA : désactivé par défaut.</string>
+</resources>

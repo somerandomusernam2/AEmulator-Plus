@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="m_wea">Cảnh báo khẩn cấp giả</string>
+    <string name="m_wea_type">Loại cảnh báo</string>
+    <string name="m_wea_sent">Đã gửi cảnh báo khẩn cấp</string>
+    <string name="m_wea_failed">Chưa gửi: dịch vụ điện thoại của máy không chạy</string>
+    <string name="wea_presidential">Cảnh báo của Tổng thống</string>
+    <string name="wea_extreme">Mối đe dọa cực kỳ nghiêm trọng</string>
+    <string name="wea_severe">Mối đe dọa nghiêm trọng</string>
+    <string name="wea_amber">Cảnh báo AMBER</string>
+    <string name="wea_test">Thử nghiệm bắt buộc hằng tháng</string>
+    <string name="wea_body_presidential">Cảnh báo của Tổng thống: Đây là thử nghiệm hệ thống cảnh báo khẩn cấp. Không cần thực hiện hành động nào.</string>
+    <string name="wea_body_extreme">Cảnh báo cực kỳ nghiêm trọng: Cảnh báo lốc xoáy tại khu vực của bạn. Hãy tìm nơi trú ẩn ngay. Đây là thử nghiệm.</string>
+    <string name="wea_body_severe">Cảnh báo nghiêm trọng: Cảnh báo giông bão tại khu vực của bạn đến 18:00. Đây là thử nghiệm.</string>
+    <string name="wea_body_amber">Cảnh báo AMBER: Trẻ em mất tích, xe sedan màu xanh. Gọi 911 nếu thấy. Đây là thử nghiệm.</string>
+    <string name="wea_body_test">Đây là thử nghiệm hệ thống Wireless Emergency Alert. Không cần thực hiện hành động nào.</string>
+</resources>

@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="vs_cdma">Modem CDMA</string>
+    <string name="vs_cdma_sub">Posnema modem CDMA: registracijo 1xRTT / EV-DO, MEID, naročnino CDMA in besedilna sporočila CDMA. Velja ob naslednjem popolnem zagonu.</string>
+    <string name="vs_cdma_fw_yes">Ta vdelana programska oprema je LTE on CDMA (telephony.lteOnCdmaDevice=1): privzeto vklopljeno.</string>
+    <string name="vs_cdma_fw_no">Ta vdelana programska oprema ni LTE on CDMA: privzeto izklopljeno.</string>
+</resources>

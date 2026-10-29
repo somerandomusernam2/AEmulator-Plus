@@ -466,4 +466,22 @@
     <string name="vs_nav_compact_sub">Daha küçük düğmeler, ekrana daha çok yer.</string>
     <string name="nav_dpad">İztopu</string>
     <string name="m_reset_menu_pos">Menü düğmesini sıfırla</string>
+    <string name="boot_minimize">Açılış ekranını küçült (yeniden göstermek için hapa dokun)</string>
+    <string name="vs_resolution_custom">Özel</string>
+    <string name="as_new_home">Yeni ana ekran</string>
+    <string name="as_new_home_sub">Alt çubuklu ızgara kitaplığı (0.0.0.3 stili). Klasik liste için kapat. Uygulama yeniden başlatıldıktan sonra geçerli olur.</string>
+    <string name="vs_thermal">Sıcaklık aktarımı</string>
+    <string name="vs_thermal_sub">Kapalı: konuğun thermal_zone17 değeri her zaman 30 °C okunur; böylece sıcakken ekranı kilitleyen ürün yazılımları (Xiaomi aşırı ısınma katmanı) çalışmaya devam eder. Açık: telefonun kendi sensörü okunur. Makinenin menüsünden ayarlanan değer her zaman önceliklidir. Bir sonraki başlatmada geçerli olur.</string>
+    <string name="thermal_menu">Sıcaklık sensörü</string>
+    <string name="thermal_title">Sıcaklık sensörü</string>
+    <string name="thermal_mode">Mod: %1$s</string>
+    <string name="thermal_mode_cool">sabit 30 °C</string>
+    <string name="thermal_mode_host">telefonun sensörü</string>
+    <string name="thermal_guest_now">Konuk okuyor: %1$s</string>
+    <string name="thermal_host_now">Telefon okuyor: %1$s</string>
+    <string name="thermal_value">Sıcaklık (°C)</string>
+    <string name="thermal_hint">Hemen geçerli olur, makine çalışırken de.</string>
+    <string name="thermal_invalid">-40 ile 150 arasında bir değer girin.</string>
+    <string name="thermal_apply">Uygula</string>
+    <string name="thermal_reset">Varsayılanı kullan</string>
 </resources>

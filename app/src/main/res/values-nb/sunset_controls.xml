@@ -28,4 +28,6 @@
     <string name="vs_bluetooth">Vertens Bluetooth (eksperimentelt)</string>
     <string name="vs_bluetooth_sub">La gjesten skanne, liste parkoblede enheter og kommunisere med Bluetooth-enheter via telefonen: klassisk seriell (RFCOMM) og Bluetooth LE (GATT). Krever Bluetooth-tillatelse og en full omstart av VM-en. Ikke rå HCI: gjesten ser telefonens adapter gjennom en bro, så hodetelefoner (lydprofiler) støttes ikke.</string>
     <string name="bluetooth_permission_denied">Bluetooth-tillatelse avslått: gjesten starter uten Bluetooth fra verten.</string>
+    <string name="vs_sf_tombstone">SurfaceFlinger-krasj-tombstone (feilsøking)</string>
+    <string name="vs_sf_tombstone_sub">Hvis SurfaceFlinger krasjer, lar dette firmwaren skrive en vanlig tombstone til loggen (med funksjonen som krasjet) i stedet for en kort rapport. Bruk det når du sender en feilrapport. Gjelder ved neste fullstendige VM-oppstart.</string>
 </resources>

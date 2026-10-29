@@ -196,8 +196,6 @@
     <string name="vmfail_system_server_oat_missing">system_server не може запуститися: у цьому контейнері відсутній прекомпільований код фреймворку (system/framework/oat) — імпортуйте прошивку заново</string>
     <string name="warn_no_build_prop">Немає system/build.prop: версію Android визначено за деревом системи.</string>
     <string name="warn_no_boot_img">У прошивці немає boot.img: план завантаження та BOOTCLASSPATH підібрано навмання.</string>
-    <string name="warn_no_healthd">У плані завантаження немає healthd (немає /sbin/healthd; ramdisk не потрапив в імпорт?): system_server впаде в BatteryService.</string>
-    <string name="warn_arm64">64-бітна прошивка: підтримується лише 32-бітна ARM.</string>
     <string name="warn_not_arm">Прошивка не для ARM (%1$s) і не запуститься.</string>
     <string name="warn_experimental">Android %1$s: підтримка експериментальна (ART, SELinux).</string>
     <string name="import_default_name">прошивка</string>
@@ -226,4 +224,5 @@
     <string name="update_err_wrong_variant">APK оновлення не підходить до цього варіанту застосунку</string>
     <string name="update_err_wrong_package">Завантажений APK належить іншому застосунку</string>
     <string name="catalog_err_too_many_lines">У каталозі понад 10000 рядків</string>
+    <string name="imp_iso_no_system">В образі ISO не знайдено системи Android (очікується system.sfs або system.img)</string>
 </resources>

@@ -196,8 +196,6 @@
     <string name="vmfail_system_server_oat_missing">system_server nuk niset dot: kodi i para-kompiluar i framework-ut (system/framework/oat) mungon në këtë kontejner — importoni përsëri firmware-in</string>
     <string name="warn_no_build_prop">Nuk ka system/build.prop: versioni i Android-it u nxor nga struktura e sistemit.</string>
     <string name="warn_no_boot_img">Nuk ka boot.img në firmware: plani i nisjes dhe BOOTCLASSPATH u hamendësuan.</string>
-    <string name="warn_no_healthd">Nuk ka healthd në planin e nisjes (nuk ka /sbin/healthd; mungon ramdisk-u në importim?): system_server do të vdesë te BatteryService.</string>
-    <string name="warn_arm64">Firmware 64-bit: mbështetet vetëm ARM 32-bit.</string>
     <string name="warn_not_arm">Firmware-i nuk është ARM (%1$s) dhe nuk do të punojë.</string>
     <string name="warn_experimental">Android %1$s: mbështetja është eksperimentale (ART, SELinux).</string>
     <string name="import_default_name">firmware</string>
@@ -226,4 +224,5 @@
     <string name="update_err_wrong_variant">APK-ja e përditësimit nuk përputhet me këtë variant të aplikacionit</string>
     <string name="update_err_wrong_package">APK-ja e shkarkuar ka paketë aplikacioni të gabuar</string>
     <string name="catalog_err_too_many_lines">Katalogu tejkalon 10000 rreshta</string>
+    <string name="imp_iso_no_system">Në imazhin ISO nuk u gjet asnjë sistem Android (pritej system.sfs ose system.img)</string>
 </resources>

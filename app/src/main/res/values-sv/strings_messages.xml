@@ -196,8 +196,6 @@
     <string name="vmfail_system_server_oat_missing">system_server kan inte starta: den förkompilerade koden för ramverket (system/framework/oat) saknas i den här containern — importera firmware igen</string>
     <string name="warn_no_build_prop">Ingen system/build.prop: Android-versionen härleddes från systemträdet.</string>
     <string name="warn_no_boot_img">Ingen boot.img i firmware: startplanen och BOOTCLASSPATH gissades.</string>
-    <string name="warn_no_healthd">Ingen healthd i startplanen (ingen /sbin/healthd; saknas ramdisken i importen?): system_server kraschar i BatteryService.</string>
-    <string name="warn_arm64">64-bitars firmware: endast 32-bitars ARM stöds.</string>
     <string name="warn_not_arm">Firmware är inte ARM (%1$s) och kommer inte att köras.</string>
     <string name="warn_experimental">Android %1$s: stödet är experimentellt (ART, SELinux).</string>
     <string name="import_default_name">firmware</string>
@@ -226,4 +224,5 @@
     <string name="update_err_wrong_variant">Uppdaterings-APK:n matchar inte den här appvarianten</string>
     <string name="update_err_wrong_package">Den nedladdade APK:n har fel apppaket</string>
     <string name="catalog_err_too_many_lines">Katalogen överstiger 10000 rader</string>
+    <string name="imp_iso_no_system">Inget Android-system hittades i ISO-avbilden (system.sfs eller system.img förväntades)</string>
 </resources>

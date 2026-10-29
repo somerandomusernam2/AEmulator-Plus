@@ -468,4 +468,22 @@
     <string name="m_vnc">Iniciar servidor VNC</string>
     <string name="m_vnc_stop">Parar servidor VNC</string>
     <string name="m_vnc_started">VNC: %1$s, senha %2$s</string>
+    <string name="boot_minimize">Minimizar o ecrã de arranque (toque na pílula para o mostrar novamente)</string>
+    <string name="vs_resolution_custom">Personalizado</string>
+    <string name="as_new_home">Novo ecrã principal</string>
+    <string name="as_new_home_sub">Biblioteca em grelha com barra inferior (estilo 0.0.0.3). Desative para voltar à lista clássica. Aplica-se após reiniciar a aplicação.</string>
+    <string name="vs_thermal">Passagem térmica</string>
+    <string name="vs_thermal_sub">Desligado: a thermal_zone17 do convidado indica sempre 30 °C, para que o firmware que bloqueia o ecrã com calor (aviso de sobreaquecimento da Xiaomi) continue a funcionar. Ligado: lê o sensor do próprio telemóvel. Um valor definido no menu da máquina prevalece sempre. Aplica-se no próximo arranque.</string>
+    <string name="thermal_menu">Sensor térmico</string>
+    <string name="thermal_title">Sensor térmico</string>
+    <string name="thermal_mode">Modo: %1$s</string>
+    <string name="thermal_mode_cool">30 °C constantes</string>
+    <string name="thermal_mode_host">sensor do telemóvel</string>
+    <string name="thermal_guest_now">O convidado lê: %1$s</string>
+    <string name="thermal_host_now">O telemóvel lê: %1$s</string>
+    <string name="thermal_value">Temperatura (°C)</string>
+    <string name="thermal_hint">Aplica-se de imediato, mesmo com a máquina em execução.</string>
+    <string name="thermal_invalid">Introduza um valor de -40 a 150.</string>
+    <string name="thermal_apply">Aplicar</string>
+    <string name="thermal_reset">Usar predefinição</string>
 </resources>

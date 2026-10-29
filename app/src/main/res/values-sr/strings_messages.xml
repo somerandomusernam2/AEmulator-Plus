@@ -196,8 +196,6 @@
     <string name="vmfail_system_server_oat_missing">system_server не може да се покрене: у овом контејнеру недостаје претходно компајлиран код фрејмворка (system/framework/oat) — поново увезите фирмвер</string>
     <string name="warn_no_build_prop">Нема system/build.prop: верзија Android-а је закључена из системског стабла.</string>
     <string name="warn_no_boot_img">Нема boot.img у фирмверу: план покретања и BOOTCLASSPATH су нагађани.</string>
-    <string name="warn_no_healthd">Нема healthd у плану покретања (нема /sbin/healthd; недостаје ramdisk у увозу?): system_server ће пасти у BatteryService.</string>
-    <string name="warn_arm64">64-битни фирмвер: подржан је само 32-битни ARM.</string>
     <string name="warn_not_arm">Фирмвер није ARM (%1$s) и неће радити.</string>
     <string name="warn_experimental">Android %1$s: подршка је експериментална (ART, SELinux).</string>
     <string name="import_default_name">фирмвер</string>
@@ -226,4 +224,5 @@
     <string name="update_err_wrong_variant">APK ажурирања не одговара овој варијанти апликације</string>
     <string name="update_err_wrong_package">Преузети APK има погрешан пакет апликације</string>
     <string name="catalog_err_too_many_lines">Каталог премашује 10000 редова</string>
+    <string name="imp_iso_no_system">У ISO слици није пронађен Android систем (очекује се system.sfs или system.img)</string>
 </resources>

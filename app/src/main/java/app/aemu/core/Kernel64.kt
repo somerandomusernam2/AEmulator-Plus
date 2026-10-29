@@ -447,6 +447,12 @@ enum class Kernel64(
             // SurfaceFlinger of 12 composes with Skia by default, which draws nothing over SwiftShader: the GLES
             // composer of the releases before is still in it
             "debug.renderengine.backend" to "gles",
+            // Modified for AEmulator Plus (2026-10-28): 14's SurfaceFlinger is Skia only too ("gles" above is ignored), and the
+            // drawings its RenderEngine thread makes at start to fill the shader cache include a RGBA_FP16 buffer, which
+            // SwiftShader cannot make an EGL image of ("Unsupported EGL image format 22", "CreateImage badness unsupported HAL
+            // format=16"): AutoBackendTexture then dereferences the null image, surfaceflinger aborts (code 134) right after
+            // "Enter boot animation" and nothing registers SurfaceFlingerAIDL. As on 15: no priming.
+            "service.sf.prime_shader_cache" to "0",
             // the sound trigger HAL takes the engine's stand-in module, not the board's (which wants its DSP)
             "ro.hardware.sound_trigger.primary" to "aemu",
             // app compilation shares the phone's cores with the guest's UI, which SwiftShader draws on them too
@@ -462,7 +468,10 @@ enum class Kernel64(
         sysFiles = mapOf("android_lcd/lcd_name" to "aemu\n",
             // (netd of 14 also looks for the mark the network BPF loader leaves when it is done)
             "fs/bpf/netd_shared/mainline_done" to ""),
-        ownVndkDir = "vendor/lib64/aemu-vndk", manifestFragmentsAside = true, trebleLinkerConfig = true, propAreaSize = 512 * 1024, cgroup2Root = true, partitionsAtRoot = true, bpfMapNotes = true, linkerConfigTool = "apex/com.android.runtime/bin/linkerconfig", mediaProfilesFallback = true, manifestFragmentsKept = listOf("health", "aemu-"), oneFingerprint = true, vendorHeapProps = true, ownVendorUnderGsi = true, odmManifestFragmentsAside = true, lazyAidlServices = true, ramBudget = true, gpuBridge64 = true, bootHardwareProp = true,
+        // (14: the package manager asks apexd's binder service for the modules too; without the engine's stand-in nobody
+        // answers, the apps inside the modules - the permission controller among them - are never scanned and system_server
+        // dies with "There must be exactly one permissions manager; found []", zygote exit 137)
+        ownVndkDir = "vendor/lib64/aemu-vndk", manifestFragmentsAside = true, trebleLinkerConfig = true, propAreaSize = 512 * 1024, cgroup2Root = true, partitionsAtRoot = true, bpfMapNotes = true, linkerConfigTool = "apex/com.android.runtime/bin/linkerconfig", mediaProfilesFallback = true, manifestFragmentsKept = listOf("health", "aemu-"), oneFingerprint = true, vendorHeapProps = true, ownVendorUnderGsi = true, odmManifestFragmentsAside = true, lazyAidlServices = true, apexStandIn = true, ramBudget = true, gpuBridge64 = true, bootHardwareProp = true,
         firmwareOwn = listOf("vendor#bin#hw#android.hardware.media.omx@1.0-service", "vendor#etc#init#android.hardware.media.omx@1.0-service.rc",
             "vendor#lib#libavservices_minijail_vendor.so", "vendor#lib#libmediacodecservice.so", "vendor#lib#libminijail_vendor.so",
             // (the empty libhidltransport and libhwbinder of 10+, which the engine's HALs of 9 still name: a vendor side

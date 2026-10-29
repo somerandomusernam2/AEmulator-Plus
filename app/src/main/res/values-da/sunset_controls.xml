@@ -1,0 +1,33 @@
+<resources>
+    <string name="vs_hide_menu">Skjul menuknappen</string>
+    <string name="vs_hide_menu_sub">Skjul knappen »…«. Telefonens Tilbage-knap eller tilbagebevægelsen åbner emulatorens menu i stedet for at sende Tilbage til Android. Gæstens navigationsknapper styrer stadig Android.</string>
+    <string name="vs_vibration">Gæstens vibration</string>
+    <string name="vs_vibration_sub">Videresender gæstens ældre vibration til telefonen. Anvendes ved næste opstart; hver impuls er begrænset til 60 sekunder.</string>
+    <string name="nav_buttons">Navigationsknapper</string>
+    <string name="nav_order">Knapperækkefølge (fra venstre mod højre)</string>
+    <string name="nav_earlier">Tidligere</string>
+    <string name="nav_later">Senere</string>
+    <string name="nav_reset">Nulstil knapper</string>
+    <string name="nav_search">Søg</string>
+    <string name="nav_power">Tænd/sluk</string>
+    <string name="nav_go_to_recovery">Gå til recovery</string>
+    <string name="nav_volume_down">Lydstyrke ned</string>
+    <string name="nav_volume_up">Lydstyrke op</string>
+    <string name="nav_up">D-pad op</string>
+    <string name="nav_down">D-pad ned</string>
+    <string name="nav_left">D-pad venstre</string>
+    <string name="nav_right">D-pad højre</string>
+    <string name="nav_center">D-pad midte</string>
+    <string name="nav_trackball">Trackball</string>
+    <string name="nav_trackball_sub">Stryg i cirkler over navigationslinjen for at rulle; tryk for at vælge.</string>
+    <string name="nav_dpad_mode">Piletastfunktion</string>
+    <string name="nav_dpad_sub">Slået fra: ægte relative trackball-hændelser til gæstens apps. Slået til: D-pad-tastetryk i stedet. Begge sendes ikke.</string>
+    <string name="nav_sensitivity">Følsomhed: %1$d dp pr. trin (lavere – hurtigere)</string>
+    <string name="nav_trackball_waiting">Gæstens trackball er endnu ikke forbundet</string>
+    <string name="nav_trackball_recovery">Recovery: brug piletastfunktionen</string>
+    <string name="vs_bluetooth">Værtens Bluetooth (eksperimentelt)</string>
+    <string name="vs_bluetooth_sub">Lader gæsten scanne efter Bluetooth-enheder, se parrede enheder og kommunikere med dem via telefonen: klassisk seriel port (RFCOMM) og Bluetooth LE (GATT). Kræver Bluetooth-tilladelse og en fuld genstart af den virtuelle maskine. Det er ikke rå HCI: gæsten ser telefonens adapter via en bro, så headsets (lydprofiler) understøttes ikke.</string>
+    <string name="vs_sf_tombstone">SurfaceFlinger-nedbrudstombstone (fejlsøgning)</string>
+    <string name="vs_sf_tombstone_sub">Når SurfaceFlinger går ned, skriver firmwaren en almindelig tombstone (med den funktion, der gik ned) til loggen i stedet for en kort rapport. Brug den, når du indsender en fejlrapport. Træder i kraft ved den virtuelle maskines næste fulde opstart.</string>
+    <string name="bluetooth_permission_denied">Bluetooth-tilladelse afvist: gæsten starter uden værtens Bluetooth.</string>
+</resources>

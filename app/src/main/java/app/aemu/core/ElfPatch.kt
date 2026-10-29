@@ -345,6 +345,13 @@ object ElfPatch {
      * were logged. A word is therefore only touched when another PLD/PLDW word sits within 16 bytes AND the
      * instructions on at least one side look like ARM code (mostly condition field 0xE, "always"); Thumb-2 streams fail
      * that test. Only 4-aligned words inside executable segments of 32-bit ARM ELF files are considered.
+     *
+     * The "mostly condition 0xE" test has a blind spot: the 64-byte copy loops of the same memcpy are full of `bcc`/`ldmcs`/
+     * `stmcs`, so they scored below two thirds on both sides and were skipped (every guest process then died with SIGILL at
+     * `pldw [r0]` in the linker, exit code 132). A PLDW (0xf59x....) whose halfwords cannot be read as Thumb-2 at all is
+     * proof of ARM code ([notThumb]); next to one, a hint is rewritten without the condition-field vote. The "another
+     * hint within 16 bytes" requirement stays for every word: without it a lone constant in a table
+     * (0xf59e6d5e in libGLESv1_CM_swiftshader.so) would be "fixed" and corrupted.
      * Returns the number of words changed (already fixed files give 0).
      */
     fun fixPldHints(f: File): Int {
@@ -385,10 +392,20 @@ object ElfPatch {
             var o = start
             while (o < end) {
                 val w = b.getInt(o)
-                if (pldNeedsFix(w) && pldNear(b, o, start, segEnd) && armAround(b, o, start, segEnd)) {
-                    val va = (b.getInt(ph + 8).toLong() and 0xffffffffL) + (o - b.getInt(ph + 4))
-                    val arm = modes.armAt(va)
-                    if (arm == true || (arm == null && bionic)) fixes.add(o)
+                // A hint always needs company (pldNear): a lone 0xf5.. word is far more likely a constant in a table than a
+                // cache hint (a lone one in libGLESv1_CM_swiftshader.so is exactly that). Next to another hint, either the
+                // surrounding words must look like ARM code (armAround), or a PLDW among them must be impossible to read as
+                // Thumb-2 (notThumb / anchorNear). The second proof is what catches the 64-byte copy loops
+                // (`pldw [r0]; pldw [r0, #0x40]; subs r2, r2, #0x40; bcc ...`): they are full of conditional instructions,
+                // so armAround's "mostly condition 0xE" vote rejected them and every process died in its first memcpy.
+                if (pldNeedsFix(w) && pldNear(b, o, start, segEnd)) {
+                    val proven = notThumb(b, o, segEnd) || anchorNear(b, o, start, segEnd)
+                    if (proven || armAround(b, o, start, segEnd)) {
+                        val va = (b.getInt(ph + 8).toLong() and 0xffffffffL) + (o - b.getInt(ph + 4))
+                        val arm = modes.armAt(va)
+                        // the name/symbol gate is unchanged; only inside bionic may the Thumb proof outrank a symbol claiming Thumb
+                        if (arm == true || (arm == null && bionic) || (proven && bionic)) fixes.add(o)
+                    }
                 }
                 o += 4
             }
@@ -438,6 +455,35 @@ object ElfPatch {
 
     /** A hint qemu rejects: PLDW (R bit clear) or a PLD whose bits 15:12 are not 1111. */
     private fun pldNeedsFix(w: Int) = pldHint(w) && ((w and 0x00400000) == 0 || ((w ushr 12) and 0xf) != 0xf)
+
+    /**
+     * True for a PLDW word (U set, R clear: 0xf59x....) at [o] that no Thumb-2 reading can explain, so it must be ARM code.
+     * A 4-aligned word is two halfwords; its upper one (0xf59x) is either the first half of a 32-bit Thumb-2 instruction
+     * or the second half of one:
+     *  - as a first half it is "data processing, modified immediate" with op = 1100, which is unallocated, unless the
+     *    following halfword has bit 15 set (then it is a valid `b<cond>.w` / `bl` / `blx`);
+     *  - as a second half it needs a 32-bit prefix (0xe800..0xffff) in the lower halfword.
+     * So with a lower halfword below 0xe800 and a next halfword with bit 15 clear it is neither (the crash in zygote and
+     * every other guest process was `0000 f590 | 0040 f590 | 2040 e252`, i.e. pldw [r0]; pldw [r0, #0x40]; subs r2, r2, #0x40).
+     * [hi] is the end of the executable segment.
+     */
+    private fun notThumb(b: ByteBuffer, o: Int, hi: Int): Boolean {
+        val w = b.getInt(o)
+        if (!pldHint(w) || (w and 0x00c00000) != 0x00800000) return false
+        if ((w and 0xffff) >= 0xe800) return false
+        if (o + 8 > hi) return false
+        return (b.getInt(o + 4) and 0x8000) == 0
+    }
+
+    /** A [notThumb] word within 16 bytes of [o] (not [o] itself), inside the segment that spans [lo] up to [hi]. */
+    private fun anchorNear(b: ByteBuffer, o: Int, lo: Int, hi: Int): Boolean {
+        for (k in -4..4) {
+            if (k == 0) continue
+            val q = o + k * 4
+            if (q >= lo && q + 4 <= hi && notThumb(b, q, hi)) return true
+        }
+        return false
+    }
 
     /** Another PLD/PLDW word within 16 bytes of [o], inside the segment that spans [lo] up to [hi]. */
     private fun pldNear(b: ByteBuffer, o: Int, lo: Int, hi: Int): Boolean {

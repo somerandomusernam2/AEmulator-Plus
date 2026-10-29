@@ -196,8 +196,6 @@
     <string name="vmfail_system_server_oat_missing">لا يمكن بدء system_server: الشيفرة المترجمة مسبقًا للإطار (system/framework/oat) مفقودة من هذه الحاوية — استورد البرنامج الثابت مرة أخرى</string>
     <string name="warn_no_build_prop">لا يوجد system/build.prop: تم استنتاج إصدار Android من شجرة النظام.</string>
     <string name="warn_no_boot_img">لا يوجد boot.img في البرنامج الثابت: تم تخمين خطة الإقلاع وBOOTCLASSPATH.</string>
-    <string name="warn_no_healthd">لا يوجد healthd في خطة الإقلاع (لا يوجد /sbin/healthd؛ هل ramdisk مفقود من الاستيراد؟): سينهار system_server في BatteryService.</string>
-    <string name="warn_arm64">برنامج ثابت 64 بت: يُدعم فقط ARM بنظام 32 بت.</string>
     <string name="warn_not_arm">البرنامج الثابت ليس لمعالج ARM ‏(%1$s) ولن يعمل.</string>
     <string name="warn_experimental">Android ‏%1$s: الدعم تجريبي (ART وSELinux).</string>
     <string name="import_default_name">البرنامج الثابت</string>
@@ -226,4 +224,5 @@
     <string name="update_err_wrong_variant">ملف APK للتحديث لا يطابق نسخة التطبيق هذه</string>
     <string name="update_err_wrong_package">ملف APK الذي تم تنزيله يحمل حزمة تطبيق خاطئة</string>
     <string name="catalog_err_too_many_lines">الفهرس يتجاوز 10000 سطر</string>
+    <string name="imp_iso_no_system">لم يُعثر على نظام Android في صورة ISO (المتوقع system.sfs أو system.img)</string>
 </resources>

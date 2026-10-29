@@ -196,8 +196,6 @@
     <string name="vmfail_system_server_oat_missing">system_server를 시작할 수 없습니다: 이 컨테이너에 프레임워크의 사전 컴파일 코드(system/framework/oat)가 없습니다 — 펌웨어를 다시 가져오세요</string>
     <string name="warn_no_build_prop">system/build.prop이 없습니다: Android 버전을 시스템 트리에서 추정했습니다.</string>
     <string name="warn_no_boot_img">펌웨어에 boot.img가 없습니다: 부팅 계획과 BOOTCLASSPATH를 추측했습니다.</string>
-    <string name="warn_no_healthd">부팅 계획에 healthd가 없습니다(/sbin/healthd 없음, 가져오기에서 ramdisk가 빠졌나요?): system_server가 BatteryService에서 종료됩니다.</string>
-    <string name="warn_arm64">64비트 펌웨어: 32비트 ARM만 지원됩니다.</string>
     <string name="warn_not_arm">펌웨어가 ARM이 아니므로(%1$s) 실행되지 않습니다.</string>
     <string name="warn_experimental">Android %1$s: 지원은 실험적입니다(ART, SELinux).</string>
     <string name="import_default_name">펌웨어</string>
@@ -226,4 +224,5 @@
     <string name="update_err_wrong_variant">업데이트 APK가 이 앱 변형과 일치하지 않습니다</string>
     <string name="update_err_wrong_package">다운로드한 APK의 앱 패키지가 올바르지 않습니다</string>
     <string name="catalog_err_too_many_lines">카탈로그가 10000줄을 초과합니다</string>
+    <string name="imp_iso_no_system">ISO 이미지에서 Android 시스템을 찾을 수 없습니다(system.sfs 또는 system.img 필요)</string>
 </resources>

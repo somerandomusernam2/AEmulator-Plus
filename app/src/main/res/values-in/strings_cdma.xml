@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="vs_cdma">Modem CDMA</string>
+    <string name="vs_cdma_sub">Meniru modem CDMA: registrasi 1xRTT / EV-DO, MEID, langganan CDMA, dan pesan teks CDMA. Berlaku pada boot penuh berikutnya.</string>
+    <string name="vs_cdma_fw_yes">Firmware ini adalah LTE on CDMA (telephony.lteOnCdmaDevice=1): aktif secara default.</string>
+    <string name="vs_cdma_fw_no">Firmware ini bukan LTE on CDMA: nonaktif secara default.</string>
+</resources>

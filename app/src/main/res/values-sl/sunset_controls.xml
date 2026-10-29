@@ -28,4 +28,6 @@
     <string name="vs_bluetooth">Bluetooth gostitelja (poskusno)</string>
     <string name="vs_bluetooth_sub">Gostu omogoči iskanje naprav Bluetooth, seznam seznanjenih naprav in komunikacijo z njimi prek telefona: klasična serijska povezava (RFCOMM) in Bluetooth LE (GATT). Zahteva dovoljenje za Bluetooth in popoln ponovni zagon navideznega stroja. Ni surovi HCI: gost vidi vmesnik telefona prek mostu, zato slušalke (zvočni profili) niso podprte.</string>
     <string name="bluetooth_permission_denied">Dovoljenje za Bluetooth zavrnjeno: gost se bo zagnal brez Bluetootha gostitelja.</string>
+    <string name="vs_sf_tombstone">Tombstone zrušitve SurfaceFlingerja (odpravljanje napak)</string>
+    <string name="vs_sf_tombstone_sub">Če se SurfaceFlinger zruši, naj vdelana programska oprema v dnevnik zapiše navaden tombstone (s funkcijo, ki se je zrušila) namesto kratkega poročila. Uporabite pri pošiljanju poročila o napaki. Velja ob naslednjem popolnem zagonu VM.</string>
 </resources>

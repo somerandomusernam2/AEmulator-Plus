@@ -468,4 +468,22 @@
     <string name="vs_nav_compact_sub">Mniejsze przyciski, więcej miejsca na ekran.</string>
     <string name="nav_dpad">Trackball</string>
     <string name="m_reset_menu_pos">Resetuj przycisk menu</string>
+    <string name="boot_minimize">Zminimalizuj ekran rozruchu (dotknij pigułki, aby go znów pokazać)</string>
+    <string name="vs_resolution_custom">Niestandardowa</string>
+    <string name="as_new_home">Nowy ekran główny</string>
+    <string name="as_new_home_sub">Biblioteka w siatce z dolnym paskiem (styl 0.0.0.3). Wyłącz, aby wrócić do klasycznej listy. Zmiana zadziała po ponownym uruchomieniu aplikacji.</string>
+    <string name="vs_thermal">Przekazywanie temperatury</string>
+    <string name="vs_thermal_sub">Wyłączone: thermal_zone17 gościa zawsze pokazuje 30 °C, dzięki czemu firmware blokujące ekran przy przegrzaniu (nakładka przegrzania Xiaomi) nadal działa. Włączone: odczytuje czujnik samego telefonu. Wartość ustawiona z menu maszyny zawsze ma pierwszeństwo. Zmiana zadziała przy następnym uruchomieniu.</string>
+    <string name="thermal_menu">Czujnik temperatury</string>
+    <string name="thermal_title">Czujnik temperatury</string>
+    <string name="thermal_mode">Tryb: %1$s</string>
+    <string name="thermal_mode_cool">stałe 30 °C</string>
+    <string name="thermal_mode_host">czujnik telefonu</string>
+    <string name="thermal_guest_now">Gość odczytuje: %1$s</string>
+    <string name="thermal_host_now">Telefon odczytuje: %1$s</string>
+    <string name="thermal_value">Temperatura (°C)</string>
+    <string name="thermal_hint">Zmiana działa natychmiast, także gdy maszyna jest uruchomiona.</string>
+    <string name="thermal_invalid">Wpisz wartość od -40 do 150.</string>
+    <string name="thermal_apply">Zastosuj</string>
+    <string name="thermal_reset">Użyj domyślnej</string>
 </resources>

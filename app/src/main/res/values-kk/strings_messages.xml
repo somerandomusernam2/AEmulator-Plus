@@ -196,8 +196,6 @@
     <string name="vmfail_system_server_oat_missing">system_server іске қосыла алмайды: осы контейнерде фреймворктің алдын ала компиляцияланған коды (system/framework/oat) жоқ — микробағдарламаны қайта импорттаңыз</string>
     <string name="warn_no_build_prop">system/build.prop жоқ: Android нұсқасы жүйе ағашынан болжанды.</string>
     <string name="warn_no_boot_img">Микробағдарламада boot.img жоқ: жүктеу жоспары мен BOOTCLASSPATH болжанды.</string>
-    <string name="warn_no_healthd">Жүктеу жоспарында healthd жоқ (/sbin/healthd жоқ; импортта ramdisk жетіспей ме?): system_server BatteryService ішінде құлайды.</string>
-    <string name="warn_arm64">64 биттік микробағдарлама: тек 32 биттік ARM қолдау табады.</string>
     <string name="warn_not_arm">Микробағдарлама ARM емес (%1$s) және жұмыс істемейді.</string>
     <string name="warn_experimental">Android %1$s: қолдау эксперименттік (ART, SELinux).</string>
     <string name="import_default_name">микробағдарлама</string>
@@ -226,4 +224,5 @@
     <string name="update_err_wrong_variant">Жаңарту APK-сы осы қолданба нұсқасына сәйкес келмейді</string>
     <string name="update_err_wrong_package">Жүктелген APK-ның қолданба пакеті қате</string>
     <string name="catalog_err_too_many_lines">Каталог 10000 жолдан асады</string>
+    <string name="imp_iso_no_system">ISO кескінінде Android жүйесі табылмады (system.sfs немесе system.img күтілген)</string>
 </resources>

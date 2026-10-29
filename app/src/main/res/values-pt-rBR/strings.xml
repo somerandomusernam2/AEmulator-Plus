@@ -468,4 +468,22 @@
     <string name="vs_nav_compact_sub">Botões menores, mais espaço para a tela.</string>
     <string name="nav_dpad">Trackball</string>
     <string name="m_reset_menu_pos">Redefinir botão do menu</string>
+    <string name="boot_minimize">Minimizar a tela de inicialização (toque na pílula para mostrá-la de novo)</string>
+    <string name="vs_resolution_custom">Personalizado</string>
+    <string name="as_new_home">Nova tela inicial</string>
+    <string name="as_new_home_sub">Biblioteca em grade com barra inferior (estilo 0.0.0.3). Desative para voltar à lista clássica. Entra em vigor após reiniciar o app.</string>
+    <string name="vs_thermal">Repasse térmico</string>
+    <string name="vs_thermal_sub">Desligado: a thermal_zone17 do convidado sempre indica 30 °C, para que firmwares que bloqueiam a tela com calor (aviso de superaquecimento da Xiaomi) continuem funcionando. Ligado: lê o sensor do próprio telefone. Um valor definido no menu da máquina sempre prevalece. Entra em vigor na próxima inicialização.</string>
+    <string name="thermal_menu">Sensor térmico</string>
+    <string name="thermal_title">Sensor térmico</string>
+    <string name="thermal_mode">Modo: %1$s</string>
+    <string name="thermal_mode_cool">30 °C constantes</string>
+    <string name="thermal_mode_host">sensor do telefone</string>
+    <string name="thermal_guest_now">O convidado lê: %1$s</string>
+    <string name="thermal_host_now">O telefone lê: %1$s</string>
+    <string name="thermal_value">Temperatura (°C)</string>
+    <string name="thermal_hint">Entra em vigor imediatamente, inclusive com a máquina em execução.</string>
+    <string name="thermal_invalid">Digite um valor de -40 a 150.</string>
+    <string name="thermal_apply">Aplicar</string>
+    <string name="thermal_reset">Usar padrão</string>
 </resources>

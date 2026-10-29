@@ -13,11 +13,20 @@ object ImportWarnings {
 
     const val NO_BUILD_PROP = PREFIX + "no_build_prop"
     const val NO_BOOT_IMG = PREFIX + "no_boot_img"
-    const val NO_HEALTHD = PREFIX + "no_healthd"
-    const val ARM64 = PREFIX + "arm64"
 
     fun notArm(abi: String) = "${PREFIX}not_arm|$abi"
     fun experimental(release: String) = "${PREFIX}experimental|$release"
+
+    /** Codes of warnings that no longer apply (healthd is not used by newer Android, arm64 is supported). Images
+     *  imported by older builds may still carry them; they are dropped when shown. */
+    private val retired = setOf("no_healthd", "arm64")
+
+    private fun code(raw: String): String? =
+        if (raw.startsWith(PREFIX)) raw.removePrefix(PREFIX).substringBefore('|')
+        else legacy.firstOrNull { it.regex.containsMatchIn(raw) }?.code
+
+    /** The stored warnings worth showing. */
+    fun visible(raw: List<String>): List<String> = raw.filter { code(it) !in retired }
 
     private class Legacy(val regex: Regex, val code: String)
 
@@ -46,8 +55,6 @@ object ImportWarnings {
     private fun render(ctx: Context, code: String, arg: String): String? = when (code) {
         "no_build_prop" -> ctx.getString(R.string.warn_no_build_prop)
         "no_boot_img" -> ctx.getString(R.string.warn_no_boot_img)
-        "no_healthd" -> ctx.getString(R.string.warn_no_healthd)
-        "arm64" -> ctx.getString(R.string.warn_arm64)
         "not_arm" -> ctx.getString(R.string.warn_not_arm, arg)
         "experimental" -> ctx.getString(R.string.warn_experimental, arg)
         else -> null

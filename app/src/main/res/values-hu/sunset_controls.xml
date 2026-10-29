@@ -28,4 +28,6 @@
     <string name="vs_bluetooth">Gazdagép Bluetooth (kísérleti)</string>
     <string name="vs_bluetooth_sub">Lehetővé teszi, hogy a vendég a telefonon keresztül keressen, párosított listát kezeljen és kommunikáljon Bluetooth-eszközökkel: klasszikus soros (RFCOMM) és Bluetooth LE (GATT). Bluetooth-engedélyt és a VM teljes újraindítását igényli. Nem nyers HCI: a vendég hídon át látja a telefon adapterét, ezért a fejhallgatók (hangprofilok) nem támogatottak.</string>
     <string name="bluetooth_permission_denied">A Bluetooth-engedély megtagadva: a vendég a gazdagép Bluetooth-a nélkül indul.</string>
+    <string name="vs_sf_tombstone">SurfaceFlinger-összeomlás tombstone (hibakeresés)</string>
+    <string name="vs_sf_tombstone_sub">Ha a SurfaceFlinger összeomlik, a firmware rövid jelentés helyett normál tombstone-t ír a naplóba (az összeomló függvénnyel). Hibajelentés küldésekor használd. A következő teljes VM-indításkor lép érvénybe.</string>
 </resources>

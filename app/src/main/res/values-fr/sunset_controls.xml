@@ -28,4 +28,6 @@
     <string name="vs_bluetooth">Bluetooth de l’hôte (expérimental)</string>
     <string name="vs_bluetooth_sub">Permet à l’invité de rechercher, lister les appareils associés et communiquer avec des appareils Bluetooth via le téléphone : série classique (RFCOMM) et Bluetooth LE (GATT). Nécessite l’autorisation Bluetooth et un redémarrage complet de la VM. Pas de HCI brut : l’invité voit l’adaptateur du téléphone via un pont, donc les casques (profils audio) ne sont pas pris en charge.</string>
     <string name="bluetooth_permission_denied">Autorisation Bluetooth refusée : l’invité démarrera sans Bluetooth de l’hôte.</string>
+    <string name="vs_sf_tombstone">Tombstone de plantage SurfaceFlinger (débogage)</string>
+    <string name="vs_sf_tombstone_sub">Si SurfaceFlinger plante, laisse le firmware écrire un tombstone normal dans le journal (avec la fonction en cause) au lieu d\'un court rapport. À utiliser pour envoyer un rapport de bug. S\'applique au prochain démarrage complet de la VM.</string>
 </resources>

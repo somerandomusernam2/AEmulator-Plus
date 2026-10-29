@@ -196,8 +196,6 @@
     <string name="vmfail_system_server_oat_missing">system_server tidak dapat bermula: kod prakompil framework (system/framework/oat) tiada dalam kontena ini — import semula perisian tegar</string>
     <string name="warn_no_build_prop">Tiada system/build.prop: versi Android disimpulkan daripada pokok sistem.</string>
     <string name="warn_no_boot_img">Tiada boot.img dalam perisian tegar: pelan but dan BOOTCLASSPATH diteka.</string>
-    <string name="warn_no_healthd">Tiada healthd dalam pelan but (tiada /sbin/healthd; ramdisk tiada dalam import?): system_server akan mati dalam BatteryService.</string>
-    <string name="warn_arm64">Perisian tegar 64-bit: hanya ARM 32-bit disokong.</string>
     <string name="warn_not_arm">Perisian tegar bukan ARM (%1$s) dan tidak akan berjalan.</string>
     <string name="warn_experimental">Android %1$s: sokongan eksperimen (ART, SELinux).</string>
     <string name="import_default_name">perisian tegar</string>
@@ -226,4 +224,5 @@
     <string name="update_err_wrong_variant">APK kemas kini tidak sepadan dengan varian aplikasi ini</string>
     <string name="update_err_wrong_package">APK yang dimuat turun mempunyai pakej aplikasi yang salah</string>
     <string name="catalog_err_too_many_lines">Katalog melebihi 10000 baris</string>
+    <string name="imp_iso_no_system">Tiada sistem Android ditemui dalam imej ISO (dijangka system.sfs atau system.img)</string>
 </resources>

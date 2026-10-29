@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="vs_cdma">CDMA-modem</string>
+    <string name="vs_cdma_sub">Emuleerib CDMA-modemit: 1xRTT / EV-DO registreerimist, MEID-d, CDMA tellimust ja CDMA tekstisõnumeid. Rakendub järgmisel täielikul käivitusel.</string>
+    <string name="vs_cdma_fw_yes">See püsivara on LTE CDMA-l (telephony.lteOnCdmaDevice=1): vaikimisi sees.</string>
+    <string name="vs_cdma_fw_no">See püsivara ei ole LTE CDMA-l: vaikimisi väljas.</string>
+</resources>

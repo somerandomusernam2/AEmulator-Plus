@@ -196,8 +196,6 @@
     <string name="vmfail_system_server_oat_missing">system_server tidak dapat dimulai: kode prakompilasi framework (system/framework/oat) tidak ada di kontainer ini — impor firmware lagi</string>
     <string name="warn_no_build_prop">Tidak ada system/build.prop: versi Android disimpulkan dari struktur sistem.</string>
     <string name="warn_no_boot_img">Tidak ada boot.img di firmware: rencana boot dan BOOTCLASSPATH ditebak.</string>
-    <string name="warn_no_healthd">Tidak ada healthd dalam rencana boot (tidak ada /sbin/healthd; ramdisk hilang dari impor?): system_server akan mati di BatteryService.</string>
-    <string name="warn_arm64">Firmware 64-bit: hanya ARM 32-bit yang didukung.</string>
     <string name="warn_not_arm">Firmware bukan ARM (%1$s) dan tidak akan berjalan.</string>
     <string name="warn_experimental">Android %1$s: dukungan masih eksperimental (ART, SELinux).</string>
     <string name="import_default_name">firmware</string>
@@ -226,4 +224,5 @@
     <string name="update_err_wrong_variant">APK pembaruan tidak cocok dengan varian aplikasi ini</string>
     <string name="update_err_wrong_package">APK yang diunduh memiliki paket aplikasi yang salah</string>
     <string name="catalog_err_too_many_lines">Katalog melebihi 10000 baris</string>
+    <string name="imp_iso_no_system">Sistem Android tidak ditemukan di image ISO (diharapkan system.sfs atau system.img)</string>
 </resources>

@@ -28,4 +28,6 @@
     <string name="vs_bluetooth">Bluetooth של המארח (ניסיוני)</string>
     <string name="vs_bluetooth_sub">מאפשר לאורח לסרוק, לרשום התאמות ולתקשר עם התקני Bluetooth דרך הטלפון: טורי קלאסי (RFCOMM) ו-Bluetooth LE ‏(GATT). נדרשת הרשאת Bluetooth והפעלה מחדש מלאה של המכונה הווירטואלית. לא HCI גולמי: האורח רואה את מתאם הטלפון דרך גשר, ולכן אוזניות (פרופילי שמע) אינן נתמכות.</string>
     <string name="bluetooth_permission_denied">הרשאת Bluetooth נדחתה: האורח יאותחל בלי Bluetooth של המארח.</string>
+    <string name="vs_sf_tombstone">Tombstone של קריסת SurfaceFlinger (ניפוי באגים)</string>
+    <string name="vs_sf_tombstone_sub">אם SurfaceFlinger קורס, הקושחה תכתוב ליומן tombstone רגיל (עם הפונקציה שקרסה) במקום דוח קצר. השתמש בכך בעת שליחת דוח באג. יחול באתחול המלא הבא של המכונה הווירטואלית.</string>
 </resources>

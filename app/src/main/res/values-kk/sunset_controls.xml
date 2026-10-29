@@ -28,4 +28,6 @@
     <string name="vs_bluetooth">Хост Bluetooth (эксперименттік)</string>
     <string name="vs_bluetooth_sub">Қонаққа телефон арқылы Bluetooth құрылғыларын іздеуге, жұптастырылғандар тізімін алуға және олармен байланысуға мүмкіндік береді: классикалық сериялық (RFCOMM) және Bluetooth LE (GATT). Bluetooth рұқсаты мен VM-ді толық қайта іске қосу қажет. Шикі HCI емес: қонақ телефон адаптерін көпір арқылы көреді, сондықтан гарнитураларға (аудио профильдері) қолдау көрсетілмейді.</string>
     <string name="bluetooth_permission_denied">Bluetooth рұқсаты берілмеді: қонақ хост Bluetooth-сыз жүктеледі.</string>
+    <string name="vs_sf_tombstone">SurfaceFlinger бұзылуының tombstone-ы (түзету)</string>
+    <string name="vs_sf_tombstone_sub">SurfaceFlinger бұзылса, микробағдарлама қысқа есептің орнына журналға қалыпты tombstone (бұзылған функциямен бірге) жазады. Қате туралы есеп жіберген кезде пайдаланыңыз. Келесі толық VM жүктеуінде қолданылады.</string>
 </resources>

@@ -28,4 +28,6 @@
     <string name="vs_bluetooth">بلوتوث المضيف (تجريبي)</string>
     <string name="vs_bluetooth_sub">يتيح للضيف البحث عن أجهزة بلوتوث وعرض المقترنة منها والتواصل معها عبر الهاتف: التسلسلي الكلاسيكي (RFCOMM) وBluetooth LE ‏(GATT). يتطلب إذن البلوتوث وإعادة تشغيل كاملة للجهاز الافتراضي. ليس HCI خامًا: يرى الضيف محوّل الهاتف عبر جسر، لذا فإن سماعات الرأس (ملفات الصوت) غير مدعومة.</string>
     <string name="bluetooth_permission_denied">تم رفض إذن البلوتوث: سيقلع الضيف بدون بلوتوث المضيف.</string>
+    <string name="vs_sf_tombstone">شاهد انهيار SurfaceFlinger (tombstone) (تصحيح الأخطاء)</string>
+    <string name="vs_sf_tombstone_sub">إذا انهار SurfaceFlinger، تكتب البرامج الثابتة tombstone عاديًا في السجل (مع الدالة المنهارة) بدلًا من تقرير قصير. استخدمه عند إرسال تقرير خلل. يُطبَّق عند التشغيل الكامل التالي للجهاز الافتراضي.</string>
 </resources>

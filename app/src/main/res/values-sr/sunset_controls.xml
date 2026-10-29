@@ -28,4 +28,6 @@
     <string name="vs_bluetooth">Bluetooth домаћина (експериментално)</string>
     <string name="vs_bluetooth_sub">Омогућава госту да преко телефона тражи Bluetooth уређаје, приказује упарене и комуницира с њима: класични серијски (RFCOMM) и Bluetooth LE (GATT). Захтева Bluetooth дозволу и потпуно поновно покретање виртуелне машине. Није сиров HCI: гост види адаптер телефона преко моста, па слушалице (аудио профили) нису подржане.</string>
     <string name="bluetooth_permission_denied">Bluetooth дозвола је одбијена: гост ће се покренути без Bluetooth-а домаћина.</string>
+    <string name="vs_sf_tombstone">SurfaceFlinger tombstone пада (отклањање грешака)</string>
+    <string name="vs_sf_tombstone_sub">Ако SurfaceFlinger падне, фирмвер ће у дневник записати обичан tombstone (са функцијом која је пала) уместо кратког извештаја. Користи при слању извештаја о грешци. Примењује се при следећем потпуном покретању ВМ-а.</string>
 </resources>

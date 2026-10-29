@@ -123,6 +123,11 @@ class GuestRunner(
             e["AEMU_GL_RETARGET"] = "0"; e["AEMU_GL_CLIENT_ARRAYS"] = "0"      // as on the 4.4 engine for 4.3+
         }
         e["AEMU64_FB"] = "${img.settings.width}x${img.settings.height}"
+        // Modified for AEmulator Plus (2026-10-28): uname -r. The native engine never set QEMU_UNAME (only env() did), so the
+        // guest saw the phone's own kernel even with the firmware's version imported from boot.img. A 32-bit-only Android 14
+        // firmware's netd refuses a 32-bit userspace on Linux >= 6.2 ("libnetd_updatable_init: Failed: 32 bit userspace with
+        // Kernel version >= 6.2.0 is unsupported") and aborts in a loop; with the imported 5.15.x release it starts.
+        if (VmSettings.kernelCustom(img.settings)) e["QEMU_UNAME"] = VmSettings.kernelRelease(img.settings)
         // debugging: run/crash.report makes the runner print pc/lr and their mappings on a fatal signal
         // SurfaceFlinger is C++ only (no ART fault handler that the report would replace), so its fatal signals are
         // always reported: pc/lr, the fault address and the registers go to <root>/dev/aemu_crash.log (and the log export)

@@ -196,8 +196,6 @@
     <string name="vmfail_system_server_oat_missing">system_server を開始できません: このコンテナにフレームワークのプリコンパイル済みコード（system/framework/oat）がありません — ファームウェアをもう一度インポートしてください</string>
     <string name="warn_no_build_prop">system/build.prop がありません: Android のバージョンはシステムツリーから推測されました。</string>
     <string name="warn_no_boot_img">ファームウェアに boot.img がありません: ブートプランと BOOTCLASSPATH は推測されました。</string>
-    <string name="warn_no_healthd">ブートプランに healthd がありません（/sbin/healthd がありません。インポートで ramdisk が欠けていませんか？）: system_server は BatteryService で停止します。</string>
-    <string name="warn_arm64">64 ビットのファームウェア: 32 ビット ARM のみサポートされています。</string>
     <string name="warn_not_arm">ファームウェアは ARM ではないため（%1$s）、動作しません。</string>
     <string name="warn_experimental">Android %1$s: サポートは実験的です（ART、SELinux）。</string>
     <string name="import_default_name">ファームウェア</string>
@@ -226,4 +224,5 @@
     <string name="update_err_wrong_variant">アップデート APK がこのアプリのバリアントと一致しません</string>
     <string name="update_err_wrong_package">ダウンロードした APK のアプリパッケージが正しくありません</string>
     <string name="catalog_err_too_many_lines">カタログが 10000 行を超えています</string>
+    <string name="imp_iso_no_system">ISO イメージに Android システムが見つかりません（system.sfs または system.img が必要です）</string>
 </resources>

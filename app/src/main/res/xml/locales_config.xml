@@ -41,4 +41,14 @@
     <locale android:name="bs" />
     <locale android:name="sq" />
     <locale android:name="he" />
+    <locale android:name="be" />
+    <locale android:name="lt" />
+    <locale android:name="et" />
+    <locale android:name="lv" />
+    <locale android:name="da" />
+    <locale android:name="sv" />
+    <locale android:name="kk" />
+    <locale android:name="my" />
+    <locale android:name="hy" />
+    <locale android:name="ka" />
 </locale-config>

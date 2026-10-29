@@ -196,8 +196,6 @@
     <string name="vmfail_system_server_oat_missing">system_server kan niet starten: de vooraf gecompileerde code van het framework (system/framework/oat) ontbreekt in deze container — importeer de firmware opnieuw</string>
     <string name="warn_no_build_prop">Geen system/build.prop: de Android-versie is afgeleid uit de systeemstructuur.</string>
     <string name="warn_no_boot_img">Geen boot.img in de firmware: bootplan en BOOTCLASSPATH zijn geraden.</string>
-    <string name="warn_no_healthd">Geen healthd in het bootplan (geen /sbin/healthd; ramdisk ontbreekt in de import?): system_server crasht in BatteryService.</string>
-    <string name="warn_arm64">64-bits firmware: alleen 32-bits ARM wordt ondersteund.</string>
     <string name="warn_not_arm">Firmware is geen ARM (%1$s) en zal niet draaien.</string>
     <string name="warn_experimental">Android %1$s: ondersteuning is experimenteel (ART, SELinux).</string>
     <string name="import_default_name">firmware</string>
@@ -226,4 +224,5 @@
     <string name="update_err_wrong_variant">De update-apk komt niet overeen met deze appvariant</string>
     <string name="update_err_wrong_package">De gedownloade apk heeft het verkeerde app-pakket</string>
     <string name="catalog_err_too_many_lines">Catalogus bevat meer dan 10000 regels</string>
+    <string name="imp_iso_no_system">Geen Android-systeem gevonden in het ISO-bestand (verwacht: system.sfs of system.img)</string>
 </resources>

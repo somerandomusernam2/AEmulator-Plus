@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="vs_cdma">CDMA modemas</string>
+    <string name="vs_cdma_sub">Emuliuoja CDMA modemą: 1xRTT / EV-DO registraciją, MEID, CDMA prenumeratą ir CDMA tekstines žinutes. Taikoma kitą kartą visiškai paleidus.</string>
+    <string name="vs_cdma_fw_yes">Ši programinė įranga yra LTE per CDMA (telephony.lteOnCdmaDevice=1): pagal numatytuosius nustatymus įjungta.</string>
+    <string name="vs_cdma_fw_no">Ši programinė įranga nėra LTE per CDMA: pagal numatytuosius nustatymus išjungta.</string>
+</resources>

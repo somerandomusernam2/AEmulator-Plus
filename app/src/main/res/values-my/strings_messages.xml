@@ -196,8 +196,6 @@
     <string name="vmfail_system_server_oat_missing">system_server စတင်၍ မရပါ- ဤကွန်တိန်နာတွင် framework ၏ ကြိုတင်ကွန်ပိုင်းလုပ်ထားသော ကုဒ် (system/framework/oat) မရှိပါ — ဖမ်းဝဲကို ပြန်လည်တင်သွင်းပါ</string>
     <string name="warn_no_build_prop">system/build.prop မရှိပါ- Android ဗားရှင်းကို စနစ်ဖိုင်ပင်မှ ခန့်မှန်းခဲ့သည်။</string>
     <string name="warn_no_boot_img">ဖမ်းဝဲတွင် boot.img မရှိပါ- boot အစီအစဉ်နှင့် BOOTCLASSPATH ကို ခန့်မှန်းခဲ့သည်။</string>
-    <string name="warn_no_healthd">boot အစီအစဉ်တွင် healthd မရှိပါ (/sbin/healthd မရှိ၊ တင်သွင်းမှုတွင် ramdisk ပျောက်နေသလား။)- system_server သည် BatteryService တွင် ပျက်ကျမည်။</string>
-    <string name="warn_arm64">64-bit ဖမ်းဝဲ- 32-bit ARM ကိုသာ ပံ့ပိုးသည်။</string>
     <string name="warn_not_arm">ဖမ်းဝဲသည် ARM မဟုတ်ပါ (%1$s)၊ ထို့ကြောင့် မလည်ပတ်ပါ။</string>
     <string name="warn_experimental">Android %1$s- ပံ့ပိုးမှုသည် စမ်းသပ်ဆဲဖြစ်သည် (ART၊ SELinux)။</string>
     <string name="import_default_name">ဖမ်းဝဲ</string>
@@ -226,4 +224,5 @@
     <string name="update_err_wrong_variant">အပ်ဒိတ် APK သည် ဤအက်ပ်ဗားရှင်းနှင့် မကိုက်ညီပါ</string>
     <string name="update_err_wrong_package">ဒေါင်းလုဒ်လုပ်ထားသော APK ၏ အက်ပ်ပက်ကေ့ဂျ် မှားနေသည်</string>
     <string name="catalog_err_too_many_lines">ကတ်တလော့ခ်သည် စာကြောင်း 10000 ကျော်နေသည်</string>
+    <string name="imp_iso_no_system">ISO ပုံတွင် Android စနစ် မတွေ့ပါ (system.sfs သို့မဟုတ် system.img ကို မျှော်လင့်ထားသည်)</string>
 </resources>

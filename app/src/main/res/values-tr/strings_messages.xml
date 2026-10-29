@@ -196,8 +196,6 @@
     <string name="vmfail_system_server_oat_missing">system_server başlatılamıyor: framework’ün önceden derlenmiş kodu (system/framework/oat) bu kapsayıcıda yok — yazılımı yeniden içe aktarın</string>
     <string name="warn_no_build_prop">system/build.prop yok: Android sürümü sistem ağacından çıkarıldı.</string>
     <string name="warn_no_boot_img">Yazılımda boot.img yok: önyükleme planı ve BOOTCLASSPATH tahmin edildi.</string>
-    <string name="warn_no_healthd">Önyükleme planında healthd yok (/sbin/healthd yok; ramdisk içe aktarmada eksik mi?): system_server BatteryService’te çökecek.</string>
-    <string name="warn_arm64">64 bit yazılım: yalnızca 32 bit ARM destekleniyor.</string>
     <string name="warn_not_arm">Yazılım ARM değil (%1$s) ve çalışmayacak.</string>
     <string name="warn_experimental">Android %1$s: destek deneysel (ART, SELinux).</string>
     <string name="import_default_name">yazılım</string>
@@ -226,4 +224,5 @@
     <string name="update_err_wrong_variant">Güncelleme APK’sı bu uygulama varyantıyla uyuşmuyor</string>
     <string name="update_err_wrong_package">İndirilen APK’nın uygulama paketi yanlış</string>
     <string name="catalog_err_too_many_lines">Katalog 10000 satırı aşıyor</string>
+    <string name="imp_iso_no_system">ISO görüntüsünde Android sistemi bulunamadı (system.sfs veya system.img bekleniyordu)</string>
 </resources>

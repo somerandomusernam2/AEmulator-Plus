@@ -196,8 +196,6 @@
     <string name="vmfail_system_server_oat_missing">system_server không thể khởi động: mã biên dịch sẵn của framework (system/framework/oat) bị thiếu trong container này — hãy nhập lại firmware</string>
     <string name="warn_no_build_prop">Không có system/build.prop: phiên bản Android được suy ra từ cây hệ thống.</string>
     <string name="warn_no_boot_img">Không có boot.img trong firmware: kế hoạch khởi động và BOOTCLASSPATH được đoán.</string>
-    <string name="warn_no_healthd">Không có healthd trong kế hoạch khởi động (không có /sbin/healthd; thiếu ramdisk trong bản nhập?): system_server sẽ chết trong BatteryService.</string>
-    <string name="warn_arm64">Firmware 64-bit: chỉ hỗ trợ ARM 32-bit.</string>
     <string name="warn_not_arm">Firmware không phải ARM (%1$s) và sẽ không chạy được.</string>
     <string name="warn_experimental">Android %1$s: hỗ trợ ở mức thử nghiệm (ART, SELinux).</string>
     <string name="import_default_name">firmware</string>
@@ -226,4 +224,5 @@
     <string name="update_err_wrong_variant">APK cập nhật không khớp với biến thể ứng dụng này</string>
     <string name="update_err_wrong_package">APK đã tải về có gói ứng dụng sai</string>
     <string name="catalog_err_too_many_lines">Danh mục vượt quá 10000 dòng</string>
+    <string name="imp_iso_no_system">Không tìm thấy hệ thống Android trong ảnh ISO (cần system.sfs hoặc system.img)</string>
 </resources>

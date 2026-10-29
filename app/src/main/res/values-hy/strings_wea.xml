@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="m_wea">Կեղծ արտակարգ ահազանգ</string>
+    <string name="m_wea_type">Ահազանգի տեսակ</string>
+    <string name="m_wea_sent">Արտակարգ ահազանգն ուղարկվեց</string>
+    <string name="m_wea_failed">Չի ուղարկվել. հեռախոսի հեռախոսակապը չի աշխատում</string>
+    <string name="wea_presidential">Նախագահական ահազանգ</string>
+    <string name="wea_extreme">Ծայրահեղ սպառնալիք</string>
+    <string name="wea_severe">Լուրջ սպառնալիք</string>
+    <string name="wea_amber">AMBER ահազանգ</string>
+    <string name="wea_test">Պարտադիր ամսական թեստ</string>
+    <string name="wea_body_presidential">Նախագահական ահազանգ. սա արտակարգ ահազանգման համակարգի թեստ է։ Գործողություն չի պահանջվում։</string>
+    <string name="wea_body_extreme">Ծայրահեղ ահազանգ. ձեր տարածքում տորնադոյի նախազգուշացում է։ Անմիջապես ապաստան գտեք։ Սա թեստ է։</string>
+    <string name="wea_body_severe">Լուրջ ահազանգ. ձեր տարածքում ամպրոպի նախազգուշացում է մինչև երեկոյան 6-ը։ Սա թեստ է։</string>
+    <string name="wea_body_amber">AMBER ահազանգ. կորել է երեխա, կապույտ սեդան։ Տեսնելու դեպքում զանգահարեք 911։ Սա թեստ է։</string>
+    <string name="wea_body_test">Սա անլար արտակարգ ահազանգման համակարգի թեստ է։ Գործողություն չի պահանջվում։</string>
+</resources>

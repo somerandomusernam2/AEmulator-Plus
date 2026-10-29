@@ -28,4 +28,6 @@
     <string name="vs_bluetooth">Bluetooth hos (eksperimen)</string>
     <string name="vs_bluetooth_sub">Benarkan tetamu mengimbas, menyenaraikan peranti berpasangan dan berkomunikasi dengan peranti Bluetooth melalui telefon: bersiri klasik (RFCOMM) dan Bluetooth LE (GATT). Memerlukan kebenaran Bluetooth dan mulakan semula VM sepenuhnya. Bukan HCI mentah: tetamu melihat penyesuai telefon melalui jambatan, jadi fon kepala (profil audio) tidak disokong.</string>
     <string name="bluetooth_permission_denied">Kebenaran Bluetooth ditolak: tetamu akan but tanpa Bluetooth hos.</string>
+    <string name="vs_sf_tombstone">Tombstone ranap SurfaceFlinger (nyahpepijat)</string>
+    <string name="vs_sf_tombstone_sub">Jika SurfaceFlinger ranap, biarkan perisian tegar menulis tombstone biasa ke log (bersama fungsi yang ranap) dan bukannya laporan ringkas. Gunakan semasa menghantar laporan pepijat. Berkuat kuasa pada but penuh VM seterusnya.</string>
 </resources>

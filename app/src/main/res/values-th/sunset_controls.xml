@@ -28,4 +28,6 @@
     <string name="vs_bluetooth">บลูทูธของโฮสต์ (ทดลอง)</string>
     <string name="vs_bluetooth_sub">ให้เกสต์สแกน แสดงรายการอุปกรณ์ที่จับคู่ และสื่อสารกับอุปกรณ์บลูทูธผ่านโทรศัพท์: ซีเรียลแบบคลาสสิก (RFCOMM) และ Bluetooth LE (GATT) ต้องได้รับสิทธิ์บลูทูธและรีสตาร์ท VM ทั้งหมด ไม่ใช่ HCI ดิบ: เกสต์เห็นอะแดปเตอร์ของโทรศัพท์ผ่านบริดจ์ จึงไม่รองรับหูฟัง (โปรไฟล์เสียง)</string>
     <string name="bluetooth_permission_denied">ไม่ได้รับสิทธิ์บลูทูธ: เกสต์จะบูตโดยไม่มีบลูทูธของโฮสต์</string>
+    <string name="vs_sf_tombstone">Tombstone เมื่อ SurfaceFlinger ขัดข้อง (ดีบัก)</string>
+    <string name="vs_sf_tombstone_sub">หาก SurfaceFlinger ขัดข้อง ให้เฟิร์มแวร์เขียน tombstone ปกติลงบันทึก (พร้อมฟังก์ชันที่ขัดข้อง) แทนรายงานสั้น ๆ ใช้เมื่อส่งรายงานข้อบกพร่อง มีผลในการบูต VM แบบเต็มครั้งถัดไป</string>
 </resources>

@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="m_wea">Фальшиве екстрене сповіщення</string>
+    <string name="m_wea_type">Тип сповіщення</string>
+    <string name="m_wea_sent">Екстрене сповіщення надіслано</string>
+    <string name="m_wea_failed">Не надіслано: телефонія телефона не запущена</string>
+    <string name="wea_presidential">Президентське сповіщення</string>
+    <string name="wea_extreme">Надзвичайна загроза</string>
+    <string name="wea_severe">Серйозна загроза</string>
+    <string name="wea_amber">Сповіщення AMBER</string>
+    <string name="wea_test">Обов’язкова щомісячна перевірка</string>
+    <string name="wea_body_presidential">Президентське сповіщення: це перевірка системи екстрених сповіщень. Жодних дій не потрібно.</string>
+    <string name="wea_body_extreme">Екстрене сповіщення: у вашому районі попередження про торнадо. Негайно сховайтеся. Це перевірка.</string>
+    <string name="wea_body_severe">Серйозне сповіщення: у вашому районі попередження про грозу до 18:00. Це перевірка.</string>
+    <string name="wea_body_amber">Сповіщення AMBER: зникла дитина, синій седан. Якщо побачите, телефонуйте 911. Це перевірка.</string>
+    <string name="wea_body_test">Це перевірка системи Wireless Emergency Alert. Жодних дій не потрібно.</string>
+</resources>

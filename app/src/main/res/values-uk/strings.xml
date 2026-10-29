@@ -470,4 +470,20 @@
     <string name="m_reset_menu_pos">Скинути положення кнопки</string>
     <string name="as_new_home">Новий головний екран</string>
     <string name="as_new_home_sub">Бібліотека сіткою з нижньою панеллю (стиль 0.0.0.3). Вимкніть, щоб повернути класичний список. Застосується після перезапуску застосунку.</string>
+    <string name="boot_minimize">Згорнути екран завантаження (торкніться «таблетки», щоб показати його знову)</string>
+    <string name="vs_resolution_custom">Власне</string>
+    <string name="vs_thermal">Передавання температури</string>
+    <string name="vs_thermal_sub">Вимк.: thermal_zone17 гостя завжди показує 30 °C, тож прошивки, що блокують екран при перегріві (оверлей перегріву Xiaomi), продовжують працювати. Увімк.: зчитується датчик самого телефона. Значення, задане з меню машини, завжди має пріоритет. Набуде чинності під час наступного запуску.</string>
+    <string name="thermal_menu">Датчик температури</string>
+    <string name="thermal_title">Датчик температури</string>
+    <string name="thermal_mode">Режим: %1$s</string>
+    <string name="thermal_mode_cool">постійні 30 °C</string>
+    <string name="thermal_mode_host">датчик телефона</string>
+    <string name="thermal_guest_now">Гість зчитує: %1$s</string>
+    <string name="thermal_host_now">Телефон зчитує: %1$s</string>
+    <string name="thermal_value">Температура (°C)</string>
+    <string name="thermal_hint">Застосовується одразу, зокрема коли машина працює.</string>
+    <string name="thermal_invalid">Введіть значення від -40 до 150.</string>
+    <string name="thermal_apply">Застосувати</string>
+    <string name="thermal_reset">За замовчуванням</string>
 </resources>

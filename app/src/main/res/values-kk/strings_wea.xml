@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="m_wea">Жалған төтенше ескерту</string>
+    <string name="m_wea_type">Ескерту түрі</string>
+    <string name="m_wea_sent">Төтенше ескерту жіберілді</string>
+    <string name="m_wea_failed">Жіберілмеді: телефонның телефония қызметі жұмыс істемейді</string>
+    <string name="wea_presidential">Президенттік ескерту</string>
+    <string name="wea_extreme">Аса қауіпті қатер</string>
+    <string name="wea_severe">Күрделі қатер</string>
+    <string name="wea_amber">AMBER ескертуі</string>
+    <string name="wea_test">Міндетті ай сайынғы сынақ</string>
+    <string name="wea_body_presidential">Президенттік ескерту: Бұл төтенше ескерту жүйесінің сынағы. Ешқандай әрекет қажет емес.</string>
+    <string name="wea_body_extreme">Аса қауіпті ескерту: Аймағыңызда торнадо туралы ескерту. Дереу паналаңыз. Бұл сынақ.</string>
+    <string name="wea_body_severe">Күрделі ескерту: Аймағыңызда сағат 18:00-ге дейін найзағайлы жаңбыр туралы ескерту. Бұл сынақ.</string>
+    <string name="wea_body_amber">AMBER ескертуі: Жоғалған бала, көк седан. Көрсеңіз, 911 нөміріне қоңырау шалыңыз. Бұл сынақ.</string>
+    <string name="wea_body_test">Бұл Wireless Emergency Alert жүйесінің сынағы. Ешқандай әрекет қажет емес.</string>
+</resources>

@@ -227,10 +227,27 @@ static int32_t vec_fill(struct mtk_vec *v, const void *vals, size_t esz, uint32_
 }
 
 /* ---------------------------------------------------------- framebuffer */
+/* Modified for AEmulator Plus, 2026-10-28: the display size SurfaceFlinger is told (getDisplayAttribute,
+ * getClientTargetSupport) must be the one of the framebuffer, which only FBIOGET_VSCREENINFO in fb_open() knows;
+ * until then g_w/g_h are the 540x960 defaults. A 450x450 guest was told 540x960: SurfaceFlinger rendered 540x960
+ * into gralloc buffers sized for 450x450 and died with SIGSEGV one byte past the end of such a buffer. fb_open() is
+ * now called from those two entry points as well, so it can run on several binder threads at once: one lock. */
+static pthread_mutex_t g_fb_lock = PTHREAD_MUTEX_INITIALIZER;
+static int fb_open_locked(void);
 static int fb_open(void) {
+    pthread_mutex_lock(&g_fb_lock);
+    int r = fb_open_locked();
+    pthread_mutex_unlock(&g_fb_lock);
+    return r;
+}
+static int fb_open_locked(void) {
     if (g_fb >= 0) return 0;
     g_fb = open(g_fbpath, O_RDWR);
-    if (g_fb < 0) return -1;
+    if (g_fb < 0) {
+        static int warned;
+        if (!warned) { warned = 1; LOGE("cannot open %s: the size stays %dx%d", g_fbpath, g_w, g_h); }
+        return -1;
+    }
     struct fb_var_screeninfo v;
     memset(&v, 0, sizeof(v));
     if (ioctl(g_fb, FBIOGET_VSCREENINFO, &v) == 0 && v.xres && v.yres &&
@@ -265,20 +282,6 @@ static void put_px(int x, int y, uint8_t r, uint8_t g, uint8_t b) {
         uint8_t *d = g_frame + (size_t)y * g_fb_linebytes + (size_t)x * 4;
         d[0] = r; d[1] = g; d[2] = b; d[3] = 0xff;
     }
-}
-
-/* colour bars: proves the fb path works even before SurfaceFlinger draws */
-static void draw_bars(void) {
-    static const uint8_t c[8][3] = {
-        {255,255,255},{255,255,0},{0,255,255},{0,255,0},
-        {255,0,255},{255,0,0},{0,0,255},{40,40,40}};
-    if (fb_open() < 0) return;
-    for (int y = 0; y < g_h; y++)
-        for (int x = 0; x < g_w; x++) {
-            int i = (x * 8) / g_w;
-            put_px(x, y, c[i][0], c[i][1], c[i][2]);
-        }
-    fb_flush();
 }
 
 #define DMA_BUF_SYNC_START_READ 0x40086201ULL /* _IOW('b',0,u64) w/ flags below */
@@ -325,15 +328,15 @@ static void present_buffer(buffer_handle_t h) {
     size_t stride_px;
     if (g_stride_cfg) stride_px = (size_t)g_stride_cfg;
     else {
-        size_t guess = size / ((size_t)g_h * (size_t)bpp);
-        if (guess == (size_t)g_w) stride_px = guess;
-        else {
-            stride_px = guess;
-            static const int al[] = {16, 32, 64, 128, 256};
-            for (unsigned i = 0; i < sizeof(al) / sizeof(al[0]); i++) {
-                size_t s = ((size_t)g_w + (size_t)al[i] - 1) / (size_t)al[i] * (size_t)al[i];
-                if (s * (size_t)g_h * (size_t)bpp <= size && s * (size_t)g_h * (size_t)bpp + (size_t)g_h * (size_t)al[i] * (size_t)bpp > size) { stride_px = s; break; }
-            }
+        /* Modified for AEmulator Plus (2026-10-27): the buffer is often a little bigger than w*h*bpp (page rounding,
+         * a trailing header), so size/(h*bpp) is NOT the stride (2080768 bytes gave 541 for a 540-wide buffer: every
+         * row slid one pixel, the picture came out skewed and ran off the screen). Take the widest candidate stride
+         * (the width itself or the width rounded up to 16..256 pixels) whose whole frame still fits in the buffer. */
+        static const int al[] = {1, 16, 32, 64, 128, 256};
+        stride_px = (size_t)g_w;
+        for (unsigned i = 0; i < sizeof(al) / sizeof(al[0]); i++) {
+            size_t s = ((size_t)g_w + (size_t)al[i] - 1) / (size_t)al[i] * (size_t)al[i];
+            if (s * (size_t)g_h * (size_t)bpp <= size && s > stride_px) stride_px = s;
         }
         if (stride_px < (size_t)g_w) stride_px = (size_t)g_w;
     }
@@ -524,6 +527,7 @@ static int32_t h_getChangedCompositionTypes(hwc2_device_t *dev, hwc2_display_t d
 static int32_t h_getClientTargetSupport(hwc2_device_t *dev, hwc2_display_t d, uint32_t w, uint32_t h, int32_t fmt, int32_t ds) {
     TR("getClientTargetSupport", "%ux%u fmt=%d", (unsigned)w, (unsigned)h, (int)fmt);
     (void)dev; (void)ds; CHK_DISPLAY(d);
+    fb_open(); /* see h_getDisplayAttribute */
     if ((int)w != g_w || (int)h != g_h) return HWC2_ERROR_UNSUPPORTED;
     if (fmt == HAL_PIXEL_FORMAT_RGBA_8888 || fmt == HAL_PIXEL_FORMAT_RGBX_8888 ||
         fmt == HAL_PIXEL_FORMAT_BGRA_8888 || fmt == HAL_PIXEL_FORMAT_RGB_565) return HWC2_ERROR_NONE;
@@ -591,6 +595,7 @@ static int32_t h_getDisplayAttribute(hwc2_device_t *dev, hwc2_display_t d, hwc2_
     (void)dev; CHK_DISPLAY(d);
     if (cfg != 1) return HWC2_ERROR_BAD_CONFIG;
     if (!out) return HWC2_ERROR_BAD_PARAMETER;
+    fb_open(); /* g_w/g_h/g_fbbpp from the framebuffer before they are reported (no-op once it is open) */
     switch (attr) {
     case HWC2_ATTRIBUTE_WIDTH: *out = g_w; break;
     case HWC2_ATTRIBUTE_HEIGHT: *out = g_h; break;
@@ -602,36 +607,33 @@ static int32_t h_getDisplayAttribute(hwc2_device_t *dev, hwc2_display_t d, hwc2_
     }
     return HWC2_ERROR_NONE;
 }
-/* Set to 0 to get the stock HWC2 (uint32_t *outNumConfigs, hwc2_config_t *outConfigs) behaviour. */
-#ifndef HWC_MTK_VECTOR_CONFIGS
-#define HWC_MTK_VECTOR_CONFIGS 1
-#endif
-
+/* getDisplayConfigs speaks two calling conventions, told apart at run time (vec=0/1/2 in hwc2fb.conf forces one):
+ *   stock HWC2 (every AOSP composer, Android 8-16): (dev, display, uint32_t *outNumConfigs, hwc2_config_t *outConfigs),
+ *       the two-call idiom: first call outConfigs == NULL and *outNumConfigs == 0 -> report the count; second call
+ *       passes that count (>= 1) and a real array.
+ *   MediaTek HWC3 adapter: (dev, display, std::vector<int32_t> *out), the 4th argument is stack garbage. The vector is
+ *       empty (begin == end == cap == NULL) and the "array" argument is non-NULL junk.
+ * FIXED (regression, "std::bad_alloc in getDisplayConfigs" on Android 11 / Pixel Watch, composer@2.1-service aborts,
+ * SurfaceFlinger then dies with "failed to get hwcomposer service"): this function used to treat its 3rd argument as a
+ * std::vector unconditionally (HWC_MTK_VECTOR_CONFIGS 1). A stock caller passes the address of a single uint32_t, so
+ * the "vector" writes landed on its stack: *n became a heap pointer, the caller then resize()d its hidl_vec to that
+ * "count" and operator new threw. The stock path is the default again; the vector path needs positive evidence. */
 static int32_t h_getDisplayConfigs(hwc2_device_t *dev, hwc2_display_t d, uint32_t *n, hwc2_config_t *c) {
-    TR("getDisplayConfigs", "n=%p n0=%u c=%p", (void *)n, n ? (unsigned)n[0] : 0u, (void *)c);
+    TR("getDisplayConfigs", "n=%p n0=%u c=%p", (void *)n, probe_rw(n, 4) ? (unsigned)n[0] : 0u, (void *)c);
     (void)dev; CHK_DISPLAY(d);
     if (!n) return HWC2_ERROR_BAD_PARAMETER;
-#if HWC_MTK_VECTOR_CONFIGS
-    /* n is really a std::vector<int32_t>*; c is stack garbage and must not be touched. */
-    (void)c;
-    struct mtk_vec_i32 *v = (struct mtk_vec_i32 *)(void *)n;
-    int32_t *buf = v->begin;
-    if (!buf || (v->cap - v->begin) < 1) {
-        /* libc++ allocates with operator new == malloc in bionic and frees with free(). */
-        buf = (int32_t *)malloc(sizeof(int32_t));
-        if (!buf) return HWC2_ERROR_NO_RESOURCES;
-        if (v->begin) free(v->begin);          /* too small: replace it */
-        v->begin = buf;
-        v->cap = buf + 1;
+    int vec = g_vecmode == 1 ||
+              (g_vecmode == 2 && c != NULL && probe_rw(n, 4) && n[0] == 0 && vec_is_empty_rw(n));
+    if (vec) {
+        /* n is really a std::vector<int32_t>*; c is stack garbage and must not be touched. */
+        static const int32_t cfg[1] = { 1 };                   /* config id 1 */
+        LOGI("getDisplayConfigs: std::vector convention");
+        return fill_vec_i32((struct mtk_vec_i32 *)(void *)n, cfg, 1);
     }
-    buf[0] = 1;                                /* config id 1 */
-    v->end = buf + 1;                          /* size() == 1 */
+    if (!c) { *n = 1; return HWC2_ERROR_NONE; }               /* first call: how many */
+    if (*n >= 1) c[0] = 1;                                     /* second call: fill */
+    *n = *n >= 1 ? 1 : 0;
     return HWC2_ERROR_NONE;
-#else
-    if (!c) { *n = 1; return HWC2_ERROR_NONE; }
-    if (*n >= 1) c[0] = 1;
-    *n = 1; return HWC2_ERROR_NONE;
-#endif
 }
 static int32_t h_getDisplayName(hwc2_device_t *dev, hwc2_display_t d, uint32_t *n, char *name) {
     TR("getDisplayName", "n=%p name=%p", (void *)n, (void *)name);
@@ -1061,7 +1063,6 @@ static int hwc_open(const struct hw_module_t *module, const char *name, struct h
         g_thread_started = 1;
         pthread_mutex_unlock(&g_lock);
         LOGI("hwc2fb open: %dx%d -> %s (%dbpp)", g_w, g_h, g_fbpath, g_fbbpp);
-        draw_bars();
         pthread_t th;
         pthread_create(&th, NULL, worker, NULL);
         pthread_detach(th);

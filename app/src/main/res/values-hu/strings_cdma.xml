@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="vs_cdma">CDMA-modem</string>
+    <string name="vs_cdma_sub">CDMA-modemet emulál: 1xRTT / EV-DO regisztráció, MEID, CDMA-előfizetés és CDMA-szöveges üzenetek. A következő teljes indításkor lép érvénybe.</string>
+    <string name="vs_cdma_fw_yes">Ez a firmware LTE on CDMA (telephony.lteOnCdmaDevice=1): alapértelmezés szerint bekapcsolva.</string>
+    <string name="vs_cdma_fw_no">Ez a firmware nem LTE on CDMA: alapértelmezés szerint kikapcsolva.</string>
+</resources>

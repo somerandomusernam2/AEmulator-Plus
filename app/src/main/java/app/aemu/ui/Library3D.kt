@@ -479,7 +479,7 @@ private fun Details(img: GuestImage, active: Boolean, baseName: String?, onStart
             color = MaterialTheme.colorScheme.onSurfaceVariant)
         if (img.lastBootMs > 0) Text(stringResource(R.string.last_boot, (img.lastBootMs / 1000).toInt()), style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant)
-        img.warnings.firstOrNull()?.let {
+        ImportWarnings.visible(img.warnings).firstOrNull()?.let {
             Text("⚠ " + ImportWarnings.text(ctx, it), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.tertiary, textAlign = TextAlign.Center)
         }
         Text(stringResource(R.string.lib3d_tap_hint), style = MaterialTheme.typography.labelSmall,

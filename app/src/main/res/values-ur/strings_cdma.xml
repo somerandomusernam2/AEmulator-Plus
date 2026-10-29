@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="vs_cdma">CDMA موڈیم</string>
+    <string name="vs_cdma_sub">ایک CDMA موڈیم کی نقل کرتا ہے: 1xRTT / EV-DO رجسٹریشن، MEID، CDMA سبسکرپشن اور CDMA ٹیکسٹ پیغامات۔ اگلے مکمل بوٹ پر لاگو ہوگا۔</string>
+    <string name="vs_cdma_fw_yes">یہ فرم ویئر LTE on CDMA ہے (telephony.lteOnCdmaDevice=1): بطور ڈیفالٹ آن۔</string>
+    <string name="vs_cdma_fw_no">یہ فرم ویئر LTE on CDMA نہیں ہے: بطور ڈیفالٹ آف۔</string>
+</resources>

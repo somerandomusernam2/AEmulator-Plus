@@ -46,7 +46,11 @@ object DiagExport {
                 // top activity. This shows what covers the UI when the guest runs but the screen looks black.
                 // a boot that never gets going has no RUNNING state to trigger the dumps below: what its processes are doing
                 // right now (CPU time over three seconds, blocked system call, wait channel) says "spinning" from "waiting"
-                if (vm.state != GuestVm.State.RUNNING) entry(zip, "guest-boot-processes.txt") { o -> o.write(bootProcessDump(vm).toByteArray(Charsets.ISO_8859_1)) }
+                if (vm.state != GuestVm.State.RUNNING) {
+                    // a boot that stalls (system_server's android.display thread in AMS.finishBooting) needs the Java stacks too
+                    if (vm.state == GuestVm.State.BOOTING) entry(zip, "guest-threads.txt") { o -> o.write(guestThreadDump(vm).toByteArray(Charsets.ISO_8859_1)) }
+                    entry(zip, "guest-boot-processes.txt") { o -> o.write(bootProcessDump(vm).toByteArray(Charsets.ISO_8859_1)) }
+                }
                 if (vm.state == GuestVm.State.RUNNING) {
                     // Dalvik thread dumps (SIGQUIT) of the keyboard, system_server and every other guest app, taken first so the
                     // stacks show what the frozen keyboard's main thread is blocked on. Sent from the host: the Android 1.5 toolbox
@@ -100,7 +104,7 @@ object DiagExport {
                 entry(zip, "guest-sms-db.txt") { it.write(smsDb(ctx, vm).toByteArray()) }
                 vm.paths.bin.listFiles()?.filter { it.isFile }?.sortedBy { it.name }?.forEach { f -> addFile(zip, "run/${f.name}", f) }
                 // fatal-signal reports of the native runner (pc, lr, fault address, registers): where a native service died
-                listOf("dev/aemu_crash.log", "dev/.aemu_crash.log").forEach { rel ->
+                listOf("dev/aemu_crash.log", "dev/.aemu_crash.log", "dev/.aemu-trace.log").forEach { rel ->
                     val f = File(vm.paths.root, rel)
                     if (f.isFile) addFile(zip, "guest/$rel", f)
                 }
@@ -515,6 +519,8 @@ object DiagExport {
         val manifests = ArrayList<File>()
         for (rel in listOf("vendor/etc/vintf/manifest.xml", "vendor/manifest.xml", "system/vendor/manifest.xml", "system/vendor/etc/vintf/manifest.xml"))
             File(root, rel).takeIf { it.isFile }?.let { manifests += it }
+        for (dir in listOf("vendor/etc/vintf", "system/vendor/etc/vintf", "odm/etc/vintf"))
+            File(root, dir).listFiles()?.filter { it.isFile && it.name.startsWith("manifest_") && it.name.endsWith(".xml") }?.sortedBy { it.name }?.let { manifests += it }
         for (rel in listOf("vendor/etc/vintf/manifest", "system/vendor/etc/vintf/manifest"))
             File(root, rel).listFiles()?.filter { it.isFile && it.name.endsWith(".xml") }?.sortedBy { it.name }?.let { manifests += it }
         val bins = listOf("vendor/bin/hw", "system/vendor/bin/hw", "system/bin/hw").flatMap { d ->

@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="m_wea">Sahte acil durum uyarısı</string>
+    <string name="m_wea_type">Uyarı türü</string>
+    <string name="m_wea_sent">Acil durum uyarısı gönderildi</string>
+    <string name="m_wea_failed">Gönderilmedi: telefonun telefon hizmeti çalışmıyor</string>
+    <string name="wea_presidential">Başkanlık uyarısı</string>
+    <string name="wea_extreme">Aşırı tehdit</string>
+    <string name="wea_severe">Ciddi tehdit</string>
+    <string name="wea_amber">AMBER uyarısı</string>
+    <string name="wea_test">Zorunlu aylık test</string>
+    <string name="wea_body_presidential">Başkanlık uyarısı: Bu, acil durum uyarı sisteminin bir testidir. Herhangi bir işlem gerekmez.</string>
+    <string name="wea_body_extreme">Aşırı uyarı: Bölgenizde hortum uyarısı var. Hemen sığınak arayın. Bu bir testtir.</string>
+    <string name="wea_body_severe">Ciddi uyarı: Bölgenizde saat 18:00\'e kadar fırtına uyarısı var. Bu bir testtir.</string>
+    <string name="wea_body_amber">AMBER uyarısı: Kayıp çocuk, mavi sedan. Görürseniz 911\'i arayın. Bu bir testtir.</string>
+    <string name="wea_body_test">Bu, Wireless Emergency Alert sisteminin bir testidir. Herhangi bir işlem gerekmez.</string>
+</resources>

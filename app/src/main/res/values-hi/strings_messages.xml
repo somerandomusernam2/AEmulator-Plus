@@ -196,8 +196,6 @@
     <string name="vmfail_system_server_oat_missing">system_server शुरू नहीं हो सकता: फ़्रेमवर्क का पहले से कंपाइल किया गया कोड (system/framework/oat) इस कंटेनर में नहीं है — फ़र्मवेयर दोबारा इम्पोर्ट करें</string>
     <string name="warn_no_build_prop">system/build.prop नहीं है: Android वर्ज़न सिस्टम ट्री से अनुमानित किया गया।</string>
     <string name="warn_no_boot_img">फ़र्मवेयर में boot.img नहीं है: बूट प्लान और BOOTCLASSPATH का अनुमान लगाया गया।</string>
-    <string name="warn_no_healthd">बूट प्लान में healthd नहीं है (/sbin/healthd नहीं है; क्या इम्पोर्ट में ramdisk छूट गया?): system_server BatteryService में क्रैश हो जाएगा।</string>
-    <string name="warn_arm64">64-बिट फ़र्मवेयर: केवल 32-बिट ARM समर्थित है।</string>
     <string name="warn_not_arm">फ़र्मवेयर ARM नहीं है (%1$s) और नहीं चलेगा।</string>
     <string name="warn_experimental">Android %1$s: समर्थन प्रायोगिक है (ART, SELinux)।</string>
     <string name="import_default_name">फ़र्मवेयर</string>
@@ -226,4 +224,5 @@
     <string name="update_err_wrong_variant">अपडेट APK इस ऐप संस्करण से मेल नहीं खाता</string>
     <string name="update_err_wrong_package">डाउनलोड किए गए APK का ऐप पैकेज गलत है</string>
     <string name="catalog_err_too_many_lines">कैटलॉग 10000 पंक्तियों से अधिक है</string>
+    <string name="imp_iso_no_system">ISO इमेज में कोई Android सिस्टम नहीं मिला (system.sfs या system.img अपेक्षित था)</string>
 </resources>

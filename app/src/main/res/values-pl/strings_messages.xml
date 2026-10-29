@@ -196,8 +196,6 @@
     <string name="vmfail_system_server_oat_missing">system_server nie może się uruchomić: w tym kontenerze brakuje prekompilowanego kodu frameworka (system/framework/oat) — zaimportuj oprogramowanie ponownie</string>
     <string name="warn_no_build_prop">Brak system/build.prop: wersję Androida wywnioskowano z drzewa systemu.</string>
     <string name="warn_no_boot_img">Brak boot.img w oprogramowaniu: plan rozruchu i BOOTCLASSPATH odgadnięto.</string>
-    <string name="warn_no_healthd">Brak healthd w planie rozruchu (brak /sbin/healthd; ramdisku nie uwzględniono w imporcie?): system_server ulegnie awarii w BatteryService.</string>
-    <string name="warn_arm64">Oprogramowanie 64-bitowe: obsługiwany jest tylko 32-bitowy ARM.</string>
     <string name="warn_not_arm">Oprogramowanie nie jest dla ARM (%1$s) i nie uruchomi się.</string>
     <string name="warn_experimental">Android %1$s: obsługa jest eksperymentalna (ART, SELinux).</string>
     <string name="import_default_name">oprogramowanie</string>
@@ -226,4 +224,5 @@
     <string name="update_err_wrong_variant">APK aktualizacji nie pasuje do tego wariantu aplikacji</string>
     <string name="update_err_wrong_package">Pobrany APK ma niewłaściwy pakiet aplikacji</string>
     <string name="catalog_err_too_many_lines">Katalog przekracza 10000 wierszy</string>
+    <string name="imp_iso_no_system">Nie znaleziono systemu Android w obrazie ISO (oczekiwano system.sfs lub system.img)</string>
 </resources>

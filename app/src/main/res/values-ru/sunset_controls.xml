@@ -28,4 +28,6 @@
     <string name="vs_bluetooth">Bluetooth хоста (экспериментально)</string>
     <string name="vs_bluetooth_sub">Позволяет гостевой системе сканировать, перечислять сопряжённые устройства и обмениваться данными с Bluetooth-устройствами через телефон: классический последовательный порт (RFCOMM) и Bluetooth LE (GATT). Требуется разрешение Bluetooth и полный перезапуск ВМ. Это не «сырой» HCI: гостевая система видит адаптер телефона через мост, поэтому гарнитуры (аудиопрофили) не поддерживаются.</string>
     <string name="bluetooth_permission_denied">Разрешение Bluetooth отклонено: гостевая система загрузится без Bluetooth хоста.</string>
+    <string name="vs_sf_tombstone">Tombstone при сбое SurfaceFlinger (отладка)</string>
+    <string name="vs_sf_tombstone_sub">Если SurfaceFlinger падает, прошивка запишет в журнал обычный tombstone (с функцией, вызвавшей сбой) вместо краткого отчёта. Включайте при отправке отчёта об ошибке. Применяется при следующем полном запуске ВМ.</string>
 </resources>

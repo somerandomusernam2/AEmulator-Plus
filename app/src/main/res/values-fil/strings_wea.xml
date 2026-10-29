@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="m_wea">Pekeng emergency alert</string>
+    <string name="m_wea_type">Uri ng alerto</string>
+    <string name="m_wea_sent">Naipadala ang emergency alert</string>
+    <string name="m_wea_failed">Hindi naipadala: hindi tumatakbo ang telephony ng telepono</string>
+    <string name="wea_presidential">Presidential alert</string>
+    <string name="wea_extreme">Matinding banta</string>
+    <string name="wea_severe">Malubhang banta</string>
+    <string name="wea_amber">AMBER alert</string>
+    <string name="wea_test">Kinakailangang buwanang pagsubok</string>
+    <string name="wea_body_presidential">Presidential alert: Ito ay pagsubok ng emergency alert system. Walang kailangang gawin.</string>
+    <string name="wea_body_extreme">Matinding alerto: Babala sa buhawi sa inyong lugar. Humanap ng masisilungan ngayon. Ito ay pagsubok.</string>
+    <string name="wea_body_severe">Malubhang alerto: Babala sa pagkulog at pagkidlat sa inyong lugar hanggang 6 PM. Ito ay pagsubok.</string>
+    <string name="wea_body_amber">AMBER alert: Nawawalang bata, asul na sedan. Tumawag sa 911 kung makita. Ito ay pagsubok.</string>
+    <string name="wea_body_test">Ito ay pagsubok ng Wireless Emergency Alert system. Walang kailangang gawin.</string>
+</resources>

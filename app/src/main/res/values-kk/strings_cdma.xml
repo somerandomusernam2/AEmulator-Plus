@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="vs_cdma">CDMA модемі</string>
+    <string name="vs_cdma_sub">CDMA модемін эмуляциялайды: 1xRTT / EV-DO тіркеуі, MEID, CDMA жазылымы және CDMA мәтіндік хабарлары. Келесі толық жүктеуде қолданылады.</string>
+    <string name="vs_cdma_fw_yes">Бұл микробағдарлама — LTE on CDMA (telephony.lteOnCdmaDevice=1): әдепкіде қосулы.</string>
+    <string name="vs_cdma_fw_no">Бұл микробағдарлама LTE on CDMA емес: әдепкіде өшірулі.</string>
+</resources>

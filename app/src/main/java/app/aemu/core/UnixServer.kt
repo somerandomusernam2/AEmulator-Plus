@@ -16,6 +16,7 @@ import java.io.FileDescriptor
 class UnixServer(
     val file: File,
     private val name: String,
+    private val sockType: Int = LocalSocket.SOCKET_STREAM,
     private val onClient: (LocalSocket) -> Unit,
 ) {
     @Volatile private var server: LocalServerSocket? = null
@@ -32,7 +33,7 @@ class UnixServer(
         file.parentFile?.mkdirs()
         file.delete()
         return try {
-            val ls = LocalSocket(LocalSocket.SOCKET_STREAM)
+            val ls = LocalSocket(sockType)
             ls.bind(LocalSocketAddress(file.absolutePath, LocalSocketAddress.Namespace.FILESYSTEM))
             cloexec(ls.fileDescriptor)
             runCatching { Os.chmod(file.absolutePath, "666".toInt(8)) }

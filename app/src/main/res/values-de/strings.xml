@@ -466,4 +466,22 @@
     <string name="vs_nav_compact_sub">Kleinere Tasten, mehr Platz für den Bildschirm.</string>
     <string name="nav_dpad">Trackball</string>
     <string name="m_reset_menu_pos">Menütaste zurücksetzen</string>
+    <string name="boot_minimize">Startbildschirm minimieren (auf die Pille tippen, um ihn wieder anzuzeigen)</string>
+    <string name="vs_resolution_custom">Benutzerdefiniert</string>
+    <string name="as_new_home">Neuer Startbildschirm</string>
+    <string name="as_new_home_sub">Raster-Bibliothek mit unterer Leiste (im Stil von 0.0.0.3). Zum Zurückwechseln zur klassischen Liste ausschalten. Wird nach dem Neustart der App wirksam.</string>
+    <string name="vs_thermal">Thermik-Durchleitung</string>
+    <string name="vs_thermal_sub">Aus: Die thermal_zone17 des Gasts zeigt immer 30 °C, damit Firmware, die den Bildschirm bei Hitze sperrt (Xiaomi-Überhitzungsanzeige), weiter funktioniert. Ein: Es wird der Sensor des Telefons gelesen. Ein im Maschinenmenü gesetzter Wert hat immer Vorrang. Wird beim nächsten Start wirksam.</string>
+    <string name="thermal_menu">Temperatursensor</string>
+    <string name="thermal_title">Temperatursensor</string>
+    <string name="thermal_mode">Modus: %1$s</string>
+    <string name="thermal_mode_cool">konstant 30 °C</string>
+    <string name="thermal_mode_host">Sensor des Telefons</string>
+    <string name="thermal_guest_now">Gast liest: %1$s</string>
+    <string name="thermal_host_now">Telefon liest: %1$s</string>
+    <string name="thermal_value">Temperatur (°C)</string>
+    <string name="thermal_hint">Wird sofort wirksam, auch während die Maschine läuft.</string>
+    <string name="thermal_invalid">Gib einen Wert von -40 bis 150 ein.</string>
+    <string name="thermal_apply">Anwenden</string>
+    <string name="thermal_reset">Standard verwenden</string>
 </resources>

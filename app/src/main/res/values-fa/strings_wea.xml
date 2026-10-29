@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="m_wea">هشدار اضطراری جعلی</string>
+    <string name="m_wea_type">نوع هشدار</string>
+    <string name="m_wea_sent">هشدار اضطراری ارسال شد</string>
+    <string name="m_wea_failed">ارسال نشد: بخش تلفن گوشی در حال اجرا نیست</string>
+    <string name="wea_presidential">هشدار ریاست‌جمهوری</string>
+    <string name="wea_extreme">تهدید شدید</string>
+    <string name="wea_severe">تهدید جدی</string>
+    <string name="wea_amber">هشدار AMBER</string>
+    <string name="wea_test">آزمایش ماهانهٔ الزامی</string>
+    <string name="wea_body_presidential">هشدار ریاست‌جمهوری: این یک آزمایش سامانهٔ هشدار اضطراری است. نیازی به هیچ اقدامی نیست.</string>
+    <string name="wea_body_extreme">هشدار شدید: هشدار گردباد در منطقهٔ شما. همین حالا پناه بگیرید. این یک آزمایش است.</string>
+    <string name="wea_body_severe">هشدار جدی: هشدار رعدوبرق در منطقهٔ شما تا ساعت ۶ بعدازظهر. این یک آزمایش است.</string>
+    <string name="wea_body_amber">هشدار AMBER: کودک گمشده، سدان آبی. در صورت دیدن با 911 تماس بگیرید. این یک آزمایش است.</string>
+    <string name="wea_body_test">این یک آزمایش سامانهٔ Wireless Emergency Alert است. نیازی به هیچ اقدامی نیست.</string>
+</resources>

@@ -465,4 +465,22 @@
     <string name="vs_nav_compact_sub">ボタンを小さくして画面を広く。</string>
     <string name="nav_dpad">トラックボール</string>
     <string name="m_reset_menu_pos">メニューボタンの位置をリセット</string>
+    <string name="boot_minimize">起動画面を最小化（ピルをタップすると再表示）</string>
+    <string name="vs_resolution_custom">カスタム</string>
+    <string name="as_new_home">新しいホーム画面</string>
+    <string name="as_new_home_sub">下部バー付きのグリッド表示ライブラリ（0.0.0.3 スタイル）。従来のリスト表示に戻すにはオフにします。アプリの再起動後に反映されます。</string>
+    <string name="vs_thermal">温度パススルー</string>
+    <string name="vs_thermal_sub">オフ：ゲストの thermal_zone17 は常に 30 °C を返すため、高温で画面をロックするファームウェア（Xiaomi の過熱オーバーレイ）も動作し続けます。オン：端末自身のセンサーを読み取ります。マシンのメニューで設定した値が常に優先されます。次回の起動後に反映されます。</string>
+    <string name="thermal_menu">温度センサー</string>
+    <string name="thermal_title">温度センサー</string>
+    <string name="thermal_mode">モード：%1$s</string>
+    <string name="thermal_mode_cool">30 °C 固定</string>
+    <string name="thermal_mode_host">端末のセンサー</string>
+    <string name="thermal_guest_now">ゲストの読み取り値：%1$s</string>
+    <string name="thermal_host_now">端末の読み取り値：%1$s</string>
+    <string name="thermal_value">温度（°C）</string>
+    <string name="thermal_hint">すぐに反映されます。マシンの実行中も有効です。</string>
+    <string name="thermal_invalid">-40～150 の値を入力してください。</string>
+    <string name="thermal_apply">適用</string>
+    <string name="thermal_reset">デフォルトを使用</string>
 </resources>

@@ -106,9 +106,6 @@ class Analyzer(private val ctx: Context, private val paths: VmPaths, private val
         val warnings = ArrayList<String>()
         if (noBuildProp) warnings += ImportWarnings.NO_BUILD_PROP
         if (rcFiles.isEmpty() && dhdBcp == null && !legacy) warnings += ImportWarnings.NO_BOOT_IMG
-        if (api >= 19 && plan.none { it.name == "healthd" })
-            warnings += ImportWarnings.NO_HEALTHD
-        if (abi.startsWith("arm64") && api != 23) warnings += ImportWarnings.ARM64
         // x86-32 runs (libqemu_i386.so); x86-64, MIPS and anything else the translators cannot run still gets the warning
         if (GuestArch.isUnsupported(root, abi)) warnings += ImportWarnings.notArm(abi)
         if (api >= 21) warnings += ImportWarnings.experimental(release)

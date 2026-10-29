@@ -196,8 +196,6 @@
     <string name="vmfail_system_server_oat_missing">system_server не може да стартува: во овој контејнер недостасува претходно компајлираниот код на рамката (system/framework/oat) — повторно увезете го фирмверот</string>
     <string name="warn_no_build_prop">Нема system/build.prop: верзијата на Android е заклучена од дрвото на системот.</string>
     <string name="warn_no_boot_img">Нема boot.img во фирмверот: планот за стартување и BOOTCLASSPATH се погодени.</string>
-    <string name="warn_no_healthd">Нема healthd во планот за стартување (нема /sbin/healthd; недостасува ramdisk при увозот?): system_server ќе падне во BatteryService.</string>
-    <string name="warn_arm64">64-битен фирмвер: поддржан е само 32-битен ARM.</string>
     <string name="warn_not_arm">Фирмверот не е ARM (%1$s) и нема да работи.</string>
     <string name="warn_experimental">Android %1$s: поддршката е експериментална (ART, SELinux).</string>
     <string name="import_default_name">фирмвер</string>
@@ -226,4 +224,5 @@
     <string name="update_err_wrong_variant">APK-то за ажурирање не одговара на варијантата на оваа апликација</string>
     <string name="update_err_wrong_package">Преземеното APK го има погрешниот пакет на апликацијата</string>
     <string name="catalog_err_too_many_lines">Каталогот надминува 10000 редови</string>
+    <string name="imp_iso_no_system">Во ISO сликата не е пронајден Android систем (се очекува system.sfs или system.img)</string>
 </resources>

@@ -28,4 +28,6 @@
     <string name="vs_bluetooth">ဟို့စ် Bluetooth (စမ်းသပ်ဆဲ)</string>
     <string name="vs_bluetooth_sub">ဧည့်သည်က ဖုန်းမှတစ်ဆင့် Bluetooth စက်များကို ရှာဖွေရန်၊ တွဲထားသောစာရင်းကြည့်ရန်နှင့် ဆက်သွယ်ရန် ခွင့်ပြုသည်- ရိုးရိုး serial (RFCOMM) နှင့် Bluetooth LE (GATT)။ Bluetooth ခွင့်ပြုချက်နှင့် VM ကို အပြည့်အဝ ပြန်စတင်ရန် လိုအပ်သည်။ HCI အစစ်အမှန် မဟုတ်ပါ- ဧည့်သည်က ဖုန်း၏ အဒက်ပတာကို တံတားတစ်ခုမှတစ်ဆင့် မြင်ရသဖြင့် ဟက်ဒ်ဆက်များ (အသံပရိုဖိုင်များ) ကို မပံ့ပိုးပါ။</string>
     <string name="bluetooth_permission_denied">Bluetooth ခွင့်ပြုချက်ကို ငြင်းပယ်ထားသည်- ဧည့်သည်သည် ဟို့စ် Bluetooth မပါဘဲ စတင်မည်။</string>
+    <string name="vs_sf_tombstone">SurfaceFlinger ပျက်စီးမှု tombstone (အမှားရှာဖွေခြင်း)</string>
+    <string name="vs_sf_tombstone_sub">SurfaceFlinger ပျက်ပါက အတိုချုပ်အစီရင်ခံစာအစား ဖမ်းဝဲက ပုံမှန် tombstone (ပျက်သွားသော လုပ်ဆောင်ချက်ပါ) ကို မှတ်တမ်းထဲ ရေးပေးပါမည်။ ချွတ်ယွင်းချက်အစီရင်ခံစာ ပို့သည့်အခါ သုံးပါ။ နောက် VM အပြည့်စတင်ချိန်တွင် သက်ရောက်ပါမည်။</string>
 </resources>

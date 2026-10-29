@@ -465,4 +465,22 @@
     <string name="vs_nav_compact_sub">버튼은 작게, 화면은 넓게.</string>
     <string name="nav_dpad">트랙볼</string>
     <string name="m_reset_menu_pos">메뉴 버튼 위치 초기화</string>
+    <string name="boot_minimize">부팅 화면 최소화 (알약을 탭하면 다시 표시됨)</string>
+    <string name="vs_resolution_custom">사용자 지정</string>
+    <string name="as_new_home">새 홈 화면</string>
+    <string name="as_new_home_sub">하단 바가 있는 격자형 라이브러리(0.0.0.3 스타일)입니다. 기존 목록으로 되돌리려면 끄세요. 앱을 다시 시작하면 적용됩니다.</string>
+    <string name="vs_thermal">온도 패스스루</string>
+    <string name="vs_thermal_sub">끔: 게스트의 thermal_zone17이 항상 30 °C로 표시되므로, 고온에서 화면을 잠그는 펌웨어(Xiaomi 과열 오버레이)도 계속 작동합니다. 켬: 휴대전화 자체 센서를 읽습니다. 머신 메뉴에서 설정한 값이 항상 우선합니다. 다음 시작 시 적용됩니다.</string>
+    <string name="thermal_menu">온도 센서</string>
+    <string name="thermal_title">온도 센서</string>
+    <string name="thermal_mode">모드: %1$s</string>
+    <string name="thermal_mode_cool">30 °C 고정</string>
+    <string name="thermal_mode_host">휴대전화 센서</string>
+    <string name="thermal_guest_now">게스트 값: %1$s</string>
+    <string name="thermal_host_now">휴대전화 값: %1$s</string>
+    <string name="thermal_value">온도(°C)</string>
+    <string name="thermal_hint">즉시 적용되며, 머신이 실행 중일 때도 적용됩니다.</string>
+    <string name="thermal_invalid">-40에서 150 사이의 값을 입력하세요.</string>
+    <string name="thermal_apply">적용</string>
+    <string name="thermal_reset">기본값 사용</string>
 </resources>

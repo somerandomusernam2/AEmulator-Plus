@@ -28,4 +28,6 @@
     <string name="vs_bluetooth">Bluetooth hosta (eksperymentalne)</string>
     <string name="vs_bluetooth_sub">Pozwala gościowi skanować, wyświetlać sparowane urządzenia i komunikować się z urządzeniami Bluetooth przez telefon: klasyczny szeregowy (RFCOMM) i Bluetooth LE (GATT). Wymaga uprawnienia Bluetooth i pełnego restartu maszyny wirtualnej. To nie jest surowy HCI: gość widzi adapter telefonu przez most, więc zestawy słuchawkowe (profile audio) nie są obsługiwane.</string>
     <string name="bluetooth_permission_denied">Odmówiono uprawnienia Bluetooth: gość uruchomi się bez Bluetooth hosta.</string>
+    <string name="vs_sf_tombstone">Tombstone awarii SurfaceFlinger (debugowanie)</string>
+    <string name="vs_sf_tombstone_sub">Gdy SurfaceFlinger ulegnie awarii, firmware zapisze w logu zwykły tombstone (z funkcją, która uległa awarii) zamiast krótkiego raportu. Użyj tego przy wysyłaniu zgłoszenia błędu. Zadziała przy następnym pełnym uruchomieniu maszyny wirtualnej.</string>
 </resources>

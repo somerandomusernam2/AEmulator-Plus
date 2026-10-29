@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="m_wea">התראת חירום מזויפת</string>
+    <string name="m_wea_type">סוג התראה</string>
+    <string name="m_wea_sent">התראת החירום נשלחה</string>
+    <string name="m_wea_failed">לא נשלחה: שירות הטלפוניה של הטלפון אינו פועל</string>
+    <string name="wea_presidential">התראה נשיאותית</string>
+    <string name="wea_extreme">איום קיצוני</string>
+    <string name="wea_severe">איום חמור</string>
+    <string name="wea_amber">התראת AMBER</string>
+    <string name="wea_test">בדיקה חודשית נדרשת</string>
+    <string name="wea_body_presidential">התראה נשיאותית: זוהי בדיקה של מערכת ההתראות לשעת חירום. אין צורך בפעולה.</string>
+    <string name="wea_body_extreme">התראה קיצונית: אזהרת טורנדו באזורך. חפש מחסה עכשיו. זוהי בדיקה.</string>
+    <string name="wea_body_severe">התראה חמורה: אזהרת סופת רעמים באזורך עד 18:00. זוהי בדיקה.</string>
+    <string name="wea_body_amber">התראת AMBER: ילד נעדר, סדאן כחולה. אם רואים, התקשרו ל-911. זוהי בדיקה.</string>
+    <string name="wea_body_test">זוהי בדיקה של מערכת Wireless Emergency Alert. אין צורך בפעולה.</string>
+</resources>

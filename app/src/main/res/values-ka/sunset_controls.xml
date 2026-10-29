@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="vs_hide_menu">მენიუს ღილაკის დამალვა</string>
+    <string name="vs_hide_menu_sub">ღილაკის … დამალვა. ტელეფონის „უკან“ ღილაკი ან უკან მოძრაობის ჟესტი ხსნის ემულატორის მენიუს და Android-ს „უკან“ აღარ უგზავნის. სტუმრის სანავიგაციო ღილაკები კვლავ მართავს Android-ს.</string>
+    <string name="vs_vibration">სტუმრის ვიბრაცია</string>
+    <string name="vs_vibration_sub">სტუმრის ძველი ვიბრაციის გადაცემა ტელეფონზე. გამოიყენება შემდეგი ჩატვირთვისას; თითოეული იმპულსი 60 წამით შემოიფარგლება.</string>
+    <string name="nav_buttons">სანავიგაციო ღილაკები</string>
+    <string name="nav_order">ღილაკების რიგი (მარცხნიდან მარჯვნივ)</string>
+    <string name="nav_earlier">უფრო ადრე</string>
+    <string name="nav_later">უფრო გვიან</string>
+    <string name="nav_reset">ღილაკების დაბრუნება</string>
+    <string name="nav_search">ძიება</string>
+    <string name="nav_power">ჩართვა</string>
+    <string name="nav_go_to_recovery">Recovery-ზე გადასვლა</string>
+    <string name="nav_volume_down">ხმის შემცირება</string>
+    <string name="nav_volume_up">ხმის გაზრდა</string>
+    <string name="nav_up">D-pad ზემოთ</string>
+    <string name="nav_down">D-pad ქვემოთ</string>
+    <string name="nav_left">D-pad მარცხნივ</string>
+    <string name="nav_right">D-pad მარჯვნივ</string>
+    <string name="nav_center">D-pad ცენტრი</string>
+    <string name="nav_trackball">ტრეკბოლი</string>
+    <string name="nav_trackball_sub">გადაატარეთ თითი სანავიგაციო პანელის ზემოთ მდებარე წრეზე გადასაგორებლად; შეხებით აირჩევთ.</string>
+    <string name="nav_dpad_mode">ისრების ღილაკების რეჟიმი</string>
+    <string name="nav_dpad_sub">გამორთულია: რეალური ფარდობითი ტრეკბოლის მოვლენები სტუმრის აპებისთვის. ჩართულია: ამის ნაცვლად D-pad-ის ღილაკების დაჭერა. ორივეს არ გზავნის.</string>
+    <string name="nav_sensitivity">მგრძნობელობა: %1$d dp ერთ ნაბიჯზე (რაც ნაკლებია, მით სწრაფია)</string>
+    <string name="nav_trackball_waiting">სტუმრის ტრეკბოლის კავშირი ჯერ არ არის</string>
+    <string name="nav_trackball_recovery">Recovery: გამოიყენეთ ისრების ღილაკების რეჟიმი</string>
+    <string name="vs_bluetooth">ჰოსტის Bluetooth (ექსპერიმენტული)</string>
+    <string name="vs_bluetooth_sub">სტუმარს საშუალებას აძლევს, ტელეფონის მეშვეობით მოძებნოს Bluetooth მოწყობილობები, ნახოს დაწყვილებულთა სია და დაუკავშირდეს მათ: კლასიკური სერიული (RFCOMM) და Bluetooth LE (GATT). საჭიროა Bluetooth-ის ნებართვა და VM-ის სრული გადატვირთვა. ეს არ არის raw HCI: სტუმარი ტელეფონის ადაპტერს ხიდის მეშვეობით ხედავს, ამიტომ ყურსაცმები (აუდიო პროფილები) არ არის მხარდაჭერილი.</string>
+    <string name="vs_sf_tombstone">SurfaceFlinger-ის ავარიის tombstone (გამართვა)</string>
+    <string name="vs_sf_tombstone_sub">თუ SurfaceFlinger ავარიულად შეწყდება, ფირმვერი ჟურნალში ჩაწერს ჩვეულებრივ tombstone-ს (ავარიული ფუნქციის მითითებით) მოკლე ანგარიშის ნაცვლად. გამოიყენეთ შეცდომის ანგარიშის გაგზავნისას. ძალაში შედის შემდეგი სრული VM ჩატვირთვისას.</string>
+    <string name="bluetooth_permission_denied">Bluetooth-ის ნებართვა უარყოფილია: სტუმარი ჰოსტის Bluetooth-ის გარეშე ჩაიტვირთება.</string>
+</resources>

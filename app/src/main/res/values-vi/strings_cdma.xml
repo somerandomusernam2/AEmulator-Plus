@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="vs_cdma">Modem CDMA</string>
+    <string name="vs_cdma_sub">Mô phỏng modem CDMA: đăng ký 1xRTT / EV-DO, MEID, thuê bao CDMA và tin nhắn văn bản CDMA. Áp dụng ở lần khởi động đầy đủ tiếp theo.</string>
+    <string name="vs_cdma_fw_yes">Firmware này là LTE on CDMA (telephony.lteOnCdmaDevice=1): mặc định bật.</string>
+    <string name="vs_cdma_fw_no">Firmware này không phải LTE on CDMA: mặc định tắt.</string>
+</resources>

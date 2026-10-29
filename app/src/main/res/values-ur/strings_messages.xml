@@ -196,8 +196,6 @@
     <string name="vmfail_system_server_oat_missing">system_server شروع نہیں ہو سکتا: فریم ورک کا پہلے سے کمپائل شدہ کوڈ (system/framework/oat) اس کنٹینر میں موجود نہیں — فرم ویئر دوبارہ امپورٹ کریں</string>
     <string name="warn_no_build_prop">system/build.prop موجود نہیں: Android ورژن کا اندازہ سسٹم ٹری سے لگایا گیا۔</string>
     <string name="warn_no_boot_img">فرم ویئر میں boot.img موجود نہیں: بوٹ پلان اور BOOTCLASSPATH کا اندازہ لگایا گیا۔</string>
-    <string name="warn_no_healthd">بوٹ پلان میں healthd موجود نہیں (/sbin/healthd نہیں؛ کیا امپورٹ میں ریم ڈسک غائب ہے؟): system_server، BatteryService میں ختم ہو جائے گا۔</string>
-    <string name="warn_arm64">64-bit فرم ویئر: صرف 32-bit ARM معاون ہے۔</string>
     <string name="warn_not_arm">فرم ویئر ARM نہیں ہے (%1$s) اور نہیں چلے گا۔</string>
     <string name="warn_experimental">Android %1$s: معاونت تجرباتی ہے (ART، SELinux)۔</string>
     <string name="import_default_name">فرم ویئر</string>
@@ -226,4 +224,5 @@
     <string name="update_err_wrong_variant">اپ ڈیٹ APK اس ایپلیکیشن ویریئنٹ سے مطابقت نہیں رکھتی</string>
     <string name="update_err_wrong_package">ڈاؤن لوڈ کی گئی APK کا ایپلیکیشن پیکیج غلط ہے</string>
     <string name="catalog_err_too_many_lines">کیٹلاگ 10000 لائنوں سے زیادہ ہے</string>
+    <string name="imp_iso_no_system">ISO امیج میں کوئی Android سسٹم نہیں ملا (system.sfs یا system.img متوقع تھا)</string>
 </resources>

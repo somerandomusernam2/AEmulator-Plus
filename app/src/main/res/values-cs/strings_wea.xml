@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="m_wea">Falešné tísňové upozornění</string>
+    <string name="m_wea_type">Typ upozornění</string>
+    <string name="m_wea_sent">Tísňové upozornění odesláno</string>
+    <string name="m_wea_failed">Neodesláno: telefonie telefonu neběží</string>
+    <string name="wea_presidential">Prezidentské upozornění</string>
+    <string name="wea_extreme">Extrémní hrozba</string>
+    <string name="wea_severe">Vážná hrozba</string>
+    <string name="wea_amber">Upozornění AMBER</string>
+    <string name="wea_test">Povinný měsíční test</string>
+    <string name="wea_body_presidential">Prezidentské upozornění: Toto je test systému tísňových upozornění. Není třeba žádná akce.</string>
+    <string name="wea_body_extreme">Extrémní upozornění: Ve vašem okolí je varování před tornádem. Okamžitě se ukryjte. Toto je test.</string>
+    <string name="wea_body_severe">Vážné upozornění: Ve vašem okolí je do 18:00 varování před bouřkou. Toto je test.</string>
+    <string name="wea_body_amber">Upozornění AMBER: Pohřešované dítě, modrý sedan. Pokud jej uvidíte, volejte 911. Toto je test.</string>
+    <string name="wea_body_test">Toto je test systému Wireless Emergency Alert. Není třeba žádná akce.</string>
+</resources>

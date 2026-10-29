@@ -470,4 +470,22 @@
     <string name="as_led_sub">Показывать светодиод телефона-гостя над экраном</string>
     <string name="as_new_home">Новый главный экран</string>
     <string name="as_new_home_sub">Библиотека сеткой с нижней панелью (стиль 0.0.0.3). Выключите, чтобы вернуть классический список. Применится после перезапуска приложения.</string>
+    <string name="boot_minimize">Свернуть экран загрузки (нажмите на «таблетку», чтобы показать его снова)</string>
+    <string name="vs_resolution_custom">Другое</string>
+    <string name="vs_no_watchdog">Отключить системный watchdog (Android 14+)</string>
+    <string name="vs_no_watchdog_sub">Для загрузки, которая дольше 60-секундного лимита watchdog Android и из-за этого убивает system_server по кругу. Патчит services.jar прошивки, и поток watchdog сразу завершается; настоящая взаимоблокировка системы больше не лечится перезапуском. Предкомпилированный код jar не используется, первая загрузка может стать медленнее. При выключении возвращается оригинальный jar. Вступит в силу при следующем полном запуске.</string>
+    <string name="vs_thermal">Передача температуры</string>
+    <string name="vs_thermal_sub">Выкл.: thermal_zone17 гостя всегда показывает 30 °C, поэтому прошивки, блокирующие экран при перегреве (оверлей перегрева Xiaomi), продолжают работать. Вкл.: читается датчик самого телефона. Значение, заданное из меню машины, всегда приоритетно. Вступит в силу при следующем запуске.</string>
+    <string name="thermal_menu">Датчик температуры</string>
+    <string name="thermal_title">Датчик температуры</string>
+    <string name="thermal_mode">Режим: %1$s</string>
+    <string name="thermal_mode_cool">постоянные 30 °C</string>
+    <string name="thermal_mode_host">датчик телефона</string>
+    <string name="thermal_guest_now">Гость читает: %1$s</string>
+    <string name="thermal_host_now">Телефон читает: %1$s</string>
+    <string name="thermal_value">Температура (°C)</string>
+    <string name="thermal_hint">Применяется сразу, в том числе пока машина работает.</string>
+    <string name="thermal_invalid">Введите значение от -40 до 150.</string>
+    <string name="thermal_apply">Применить</string>
+    <string name="thermal_reset">По умолчанию</string>
 </resources>

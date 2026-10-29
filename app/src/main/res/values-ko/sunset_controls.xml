@@ -28,4 +28,6 @@
     <string name="vs_bluetooth">호스트 Bluetooth(실험적)</string>
     <string name="vs_bluetooth_sub">게스트가 휴대전화를 통해 Bluetooth 기기를 검색하고, 페어링된 기기 목록을 보고, 통신할 수 있게 합니다. 클래식 시리얼(RFCOMM)과 Bluetooth LE(GATT)를 지원합니다. Bluetooth 권한과 VM 전체 재시작이 필요합니다. 원시 HCI가 아닙니다. 게스트는 브리지를 통해 휴대전화 어댑터를 보므로 헤드셋(오디오 프로필)은 지원되지 않습니다.</string>
     <string name="bluetooth_permission_denied">Bluetooth 권한이 거부되었습니다. 게스트는 호스트 Bluetooth 없이 부팅됩니다.</string>
+    <string name="vs_sf_tombstone">SurfaceFlinger 크래시 톰스톤(디버그)</string>
+    <string name="vs_sf_tombstone_sub">SurfaceFlinger가 크래시하면 짧은 보고서 대신 일반 톰스톤(크래시한 함수 포함)을 펌웨어가 로그에 기록하게 합니다. 버그 보고서를 보낼 때 사용하세요. 다음 VM 전체 부팅 시 적용됩니다.</string>
 </resources>

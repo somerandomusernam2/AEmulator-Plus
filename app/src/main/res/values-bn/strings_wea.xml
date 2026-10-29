@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="m_wea">নকল জরুরি সতর্কতা</string>
+    <string name="m_wea_type">সতর্কতার ধরন</string>
+    <string name="m_wea_sent">জরুরি সতর্কতা পাঠানো হয়েছে</string>
+    <string name="m_wea_failed">পাঠানো হয়নি: ফোনের টেলিফোনি চলছে না</string>
+    <string name="wea_presidential">প্রেসিডেন্সিয়াল সতর্কতা</string>
+    <string name="wea_extreme">চরম হুমকি</string>
+    <string name="wea_severe">গুরুতর হুমকি</string>
+    <string name="wea_amber">AMBER সতর্কতা</string>
+    <string name="wea_test">বাধ্যতামূলক মাসিক পরীক্ষা</string>
+    <string name="wea_body_presidential">প্রেসিডেন্সিয়াল সতর্কতা: এটি জরুরি সতর্কতা ব্যবস্থার একটি পরীক্ষা। কোনো পদক্ষেপের প্রয়োজন নেই।</string>
+    <string name="wea_body_extreme">চরম সতর্কতা: আপনার এলাকায় টর্নেডোর সতর্কবার্তা। এখনই আশ্রয় নিন। এটি একটি পরীক্ষা।</string>
+    <string name="wea_body_severe">গুরুতর সতর্কতা: আপনার এলাকায় সন্ধ্যা ৬টা পর্যন্ত বজ্রঝড়ের সতর্কবার্তা। এটি একটি পরীক্ষা।</string>
+    <string name="wea_body_amber">AMBER সতর্কতা: নিখোঁজ শিশু, নীল সেডান। দেখতে পেলে 911-এ কল করুন। এটি একটি পরীক্ষা।</string>
+    <string name="wea_body_test">এটি Wireless Emergency Alert ব্যবস্থার একটি পরীক্ষা। কোনো পদক্ষেপের প্রয়োজন নেই।</string>
+</resources>

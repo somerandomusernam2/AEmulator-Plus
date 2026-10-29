@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="m_wea">Фалшиво спешно предупреждение</string>
+    <string name="m_wea_type">Тип предупреждение</string>
+    <string name="m_wea_sent">Спешното предупреждение е изпратено</string>
+    <string name="m_wea_failed">Не е изпратено: телефонията на телефона не работи</string>
+    <string name="wea_presidential">Президентско предупреждение</string>
+    <string name="wea_extreme">Изключителна заплаха</string>
+    <string name="wea_severe">Сериозна заплаха</string>
+    <string name="wea_amber">Предупреждение AMBER</string>
+    <string name="wea_test">Задължителен месечен тест</string>
+    <string name="wea_body_presidential">Президентско предупреждение: Това е тест на системата за спешни предупреждения. Не е необходимо действие.</string>
+    <string name="wea_body_extreme">Изключително предупреждение: Предупреждение за торнадо във вашия район. Потърсете убежище веднага. Това е тест.</string>
+    <string name="wea_body_severe">Сериозно предупреждение: Предупреждение за гръмотевична буря във вашия район до 18:00 ч. Това е тест.</string>
+    <string name="wea_body_amber">Предупреждение AMBER: Изчезнало дете, син седан. Ако го видите, позвънете на 911. Това е тест.</string>
+    <string name="wea_body_test">Това е тест на системата Wireless Emergency Alert. Не е необходимо действие.</string>
+</resources>

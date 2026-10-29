@@ -29,4 +29,6 @@
     <string name="vs_bluetooth">Isännän Bluetooth (kokeellinen)</string>
     <string name="vs_bluetooth_sub">Antaa vieraan etsiä Bluetooth-laitteita, listata paritetut laitteet ja keskustella niiden kanssa puhelimen kautta: perinteinen sarjaportti (RFCOMM) ja Bluetooth LE (GATT). Vaatii Bluetooth-luvan ja järjestelmän täyden uudelleenkäynnistyksen. Ei raaka HCI: vieras näkee puhelimen sovittimen sillan kautta, joten kuulokkeita (ääniprofiileja) ei tueta.</string>
     <string name="bluetooth_permission_denied">Bluetooth-lupa evätty: vieras käynnistyy ilman isännän Bluetoothia.</string>
+    <string name="vs_sf_tombstone">SurfaceFlingerin kaatumisen tombstone (virheenkorjaus)</string>
+    <string name="vs_sf_tombstone_sub">Jos SurfaceFlinger kaatuu, laiteohjelmisto kirjoittaa lokiin tavallisen tombstonen (kaatuneen funktion kanssa) lyhyen raportin sijaan. Käytä tätä lähettäessäsi virheraportin. Otetaan käyttöön seuraavalla VM:n täydellä käynnistyksellä.</string>
 </resources>

@@ -1,0 +1,33 @@
+<resources>
+    <string name="vs_hide_menu">Slėpti meniu mygtuką</string>
+    <string name="vs_hide_menu_sub">Paslėpti mygtuką „…“. Telefono mygtukas „Atgal“ arba atgalinis gestas atidaro emuliatoriaus meniu, užuot siuntęs „Atgal“ į „Android“. Svečio naršymo mygtukai ir toliau valdo „Android“.</string>
+    <string name="vs_vibration">Svečio vibracija</string>
+    <string name="vs_vibration_sub">Perduoda senąją svečio vibraciją telefonui. Taikoma kitą kartą paleidus; kiekvienas impulsas ribojamas iki 60 sekundžių.</string>
+    <string name="nav_buttons">Naršymo mygtukai</string>
+    <string name="nav_order">Mygtukų tvarka (iš kairės į dešinę)</string>
+    <string name="nav_earlier">Anksčiau</string>
+    <string name="nav_later">Vėliau</string>
+    <string name="nav_reset">Atkurti mygtukus</string>
+    <string name="nav_search">Paieška</string>
+    <string name="nav_power">Maitinimas</string>
+    <string name="nav_go_to_recovery">Eiti į atkūrimo režimą</string>
+    <string name="nav_volume_down">Patildyti</string>
+    <string name="nav_volume_up">Pagarsinti</string>
+    <string name="nav_up">D-pad aukštyn</string>
+    <string name="nav_down">D-pad žemyn</string>
+    <string name="nav_left">D-pad kairėn</string>
+    <string name="nav_right">D-pad dešinėn</string>
+    <string name="nav_center">D-pad centras</string>
+    <string name="nav_trackball">Rutulys</string>
+    <string name="nav_trackball_sub">Braukite apskritimą virš naršymo juostos, kad riedėtų; palieskite, kad pasirinktumėte.</string>
+    <string name="nav_dpad_mode">Rodyklių klavišų režimas</string>
+    <string name="nav_dpad_sub">Išjungta: tikri santykiniai rutulio įvykiai svečio programoms. Įjungta: vietoj jų D-pad klavišų paspaudimai. Abu nesiunčiami.</string>
+    <string name="nav_sensitivity">Jautrumas: %1$d dp vienam žingsniui (mažiau – greičiau)</string>
+    <string name="nav_trackball_waiting">Dar nėra svečio rutulio ryšio</string>
+    <string name="nav_trackball_recovery">Atkūrimo režimas: naudokite rodyklių klavišų režimą</string>
+    <string name="vs_bluetooth">Šeimininko „Bluetooth“ (eksperimentinis)</string>
+    <string name="vs_bluetooth_sub">Leidžia svečiui per telefoną nuskaityti „Bluetooth“ įrenginius, peržiūrėti suporuotų sąrašą ir su jais bendrauti: klasikinis nuoseklusis prievadas (RFCOMM) ir „Bluetooth LE“ (GATT). Reikia „Bluetooth“ leidimo ir visiško virtualios mašinos paleidimo iš naujo. Tai ne raw HCI: svečias mato telefono adapterį per tiltą, todėl ausinės (garso profiliai) nepalaikomos.</string>
+    <string name="vs_sf_tombstone">SurfaceFlinger strigties tombstone (derinimas)</string>
+    <string name="vs_sf_tombstone_sub">Jei SurfaceFlinger sugenda, programinė įranga įrašo į žurnalą įprastą tombstone (su sugedusia funkcija) vietoj trumpos ataskaitos. Naudokite siųsdami pranešimą apie klaidą. Taikoma kitą kartą visiškai paleidus virtualią mašiną.</string>
+    <string name="bluetooth_permission_denied">„Bluetooth“ leidimas atmestas: svečias bus paleistas be šeimininko „Bluetooth“.</string>
+</resources>

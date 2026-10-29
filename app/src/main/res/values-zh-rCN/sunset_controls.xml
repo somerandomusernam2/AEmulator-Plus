@@ -28,4 +28,6 @@
     <string name="vs_bluetooth">主机蓝牙(实验性)</string>
     <string name="vs_bluetooth_sub">允许客户机通过手机扫描蓝牙设备、列出已配对设备并与之通信:经典串口(RFCOMM)和低功耗蓝牙(GATT)。需要蓝牙权限并完全重启虚拟机。不是原始 HCI:客户机通过桥接看到手机的适配器,因此不支持耳机(音频配置文件)。</string>
     <string name="bluetooth_permission_denied">蓝牙权限被拒绝:客户机将在没有主机蓝牙的情况下启动。</string>
+    <string name="vs_sf_tombstone">SurfaceFlinger 崩溃墓碑（调试）</string>
+    <string name="vs_sf_tombstone_sub">SurfaceFlinger 崩溃时，让固件向日志写入普通墓碑（包含崩溃的函数），而不是简短报告。提交错误报告时请使用。下次完整启动虚拟机时生效。</string>
 </resources>

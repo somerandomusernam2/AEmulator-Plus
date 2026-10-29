@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="vs_cdma">CDMA-мадэм</string>
+    <string name="vs_cdma_sub">Эмулюе CDMA-мадэм: рэгістрацыю 1xRTT / EV-DO, MEID, падпіску CDMA і тэкставыя паведамленні CDMA. Ужываецца пры наступнай поўнай загрузцы.</string>
+    <string name="vs_cdma_fw_yes">Гэтая прашыўка — LTE на CDMA (telephony.lteOnCdmaDevice=1): уключана па змаўчанні.</string>
+    <string name="vs_cdma_fw_no">Гэтая прашыўка не LTE на CDMA: выключана па змаўчанні.</string>
+</resources>

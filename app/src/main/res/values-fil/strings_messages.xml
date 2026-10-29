@@ -196,8 +196,6 @@
     <string name="vmfail_system_server_oat_missing">hindi makapagsimula ang system_server: nawawala sa container na ito ang precompiled code ng framework (system/framework/oat) — i-import muli ang firmware</string>
     <string name="warn_no_build_prop">Walang system/build.prop: hinuha ang bersyon ng Android mula sa system tree.</string>
     <string name="warn_no_boot_img">Walang boot.img sa firmware: hinulaan ang boot plan at BOOTCLASSPATH.</string>
-    <string name="warn_no_healthd">Walang healthd sa boot plan (walang /sbin/healthd; nawawala ba ang ramdisk sa import?): mamamatay ang system_server sa BatteryService.</string>
-    <string name="warn_arm64">64-bit na firmware: 32-bit ARM lang ang suportado.</string>
     <string name="warn_not_arm">Hindi ARM ang firmware (%1$s) at hindi ito tatakbo.</string>
     <string name="warn_experimental">Android %1$s: eksperimental ang suporta (ART, SELinux).</string>
     <string name="import_default_name">firmware</string>
@@ -226,4 +224,5 @@
     <string name="update_err_wrong_variant">Hindi tugma sa variant ng application na ito ang update APK</string>
     <string name="update_err_wrong_package">Mali ang application package ng na-download na APK</string>
     <string name="catalog_err_too_many_lines">Lampas sa 10000 linya ang katalogo</string>
+    <string name="imp_iso_no_system">Walang nakitang Android system sa ISO image (inaasahan ang system.sfs o system.img)</string>
 </resources>

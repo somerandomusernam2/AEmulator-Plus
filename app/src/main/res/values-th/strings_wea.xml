@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="m_wea">การแจ้งเตือนฉุกเฉินปลอม</string>
+    <string name="m_wea_type">ประเภทการแจ้งเตือน</string>
+    <string name="m_wea_sent">ส่งการแจ้งเตือนฉุกเฉินแล้ว</string>
+    <string name="m_wea_failed">ไม่ได้ส่ง: ระบบโทรศัพท์ของโทรศัพท์ไม่ได้ทำงานอยู่</string>
+    <string name="wea_presidential">การแจ้งเตือนระดับประธานาธิบดี</string>
+    <string name="wea_extreme">ภัยคุกคามรุนแรงที่สุด</string>
+    <string name="wea_severe">ภัยคุกคามร้ายแรง</string>
+    <string name="wea_amber">การแจ้งเตือน AMBER</string>
+    <string name="wea_test">การทดสอบประจำเดือนที่จำเป็น</string>
+    <string name="wea_body_presidential">การแจ้งเตือนระดับประธานาธิบดี: นี่คือการทดสอบระบบแจ้งเตือนฉุกเฉิน ไม่ต้องดำเนินการใด ๆ</string>
+    <string name="wea_body_extreme">การแจ้งเตือนขั้นรุนแรง: มีคำเตือนพายุทอร์นาโดในพื้นที่ของคุณ โปรดหาที่หลบภัยทันที นี่คือการทดสอบ</string>
+    <string name="wea_body_severe">การแจ้งเตือนขั้นร้ายแรง: มีคำเตือนพายุฝนฟ้าคะนองในพื้นที่ของคุณจนถึง 18:00 น. นี่คือการทดสอบ</string>
+    <string name="wea_body_amber">การแจ้งเตือน AMBER: เด็กหาย รถเก๋งสีน้ำเงิน หากพบโปรดโทร 911 นี่คือการทดสอบ</string>
+    <string name="wea_body_test">นี่คือการทดสอบระบบ Wireless Emergency Alert ไม่ต้องดำเนินการใด ๆ</string>
+</resources>

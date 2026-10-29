@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="m_wea">Falsk nødvarsel</string>
+    <string name="m_wea_type">Varseltype</string>
+    <string name="m_wea_sent">Nødvarsel sendt</string>
+    <string name="m_wea_failed">Ikke sendt: telefonens telefoni kjører ikke</string>
+    <string name="wea_presidential">Presidentvarsel</string>
+    <string name="wea_extreme">Ekstrem trussel</string>
+    <string name="wea_severe">Alvorlig trussel</string>
+    <string name="wea_amber">AMBER-varsel</string>
+    <string name="wea_test">Obligatorisk månedlig test</string>
+    <string name="wea_body_presidential">Presidentvarsel: Dette er en test av nødvarslingssystemet. Ingen handling er nødvendig.</string>
+    <string name="wea_body_extreme">Ekstremt varsel: Tornadovarsel i ditt område. Søk ly nå. Dette er en test.</string>
+    <string name="wea_body_severe">Alvorlig varsel: Tordenværsvarsel i ditt område til kl. 18. Dette er en test.</string>
+    <string name="wea_body_amber">AMBER-varsel: Savnet barn, blå sedan. Ring 911 hvis den observeres. Dette er en test.</string>
+    <string name="wea_body_test">Dette er en test av systemet Wireless Emergency Alert. Ingen handling er nødvendig.</string>
+</resources>

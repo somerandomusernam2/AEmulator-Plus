@@ -196,8 +196,6 @@
     <string name="vmfail_system_server_oat_missing">system_server kann nicht starten: Der vorkompilierte Code des Frameworks (system/framework/oat) fehlt in diesem Container — importiere die Firmware erneut</string>
     <string name="warn_no_build_prop">Keine system/build.prop: Die Android-Version wurde aus dem Systembaum abgeleitet.</string>
     <string name="warn_no_boot_img">Kein boot.img in der Firmware: Bootplan und BOOTCLASSPATH wurden geraten.</string>
-    <string name="warn_no_healthd">Kein healthd im Bootplan (kein /sbin/healthd; fehlt die Ramdisk im Import?): system_server stürzt in BatteryService ab.</string>
-    <string name="warn_arm64">64-Bit-Firmware: Nur 32-Bit-ARM wird unterstützt.</string>
     <string name="warn_not_arm">Die Firmware ist nicht ARM (%1$s) und läuft nicht.</string>
     <string name="warn_experimental">Android %1$s: Die Unterstützung ist experimentell (ART, SELinux).</string>
     <string name="import_default_name">Firmware</string>
@@ -226,4 +224,5 @@
     <string name="update_err_wrong_variant">Update-APK passt nicht zu dieser App-Variante</string>
     <string name="update_err_wrong_package">Heruntergeladene APK hat das falsche App-Paket</string>
     <string name="catalog_err_too_many_lines">Katalog überschreitet 10000 Zeilen</string>
+    <string name="imp_iso_no_system">Im ISO-Abbild wurde kein Android-System gefunden (erwartet: system.sfs oder system.img)</string>
 </resources>

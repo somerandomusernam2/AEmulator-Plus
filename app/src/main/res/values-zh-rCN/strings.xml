@@ -465,4 +465,22 @@
     <string name="vs_nav_compact_sub">按钮更小，屏幕空间更大。</string>
     <string name="nav_dpad">轨迹球</string>
     <string name="m_reset_menu_pos">重置菜单按钮位置</string>
+    <string name="boot_minimize">最小化启动画面（点按药丸可再次显示）</string>
+    <string name="vs_resolution_custom">自定义</string>
+    <string name="as_new_home">新主屏幕</string>
+    <string name="as_new_home_sub">带底部栏的网格式库（0.0.0.3 风格）。关闭可恢复经典列表。重启应用后生效。</string>
+    <string name="vs_thermal">温度直通</string>
+    <string name="vs_thermal_sub">关闭：客户机的 thermal_zone17 始终读取为 30 °C，这样在高温时锁定屏幕的固件（小米过热提示）可继续正常工作。开启：读取手机自身的传感器。通过机器菜单设置的值始终优先。下次启动时生效。</string>
+    <string name="thermal_menu">温度传感器</string>
+    <string name="thermal_title">温度传感器</string>
+    <string name="thermal_mode">模式：%1$s</string>
+    <string name="thermal_mode_cool">恒定 30 °C</string>
+    <string name="thermal_mode_host">手机传感器</string>
+    <string name="thermal_guest_now">客户机读取：%1$s</string>
+    <string name="thermal_host_now">手机读取：%1$s</string>
+    <string name="thermal_value">温度（°C）</string>
+    <string name="thermal_hint">立即生效，机器运行时也适用。</string>
+    <string name="thermal_invalid">请输入 -40 到 150 之间的值。</string>
+    <string name="thermal_apply">应用</string>
+    <string name="thermal_reset">使用默认值</string>
 </resources>

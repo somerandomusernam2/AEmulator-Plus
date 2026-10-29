@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="m_wea">Hamis vészjelzés</string>
+    <string name="m_wea_type">Riasztás típusa</string>
+    <string name="m_wea_sent">Vészjelzés elküldve</string>
+    <string name="m_wea_failed">Nem küldtük el: a telefon telefonszolgáltatása nem fut</string>
+    <string name="wea_presidential">Elnöki riasztás</string>
+    <string name="wea_extreme">Rendkívüli veszély</string>
+    <string name="wea_severe">Súlyos veszély</string>
+    <string name="wea_amber">AMBER-riasztás</string>
+    <string name="wea_test">Kötelező havi teszt</string>
+    <string name="wea_body_presidential">Elnöki riasztás: Ez a vészjelző rendszer tesztje. Nincs szükség beavatkozásra.</string>
+    <string name="wea_body_extreme">Rendkívüli riasztás: Tornádóriasztás a környéken. Azonnal keress menedéket. Ez egy teszt.</string>
+    <string name="wea_body_severe">Súlyos riasztás: Zivatarriasztás a környéken 18 óráig. Ez egy teszt.</string>
+    <string name="wea_body_amber">AMBER-riasztás: Eltűnt gyermek, kék szedán. Ha látod, hívd a 911-et. Ez egy teszt.</string>
+    <string name="wea_body_test">Ez a Wireless Emergency Alert rendszer tesztje. Nincs szükség beavatkozásra.</string>
+</resources>

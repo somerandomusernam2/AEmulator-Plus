@@ -196,8 +196,6 @@
     <string name="vmfail_system_server_oat_missing">system_server 無法啟動：此容器缺少框架的預先編譯程式碼（system/framework/oat）— 請重新匯入韌體</string>
     <string name="warn_no_build_prop">沒有 system/build.prop：Android 版本是從系統目錄樹推斷而來。</string>
     <string name="warn_no_boot_img">韌體中沒有 boot.img：開機計畫與 BOOTCLASSPATH 是推測而來。</string>
-    <string name="warn_no_healthd">開機計畫中沒有 healthd（沒有 /sbin/healthd；匯入時遺失了 ramdisk？）：system_server 會在 BatteryService 中終止。</string>
-    <string name="warn_arm64">64 位元韌體：僅支援 32 位元 ARM。</string>
     <string name="warn_not_arm">韌體不是 ARM（%1$s），無法執行。</string>
     <string name="warn_experimental">Android %1$s：實驗性支援（ART、SELinux）。</string>
     <string name="import_default_name">韌體</string>
@@ -226,4 +224,5 @@
     <string name="update_err_wrong_variant">更新 APK 與此應用程式變體不符</string>
     <string name="update_err_wrong_package">下載的 APK 應用程式套件名稱有誤</string>
     <string name="catalog_err_too_many_lines">目錄超過 10000 行</string>
+    <string name="imp_iso_no_system">在 ISO 映像檔中找不到 Android 系統（應包含 system.sfs 或 system.img）</string>
 </resources>

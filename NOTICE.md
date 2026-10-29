@@ -88,7 +88,13 @@ publishing notices or hashes does not remedy missing required source.
 - **2026-10-24 (3)**: the one-time restart of the system after the first boot (past the setup wizard) now happens only
   when "Skip setup wizard" is switched on, and that setting is offered for every release from API 16 up (it was
   hidden above API 25).
-- **2026-10-25**: Google TV Streamer Pro (`ro.product.device=kirkwoodpro`) boot fix. Added
-  `app/src/main/java/app/aemu/core/LockSettingsBlobPatch.kt` (+ test) and `TreeFixer.lockSettingsBlobGuard()`: on that
-  device only, `KeyStore.setEntry` inside `SyntheticPasswordCrypto.createBlob` in `services.jar` is turned into `nop`s,
-  because the keystore cannot import an AES key there and system_server (and with it zygote, exit 137) died at boot.
+- **2026-10-28**: the Google TV Streamer Pro (`kirkwoodpro`) boot patch of 2026-10-25 is removed (`LockSettingsBlobPatch.kt`, its
+  test and `TreeFixer.lockSettingsBlobGuard()`; the dex reading helpers the Watchdog patch shares with it moved to
+  `DexTools.kt`). It hid the symptom (`SyntheticPasswordCrypto.createBlob` failing in `KeyStore.setEntry`, then zygote exit 137)
+  and not the cause: the 32-bit software keymaster HAL crashes inside `importKey` (exit 139) when its libraries are of two
+  releases, because `libkeymaster_portable` calls virtual methods of objects `libsoftkeymasterdevice` builds and the vtable
+  slots differ (the backtrace ends in `PureSoftKeymasterContext::~PureSoftKeymasterContext()` called from
+  `SymmetricKeyFactory::ImportKey`). `KeymasterLibs.kt` brought missing libraries over one by one, so a firmware that has part of
+  the family in `/vendor/lib` ended up with a mixture; it now makes the whole family the platform's copy (the firmware's files
+  are kept in `system/.aemu-parked`) and logs where each member comes from. `TreeFixer.systemWatchdogGuard()` puts back the stock
+  `services.jar` when the one in the tree was patched by the removed code.

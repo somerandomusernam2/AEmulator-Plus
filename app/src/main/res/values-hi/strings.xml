@@ -466,4 +466,22 @@
     <string name="vs_nav_compact_sub">छोटे बटन, स्क्रीन के लिए ज़्यादा जगह।</string>
     <string name="nav_dpad">ट्रैकबॉल</string>
     <string name="m_reset_menu_pos">मेनू बटन रीसेट करें</string>
+    <string name="boot_minimize">बूट स्क्रीन छोटी करें (दोबारा दिखाने के लिए पिल पर टैप करें)</string>
+    <string name="vs_resolution_custom">कस्टम</string>
+    <string name="as_new_home">नई होम स्क्रीन</string>
+    <string name="as_new_home_sub">नीचे बार वाली ग्रिड लाइब्रेरी (0.0.0.3 शैली)। क्लासिक सूची के लिए बंद करें। ऐप दोबारा शुरू होने के बाद लागू होगा।</string>
+    <string name="vs_thermal">तापमान पासथ्रू</string>
+    <string name="vs_thermal_sub">बंद: गेस्ट का thermal_zone17 हमेशा 30 °C पढ़ता है, ताकि गर्मी में स्क्रीन लॉक करने वाला फ़र्मवेयर (Xiaomi का ओवरहीट ओवरले) काम करता रहे। चालू: फ़ोन का अपना सेंसर पढ़ा जाता है। मशीन के मेन्यू से सेट किया गया मान हमेशा प्राथमिक रहता है। अगली शुरुआत पर लागू होगा।</string>
+    <string name="thermal_menu">तापमान सेंसर</string>
+    <string name="thermal_title">तापमान सेंसर</string>
+    <string name="thermal_mode">मोड: %1$s</string>
+    <string name="thermal_mode_cool">स्थिर 30 °C</string>
+    <string name="thermal_mode_host">फ़ोन का सेंसर</string>
+    <string name="thermal_guest_now">गेस्ट पढ़ रहा है: %1$s</string>
+    <string name="thermal_host_now">फ़ोन पढ़ रहा है: %1$s</string>
+    <string name="thermal_value">तापमान (°C)</string>
+    <string name="thermal_hint">तुरंत लागू होता है, मशीन चलते समय भी।</string>
+    <string name="thermal_invalid">-40 से 150 के बीच कोई मान दर्ज करें।</string>
+    <string name="thermal_apply">लागू करें</string>
+    <string name="thermal_reset">डिफ़ॉल्ट इस्तेमाल करें</string>
 </resources>

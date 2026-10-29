@@ -28,4 +28,6 @@
     <string name="vs_bluetooth">Bluetooth gazdă (experimental)</string>
     <string name="vs_bluetooth_sub">Permite sistemului invitat să caute, să listeze dispozitivele asociate și să comunice cu dispozitive Bluetooth prin telefon: serial clasic (RFCOMM) și Bluetooth LE (GATT). Necesită permisiune Bluetooth și o repornire completă a VM-ului. Nu este HCI brut: sistemul invitat vede adaptorul telefonului printr-o punte, deci căștile (profiluri audio) nu sunt acceptate.</string>
     <string name="bluetooth_permission_denied">Permisiunea Bluetooth a fost refuzată: sistemul invitat va porni fără Bluetooth de la gazdă.</string>
+    <string name="vs_sf_tombstone">Tombstone la blocarea SurfaceFlinger (depanare)</string>
+    <string name="vs_sf_tombstone_sub">Dacă SurfaceFlinger se blochează, firmware-ul scrie în jurnal un tombstone obișnuit (cu funcția care s-a blocat) în loc de un raport scurt. Folosește-l la trimiterea unui raport de eroare. Se aplică la următoarea pornire completă a VM-ului.</string>
 </resources>

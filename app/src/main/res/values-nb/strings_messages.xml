@@ -196,8 +196,6 @@
     <string name="vmfail_system_server_oat_missing">system_server kan ikke starte: den forhåndskompilerte koden til rammeverket (system/framework/oat) mangler i denne containeren — importer fastvaren på nytt</string>
     <string name="warn_no_build_prop">Ingen system/build.prop: Android-versjonen ble utledet fra systemtreet.</string>
     <string name="warn_no_boot_img">Ingen boot.img i fastvaren: oppstartsplanen og BOOTCLASSPATH ble gjettet.</string>
-    <string name="warn_no_healthd">Ingen healthd i oppstartsplanen (ingen /sbin/healthd; mangler ramdisken i importen?): system_server vil dø i BatteryService.</string>
-    <string name="warn_arm64">64-biters fastvare: bare 32-biters ARM støttes.</string>
     <string name="warn_not_arm">Fastvaren er ikke ARM (%1$s) og vil ikke kjøre.</string>
     <string name="warn_experimental">Android %1$s: støtten er eksperimentell (ART, SELinux).</string>
     <string name="import_default_name">fastvare</string>
@@ -226,4 +224,5 @@
     <string name="update_err_wrong_variant">Oppdaterings-APK-en samsvarer ikke med denne appvarianten</string>
     <string name="update_err_wrong_package">Den nedlastede APK-en har feil apppakke</string>
     <string name="catalog_err_too_many_lines">Katalogen har over 10000 linjer</string>
+    <string name="imp_iso_no_system">Fant ikke noe Android-system i ISO-avbildet (forventet system.sfs eller system.img)</string>
 </resources>
