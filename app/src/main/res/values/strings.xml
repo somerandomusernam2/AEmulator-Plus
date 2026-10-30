@@ -145,7 +145,7 @@
     <string name="vs_strace">Trace system calls of services</string>
     <string name="vs_strace_sub">Service names separated by commas, e.g. mediaserver,zygote. Slows those services down and writes the trace to their logs. Applies at the next boot.</string>
     <string name="vs_wifi">Wi-Fi network</string>
-    <string name="vs_wifi_sub">Shows the host\'s internet to the VM as a connected Wi-Fi network instead of Ethernet. Android 4.0–7.x. Applies at the next boot.</string>
+    <string name="vs_wifi_sub">Shows the host\'s internet to the VM as a connected Wi-Fi network instead of Ethernet. Android 2.3, 4.0–7.x. Applies at the next boot.</string>
     <string name="vs_wifi_ssid">Network name (SSID)</string>
     <string name="vs_wifi_ssid_sub">Up to 32 bytes</string>
     <string name="vs_wifi_ssid_error">The network name cannot be empty</string>

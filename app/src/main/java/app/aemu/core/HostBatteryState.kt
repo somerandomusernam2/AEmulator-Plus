@@ -23,7 +23,9 @@ internal data class HostBatteryState(val percent: Int, val status: Int, val plug
         val base = root.canonicalFile
         val entries = mapOf("battery/capacity" to percent.toString(), "battery/status" to statusText,
             "ac/online" to if (ac) "1" else "0", "usb/online" to if (usb) "1" else "0",
-            "wireless/type" to "Wireless", "wireless/online" to if (wireless) "1" else "0")
+            "wireless/type" to "Wireless", "wireless/online" to if (wireless) "1" else "0",
+            // Samsung's own node: 0 none, 1 USB, 2 AC
+            "battery/charging_source" to if (ac || wireless) "2" else if (usb) "1" else "0")
         for ((path, value) in entries) {
             val file = File(base, "sys/class/power_supply/$path")
             check(file.canonicalFile == file.absoluteFile) { "Battery node is a symlink: $path" }

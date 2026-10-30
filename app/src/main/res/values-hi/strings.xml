@@ -319,7 +319,7 @@
     <string name="vs_strace">सेवाओं की सिस्टम कॉल ट्रेस करें</string>
     <string name="vs_strace_sub">सेवाओं के नाम अल्पविराम से अलग करके, जैसे mediaserver,zygote। इन सेवाओं को धीमा करता है और ट्रेस को उनके लॉग में लिखता है। अगले बूट पर लागू होता है।</string>
     <string name="vs_wifi">Wi-Fi नेटवर्क</string>
-    <string name="vs_wifi_sub">होस्ट के इंटरनेट को VM को Ethernet के बजाय जुड़े हुए Wi-Fi नेटवर्क के रूप में दिखाता है। Android 4.0–7.x। अगले बूट पर लागू होता है।</string>
+    <string name="vs_wifi_sub">होस्ट के इंटरनेट को VM को Ethernet के बजाय जुड़े हुए Wi-Fi नेटवर्क के रूप में दिखाता है। Android 2.3, 4.0–7.x। अगले बूट पर लागू होता है।</string>
     <string name="vs_wifi_ssid">नेटवर्क का नाम (SSID)</string>
     <string name="vs_wifi_ssid_sub">अधिकतम 32 बाइट</string>
     <string name="vs_wifi_ssid_error">नेटवर्क का नाम खाली नहीं हो सकता</string>

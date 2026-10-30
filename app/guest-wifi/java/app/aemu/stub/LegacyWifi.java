@@ -1,6 +1,7 @@
 package app.aemu.stub;
 
 import android.content.Intent;
+import android.os.Build;
 import android.os.Parcelable;
 import android.os.SystemClock;
 
@@ -8,9 +9,14 @@ import java.lang.reflect.Method;
 import java.net.InetAddress;
 
 /**
- * Android 4.0 - 4.4 (before NetworkAgent): ConnectivityService learns about Wi-Fi from the sticky broadcasts the
+ * Android 2.3 - 4.4 (before NetworkAgent): ConnectivityService learns about Wi-Fi from the sticky broadcasts the
  * framework's WifiStateMachine would send (WifiStateTracker listens for them), and Settings / the status bar read the
  * same ones. The stock state machine has no hardware to drive, so this publishes them for the emulated connection.
+ *
+ * Gingerbread (2.3, API 9-10) differs in two ways. WifiStateTracker there is the Wi-Fi network of ConnectivityService itself and
+ * listens to nothing, so ConnectivityManager keeps reporting the radio network; only WifiManager, Settings and the status bar
+ * follow the broadcasts. And the status bar takes its bar level only from RSSI_CHANGED (a connected NETWORK_STATE_CHANGED resets
+ * it to zero), so that one is sent as well.
  * Called from the watcher thread once a second; it re-sends now and then because the stock service may overwrite them.
  */
 final class LegacyWifi {
@@ -19,6 +25,7 @@ final class LegacyWifi {
     private static final String SUPPLICANT_STATE = "android.net.wifi.supplicant.STATE_CHANGE";
     private static final String NETWORK_STATE = "android.net.wifi.STATE_CHANGE";
     private static final String SCAN_RESULTS = "android.net.wifi.SCAN_RESULTS";
+    private static final String RSSI_CHANGED = "android.net.wifi.RSSI_CHANGED";
     private static final int FLAG_REGISTERED_ONLY = 0x40000000;
 
     private final WifiConfig cfg;
@@ -103,6 +110,13 @@ final class LegacyWifi {
             if (wi instanceof Parcelable) ns.putExtra("wifiInfo", (Parcelable) wi);
         }
         send(am, ns, true);
+
+        if (Build.VERSION.SDK_INT < 14 && connected) {
+            Intent rs = new Intent(RSSI_CHANGED);
+            rs.addFlags(FLAG_REGISTERED_ONLY);
+            rs.putExtra("newRssi", cfg.rssi);
+            send(am, rs, true);
+        }
     }
 
     private static Object enumConst(String cls, String name) {

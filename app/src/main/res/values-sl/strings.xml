@@ -143,7 +143,7 @@
     <string name="vs_strace">Sledenje sistemskim klicem storitev</string>
     <string name="vs_strace_sub">Imena storitev, ločena z vejicami, npr. mediaserver,zygote. Te storitve upočasni in sled zapiše v njihove dnevnike. Uporabi se ob naslednjem zagonu.</string>
     <string name="vs_wifi">Omrežje Wi-Fi</string>
-    <string name="vs_wifi_sub">Internet gostitelja prikaže navideznemu stroju kot povezano omrežje Wi-Fi namesto Etherneta. Android 4.0–7.x. Uporabi se ob naslednjem zagonu.</string>
+    <string name="vs_wifi_sub">Internet gostitelja prikaže navideznemu stroju kot povezano omrežje Wi-Fi namesto Etherneta. Android 2.3, 4.0–7.x. Uporabi se ob naslednjem zagonu.</string>
     <string name="vs_wifi_ssid">Ime omrežja (SSID)</string>
     <string name="vs_wifi_ssid_sub">Do 32 bajtov</string>
     <string name="vs_wifi_ssid_error">Ime omrežja ne sme biti prazno</string>

@@ -168,6 +168,8 @@ class TreeFixer(
         fixThemeXml()
         parkWhetstone()
         parkPlayReady()
+        yamahaCodecGuard()
+        mediaserverCameraSize()
         disableTegraRmInit()
         parkQcomServices()
         swapMtkAudioHal()
@@ -415,6 +417,12 @@ class TreeFixer(
         else log("audio: libaudioflinger policy patch was not written")
     }.onFailure { log("audio: libaudioflinger policy patch failed: ${it.message}") }
 
+    /** hw device version the firmware's libaudioflinger compares the primary HAL against, null when it cannot be read */
+    private fun expectedHalVersion(): Int? = runCatching {
+        val af = File(root, "system/lib/libaudioflinger.so")
+        if (af.isFile) AudioHalAbi.expectedDeviceVersion(af.readBytes()) else null
+    }.getOrNull()
+
     private fun samsungDeviceSlots(): Boolean = runCatching {
         val af = File(root, "system/lib/libaudioflinger.so")
         af.isFile && AudioHalAbi.openOutputSlot(af.readBytes()) == 116
@@ -545,6 +553,63 @@ class TreeFixer(
         val moved = if (isLink(plugin) || parked.exists()) plugin.delete() else plugin.renameTo(parked)
         if (moved) log("DRM: PlayReady plugin set aside (drmserver crashed in it)")
     }.onFailure { log("DRM: could not set aside the PlayReady plugin: ${it.message}") }
+
+    /**
+     * Added for AEmulator Plus, 2026-10-30. Samsung firmware with the Yamaha MC-1N2 codec (libmediayamahaservice.so, the
+     * "media.yamahaplayer" service that mediaserver starts first): the service drives the codec through two thin ALSA
+     * wrappers, AlsaHwdepCtrl (snd_hwdep_open("mc1n2", 2)) and AlsaMixerCtrl (snd_mixer_attach("mc1n2")). There is no sound
+     * card under qemu-user (audio goes through the engine's own HAL), so both opens fail (logcat: "snd_hwdep_open(mc1n2, 2):
+     * Permission denied", "snd_mixer_attach(\"mc1n2\") err = -13", "Failed to initialize MediaYamaha Server"). The service
+     * registers anyway, but half initialised, so every client request is answered with an error. The codec cannot exist
+     * here, so these wrappers are made to report success and do nothing: the service initialises, and its codec register
+     * writes, volume and switch updates go nowhere, as they would with the chip absent. Only those nine functions are
+     * touched, found by name, so any firmware that ships the library is covered and one without it is not affected. The stock
+     * file is kept in system/.aemu-parked.
+     */
+    private fun yamahaCodecGuard() = runCatching {
+        val funcs = setOf(
+            "_ZN7android6yamaha5media13AlsaHwdepCtrl4openEv",
+            "_ZN7android6yamaha5media13AlsaHwdepCtrl5closeEv",
+            "_ZN7android6yamaha5media13AlsaHwdepCtrl11sendCommandEP10_snd_hwdepmPvm",
+            "_ZN7android6yamaha5media13AlsaHwdepCtrl13notifyCommandEP10_snd_hwdepmPvm",
+            "_ZN7android6yamaha5media13AlsaMixerCtrl4openEPKc",
+            "_ZN7android6yamaha5media13AlsaMixerCtrl5closeEv",
+            "_ZN7android6yamaha5media13AlsaMixerCtrl9setVolumeEPKciPKNS2_7_VOLUMEE",
+            "_ZN7android6yamaha5media13AlsaMixerCtrl9setSwitchEPKciPKNS2_7_SWITCHE",
+            "_ZN7android6yamaha5media13AlsaMixerCtrl9find_elemEPKc",
+        )
+        for (dir in listOf("system/lib", "vendor/lib", "system/vendor/lib")) {
+            val lib = File(root, "$dir/libmediayamahaservice.so")
+            if (!lib.isFile || isLink(lib)) continue
+            // only when the library really has these wrappers: a build with another layout is left as it is
+            val have = ElfPatch.symbols(lib, funcs)?.keys ?: continue
+            if (have.size != funcs.size) { log("Yamaha: ${lib.name} lacks ${funcs.size - have.size} of the ${funcs.size} ALSA wrapper functions, left as is"); continue }
+            backupOnce(lib, File(root, "system/.aemu-parked/${dir.replace('/', '#')}#${lib.name}"))
+            lib.setWritable(true, true)
+            val n = ElfPatch.returnZero(lib, funcs)
+            if (n > 0) log("Yamaha: ${lib.name} codec access (ALSA hwdep/mixer) made a no-op, the service initialises without the chip ($n func.)")
+        }
+    }.onFailure { log("Yamaha: codec guard failed: ${it.message}") }
+
+    /**
+     * Added for AEmulator Plus, 2026-10-30. Samsung SC-02C IML74K (the one build, see [MediaserverCameraSizePatch]):
+     * mediaserver allocates 0x58 bytes for CameraService, the firmware's libcameraservice.so builds a 0x60 byte object, the
+     * constructor overruns the block and the heap header lands on RefBase::mRefs (SIGBUS in incStrong, mediaserver restarts
+     * forever, no audio, no media.camera). One instruction of mediaserver is changed, and only when both it and
+     * libcameraservice.so are byte for byte the known files. The stock mediaserver is kept in system/.aemu-parked.
+     */
+    private fun mediaserverCameraSize() = runCatching {
+        val ms = File(root, "system/bin/mediaserver")
+        val cam = File(root, "system/lib/libcameraservice.so")
+        if (!ms.isFile || isLink(ms) || !cam.isFile || isLink(cam)) return@runCatching
+        val d = ms.readBytes()
+        if (MediaserverCameraSizePatch.apply(d, cam.readBytes()) == MediaserverCameraSizePatch.PATCHED) {
+            backupOnce(ms, File(root, "system/.aemu-parked/system#bin#mediaserver"))
+            ms.setWritable(true, true)
+            ms.writeBytes(d)
+            log("mediaserver: CameraService allocation raised from 0x58 to 0x60 bytes to match libcameraservice.so (heap overrun, SIGBUS at start)")
+        }
+    }.onFailure { log("mediaserver: CameraService size patch failed: ${it.message}") }
 
     /**
      * NVIDIA Tegra firmware (Google Jamboard, Shield, Nexus 9, ...): the vendor libjpeg depends on libnvtvmr.so, whose
@@ -1389,6 +1454,10 @@ class TreeFixer(
             log("composer: the engine's 32-bit composer@2.1 is incomplete in the tree, the board's stays")
             return
         }
+        // Modified for AEmulator Plus (2026-10-30): the service dlopens android.hardware.graphics.composer@2.1.so (and the impl needs
+        // mapper@2.0/3.0/4.0, graphics.common) by name from the vendor namespace; a firmware that keeps them in /system/lib or its
+        // VNDK directories made it die at start ("library ... not found", exit 139). Bring them into /vendor/lib.
+        runCatching { ComposerLibs.complete(root, log) }.onFailure { log("composer: library check failed: ${it.message}") }
         // Modified for AEmulator Plus (2026-10-27): the board's own android.hardware.graphics.composer declaration goes too.
         // A Wear OS 3 board (Android 11, e.g. Hublot BBe / r11) already declares composer@2.1 IComposer/default next to the
         // qti one; the fragment below then declares it a second time, VINTF refuses the device manifest ("Cannot add manifest
@@ -2349,6 +2418,10 @@ class TreeFixer(
                 // firmware whose gralloc leaves same-process buffers alone but the engine's would unmap them (see GtiGralloc)
                 from == "gralloc.default.so" && grallocVariant -> GtiGralloc.ASSET
                 mtkHw -> "audio.primary.mtk.so"
+                // Samsung 4.1 (api 16) whose AudioFlinger opens the output at slot 108 (AOSP JB layout): the M7 stand-in HAL has
+                // the 4.2/4.3 layout (open_output_stream at 116), so that call lands on get_parameters, the primary output
+                // never opens ("Failed to open primary output") and AudioService.<init> throws. The AOSP-layout HAL fits.
+                samsung && img.api == 16 && from == "audio.primary.default.so" && openOutputSlotIs(108) -> "audio.primary.aosp.so"
                 from != "audio.primary.default.so" || htcLike -> from
                 // 4.0 has its own audio_hw_device layout; Qualcomm CAF builds add set_fm_volume/open_output_session
                 img.api in 14..15 -> when {
@@ -2379,8 +2452,16 @@ class TreeFixer(
             // x86: the helper libraries are ARM binaries until their x86 builds are added; a file that is not there is skipped
             if (img.arch != GuestArch.ARM && eaSize(asset) < 0) { skippedForArch++; continue }
             val size = runCatching { eaSize(asset) }.getOrDefault(-1L)
-            // одинаковый размер ещё не значит тот же файл (правки движка на месте, варианты HAL) — сверяем CRC
-            if (dst.isFile && size >= 0 && dst.length() == size && sameContent(asset, dst)) continue
+            // Samsung 4.1 (api 16) AudioFlinger accepts only device API 1.0; the stand-in HAL says 2.0 (see AudioHalAbi.withDeviceVersion)
+            // the device API version this firmware's own AudioFlinger demands, read from its code (AudioHalAbi.expectedDeviceVersion);
+            // the engine HALs say 2.0, so only a build that wants something else gets an adjusted copy
+            val wantVer: Int? = if (name == "audio.primary.default.so" || name == "audio.primary.aosp.so") expectedHalVersion() else null
+            val halBytes: ByteArray? = if (wantVer != null && wantVer != 0x0200)
+                runCatching { eaOpen(asset).use { it.readBytes() } }.getOrNull()?.let { AudioHalAbi.withDeviceVersion(it, wantVer) }
+            else null
+            if (halBytes != null && dst.isFile && !isLink(dst) && dst.length() == halBytes.size.toLong() &&
+                runCatching { dst.readBytes().contentEquals(halBytes) }.getOrDefault(false)) continue
+            if (halBytes == null && dst.isFile && size >= 0 && dst.length() == size && sameContent(asset, dst)) continue
             if (mtkHw) runCatching {
                 // keep the firmware's own HAL (never one of ours): isMtkAudio keeps working after the swap
                 val parked = File(root, "system/.aemu-parked/system#lib#hw#audio.primary.default.so")
@@ -2390,7 +2471,10 @@ class TreeFixer(
             runCatching {
                 dst.parentFile?.mkdirs()
                 if (isLink(dst)) Os.remove(dst.absolutePath)
-                eaOpen(asset).use { i -> dst.outputStream().use { o -> i.copyTo(o) } }
+                if (halBytes != null) {
+                    dst.outputStream().use { o -> o.write(halBytes) }
+                    log("audio: this AudioFlinger accepts only hw device version 0x${wantVer?.toString(16)} (read from libaudioflinger), HAL adjusted from 0x200")
+                } else eaOpen(asset).use { i -> dst.outputStream().use { o -> i.copyTo(o) } }
                 dst.setReadable(true, false)
                 dst.setExecutable(true, false)
                 copied++
@@ -2925,6 +3009,13 @@ class TreeFixer(
             val keep = File(root, "system/.aemu-parked/system#lib#libsurfaceflinger.so")
             backupOnce(lib, keep)
             if (ElfPatch.skipNullDeviceHook(lib) > 0) log("libsurfaceflinger: the missing HAL device hook is skipped")
+            // Broadcom V3D firmware (Samsung GT-S5302): the GPU composer cannot exist here -> software composer instead
+            if (V3dSoftComposer.needed(lib) && V3dSoftComposer.apply(lib, keep) > 0)
+                log("libsurfaceflinger: no /dev/v3d, layers are composed in software into the framebuffer")
+            if (V3dSoftComposer.needed(lib)) File(root, "system/lib/libui.so").takeIf { it.isFile }?.let { ui ->
+                backupOnce(ui, File(root, "system/.aemu-parked/system#lib#libui.so"))
+                if (V3dSoftComposer.applyLibui(ui) > 0) log("libui: framebuffer device calls moved to the engine gralloc's layout")
+            }
             // Eclair/Froyo: a never-drawn layer (the Launcher's all-apps RenderScript SurfaceView) is cleared to opaque black over the whole home screen
             if (img.api <= 8 && ElfPatch.skipUndrawnLayerClear(lib) > 0) log("libsurfaceflinger: a layer that was never drawn is no longer cleared to black")
         }
@@ -3196,7 +3287,26 @@ class TreeFixer(
             File(root, "dev/$n").let { if (!it.exists()) { it.parentFile?.mkdirs(); it.createNewFile() } }
         }
         File(root, "dev/cpuctl").takeIf { it.exists() }?.let { wipe(it) }
+        gpuHeapNodes()
     }
+
+    /**
+     * Android 1.5-2.x SurfaceFlinger serves GL surfaces (SurfaceView.SURFACE_TYPE_GPU, e.g. the TouchWiz cube launcher)
+     * from GPUHardware, which opens /dev/pmem_gpu0, /dev/pmem_gpu1 and the register window /dev/hw3d. With none of them
+     * the request fails ("createNormalSurfaceLocked() failed (Out of memory)"), WindowManager then kills the app "for
+     * memory" and the cube never shows. MemoryHeapBase takes the size from fstat() when the device has no pmem ioctl,
+     * so sparse regular files of the right size are enough for the (software) renderer to map.
+     */
+    private fun gpuHeapNodes() = runCatching {
+        if (img.api > 10) return@runCatching
+        for ((n, size) in listOf("pmem_gpu0" to (8L shl 20), "pmem_gpu1" to (8L shl 20), "hw3d" to (1L shl 20))) {
+            val f = File(root, "dev/$n")
+            if (f.isDirectory) continue
+            if (!f.isFile) { f.parentFile?.mkdirs(); f.createNewFile() }
+            if (f.length() != size) java.io.RandomAccessFile(f, "rw").use { it.setLength(size) }
+            f.setReadable(true, false); f.setWritable(true, false)
+        }
+    }.onFailure { log("gpu heap nodes: ${it.message}") }
 
     /**
      * Android 10–17 (API 29+): core libraries and runtimes (Bionic libc/libdl/libm, ART, ICU) are packaged in APEX
@@ -3617,6 +3727,9 @@ class TreeFixer(
             "battery/voltage_now" to "4200000", "battery/batt_temp" to "250", "battery/temp" to "250",
             "battery/technology" to "Li-ion", "ac/type" to "Mains", "ac/online" to "1",
             "usb/type" to "USB", "usb/online" to "0",
+            // Samsung kernels (Behold II, Galaxy...): 0 none, 1 USB, 2 AC. Browser/VideoList.batteryCheck() read it and
+            // dereference a null result when the node is missing: both apps died with an NPE on resume
+            "battery/charging_source" to "0",
         )
         for ((rel, v) in bat) File(base, rel).let { if (!it.isFile) { it.parentFile?.mkdirs(); it.writeText(v + "\n") } }
         healthdRelativeSysfs(base)
@@ -3626,6 +3739,16 @@ class TreeFixer(
         mainStackMaps()
         val power = File(root, "sys/power").apply { mkdirs() }
         for (n in listOf("state", "wake_lock", "wake_unlock", "autosleep")) File(power, n).let { if (!it.isFile) it.createNewFile(); it.setWritable(true, false) }
+        // Samsung's PowerManager.getSupportedFrequency() (DVFS) is read from /sys/power/cpufreq_table, highest frequency first.
+        // Without a filled file it returns null and AudioService.<init> (newDVFSLock(.., getSupportedFrequency()[1], ..)) dies with
+        // a NullPointerException: no audio service, then the keyboard, SystemUI and NotificationManagerService fail after it
+        // and system_server goes down. An empty file (the scan below makes one when libhardware_legacy names it) is no better.
+        runCatching {
+            File(power, "cpufreq_table").let { f ->
+                if (!f.isFile || f.length() == 0L) f.writeText("1512000 1242000 1026000 810000 594000 384000\n")
+                f.setReadable(true, false); f.setWritable(true, false)
+            }
+        }.onFailure { log("sysfs: cannot create /sys/power/cpufreq_table: ${it.message}") }
         // узлы питания, которые открывает libhardware_legacy именно этой прошивки (Samsung: dvfslock_ctrl…):
         // если хоть один не откроется, библиотека считает экран выключенным и система не принимает касания
         runCatching {

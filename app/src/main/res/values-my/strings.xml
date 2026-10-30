@@ -133,7 +133,7 @@
     <string name="vs_strace">ဝန်ဆောင်မှုများ၏ စနစ်ခေါ်ဆိုမှုများကို ခြေရာခံရန်</string>
     <string name="vs_strace_sub">ကော်မာဖြင့် ခြားထားသော ဝန်ဆောင်မှုအမည်များ၊ ဥပမာ mediaserver,zygote။ ထိုဝန်ဆောင်မှုများကို နှေးစေပြီး ခြေရာကို ၎င်းတို့၏ မှတ်တမ်းများတွင် ရေးသည်။ နောက်တစ်ကြိမ်စတင်ချိန်တွင် သက်ရောက်သည်။</string>
     <string name="vs_wifi">Wi-Fi ကွန်ရက်</string>
-    <string name="vs_wifi_sub">ဟို့စ်၏ အင်တာနက်ကို Ethernet အစား ချိတ်ဆက်ထားသော Wi-Fi ကွန်ရက်အဖြစ် VM သို့ ပြသည်။ Android 4.0–7.x။ နောက်တစ်ကြိမ်စတင်ချိန်တွင် သက်ရောက်သည်။</string>
+    <string name="vs_wifi_sub">ဟို့စ်၏ အင်တာနက်ကို Ethernet အစား ချိတ်ဆက်ထားသော Wi-Fi ကွန်ရက်အဖြစ် VM သို့ ပြသည်။ Android 2.3, 4.0–7.x။ နောက်တစ်ကြိမ်စတင်ချိန်တွင် သက်ရောက်သည်။</string>
     <string name="vs_wifi_ssid">ကွန်ရက်အမည် (SSID)</string>
     <string name="vs_wifi_ssid_sub">၃၂ ဘိုက်အထိ</string>
     <string name="vs_wifi_ssid_error">ကွန်ရက်အမည်ကို အလွတ်မထားရပါ</string>

@@ -143,7 +143,7 @@
     <string name="vs_strace">Sekti tarnybų sistemos iškvietimus</string>
     <string name="vs_strace_sub">Tarnybų pavadinimai, atskirti kableliais, pvz., mediaserver,zygote. Sulėtina tas tarnybas ir įrašo sekimo duomenis į jų žurnalus. Taikoma kitą kartą paleidus.</string>
     <string name="vs_wifi">„Wi-Fi“ tinklas</string>
-    <string name="vs_wifi_sub">Rodo šeimininko internetą virtualiai mašinai kaip prijungtą „Wi-Fi“ tinklą vietoj „Ethernet“. „Android“ 4.0–7.x. Taikoma kitą kartą paleidus.</string>
+    <string name="vs_wifi_sub">Rodo šeimininko internetą virtualiai mašinai kaip prijungtą „Wi-Fi“ tinklą vietoj „Ethernet“. „Android“ 2.3, 4.0–7.x. Taikoma kitą kartą paleidus.</string>
     <string name="vs_wifi_ssid">Tinklo pavadinimas (SSID)</string>
     <string name="vs_wifi_ssid_sub">Iki 32 baitų</string>
     <string name="vs_wifi_ssid_error">Tinklo pavadinimas negali būti tuščias</string>

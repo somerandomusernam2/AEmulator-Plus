@@ -133,7 +133,7 @@
     <string name="vs_strace">Jäljitä palvelujen järjestelmäkutsut</string>
     <string name="vs_strace_sub">Palvelujen nimet pilkuilla erotettuina, esim. mediaserver,zygote. Hidastaa näitä palveluja ja kirjoittaa jäljen niiden lokeihin. Tulee voimaan seuraavalla käynnistyksellä.</string>
     <string name="vs_wifi">Wi-Fi-verkko</string>
-    <string name="vs_wifi_sub">Näyttää isännän internetyhteyden järjestelmälle yhdistettynä Wi-Fi-verkkona Ethernetin sijaan. Android 4.0–7.x. Tulee voimaan seuraavalla käynnistyksellä.</string>
+    <string name="vs_wifi_sub">Näyttää isännän internetyhteyden järjestelmälle yhdistettynä Wi-Fi-verkkona Ethernetin sijaan. Android 2.3, 4.0–7.x. Tulee voimaan seuraavalla käynnistyksellä.</string>
     <string name="vs_wifi_ssid">Verkon nimi (SSID)</string>
     <string name="vs_wifi_ssid_sub">Enintään 32 tavua</string>
     <string name="vs_wifi_ssid_error">Verkon nimi ei voi olla tyhjä</string>

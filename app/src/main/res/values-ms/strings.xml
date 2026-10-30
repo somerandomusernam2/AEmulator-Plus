@@ -133,7 +133,7 @@
     <string name="vs_strace">Jejak panggilan sistem perkhidmatan</string>
     <string name="vs_strace_sub">Nama perkhidmatan dipisahkan dengan koma, cth. mediaserver,zygote. Memperlahankan perkhidmatan tersebut dan menulis jejak ke log mereka. Berkuat kuasa pada but seterusnya.</string>
     <string name="vs_wifi">Rangkaian Wi-Fi</string>
-    <string name="vs_wifi_sub">Menunjukkan internet hos kepada VM sebagai rangkaian Wi-Fi yang bersambung dan bukannya Ethernet. Android 4.0–7.x. Berkuat kuasa pada but seterusnya.</string>
+    <string name="vs_wifi_sub">Menunjukkan internet hos kepada VM sebagai rangkaian Wi-Fi yang bersambung dan bukannya Ethernet. Android 2.3, 4.0–7.x. Berkuat kuasa pada but seterusnya.</string>
     <string name="vs_wifi_ssid">Nama rangkaian (SSID)</string>
     <string name="vs_wifi_ssid_sub">Sehingga 32 bait</string>
     <string name="vs_wifi_ssid_error">Nama rangkaian tidak boleh kosong</string>

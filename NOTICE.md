@@ -98,3 +98,13 @@ publishing notices or hashes does not remedy missing required source.
   the family in `/vendor/lib` ended up with a mixture; it now makes the whole family the platform's copy (the firmware's files
   are kept in `system/.aemu-parked`) and logs where each member comes from. `TreeFixer.systemWatchdogGuard()` puts back the stock
   `services.jar` when the one in the tree was patched by the removed code.
+- **2026-10-30**: recovery embedded in the kernel (early Samsung style, Galaxy S GT-I9000 and its generation). The kernel's
+  built-in initramfs holds Android's `init.rc` and the 3e recovery (`/sbin/recovery`, `/res`, `/recovery.rc`) in one cpio, and
+  `/init` picks one by the `bootmode=` command-line argument; there is no recovery partition in the Odin package. When the
+  firmware brings no recovery image, `Importer.kt` now installs the boot ramdisk as the recovery too
+  (`RecoveryImage.isEmbedded` / `installEmbedded`; a ramdisk with `/sbin/recovery` and no zygote is still a plain recovery
+  image). `RecoveryImage` also reads `/res/recovery.fstab` and accepts `rfs` volumes. Tested by `RecoveryEmbeddedTest.kt`.
+  Not boot-tested in the app.
+- **2026-10-30 (2)**: a recovery that exits with code 159 (SIGSYS, killed by Android's app sandbox in a system call it does
+  not allow) switches `run/recovery.strace` on, so the next try writes `run/recovery.trace`, and its tail goes into
+  `run/recovery-last.log` (`GuestVm.kt`).

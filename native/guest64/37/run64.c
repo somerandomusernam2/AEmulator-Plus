@@ -144,6 +144,40 @@ static int host_dev(const char *n) {
 
 // Guest path → host path. Relative paths stay as they are (the working directory is already inside the root).
 // Returns the path to use, or 0 with *err set.
+// 10+: libc, libm, libdl and libdl_android are links into the runtime APEX (/apex/com.android.runtime/lib64/bionic/); with
+// the APEX not in place (an absolute link target resolves on the phone, not in the image) the link dangles and every program
+// without a linker config died with 'library "libc.so" not found'. The real copies of those four are in
+// /system/lib[64]/bootstrap/ (hwasan builds: .../bootstrap/hwasan/): when the asked file does not resolve, the bootstrap one
+// stands in. A plain request never gets the hwasan build, an hwasan request never the plain one.
+static void bootstrap_lib(char *buf, char *n) {
+    static const char *const dirs[] = { "/system/lib64", "/system/lib", "/apex/com.android.runtime/lib64/bionic",
+                                        "/apex/com.android.runtime/lib/bionic", 0 };
+    static const char *const names[] = { "libc.so", "libm.so", "libdl.so", "libdl_android.so", 0 };
+    u64 len = slen(n);
+    if (len >= 160 || (!pre(n, "/system/lib") && !pre(n, "/apex/com.android.runtime/lib"))) return;
+    u64 sl = len; while (sl && n[sl - 1] != '/') sl--;              // n[sl..] is the file name, n[..sl-1] its directory
+    if (sl < 2) return;
+    int ok = 0;
+    for (int i = 0; names[i]; i++) if (seq(n + sl, names[i])) ok = 1;
+    if (!ok) return;
+    char dir[160]; memcpy(dir, n, sl - 1); dir[sl - 1] = 0;         // without the trailing slash
+    int hw = 0; u64 dl = sl - 1;
+    if (dl > 7 && seq(dir + dl - 7, "/hwasan")) { hw = 1; dir[dl - 7] = 0; }
+    int d = -1;
+    for (int i = 0; dirs[i]; i++) if (seq(dir, dirs[i])) d = i;
+    if (d < 0) return;
+    memcpy(buf, g_root, g_rootlen);
+    if (S4(NR_faccessat, AT_FDCWD, buf, 0, 0) == 0) return;         // resolves on its own
+    char orig[160]; memcpy(orig, n, len + 1);
+    const char *bd = (d == 0 || d == 2) ? "/system/lib64/bootstrap" : "/system/lib/bootstrap";
+    u64 bl = slen(bd);
+    memcpy(n, bd, bl); u64 o = bl;
+    if (hw) { memcpy(n + o, "/hwasan", 8); o += 7; }
+    n[o++] = '/';
+    memcpy(n + o, orig + sl, slen(orig + sl) + 1);
+    if (S4(NR_faccessat, AT_FDCWD, buf, 0, 0) != 0) memcpy(n, orig, len + 1);   // no such bootstrap copy: leave the request alone
+}
+
 static const char *xl(const char *p, char *buf, int *err) {
     if (!p) return p;
     if (p[0] != '/') return p;
@@ -183,6 +217,7 @@ static const char *xl(const char *p, char *buf, int *err) {
             return buf;
         }
     }
+    bootstrap_lib(buf, n);
     memcpy(buf, g_root, g_rootlen);
     if (!n[1]) n[0] = 0;
     return buf;
@@ -1917,7 +1952,25 @@ void aemu_main(u64 *sp) {
     if (exe.interp[0]) {
         char ib[PATH_MAX];
         const char *ih = xl(exe.interp, ib, &err);
-        if (!ih || (err = load_elf(ih, &ld))) die("cannot load the linker ", exe.interp);
+        if (!ih || (err = load_elf(ih, &ld))) {
+            // 10+: /system/bin/linker[64] is only a link to the runtime APEX (/apex/com.android.runtime/bin/linker[64]);
+            // when that link does not resolve on the host (absolute target, APEX not in place) every program but the
+            // bootstrap ones died with 127. The real bootstrap linker is in /system/bin/bootstrap/: try the APEX copy,
+            // then that one.
+            static const char *const l64[] = { "/apex/com.android.runtime/bin/linker64", "/system/bin/bootstrap/linker64", 0 };
+            static const char *const l32[] = { "/apex/com.android.runtime/bin/linker", "/system/bin/bootstrap/linker", 0 };
+            u64 il = slen(exe.interp);
+            const char *const *alt = (il >= 8 && seq(exe.interp + il - 8, "linker64")) ? l64
+                                   : (il >= 6 && seq(exe.interp + il - 6, "linker")) ? l32 : 0;
+            int ok = 0;
+            for (int a = 0; alt && alt[a] && !ok; a++) {
+                if (seq(alt[a], exe.interp)) continue;
+                char ab[PATH_MAX]; int e2 = 0;
+                const char *ah = xl(alt[a], ab, &e2);
+                if (ah && !load_elf(ah, &ld)) ok = 1;
+            }
+            if (!ok) die("cannot load the linker ", exe.interp);
+        }
         entry = ld.entry; base = ld.bias;
     }
 

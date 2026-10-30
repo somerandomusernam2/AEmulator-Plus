@@ -320,7 +320,7 @@
     <string name="vs_strace">Traccia le chiamate di sistema dei servizi</string>
     <string name="vs_strace_sub">Nomi dei servizi separati da virgole, es. mediaserver,zygote. Rallenta quei servizi e scrive la traccia nei loro log. Si applica al prossimo avvio.</string>
     <string name="vs_wifi">Rete Wi-Fi</string>
-    <string name="vs_wifi_sub">Mostra alla VM la connessione internet dell’host come rete Wi-Fi connessa invece di Ethernet. Android 4.0–7.x. Si applica al prossimo avvio.</string>
+    <string name="vs_wifi_sub">Mostra alla VM la connessione internet dell’host come rete Wi-Fi connessa invece di Ethernet. Android 2.3, 4.0–7.x. Si applica al prossimo avvio.</string>
     <string name="vs_wifi_ssid">Nome della rete (SSID)</string>
     <string name="vs_wifi_ssid_sub">Fino a 32 byte</string>
     <string name="vs_wifi_ssid_error">Il nome della rete non può essere vuoto</string>

@@ -133,7 +133,7 @@
     <string name="vs_strace">Szolgáltatások rendszerhívásainak nyomon követése</string>
     <string name="vs_strace_sub">Szolgáltatásnevek vesszővel elválasztva, pl. mediaserver,zygote. Lelassítja ezeket a szolgáltatásokat, és a nyomot a naplóikba írja. A következő indításkor lép érvénybe.</string>
     <string name="vs_wifi">Wi-Fi hálózat</string>
-    <string name="vs_wifi_sub">A gazdagép internetét csatlakoztatott Wi-Fi hálózatként mutatja a VM-nek Ethernet helyett. Android 4.0–7.x. A következő indításkor lép érvénybe.</string>
+    <string name="vs_wifi_sub">A gazdagép internetét csatlakoztatott Wi-Fi hálózatként mutatja a VM-nek Ethernet helyett. Android 2.3, 4.0–7.x. A következő indításkor lép érvénybe.</string>
     <string name="vs_wifi_ssid">Hálózat neve (SSID)</string>
     <string name="vs_wifi_ssid_sub">Legfeljebb 32 bájt</string>
     <string name="vs_wifi_ssid_error">A hálózat neve nem lehet üres</string>

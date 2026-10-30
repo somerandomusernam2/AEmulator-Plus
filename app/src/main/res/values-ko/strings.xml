@@ -318,7 +318,7 @@
     <string name="vs_strace">서비스의 시스템 호출 추적</string>
     <string name="vs_strace_sub">서비스 이름을 쉼표로 구분합니다(예: mediaserver,zygote). 해당 서비스가 느려지고 추적 내용이 로그에 기록됩니다. 다음 부팅 시 적용됩니다.</string>
     <string name="vs_wifi">Wi-Fi 네트워크</string>
-    <string name="vs_wifi_sub">호스트의 인터넷을 이더넷 대신 연결된 Wi-Fi 네트워크로 VM에 보여 줍니다. Android 4.0–7.x. 다음 부팅 시 적용됩니다.</string>
+    <string name="vs_wifi_sub">호스트의 인터넷을 이더넷 대신 연결된 Wi-Fi 네트워크로 VM에 보여 줍니다. Android 2.3, 4.0–7.x. 다음 부팅 시 적용됩니다.</string>
     <string name="vs_wifi_ssid">네트워크 이름(SSID)</string>
     <string name="vs_wifi_ssid_sub">최대 32바이트</string>
     <string name="vs_wifi_ssid_error">네트워크 이름은 비워 둘 수 없습니다</string>

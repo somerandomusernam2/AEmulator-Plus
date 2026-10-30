@@ -318,7 +318,7 @@
     <string name="vs_strace">Theo dõi lệnh gọi hệ thống của dịch vụ</string>
     <string name="vs_strace_sub">Tên dịch vụ cách nhau bằng dấu phẩy, ví dụ mediaserver,zygote. Làm các dịch vụ đó chậm đi và ghi dấu vết vào nhật ký của chúng. Áp dụng ở lần khởi động sau.</string>
     <string name="vs_wifi">Mạng Wi-Fi</string>
-    <string name="vs_wifi_sub">Hiển thị internet của máy chủ cho máy ảo dưới dạng mạng Wi-Fi đã kết nối thay vì Ethernet. Android 4.0–7.x. Áp dụng ở lần khởi động sau.</string>
+    <string name="vs_wifi_sub">Hiển thị internet của máy chủ cho máy ảo dưới dạng mạng Wi-Fi đã kết nối thay vì Ethernet. Android 2.3, 4.0–7.x. Áp dụng ở lần khởi động sau.</string>
     <string name="vs_wifi_ssid">Tên mạng (SSID)</string>
     <string name="vs_wifi_ssid_sub">Tối đa 32 byte</string>
     <string name="vs_wifi_ssid_error">Tên mạng không được để trống</string>

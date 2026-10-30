@@ -143,7 +143,7 @@
     <string name="vs_strace">Sledovať systémové volania služieb</string>
     <string name="vs_strace_sub">Názvy služieb oddelené čiarkami, napr. mediaserver,zygote. Tieto služby spomalí a záznam zapíše do ich záznamov. Použije sa pri ďalšom spustení.</string>
     <string name="vs_wifi">Sieť Wi-Fi</string>
-    <string name="vs_wifi_sub">Zobrazí internet hostiteľa vo VM ako pripojenú sieť Wi-Fi namiesto Ethernetu. Android 4.0–7.x. Použije sa pri ďalšom spustení.</string>
+    <string name="vs_wifi_sub">Zobrazí internet hostiteľa vo VM ako pripojenú sieť Wi-Fi namiesto Ethernetu. Android 2.3, 4.0–7.x. Použije sa pri ďalšom spustení.</string>
     <string name="vs_wifi_ssid">Názov siete (SSID)</string>
     <string name="vs_wifi_ssid_sub">Až 32 bajtov</string>
     <string name="vs_wifi_ssid_error">Názov siete nesmie byť prázdny</string>

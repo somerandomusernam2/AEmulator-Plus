@@ -133,7 +133,7 @@
     <string name="vs_strace">追蹤服務的系統呼叫</string>
     <string name="vs_strace_sub">服務名稱以逗號分隔，例如 mediaserver,zygote。會拖慢這些服務，並將追蹤記錄寫入其日誌。下次開機時生效。</string>
     <string name="vs_wifi">Wi-Fi 網路</string>
-    <string name="vs_wifi_sub">將主機的網際網路以已連線的 Wi-Fi 網路（而非乙太網路）呈現給虛擬機器。適用於 Android 4.0–7.x。下次開機時生效。</string>
+    <string name="vs_wifi_sub">將主機的網際網路以已連線的 Wi-Fi 網路（而非乙太網路）呈現給虛擬機器。適用於 Android 2.3, 4.0–7.x。下次開機時生效。</string>
     <string name="vs_wifi_ssid">網路名稱（SSID）</string>
     <string name="vs_wifi_ssid_sub">最多 32 位元組</string>
     <string name="vs_wifi_ssid_error">網路名稱不可為空白</string>

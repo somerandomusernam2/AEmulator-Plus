@@ -143,7 +143,7 @@
     <string name="vs_strace">სერვისების სისტემური გამოძახებების თვალყურის დევნება</string>
     <string name="vs_strace_sub">სერვისების სახელები მძიმეებით გამოყოფილი, მაგ. mediaserver,zygote. ამ სერვისებს ანელებს და ტრასირებას მათ ჟურნალებში წერს. გამოიყენება შემდეგი ჩატვირთვისას.</string>
     <string name="vs_wifi">Wi-Fi ქსელი</string>
-    <string name="vs_wifi_sub">ჰოსტის ინტერნეტს VM-ს აჩვენებს როგორც დაკავშირებულ Wi-Fi ქსელს Ethernet-ის ნაცვლად. Android 4.0–7.x. გამოიყენება შემდეგი ჩატვირთვისას.</string>
+    <string name="vs_wifi_sub">ჰოსტის ინტერნეტს VM-ს აჩვენებს როგორც დაკავშირებულ Wi-Fi ქსელს Ethernet-ის ნაცვლად. Android 2.3, 4.0–7.x. გამოიყენება შემდეგი ჩატვირთვისას.</string>
     <string name="vs_wifi_ssid">ქსელის სახელი (SSID)</string>
     <string name="vs_wifi_ssid_sub">32 ბაიტამდე</string>
     <string name="vs_wifi_ssid_error">ქსელის სახელი არ შეიძლება ცარიელი იყოს</string>

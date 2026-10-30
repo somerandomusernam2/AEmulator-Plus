@@ -133,7 +133,7 @@
     <string name="vs_strace">Spåra systemanrop från tjänster</string>
     <string name="vs_strace_sub">Tjänstenamn åtskilda med kommatecken, t.ex. mediaserver,zygote. Gör dessa tjänster långsammare och skriver spårningen till deras loggar. Gäller vid nästa start.</string>
     <string name="vs_wifi">Wi-Fi-nätverk</string>
-    <string name="vs_wifi_sub">Visar värdens internet för den virtuella maskinen som ett anslutet Wi-Fi-nätverk i stället för Ethernet. Android 4.0–7.x. Gäller vid nästa start.</string>
+    <string name="vs_wifi_sub">Visar värdens internet för den virtuella maskinen som ett anslutet Wi-Fi-nätverk i stället för Ethernet. Android 2.3, 4.0–7.x. Gäller vid nästa start.</string>
     <string name="vs_wifi_ssid">Nätverksnamn (SSID)</string>
     <string name="vs_wifi_ssid_sub">Upp till 32 byte</string>
     <string name="vs_wifi_ssid_error">Nätverksnamnet får inte vara tomt</string>

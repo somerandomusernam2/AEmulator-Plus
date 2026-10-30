@@ -189,12 +189,12 @@ static void *need(void *lib, const char *sym) {
 
 int main() {
     void *iface = dlopen("android.hardware.graphics.composer@2.1.so", RTLD_NOW | RTLD_GLOBAL);
-    if (!iface) { ERR("android.hardware.graphics.composer@2.1.so: %s", dlerror()); return 1; }
+    if (!iface) { ERR("android.hardware.graphics.composer@2.1.so: %s", dlerror()); _exit(1); }   /* not return: bionic's fini array crashes (exit 139) in this crt-less build */
     void *cxx = dlopen("libc++.so", RTLD_NOW | RTLD_GLOBAL);
     /* configureRpcThreadpool() / joinRpcThreadpool() are in libhidlbase.so since Android 10; libhidltransport.so is only an
      * empty stub there (looking in it fails with "undefined symbol", and the service exits with code 1) */
     void *ht = dlopen("libhidlbase.so", RTLD_NOW | RTLD_GLOBAL);
-    if (!cxx || !ht) { ERR("libc++.so / libhidlbase.so: %s", dlerror()); return 1; }
+    if (!cxx || !ht) { ERR("libc++.so / libhidlbase.so: %s", dlerror()); _exit(1); }
 
     /* android::hardware::graphics::composer::V2_1::IComposer: same shape as allocator::V2_0::IAllocator, so the same substitutions */
     get_service_fn get_service = (get_service_fn)need(iface,
@@ -204,7 +204,7 @@ int main() {
     assign_fn assign = (assign_fn)need(cxx, "_ZNSt3__112basic_stringIcNS_11char_traitsIcEENS_9allocatorIcEEE6assignEPKc");
     configure_fn configure = (configure_fn)need(ht, "_ZN7android8hardware22configureRpcThreadpoolEjb");
     join_fn join = (join_fn)need(ht, "_ZN7android8hardware17joinRpcThreadpoolEv");
-    if (!get_service || !register_as_service || !assign || !configure || !join) return 1;
+    if (!get_service || !register_as_service || !assign || !configure || !join) _exit(1);
 
     g_hidlbase = ht;
     g_fmq = dlopen("libfmq.so", RTLD_NOW | RTLD_GLOBAL);      /* EventFlag, see ef_create() */

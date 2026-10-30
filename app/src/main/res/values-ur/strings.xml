@@ -133,7 +133,7 @@
     <string name="vs_strace">سروسز کی سسٹم کالز ٹریس کریں</string>
     <string name="vs_strace_sub">سروسز کے نام کاما سے الگ کر کے لکھیں، مثلاً mediaserver,zygote۔ ان سروسز کو سست کر دیتا ہے اور ٹریس ان کے لاگز میں لکھتا ہے۔ اگلے بوٹ پر لاگو ہوتا ہے۔</string>
     <string name="vs_wifi">Wi-Fi نیٹ ورک</string>
-    <string name="vs_wifi_sub">ہوسٹ کا انٹرنیٹ VM کو Ethernet کے بجائے منسلک Wi-Fi نیٹ ورک کے طور پر دکھاتا ہے۔ Android 4.0–7.x۔ اگلے بوٹ پر لاگو ہوتا ہے۔</string>
+    <string name="vs_wifi_sub">ہوسٹ کا انٹرنیٹ VM کو Ethernet کے بجائے منسلک Wi-Fi نیٹ ورک کے طور پر دکھاتا ہے۔ Android 2.3, 4.0–7.x۔ اگلے بوٹ پر لاگو ہوتا ہے۔</string>
     <string name="vs_wifi_ssid">نیٹ ورک کا نام (SSID)</string>
     <string name="vs_wifi_ssid_sub">زیادہ سے زیادہ 32 بائٹس</string>
     <string name="vs_wifi_ssid_error">نیٹ ورک کا نام خالی نہیں ہو سکتا</string>

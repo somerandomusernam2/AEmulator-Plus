@@ -318,7 +318,7 @@
     <string name="vs_strace">Lacak panggilan sistem layanan</string>
     <string name="vs_strace_sub">Nama layanan dipisahkan koma, mis. mediaserver,zygote. Memperlambat layanan tersebut dan menulis jejak ke lognya. Berlaku pada boot berikutnya.</string>
     <string name="vs_wifi">Jaringan Wi-Fi</string>
-    <string name="vs_wifi_sub">Menampilkan internet host ke VM sebagai jaringan Wi-Fi yang terhubung, bukan Ethernet. Android 4.0–7.x. Berlaku pada boot berikutnya.</string>
+    <string name="vs_wifi_sub">Menampilkan internet host ke VM sebagai jaringan Wi-Fi yang terhubung, bukan Ethernet. Android 2.3, 4.0–7.x. Berlaku pada boot berikutnya.</string>
     <string name="vs_wifi_ssid">Nama jaringan (SSID)</string>
     <string name="vs_wifi_ssid_sub">Hingga 32 byte</string>
     <string name="vs_wifi_ssid_error">Nama jaringan tidak boleh kosong</string>

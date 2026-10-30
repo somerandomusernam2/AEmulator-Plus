@@ -33,13 +33,21 @@ object WifiEmu {
     const val PREFIX = 24
     const val MAC = "02:15:5d:ae:00:01"
 
-    /** Oldest guest the Wi-Fi service is written for: Android 4.0 (API 14); Nougat (25) is the newest the engine runs. */
+    /** Oldest guest of the main range: Android 4.0 (API 14); Nougat (25) is the newest the engine runs. */
     const val MIN_API = 14
     const val MAX_API = 25
 
+    /**
+     * Gingerbread (2.3 = API 9, 2.3.3-2.3.7 = API 10) is supported as a separate range. There the framework's WifiStateTracker
+     * belongs to ConnectivityService and takes no broadcasts, so the guest sees the connection through WifiManager, Settings
+     * and the status bar only (see guest-wifi LegacyWifi); ConnectivityManager keeps reporting the radio network.
+     */
+    const val GINGERBREAD_MIN_API = 9
+    const val GINGERBREAD_MAX_API = 10
+
     /** Guests with the Wi-Fi service (the engine that has the guest services). */
     fun supported(engine: Engine, api: Int, recovery: Boolean, nativeUi: Boolean) =
-        engine == Engine.KK && api in MIN_API..MAX_API && !recovery && !nativeUi
+        engine == Engine.KK && (api in MIN_API..MAX_API || api in GINGERBREAD_MIN_API..GINGERBREAD_MAX_API) && !recovery && !nativeUi
 
     /** SSID: any printable text, at most 32 bytes in UTF-8 (the 802.11 limit); never cut in the middle of a character. */
     fun cleanSsid(v: String): String {

@@ -132,7 +132,7 @@
     <string name="vs_strace">Prati sistemske pozive servisa</string>
     <string name="vs_strace_sub">Nazivi servisa odvojeni zarezima, npr. mediaserver,zygote. Usporava te servise i upisuje trag u njihove dnevnike. Primjenjuje se pri sljedećem pokretanju.</string>
     <string name="vs_wifi">Wi-Fi mreža</string>
-    <string name="vs_wifi_sub">Prikazuje internet domaćina virtuelnoj mašini kao povezanu Wi-Fi mrežu umjesto Etherneta. Android 4.0–7.x. Primjenjuje se pri sljedećem pokretanju.</string>
+    <string name="vs_wifi_sub">Prikazuje internet domaćina virtuelnoj mašini kao povezanu Wi-Fi mrežu umjesto Etherneta. Android 2.3, 4.0–7.x. Primjenjuje se pri sljedećem pokretanju.</string>
     <string name="vs_wifi_ssid">Naziv mreže (SSID)</string>
     <string name="vs_wifi_ssid_sub">Do 32 bajta</string>
     <string name="vs_wifi_ssid_error">Naziv mreže ne smije biti prazan</string>

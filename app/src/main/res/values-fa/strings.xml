@@ -319,7 +319,7 @@
     <string name="vs_strace">ردیابی فراخوانی‌های سیستمی سرویس‌ها</string>
     <string name="vs_strace_sub">نام سرویس‌ها با ویرگول جدا شوند، مثلاً mediaserver,zygote. این سرویس‌ها را کند می‌کند و ردیابی را در گزارش‌هایشان می‌نویسد. از بوت بعدی اعمال می‌شود.</string>
     <string name="vs_wifi">شبکهٔ Wi-Fi</string>
-    <string name="vs_wifi_sub">اینترنت میزبان را به‌جای اترنت، به‌صورت یک شبکهٔ Wi-Fi متصل به ماشین مجازی نشان می‌دهد. Android 4.0–7.x. از بوت بعدی اعمال می‌شود.</string>
+    <string name="vs_wifi_sub">اینترنت میزبان را به‌جای اترنت، به‌صورت یک شبکهٔ Wi-Fi متصل به ماشین مجازی نشان می‌دهد. Android 2.3, 4.0–7.x. از بوت بعدی اعمال می‌شود.</string>
     <string name="vs_wifi_ssid">نام شبکه (SSID)</string>
     <string name="vs_wifi_ssid_sub">حداکثر 32 بایت</string>
     <string name="vs_wifi_ssid_error">نام شبکه نمی‌تواند خالی باشد</string>

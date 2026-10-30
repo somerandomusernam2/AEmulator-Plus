@@ -143,7 +143,7 @@
     <string name="vs_strace">Jälgi teenuste süsteemikutseid</string>
     <string name="vs_strace_sub">Komadega eraldatud teenuste nimed, nt mediaserver,zygote. Aeglustab neid teenuseid ja kirjutab jälje nende logidesse. Rakendub järgmisel käivitusel.</string>
     <string name="vs_wifi">Wi-Fi võrk</string>
-    <string name="vs_wifi_sub">Näitab hosti internetti virtuaalmasinale ühendatud Wi-Fi võrguna Etherneti asemel. Android 4.0–7.x. Rakendub järgmisel käivitusel.</string>
+    <string name="vs_wifi_sub">Näitab hosti internetti virtuaalmasinale ühendatud Wi-Fi võrguna Etherneti asemel. Android 2.3, 4.0–7.x. Rakendub järgmisel käivitusel.</string>
     <string name="vs_wifi_ssid">Võrgu nimi (SSID)</string>
     <string name="vs_wifi_ssid_sub">Kuni 32 baiti</string>
     <string name="vs_wifi_ssid_error">Võrgu nimi ei tohi olla tühi</string>

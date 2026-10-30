@@ -1,5 +1,5 @@
 #!/bin/sh
-# Rebuilds src/main/assets/engines/kk/aemu-wifi.jar (guest Wi-Fi service for the Android 4.0 - 7.1 images, see WifiEmu.kt).
+# Rebuilds src/main/assets/engines/kk/aemu-wifi.jar (guest Wi-Fi service for the Android 2.3 and 4.0 - 7.1 images, see WifiEmu.kt).
 # Needs: JDK 8+ (javac), dalvik-exchange (apt) or a Build Tools `dx`, and an android.jar of API 21 or newer
 # (NetworkInfo / NetworkCapabilities / LinkProperties are only public from 21; everything hidden is reached by reflection).
 #   ANDROID_JAR=/path/to/platforms/android-21/android.jar ./build.sh

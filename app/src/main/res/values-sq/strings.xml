@@ -132,7 +132,7 @@
     <string name="vs_strace">Gjurmo thirrjet e sistemit të shërbimeve</string>
     <string name="vs_strace_sub">Emra shërbimesh të ndarë me presje, p.sh. mediaserver,zygote. I ngadalëson ato shërbime dhe e shkruan gjurmën në regjistrat e tyre. Aplikohet në nisjen e radhës.</string>
     <string name="vs_wifi">Rrjeti Wi-Fi</string>
-    <string name="vs_wifi_sub">E shfaq internetin e pritësit te VM-ja si rrjet Wi-Fi të lidhur në vend të Ethernet-it. Android 4.0–7.x. Aplikohet në nisjen e radhës.</string>
+    <string name="vs_wifi_sub">E shfaq internetin e pritësit te VM-ja si rrjet Wi-Fi të lidhur në vend të Ethernet-it. Android 2.3, 4.0–7.x. Aplikohet në nisjen e radhës.</string>
     <string name="vs_wifi_ssid">Emri i rrjetit (SSID)</string>
     <string name="vs_wifi_ssid_sub">Deri në 32 bajt</string>
     <string name="vs_wifi_ssid_error">Emri i rrjetit nuk mund të jetë bosh</string>

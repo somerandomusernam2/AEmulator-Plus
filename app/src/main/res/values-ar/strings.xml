@@ -323,7 +323,7 @@
     <string name="vs_strace">تتبّع استدعاءات النظام للخدمات</string>
     <string name="vs_strace_sub">أسماء الخدمات مفصولة بفواصل، مثل mediaserver,zygote. يُبطئ هذه الخدمات ويكتب التتبّع في سجلاتها. يُطبَّق عند الإقلاع التالي.</string>
     <string name="vs_wifi">شبكة Wi-Fi</string>
-    <string name="vs_wifi_sub">يعرض إنترنت المضيف للجهاز الافتراضي كشبكة Wi-Fi متصلة بدلًا من Ethernet. Android 4.0–7.x. يُطبَّق عند الإقلاع التالي.</string>
+    <string name="vs_wifi_sub">يعرض إنترنت المضيف للجهاز الافتراضي كشبكة Wi-Fi متصلة بدلًا من Ethernet. Android 2.3, 4.0–7.x. يُطبَّق عند الإقلاع التالي.</string>
     <string name="vs_wifi_ssid">اسم الشبكة (SSID)</string>
     <string name="vs_wifi_ssid_sub">حتى 32 بايت</string>
     <string name="vs_wifi_ssid_error">لا يمكن أن يكون اسم الشبكة فارغًا</string>

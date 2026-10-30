@@ -318,7 +318,7 @@
     <string name="vs_strace">跟踪服务的系统调用</string>
     <string name="vs_strace_sub">服务名称以逗号分隔,例如 mediaserver,zygote。会拖慢这些服务,并将跟踪写入它们的日志。下次启动时生效。</string>
     <string name="vs_wifi">Wi-Fi 网络</string>
-    <string name="vs_wifi_sub">将主机的互联网以已连接的 Wi-Fi 网络(而非以太网)的形式展示给虚拟机。Android 4.0–7.x。下次启动时生效。</string>
+    <string name="vs_wifi_sub">将主机的互联网以已连接的 Wi-Fi 网络(而非以太网)的形式展示给虚拟机。Android 2.3, 4.0–7.x。下次启动时生效。</string>
     <string name="vs_wifi_ssid">网络名称(SSID)</string>
     <string name="vs_wifi_ssid_sub">最多 32 字节</string>
     <string name="vs_wifi_ssid_error">网络名称不能为空</string>

@@ -817,7 +817,10 @@ class LogdSink(paths: VmPaths, private val log: (String) -> Unit) {
                     if (n < 0) break
                     if (n <= 12) continue
                     val id = buf[0].toInt() and 0xff
-                    val name = when (id) { 0 -> "main"; 1 -> "radio"; 3 -> "system"; 4 -> "main"; else -> continue }
+                    // Modified for AEmulator Plus (2026-10-30): the other buffers (events 2, stats 5, security 6, kernel 7) were dropped
+                    // here; a record a dying process sends to one of them (liblog picks the buffer, not the caller) never
+                    // reached the export. They go to files of their own now, the export's raw tail shows them.
+                    val name = when (id) { 0 -> "main"; 1 -> "radio"; 2 -> "events"; 3 -> "system"; 4 -> "main"; 5 -> "stats"; 6 -> "security"; 7 -> "kernel"; else -> continue }
                     val o = outs.getOrPut(id) { java.io.FileOutputStream(File(dir, name), true) }
                     runCatching { o.write(buf, 11, n - 11); if (buf[n - 1].toInt() != 0) o.write(0) }
                 }

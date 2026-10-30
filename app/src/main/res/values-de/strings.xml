@@ -319,7 +319,7 @@
     <string name="vs_strace">Systemaufrufe von Diensten verfolgen</string>
     <string name="vs_strace_sub">Dienstnamen, durch Kommas getrennt, z. B. mediaserver,zygote. Verlangsamt diese Dienste und schreibt die Ablaufverfolgung in ihre Logs. Gilt ab dem nächsten Start.</string>
     <string name="vs_wifi">WLAN-Netzwerk</string>
-    <string name="vs_wifi_sub">Zeigt der VM die Internetverbindung des Hosts als verbundenes WLAN statt als Ethernet. Android 4.0–7.x. Gilt ab dem nächsten Start.</string>
+    <string name="vs_wifi_sub">Zeigt der VM die Internetverbindung des Hosts als verbundenes WLAN statt als Ethernet. Android 2.3, 4.0–7.x. Gilt ab dem nächsten Start.</string>
     <string name="vs_wifi_ssid">Netzwerkname (SSID)</string>
     <string name="vs_wifi_ssid_sub">Bis zu 32 Byte</string>
     <string name="vs_wifi_ssid_error">Der Netzwerkname darf nicht leer sein</string>

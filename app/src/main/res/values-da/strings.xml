@@ -143,7 +143,7 @@
     <string name="vs_strace">Spor tjenesters systemkald</string>
     <string name="vs_strace_sub">Tjenestenavne adskilt af kommaer, f.eks. mediaserver,zygote. Gør disse tjenester langsommere og skriver sporingen til deres logs. Anvendes ved næste opstart.</string>
     <string name="vs_wifi">Wi-Fi-netværk</string>
-    <string name="vs_wifi_sub">Viser værtens internet for den virtuelle maskine som et tilsluttet Wi-Fi-netværk i stedet for Ethernet. Android 4.0–7.x. Anvendes ved næste opstart.</string>
+    <string name="vs_wifi_sub">Viser værtens internet for den virtuelle maskine som et tilsluttet Wi-Fi-netværk i stedet for Ethernet. Android 2.3, 4.0–7.x. Anvendes ved næste opstart.</string>
     <string name="vs_wifi_ssid">Netværksnavn (SSID)</string>
     <string name="vs_wifi_ssid_sub">Op til 32 bytes</string>
     <string name="vs_wifi_ssid_error">Netværksnavnet må ikke være tomt</string>

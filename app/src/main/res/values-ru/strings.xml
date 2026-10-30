@@ -114,7 +114,7 @@
     <string name="vs_qemu_args">Доп. параметры qemu</string>
     <string name="vs_qemu_args_sub">Пример: -d unimp DHD_TBFLUSH=2 (ИМЯ=значение становится переменной окружения)</string>
     <string name="vs_wifi">Сеть Wi-Fi</string>
-    <string name="vs_wifi_sub">Показывает интернет хоста в ВМ как подключённую сеть Wi-Fi вместо Ethernet. Android 4.0–7.x. Применяется при следующей загрузке.</string>
+    <string name="vs_wifi_sub">Показывает интернет хоста в ВМ как подключённую сеть Wi-Fi вместо Ethernet. Android 2.3, 4.0–7.x. Применяется при следующей загрузке.</string>
     <string name="vs_wifi_ssid">Имя сети (SSID)</string>
     <string name="vs_wifi_ssid_sub">До 32 байт</string>
     <string name="vs_wifi_ssid_error">Имя сети не может быть пустым</string>

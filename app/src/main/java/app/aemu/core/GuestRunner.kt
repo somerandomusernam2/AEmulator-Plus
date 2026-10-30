@@ -90,6 +90,11 @@ class GuestRunner(
         e["BOOTCLASSPATH"] = img.bootclasspath
         e.putIfAbsent("EMULATED_STORAGE_SOURCE", "/mnt/shell/emulated")
         e.putIfAbsent("EMULATED_STORAGE_TARGET", "/storage/emulated")
+        // Modified for AEmulator Plus (2026-10-30): the APEX roots come from init.environ.rc of the boot ramdisk, which an
+        // image without one (Starnix Wear) does not have. ART, libnativeloader and libicu take them from the environment.
+        for ((k, apex) in listOf("ANDROID_ART_ROOT" to "com.android.art", "ANDROID_I18N_ROOT" to "com.android.i18n",
+            "ANDROID_TZDATA_ROOT" to "com.android.tzdata", "ANDROID_RUNTIME_ROOT" to "com.android.runtime"))
+            if (File(paths.root, "apex/$apex").isDirectory) e.putIfAbsent(k, "/apex/$apex")
         // a system-only image (GSI) has no init.environ.rc: that lives in the boot ramdisk
         e.putIfAbsent("ASEC_MOUNTPOINT", "/mnt/asec")
         e.putIfAbsent("ANDROID_BOOTLOGO", "1")

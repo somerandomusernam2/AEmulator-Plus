@@ -319,7 +319,7 @@
     <string name="vs_strace">Hizmetlerin sistem çağrılarını izle</string>
     <string name="vs_strace_sub">Virgülle ayrılmış hizmet adları, ör. mediaserver,zygote. Bu hizmetleri yavaşlatır ve izi günlüklerine yazar. Bir sonraki açılışta uygulanır.</string>
     <string name="vs_wifi">Wi-Fi ağı</string>
-    <string name="vs_wifi_sub">Ana makinenin internetini VM\'ye Ethernet yerine bağlı bir Wi-Fi ağı olarak gösterir. Android 4.0–7.x. Bir sonraki açılışta uygulanır.</string>
+    <string name="vs_wifi_sub">Ana makinenin internetini VM\'ye Ethernet yerine bağlı bir Wi-Fi ağı olarak gösterir. Android 2.3, 4.0–7.x. Bir sonraki açılışta uygulanır.</string>
     <string name="vs_wifi_ssid">Ağ adı (SSID)</string>
     <string name="vs_wifi_ssid_sub">En fazla 32 bayt</string>
     <string name="vs_wifi_ssid_error">Ağ adı boş olamaz</string>

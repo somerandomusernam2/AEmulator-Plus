@@ -143,7 +143,7 @@
     <string name="vs_strace">Izsekot pakalpojumu sistēmas izsaukumus</string>
     <string name="vs_strace_sub">Pakalpojumu nosaukumi, atdalīti ar komatiem, piem., mediaserver,zygote. Palēnina šos pakalpojumus un ieraksta izsekošanu to žurnālos. Tiek lietots nākamajā palaišanā.</string>
     <string name="vs_wifi">Wi-Fi tīkls</string>
-    <string name="vs_wifi_sub">Rāda saimnieka internetu virtuālajai mašīnai kā pievienotu Wi-Fi tīklu Ethernet vietā. Android 4.0–7.x. Tiek lietots nākamajā palaišanā.</string>
+    <string name="vs_wifi_sub">Rāda saimnieka internetu virtuālajai mašīnai kā pievienotu Wi-Fi tīklu Ethernet vietā. Android 2.3, 4.0–7.x. Tiek lietots nākamajā palaišanā.</string>
     <string name="vs_wifi_ssid">Tīkla nosaukums (SSID)</string>
     <string name="vs_wifi_ssid_sub">Līdz 32 baitiem</string>
     <string name="vs_wifi_ssid_error">Tīkla nosaukums nedrīkst būt tukšs</string>

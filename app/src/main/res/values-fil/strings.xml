@@ -133,7 +133,7 @@
     <string name="vs_strace">I-trace ang mga system call ng mga serbisyo</string>
     <string name="vs_strace_sub">Mga pangalan ng serbisyo na pinaghihiwalay ng kuwit, hal. mediaserver,zygote. Pinapabagal ang mga serbisyong iyon at isinusulat ang trace sa kanilang mga log. Ilalapat sa susunod na boot.</string>
     <string name="vs_wifi">Wi-Fi network</string>
-    <string name="vs_wifi_sub">Ipinapakita ang internet ng host sa VM bilang nakakonektang Wi-Fi network sa halip na Ethernet. Android 4.0–7.x. Ilalapat sa susunod na boot.</string>
+    <string name="vs_wifi_sub">Ipinapakita ang internet ng host sa VM bilang nakakonektang Wi-Fi network sa halip na Ethernet. Android 2.3, 4.0–7.x. Ilalapat sa susunod na boot.</string>
     <string name="vs_wifi_ssid">Pangalan ng network (SSID)</string>
     <string name="vs_wifi_ssid_sub">Hanggang 32 byte</string>
     <string name="vs_wifi_ssid_error">Hindi puwedeng walang laman ang pangalan ng network</string>

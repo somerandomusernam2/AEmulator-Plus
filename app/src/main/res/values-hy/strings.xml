@@ -143,7 +143,7 @@
     <string name="vs_strace">Ծառայությունների համակարգային կանչերի հետագծում</string>
     <string name="vs_strace_sub">Ծառայությունների անունները՝ ստորակետերով, օր.՝ mediaserver,zygote։ Դանդաղեցնում է այդ ծառայությունները և հետագծումը գրում է դրանց մատյաններում։ Կիրառվում է հաջորդ բեռնման ժամանակ։</string>
     <string name="vs_wifi">Wi-Fi ցանց</string>
-    <string name="vs_wifi_sub">Հոսթի ինտերնետը VM-ին ցույց է տալիս որպես միացված Wi-Fi ցանց՝ Ethernet-ի փոխարեն։ Android 4.0–7.x։ Կիրառվում է հաջորդ բեռնման ժամանակ։</string>
+    <string name="vs_wifi_sub">Հոսթի ինտերնետը VM-ին ցույց է տալիս որպես միացված Wi-Fi ցանց՝ Ethernet-ի փոխարեն։ Android 2.3, 4.0–7.x։ Կիրառվում է հաջորդ բեռնման ժամանակ։</string>
     <string name="vs_wifi_ssid">Ցանցի անուն (SSID)</string>
     <string name="vs_wifi_ssid_sub">Մինչև 32 բայթ</string>
     <string name="vs_wifi_ssid_error">Ցանցի անունը չի կարող դատարկ լինել</string>

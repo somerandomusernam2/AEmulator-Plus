@@ -133,7 +133,7 @@
     <string name="vs_strace">Қызметтердің жүйелік шақыруларын трассалау</string>
     <string name="vs_strace_sub">Үтірмен бөлінген қызмет атаулары, мысалы mediaserver,zygote. Бұл қызметтерді баяулатады және трассаны олардың журналдарына жазады. Келесі жүктелуде қолданылады.</string>
     <string name="vs_wifi">Wi-Fi желісі</string>
-    <string name="vs_wifi_sub">Хосттың интернетін VM-ге Ethernet орнына қосылған Wi-Fi желісі ретінде көрсетеді. Android 4.0–7.x. Келесі жүктелуде қолданылады.</string>
+    <string name="vs_wifi_sub">Хосттың интернетін VM-ге Ethernet орнына қосылған Wi-Fi желісі ретінде көрсетеді. Android 2.3, 4.0–7.x. Келесі жүктелуде қолданылады.</string>
     <string name="vs_wifi_ssid">Желі атауы (SSID)</string>
     <string name="vs_wifi_ssid_sub">32 байтқа дейін</string>
     <string name="vs_wifi_ssid_error">Желі атауы бос болмауы керек</string>

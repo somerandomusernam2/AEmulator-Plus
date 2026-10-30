@@ -132,7 +132,7 @@
     <string name="vs_strace">সার্ভিসের সিস্টেম কল ট্রেস করুন</string>
     <string name="vs_strace_sub">কমা দিয়ে আলাদা করা সার্ভিসের নাম, যেমন mediaserver,zygote। এতে সেই সার্ভিসগুলো ধীর হয় এবং ট্রেস তাদের লগে লেখা হয়। পরবর্তী বুটে প্রযোজ্য।</string>
     <string name="vs_wifi">Wi-Fi নেটওয়ার্ক</string>
-    <string name="vs_wifi_sub">হোস্টের ইন্টারনেটকে ইথারনেটের বদলে সংযুক্ত Wi-Fi নেটওয়ার্ক হিসেবে VM-কে দেখায়। Android 4.0–7.x। পরবর্তী বুটে প্রযোজ্য।</string>
+    <string name="vs_wifi_sub">হোস্টের ইন্টারনেটকে ইথারনেটের বদলে সংযুক্ত Wi-Fi নেটওয়ার্ক হিসেবে VM-কে দেখায়। Android 2.3, 4.0–7.x। পরবর্তী বুটে প্রযোজ্য।</string>
     <string name="vs_wifi_ssid">নেটওয়ার্কের নাম (SSID)</string>
     <string name="vs_wifi_ssid_sub">সর্বোচ্চ 32 বাইট</string>
     <string name="vs_wifi_ssid_error">নেটওয়ার্কের নাম ফাঁকা রাখা যাবে না</string>

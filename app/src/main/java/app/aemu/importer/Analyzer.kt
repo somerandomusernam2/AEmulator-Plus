@@ -223,6 +223,10 @@ class Analyzer(private val ctx: Context, private val paths: VmPaths, private val
             val preview = when {
                 code == "N" -> 24
                 code == "NMR1" -> 25
+                // preview builds that still carry the previous release's sdk number (SDK emulator "Tiramisu" says sdk 32)
+                code == "TIRAMISU" -> 33
+                code == "UPSIDEDOWNCAKE" -> 34
+                code == "VANILLAICECREAM" -> 35
                 code == "ICECREAMSANDWICH" || rel == "ICECREAMSANDWICH" -> 14
                 else -> null
             }

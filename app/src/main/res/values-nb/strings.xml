@@ -133,7 +133,7 @@
     <string name="vs_strace">Spor systemkall fra tjenester</string>
     <string name="vs_strace_sub">Tjenestenavn atskilt med komma, f.eks. mediaserver,zygote. Bremser disse tjenestene og skriver sporet til loggene deres. Gjelder ved neste oppstart.</string>
     <string name="vs_wifi">Wi-Fi-nettverk</string>
-    <string name="vs_wifi_sub">Viser vertens internett for VM-en som et tilkoblet Wi-Fi-nettverk i stedet for Ethernet. Android 4.0–7.x. Gjelder ved neste oppstart.</string>
+    <string name="vs_wifi_sub">Viser vertens internett for VM-en som et tilkoblet Wi-Fi-nettverk i stedet for Ethernet. Android 2.3, 4.0–7.x. Gjelder ved neste oppstart.</string>
     <string name="vs_wifi_ssid">Nettverksnavn (SSID)</string>
     <string name="vs_wifi_ssid_sub">Opptil 32 byte</string>
     <string name="vs_wifi_ssid_error">Nettverksnavnet kan ikke være tomt</string>

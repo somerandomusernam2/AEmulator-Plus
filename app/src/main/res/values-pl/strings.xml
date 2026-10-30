@@ -321,7 +321,7 @@
     <string name="vs_strace">Śledź wywołania systemowe usług</string>
     <string name="vs_strace_sub">Nazwy usług oddzielone przecinkami, np. mediaserver,zygote. Spowalnia te usługi i zapisuje ślad w ich logach. Działa od następnego uruchomienia.</string>
     <string name="vs_wifi">Sieć Wi-Fi</string>
-    <string name="vs_wifi_sub">Pokazuje maszynie wirtualnej internet hosta jako połączoną sieć Wi-Fi zamiast Ethernetu. Android 4.0–7.x. Działa od następnego uruchomienia.</string>
+    <string name="vs_wifi_sub">Pokazuje maszynie wirtualnej internet hosta jako połączoną sieć Wi-Fi zamiast Ethernetu. Android 2.3, 4.0–7.x. Działa od następnego uruchomienia.</string>
     <string name="vs_wifi_ssid">Nazwa sieci (SSID)</string>
     <string name="vs_wifi_ssid_sub">Do 32 bajtów</string>
     <string name="vs_wifi_ssid_error">Nazwa sieci nie może być pusta</string>

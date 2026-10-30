@@ -43,8 +43,26 @@ object GuestLog {
                 }
             }
         }
+        // Modified for AEmulator Plus (2026-10-30): the parser above drops every record it cannot read (a tag over 48
+        // bytes, a control byte in the tag, a priority outside 2..8) and exports only three buffers, so the message a
+        // dying zygote writes last can be missing from the export. The raw tail of every buffer file, printable runs only.
+        val logDir = File(root, "dev/log")
+        for (f in logDir.listFiles().orEmpty().filter { it.isFile }.sortedBy { it.name }) runCatching {
+            val n = minOf(f.length(), 96L * 1024).toInt()
+            if (n <= 0) { out.write("\n=== raw tail of dev/log/${f.name}: empty ===\n"); return@runCatching }
+            val data = RandomAccessFile(f, "r").use { r -> r.seek(r.length() - n); ByteArray(n).also { r.readFully(it) } }
+            out.write("\n=== raw tail of dev/log/${f.name} (${f.length()} bytes, last $n) ===\n")
+            val sb = StringBuilder()
+            for (b in data) {
+                val c = b.toInt() and 0xff
+                if (c in 0x20..0x7e || c >= 0x80) sb.append(c.toChar())
+                else if (sb.isNotEmpty() && sb.last() != '\n') sb.append('\n')
+            }
+            out.write(sb.toString())
+            out.write("\n")
+        }
         // Fatal assertions can be written to stderr instead of Android's main buffer.
-        for (name in listOf("zygote", "binderd", "servicemanager", "surfaceflinger", "bootanim", "installd", "netd", "mediaserver")) {
+        for (name in listOf("zygote", "zygote_secondary", "binderd", "servicemanager", "surfaceflinger", "bootanim", "installd", "netd", "mediaserver")) {
             val f = File(run, "$name.log")
             if (!f.isFile) continue
             out.write("\n=== service $name stdout/stderr ===\n")

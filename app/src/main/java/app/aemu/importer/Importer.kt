@@ -2,6 +2,7 @@
  * Modified for AEmulator Super Plus, 2026-10-11: Sony .ftf / .sin import.
  * Modified for AEmulator Plus, 2026-10-23: Android-x86 ISO 9660 import (importIso, Iso9660.kt).
  * Modified for AEmulator Plus, 2026-10-23: pre-1.0 firmware (bare ramdisk.img, /javalib, /android): see LegacyFirmware.
+ * Modified for AEmulator Plus, 2026-10-30: recovery embedded in the kernel initramfs (early Samsung): see RecoveryImage.isEmbedded.
  * GPL-3.0; see LICENSE and NOTICE.md. */
 package app.aemu.importer
 
@@ -66,6 +67,8 @@ class Importer(
     private val tmp = File(ctx.cacheDir, "import").apply { mkdirs() }
     private var ramdisk: List<BootImage.CpioEntry>? = null
     private val MAX_RAMDISK = 64L * 1024 * 1024
+    /** Bytes of a super partition read to find its geometry (the metadata slot follows, see LpMetadata.headSize). */
+    private val LP_PROBE = 4096 + 52
     private val MAX_RAMDISK_FILE = 32L * 1024 * 1024
     private var recovery: ByteArray? = null
     /** recovery-from-boot.p, install-recovery.sh and recovery-resource.dat of an OTA zip ("recovery/" is extracted to /system by its script) */
@@ -124,7 +127,9 @@ class Importer(
             finishTree()
             applyPendingCsc()
             if (recovery == null) runCatching { rebuildRecoveryFromBoot() }.onFailure { log("recovery: rebuild from boot failed (${it.message}), skipped") }
-            recovery?.let { r -> runCatching { RecoveryImage.install(paths, r, log) }.onFailure { log("recovery: install failed (${it.message}), skipped") } }
+            if (recovery != null) recovery?.let { r -> runCatching { RecoveryImage.install(paths, r, log) }.onFailure { log("recovery: install failed (${it.message}), skipped") } }
+            // no recovery image of its own: early Samsung kernels hold the recovery in the same initramfs as Android's init.rc
+            else ramdisk?.let { rd -> runCatching { RecoveryImage.installEmbedded(paths, rd, log) }.onFailure { log("recovery: embedded recovery cannot be installed (${it.message}), skipped") } }
             onProgress(lt(R.string.imp_analyzing_firmware), 0.97f)
             val img = Analyzer(ctx, paths, ramdisk).analyze(id, name)
             // x86 5.x/6.0 firmware of real devices has no libGLES_android.so: libEGL then aborts SurfaceFlinger
@@ -775,6 +780,8 @@ class Importer(
         // zip of a raw system partition (build.prop + bin/ at the zip root, no system/ folder): all of it goes under system/
         val rawDump = sysRoot == null && PartitionNames.isRawSystemDump(names)
         if (rawDump) log("raw system partition dump (build.prop and bin/ at the archive root)")
+        // a package with a vendor.img of its own: the vendor inside a "super" partition is not read a second time
+        archiveHasVendorImage = entries.any { !it.isDirectory && it.size > 0 && PartitionNames.isVendor(it.name.replace('\\', '/').substringAfterLast('/')) }
         val bootEntries = ArrayList<Pair<String, ZipArchiveEntry>>()
         val pendingZips = ArrayList<ZipArchiveEntry>()
         // split sparse system (system.img_sparsechunk.N, system_sparsechunkN, system.img.N, system.N, system_N, …)
@@ -1254,6 +1261,37 @@ class Importer(
                 importImage(if (SparseSource.probe(src)) SparseSource(listOf(src)) else src, "system")
                 gotSystem = true
             }
+            GptDisk.Kind.SUPER -> importSuper(src)
+        }
+    }
+
+    /** True when the archive being read carries its own vendor image, so the one inside "super" is not read twice. */
+    private var archiveHasVendorImage = false
+
+    /**
+     * A "super" partition (dynamic partitions, Android 10+) read in place: its logical partitions are cut out by their
+     * extents and imported like the separate images of an older package (system, vendor, product, system_ext, odm).
+     */
+    private fun importSuper(src: RandomSource) {
+        val first = ByteBuffer.allocate(LP_PROBE).also { src.read(0, it) }.array()
+        val need = LpMetadata.headSize(first) ?: throw LocalizedIOException("super: unreadable partition metadata", R.string.imp_unreadable_gpt, "super")
+        val head = if (need <= first.size) first else ByteBuffer.allocate(need).also { src.read(0, it) }.array()
+        val parts = LpMetadata.parse(head) ?: throw LocalizedIOException("super: unreadable partition metadata", R.string.imp_unreadable_gpt, "super")
+        val picks = LpMetadata.pick(parts)
+        if (picks.isEmpty()) { log("super: no system partition among ${parts.joinToString { it.name }}"); return }
+        log("super: " + picks.joinToString { "${it.name} ${it.size shr 20} MB" })
+        for (p in picks) {
+            if (cancelled) throw IOException("cancelled")
+            applyLogical(LpMetadata.baseName(p.name), ExtentSource(src, p.extents.map { it.superOffset to it.length }))
+        }
+    }
+
+    /** One logical partition of a super image, by its name without the slot suffix. */
+    private fun applyLogical(name: String, src: RandomSource) {
+        when (name) {
+            "system" -> { importImage(if (SparseSource.probe(src)) SparseSource(listOf(src)) else src, "system"); gotSystem = true }
+            "vendor" -> if (archiveHasVendorImage) log("super: vendor skipped, the package has a vendor image of its own") else importVendor(src)
+            else -> importExtra(src, "$name.img")
         }
     }
 
@@ -1292,22 +1330,67 @@ class Importer(
         val picks = GptDisk.pick(GptDisk.parse(head) ?: return false)
         if (picks.isEmpty()) { log("$label: GPT disk without boot/recovery/system partitions"); return true }
         log("$label: full dump, partitions " + picks.joinToString { "${it.second.name} ${it.second.size shr 20} MB" })
+        // What is written out: whole GPT partitions, and for a "super" partition its logical partitions (read from the
+        // metadata at the start of the stream, so only the wanted runs are kept, not the whole 4 GB container).
+        class Out(val kind: GptDisk.Kind, val logical: String?, val runs: List<LpMetadata.Extent>, val file: File)
+        // a run of the disk: absolute start, length, offset inside the output file
+        class Run(val start: Long, val length: Long, val fileOff: Long, val out: Int)
         val dir = File(tmp, "gpt-${System.nanoTime()}").apply { mkdirs() }
         try {
-            val outs = picks.map { (k, p) -> Triple(k, p, File(dir, "${k.name.lowercase()}.img")) }
-            val streams = outs.map { it.third.outputStream().buffered(1 shl 20) }
+            val outs = ArrayList<Out>()
+            val runs = ArrayList<Run>()
+            for ((k, p) in picks) {
+                if (k != GptDisk.Kind.SUPER) {
+                    outs.add(Out(k, null, listOf(LpMetadata.Extent(p.start, p.size)), File(dir, "${k.name.lowercase()}-${outs.size}.img")))
+                    continue
+                }
+                // the metadata sits in the first megabyte of the partition; it may be further than what was read for the GPT head
+                val lpNeed = p.start + LP_PROBE + (4 shl 20)
+                if (head.size < lpNeed) {
+                    if (lpNeed > (64L shl 20)) return false
+                    val big = head.copyOf(lpNeed.toInt())
+                    val got = GptDisk.readFully(input, big, head.size, big.size - head.size)
+                    if (head.size + got < big.size) return false
+                    head = big
+                }
+                val sup = head.copyOfRange(p.start.toInt(), p.start.toInt() + LP_PROBE)
+                val lpHead = LpMetadata.headSize(sup)?.let { n -> if (p.start + n <= head.size) head.copyOfRange(p.start.toInt(), p.start.toInt() + n) else null }
+                val lp = lpHead?.let { LpMetadata.parse(it) }
+                if (lp == null) { log("$label: super partition without readable metadata"); continue }
+                val chosen = LpMetadata.pick(lp)
+                log("$label: super holds " + lp.joinToString { "${it.name} ${it.size shr 20} MB" })
+                for (lg in chosen) {
+                    val base = LpMetadata.baseName(lg.name)
+                    if (base == "vendor" && archiveHasVendorImage) { log("super: vendor skipped, the package has a vendor image of its own"); continue }
+                    val abs = lg.extents.map { LpMetadata.Extent(p.start + it.superOffset, it.length) }
+                    // a logical partition outside the super partition is not believed
+                    if (abs.any { it.superOffset + it.length > p.start + p.size }) { log("super: $base extends past the partition, skipped"); continue }
+                    outs.add(Out(GptDisk.Kind.SUPER, base, abs, File(dir, "super-$base.img")))
+                }
+            }
+            if (outs.isEmpty()) { log("$label: nothing to import in the GPT disk"); return true }
+            for ((i, o) in outs.withIndex()) {
+                var off = 0L
+                for (r in o.runs) { runs.add(Run(r.superOffset, r.length, off, i)); off += r.length }
+            }
+            runs.sortBy { it.start }
+            val chans = outs.map { FileChannel.open(it.file.toPath(), StandardOpenOption.CREATE, StandardOpenOption.WRITE, StandardOpenOption.READ) }
             try {
-                val end = picks.maxOf { it.second.start + it.second.size }
+                val end = runs.maxOf { it.start + it.length }
                 var pos = 0L
                 fun feed(buf: ByteArray, len: Int) {
-                    for ((i, o) in outs.withIndex()) {
-                        val p = o.second
-                        val a = maxOf(p.start, pos)
-                        val b = minOf(p.start + p.size, pos + len)
-                        if (b > a) streams[i].write(buf, (a - pos).toInt(), (b - a).toInt())
+                    for (r in runs) {
+                        val a = maxOf(r.start, pos)
+                        val bb = minOf(r.start + r.length, pos + len)
+                        if (bb > a) {
+                            val w = ByteBuffer.wrap(buf, (a - pos).toInt(), (bb - a).toInt())
+                            var at = r.fileOff + (a - r.start)
+                            while (w.hasRemaining()) at += chans[r.out].write(w, at)
+                        }
                     }
                     pos += len
                 }
+                // the head is already read: the bytes of it that belong to an output are written first
                 feed(head, head.size)
                 val buf = ByteArray(1 shl 20)
                 var tick = 0
@@ -1319,11 +1402,14 @@ class Importer(
                     if (r > 0) feed(buf, r)
                     if (++tick % 16 == 0) onProgress(lt(R.string.imp_reading, label), (pos.toFloat() / end).coerceIn(0f, 1f) * 0.5f)
                 }
-            } finally { streams.forEach { runCatching { it.close() } } }
-            for ((kind, _, f) in outs) {
+            } finally { chans.forEach { runCatching { it.close() } } }
+            for (o in outs) {
                 if (cancelled) throw IOException("cancelled")
-                FileChannel.open(f.toPath(), StandardOpenOption.READ).use { c -> applyGptPart(kind, ChannelSource(c)) }
-                f.delete()
+                FileChannel.open(o.file.toPath(), StandardOpenOption.READ).use { c ->
+                    val src = ChannelSource(c)
+                    if (o.logical != null) applyLogical(o.logical, src) else applyGptPart(o.kind, src)
+                }
+                o.file.delete()
             }
         } finally { deleteTree(dir) }
         return true

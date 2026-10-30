@@ -398,7 +398,7 @@
     <string name="vs_strace">Rastrear chamadas de sistema dos serviços</string>
     <string name="vs_strace_sub">Nomes de serviços separados por vírgulas, ex.: mediaserver,zygote. Deixa esses serviços mais lentos e grava o rastreamento nos logs deles. Vale na próxima inicialização.</string>
     <string name="vs_wifi">Rede Wi-Fi</string>
-    <string name="vs_wifi_sub">Mostra a internet do host para a VM como uma rede Wi-Fi conectada, em vez de Ethernet. Android 4.0–7.x. Vale na próxima inicialização.</string>
+    <string name="vs_wifi_sub">Mostra a internet do host para a VM como uma rede Wi-Fi conectada, em vez de Ethernet. Android 2.3, 4.0–7.x. Vale na próxima inicialização.</string>
     <string name="vs_wifi_ssid">Nome da rede (SSID)</string>
     <string name="vs_wifi_ssid_sub">Até 32 bytes</string>
     <string name="vs_wifi_ssid_error">O nome da rede não pode ficar vazio</string>

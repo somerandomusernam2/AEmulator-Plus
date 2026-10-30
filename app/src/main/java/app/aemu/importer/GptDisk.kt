@@ -16,7 +16,7 @@ import java.nio.ByteOrder
  */
 object GptDisk {
     /** Declaration order is the order the partitions are applied in: vendor after system, which it is read on top of. */
-    enum class Kind { BOOT, RECOVERY, OEM, SYSTEM, VENDOR, GAPPS }
+    enum class Kind { BOOT, RECOVERY, OEM, SYSTEM, SUPER, VENDOR, GAPPS }
 
     class Part(val name: String, val start: Long, val size: Long)
 
@@ -81,6 +81,7 @@ object GptDisk {
         "recovery", "recovery_a", "fotakernel" -> Kind.RECOVERY
         "oem", "oem_a" -> Kind.OEM
         "system", "system_a", "factoryfs" -> Kind.SYSTEM
+        "super" -> Kind.SUPER // dynamic partitions (Android 10+): system, vendor, product ... are logical partitions inside (LpMetadata)
         "vendor", "vendor_a" -> Kind.VENDOR
         "gapps", "gapps_a" -> Kind.GAPPS
         else -> null

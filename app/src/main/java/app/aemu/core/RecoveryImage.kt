@@ -1,6 +1,7 @@
 package app.aemu.core
 
 import android.system.Os
+import app.aemu.importer.AbLayout
 import app.aemu.importer.BootImage
 import java.io.File
 import java.io.RandomAccessFile
@@ -45,6 +46,32 @@ object RecoveryImage {
     fun install(paths: VmPaths, image: ByteArray, log: (String) -> Unit): Boolean {
         val rd = runCatching { BootImage.ramdisk(image) }.getOrNull()
         if (rd.isNullOrEmpty() || rd.none { it.name == "sbin/recovery" }) { log("recovery: image has no /sbin/recovery"); return false }
+        return installEntries(paths, rd, log)
+    }
+
+    /**
+     * Early Samsung kernels (Galaxy S / Tab, Froyo and Gingerbread) carry the recovery inside the kernel: the one built-in
+     * initramfs holds Android's init.rc and services AND the recovery (/sbin/recovery, /res/images, /res/recovery.fstab,
+     * /recovery.rc). There is no recovery partition; the kernel's /init reads `bootmode=` from the command line and runs
+     * /recovery.rc (2), /fota.rc, /lpm.rc, /factorytest.rc or /init.rc. So the ramdisk of the boot image is the recovery's
+     * root file system as well. A ramdisk that has /sbin/recovery and no Android of its own (no zygote) is a plain recovery
+     * image and is not this (see [AbLayout.isRecoveryRamdisk]).
+     */
+    fun isEmbedded(rd: List<BootImage.CpioEntry>): Boolean =
+        rd.any { it.name == "sbin/recovery" && (it.mode and 0xF000) == 0x8000 } && !AbLayout.isRecoveryRamdisk(rd)
+
+    /** The boot-mode init script the kernel's init runs for recovery (`bootmode=2`), when the ramdisk has one; for the log only. */
+    fun embeddedScript(rd: List<BootImage.CpioEntry>): String? = rd.firstOrNull { it.name == "recovery.rc" }?.name
+
+    /** Unpacks the recovery embedded in the ramdisk [rd] of the boot image (see [isEmbedded]); false when there is none. */
+    fun installEmbedded(paths: VmPaths, rd: List<BootImage.CpioEntry>, log: (String) -> Unit): Boolean {
+        if (!isEmbedded(rd)) return false
+        log("recovery: embedded in the kernel's initramfs (Samsung style${embeddedScript(rd)?.let { ", started by /$it" } ?: ""})")
+        return installEntries(paths, rd, log)
+    }
+
+    /** Unpacks the files of a recovery ramdisk into [dir]. */
+    fun installEntries(paths: VmPaths, rd: List<BootImage.CpioEntry>, log: (String) -> Unit): Boolean {
         val out = dir(paths)
         // never deleteRecursively: system/, data/, sdcard/ in it are links to the firmware's partitions and card
         ImageStore.wipe(out)
@@ -177,6 +204,14 @@ sysfs /sys sysfs rw,relatime 0 0
             runCatching { bin.writeBytes(data) }.onFailure { log("recovery: personality patch failed: ${it.message}") }
                 .onSuccess { notes += "personality(PER_LINUX32) made a no-op ($pers)" }
         }
+        // the Android app sandbox (seccomp) kills the whole process with SIGSYS inside umount()/umount2()/syslog(); the stock
+        // recovery unmounts /efs, /cache... and reads the kernel log on its way up (exit code 159, last trace line is the call).
+        // The preloaded shims cannot reach a static binary and libqemu_kk passes the call to the host, so it never gets there
+        val um = patchUmount(data)
+        if (um > 0) {
+            runCatching { bin.writeBytes(data) }.onFailure { log("recovery: umount patch failed: ${it.message}") }
+                .onSuccess { notes += "umount()/umount2()/syslog() answered without a system call ($um)" }
+        }
         stubBlockDevices(r)?.let { notes += "stubbed $it block device nodes" }
         stubProcMounts(r)
         // the input FIFO cannot answer EVIOCG* ioctls; vendor recoveries that probe the device (LG: EVIOCGNAME,
@@ -251,6 +286,40 @@ sysfs /sys sysfs rw,relatime 0 0
                     else -> -1
                 }
                 if (nr == 136) { b.putInt(i + 8, 0xe3a00000.toInt()); n++ }
+            }
+            i += 4
+        }
+        return n
+    }
+
+    /**
+     * Static recovery stubs for syscalls the Android app sandbox (seccomp) answers with SIGSYS: umount (EABI 22) and
+     * umount2 (52) get `mvn r0,#21` (-EINVAL, "not a mount point"), syslog/klogctl (103; the stock recovery reads the
+     * kernel log into /tmp/kernel.log) gets `mov r0,#0` (an empty log). Same answers as qemu-senses patches 0072/0073.
+     * The stub is `mov r7,#nr; swi #0` (older bionic saves registers first: `stmfd sp!,{r4,r7}` / `mov ip,r7` /
+     * `mov ip,sp` within the three words before); the swi is replaced, so the stub's own error path sets errno and
+     * returns. Returns the number of stubs patched; Thumb stubs and already patched binaries give 0.
+     */
+    internal fun patchUmount(d: ByteArray): Int {
+        val b = java.nio.ByteBuffer.wrap(d).order(java.nio.ByteOrder.LITTLE_ENDIAN)
+        val answers = mapOf(
+            0xe3a07016.toInt() to 0xe3e00015.toInt(), // mov r7,#22  umount   -> r0 = -EINVAL
+            0xe3a07034.toInt() to 0xe3e00015.toInt(), // mov r7,#52  umount2  -> r0 = -EINVAL
+            0xe3a07067.toInt() to 0xe3a00000.toInt(), // mov r7,#103 syslog   -> r0 = 0
+        )
+        var n = 0
+        var i = 0
+        while (i + 8 <= d.size) {
+            val answer = answers[b.getInt(i)]
+            if (answer != null && b.getInt(i + 4) == 0xef000000.toInt()) {
+                var prologue = false
+                for (k in 1..3) {
+                    val o = i - 4 * k
+                    if (o < 0) break
+                    val p = b.getInt(o)
+                    if ((p and 0xffff0000.toInt()) == 0xe92d0000.toInt() || p == 0xe1a0c007.toInt() || p == 0xe1a0c00d.toInt()) { prologue = true; break }
+                }
+                if (prologue) { b.putInt(i + 4, answer); n++ }
             }
             i += 4
         }
@@ -702,7 +771,7 @@ sysfs /sys sysfs rw,relatime 0 0
 
     /** recovery.fstab in either column order: "<device> <mount> <type>" (newer) or "<mount> <type> <device>" (older) */
     private fun volumes(r: File): List<Vol> {
-        val fstab = listOf("etc/recovery.fstab", "etc/twrp.fstab").map { File(r, it) }.firstOrNull { it.isFile } ?: return emptyList()
+        val fstab = listOf("etc/recovery.fstab", "etc/twrp.fstab", "res/recovery.fstab").map { File(r, it) }.firstOrNull { it.isFile } ?: return emptyList()
         return fstab.readLines().mapNotNull { line ->
             val p = line.trim().takeIf { it.isNotEmpty() && !it.startsWith("#") }?.split(Regex("\\s+")) ?: return@mapNotNull null
             if (p.size < 3) null
@@ -732,7 +801,7 @@ sysfs /sys sysfs rw,relatime 0 0
         if (f.exists()) return
         val text = StringBuilder()
         for (v in volumes(r)) {
-            if (v.fs in setOf("ext4", "ext3", "ext2", "f2fs", "vfat", "ramdisk") && v.mount.length > 1 && v.mount.startsWith("/"))
+            if (v.fs in setOf("ext4", "ext3", "ext2", "f2fs", "vfat", "rfs", "ramdisk") && v.mount.length > 1 && v.mount.startsWith("/"))
                 text.append("${v.device} ${v.mount} ${if (v.fs == "ramdisk") "tmpfs" else v.fs} rw 0 0\n")
         }
         if (text.isNotEmpty()) runCatching { f.parentFile?.mkdirs(); f.writeText(text.toString()); f.setReadable(true, false) }

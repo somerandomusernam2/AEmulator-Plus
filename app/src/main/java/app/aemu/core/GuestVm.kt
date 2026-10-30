@@ -520,8 +520,12 @@ class GuestVm(val ctx: Context, val img: GuestImage, val lowPowerBoot: Boolean =
             .getOrNull()?.takeIf { it.size >= 2 }?.let { it[0] to it[1] } ?: (settings.width to settings.height)
         val r = RecoveryImage.dir(paths)
         runCatching { File(r, "tmp/recovery.log").delete() }
+        runCatching { File(paths.bin, "recovery.trace").delete() }
         // debugging: run/recovery.strace traces the guest's system calls into run/recovery.trace
-        val trace = if (File(paths.bin, "recovery.strace").exists()) listOf("-strace", "-D", File(paths.bin, "recovery.trace").absolutePath) else emptyList()
+        val trace = if (File(paths.bin, "recovery.strace").exists()) {
+            log("recovery: tracing system calls into run/recovery.trace")
+            listOf("-strace", "-D", File(paths.bin, "recovery.trace").absolutePath)
+        } else emptyList()
         val cmd = when {
             img.arch == GuestArch.ARM && img.settings.native32 && CpuInfo.hasAArch32 && !is64 -> listOf(File(r, "sbin/recovery").absolutePath)
             is64 -> listOf(qemu.absolutePath, "/sbin/recovery", File(r, "sbin/recovery").absolutePath)
@@ -577,6 +581,12 @@ class GuestVm(val ctx: Context, val img: GuestImage, val lowPowerBoot: Boolean =
             val req = if (pw.length() > 0) runCatching { pw.readText().trim() }.getOrDefault("") else ""
             if (req.isNotEmpty()) { runCatching { pw.writeText("") }; powerRequest(req); return@Thread }
             powerHandled = true
+            // 159 = 128 + SIGSYS: Android's app sandbox killed the translator inside a system call it does not allow, and says
+            // nothing. Trace the next try so the log names the call (run/recovery.trace, also in the saved recovery log).
+            if (code == 159) runCatching {
+                File(paths.bin, "recovery.strace").createNewFile()
+                log("recovery: killed by the sandbox (SIGSYS); the next try traces its system calls")
+            }
             // do not fall through to the system: keep the evidence and let the person choose (retry recovery / boot system)
             recoveryEnded("recovery process exited by itself (code $code) after ${(System.currentTimeMillis() - bootAt) / 1000.0} s",
                 "exit code $code")
@@ -605,6 +615,8 @@ class GuestVm(val ctx: Context, val img: GuestImage, val lowPowerBoot: Boolean =
                 append("=== host log (aemu.log) ===\n"); this@GuestVm.lines().forEach { append(it).append('\n') }
                 append("\n=== recovery tmp/recovery.log (last 400 lines) ===\n"); recLog.takeLast(400).forEach { append(it).append('\n') }
                 append("\n=== recovery stdout/stderr (run/recovery.out, last 400 lines) ===\n"); recOut.takeLast(400).forEach { append(it).append('\n') }
+                val tr = runCatching { File(paths.bin, "recovery.trace").readLines() }.getOrDefault(emptyList())
+                if (tr.isNotEmpty()) { append("\n=== system calls (run/recovery.trace, last 150 of ${tr.size} lines) ===\n"); tr.takeLast(150).forEach { append(it).append('\n') } }
             })
             log("recovery: log saved to run/recovery-last.log (it is kept across restarts and goes into the exported log bundle)")
         }.onFailure { log("recovery: could not save the log: ${it.message}") }
@@ -900,16 +912,62 @@ class GuestVm(val ctx: Context, val img: GuestImage, val lowPowerBoot: Boolean =
         // what init reads after /system/build.prop: the default properties of a system-only image (8.0+) and the
         // vendor's own files (on a Treble image the vendor side is the engine's). Only what the image does not say.
         val later = LinkedHashMap<String, String>()
-        for (n in listOf("system/etc/prop.default", "vendor/default.prop", "vendor/build.prop")) runCatching {
-            File(paths.root, n).takeIf { it.isFile }?.let { f -> PropArea.parseProps(f.readText()).forEach { (k, v) -> later.putIfAbsent(k, v) } }
+        // Modified for AEmulator Plus (2026-10-30): a single-tree image (Starnix Wear, Android 15/Baklava) keeps the
+        // vendor's build.prop outside /vendor, so ro.board.api_level and ro.vendor.build.version.sdk never reached the
+        // property area and linkerconfig aborted (zygote then exits with code 0: no ld.config.txt, no ART)
+        val vendorProps = listOf("vendor/build.prop", "system/vendor/build.prop", "vendor/etc/build.prop", "system/vendor/etc/build.prop")
+            .map { File(paths.root, it) }.filter { it.isFile }
+        val fileLists = listOf("system/etc/prop.default", "vendor/default.prop").map { File(paths.root, it) } + vendorProps
+        for (f in fileLists) runCatching {
+            if (f.isFile) PropArea.parseProps(f.readText()).forEach { (k, v) -> later.putIfAbsent(k, v) }
         }
+        if (vendorProps.isNotEmpty() && !File(paths.root, "vendor/build.prop").isFile) log("props: vendor properties read from ${vendorProps.first().relativeTo(paths.root).path}")
         // A firmware's own vendor built without VNDK (15+: no ro.vndk.version, the system has the unversioned LLNDK
         // list) must keep it unset - linkerconfig then gives the vendor the current LLNDK set; with the engine's
         // "34" it took VNDK 34's list and vendor libbinder lost libapexsupport.so.
-        val vndkLessVendor = File(paths.root, "vendor/build.prop").isFile && !later.containsKey("ro.vndk.version") &&
-            File(paths.root, "system/etc/llndk.libraries.txt").isFile
+        // (the LLNDK list is named llndk.libraries.txt, or llndk.libraries.<level>.txt, or with underscores on some trees)
+        val llndkList = listOf("system/etc", "system/system/etc", "vendor/etc").map { File(paths.root, it) }.any { d ->
+            d.listFiles().orEmpty().any { it.isFile && Regex("""llndk[._]libraries([._][0-9]+)?\.txt""").matches(it.name) }
+        }
+        // (a tree without any vendor build.prop - the engine then supplies the vendor side - is no different: the system's
+        // LLNDK list is all linkerconfig has to go by)
+        val vndkLessVendor = !later.containsKey("ro.vndk.version") && llndkList &&
+            (vendorProps.isNotEmpty() || File(paths.root, "apex").listFiles().orEmpty().none { it.name.startsWith("com.android.vndk.v") })
+        log("props: vendor build.prop files=${vendorProps.map { it.relativeTo(paths.root).path }}, llndk list=$llndkList, vndk-less=$vndkLessVendor")
+        // linkerconfig of a Baklava tree takes the vendor's API level from ro.board.api_level / ro.vendor.api_level and
+        // defines its vendor sanitizer variables from it; with neither it aborts. The tree says its LLNDK level.
+        if (vndkLessVendor && !later.containsKey("ro.board.api_level") && !later.containsKey("ro.vendor.api_level")) {
+            val llndk = runCatching { PropArea.parseProps(File(paths.root, "system/build.prop").readText())["ro.llndk.api_level"] }.getOrNull()
+                ?: kernel.props["ro.llndk.api_level"]
+            if (llndk != null) { later["ro.board.api_level"] = llndk; log("props: ro.board.api_level = $llndk (taken from ro.llndk.api_level)") }
+        }
+        // 11+: linkerconfig reads ro.vndk.version and aborts ("Unable to access VNDK APEX at /apex/com.android.vndk.v34",
+        // then a fatal check) when the tree has no com.android.vndk.v<that version>: a Wear or other non-generic image
+        // may carry other snapshots or none. With no /linkerconfig nothing finds its namespaces (libc stays, but ART,
+        // ICU, statsd... and every vendor program die with "library not found"). So the engine's default is moved to
+        // a version the tree has; with no VNDK package at all the property stays unset (the system's unversioned LLNDK
+        // list, as for a vendor built without VNDK).
+        val vndkPackages: List<Int>? =
+            if (engine == Engine.N64 && kernel.trebleLinkerConfig && File(paths.root, kernel.linkerConfigTool).isFile)
+                File(paths.root, "apex").listFiles().orEmpty().mapNotNull { d ->
+                    Regex("""com\.android\.vndk\.v(\d+)""").matchEntire(d.name)?.groupValues?.get(1)?.toIntOrNull()
+                        ?.takeIf { d.isDirectory && (File(d, "lib64").isDirectory || File(d, "lib").isDirectory) }
+                }.sorted()
+            else null
         if (engine == Engine.N64) kernel.propDefaults.forEach { (k, v) ->
-            if (!(vndkLessVendor && k == "ro.vndk.version")) later.putIfAbsent(k, v)
+            if (k == "ro.vndk.version") {
+                if (vndkLessVendor) return@forEach
+                if (vndkPackages != null) {
+                    val want = v.toIntOrNull()
+                    if (want != null && want !in vndkPackages) {
+                        val use = vndkPackages.lastOrNull { it <= want } ?: vndkPackages.firstOrNull()
+                        if (use == null) log("vndk: no com.android.vndk.v* package in the tree, ro.vndk.version left unset (engine default was $v)")
+                        else { log("vndk: com.android.vndk.v$v is not in the tree, ro.vndk.version = $use (has: ${vndkPackages.joinToString()})"); later.putIfAbsent(k, use.toString()) }
+                        return@forEach
+                    }
+                }
+            }
+            later.putIfAbsent(k, v)
         }
         if (engine == Engine.N64 && kernel.derivedIdentity) deriveIdentity(later)
         // Without Treble's own check (it needs SELinux), system_server of 12 compares the partitions' fingerprints
@@ -1059,6 +1117,7 @@ class GuestVm(val ctx: Context, val img: GuestImage, val lowPowerBoot: Boolean =
             val own = if (kernel.trebleLinkerConfig) props.privateCopy("linkerconfig", mapOf("ro.treble.enabled" to "true")) else null
             val (code, out) = r.run(listOf("/" + kernel.linkerConfigTool, "--target", "/linkerconfig"), 30_000,
                 if (own != null) mapOf("AEMU64_PROPS_FILE" to own.absolutePath) else emptyMap())
+            log("linkerconfig: exit $code, ld.config.txt=${File(paths.root, "linkerconfig/ld.config.txt").isFile}")
             if (code != 0 || !File(paths.root, "linkerconfig/ld.config.txt").isFile) log("linkerconfig: exit $code ${out.trim().let { if (it.length > 700) it.take(400) + " ... " + it.takeLast(300) else it }}")
         }
 
@@ -1066,7 +1125,19 @@ class GuestVm(val ctx: Context, val img: GuestImage, val lowPowerBoot: Boolean =
         if (engine == Engine.N64 && File(paths.root, "apex/com.android.sdkext/bin/derive_classpath").isFile) runCatching {
             val out = File(paths.root, "data/system/environ/classpath")
             out.parentFile?.mkdirs(); out.delete()
-            val (code, msg) = r.run(listOf("/apex/com.android.sdkext/bin/derive_classpath", "/data/system/environ/classpath"), 30_000)
+            // Modified for AEmulator Plus (2026-10-30): a Baklava tree that still reports sdk 35 / codename REL (Starnix
+            // Wear, "15/MAIN") has class path fragments whose jars say min_sdk_version "Baklava". derive_classpath then
+            // drops framework-graphics, framework-location, framework-nfc, framework-ranging, framework-virtualization and
+            // framework-crashrecovery from BOOTCLASSPATH ("not installing ... with min_sdk_version Baklava"), and
+            // zygote dies in SystemServiceRegistry (NoClassDefFoundError, no stack trace) and exits with code 0.
+            // Only the tool's own view of the codename is changed; every other process keeps the tree's properties.
+            val cpEnv = if (treeHasBaklavaClasspath()) {
+                props.privateCopy("derive_classpath", mapOf("ro.build.version.codename" to "Baklava"))?.let {
+                    log("derive_classpath: tree has Baklava-only jars, its own property copy says codename Baklava")
+                    mapOf("AEMU64_PROPS_FILE" to it.absolutePath)
+                } ?: emptyMap()
+            } else emptyMap()
+            val (code, msg) = r.run(listOf("/apex/com.android.sdkext/bin/derive_classpath", "/data/system/environ/classpath"), 30_000, cpEnv)
             if (code != 0 || !out.isFile) log("derive_classpath: exit $code ${msg.trim().takeLast(300)}")
             else r.derivedExports = out.readLines().mapNotNull { l -> l.trim().split(' ', limit = 3).takeIf { it.size == 3 && it[0] == "export" }?.let { it[1] to it[2] } }.toMap()
         }
@@ -1798,6 +1869,23 @@ class GuestVm(val ctx: Context, val img: GuestImage, val lowPowerBoot: Boolean =
     }
 
     /**
+     * True when the tree's class path fragments (system/etc/classpaths, apex/<name>/etc/classpaths) name a jar with
+     * min_sdk_version "Baklava" while the properties say an earlier release that is not the Baklava preview itself:
+     * derive_classpath would leave those jars out. A tree that really reports sdk 36+ or codename Baklava is left alone.
+     */
+    private fun treeHasBaklavaClasspath(): Boolean {
+        val sdk = props.get("ro.build.version.sdk")?.toIntOrNull() ?: return false
+        if (sdk >= 36 || props.get("ro.build.version.codename") == "Baklava") return false
+        val dirs = listOf(File(paths.root, "system/etc/classpaths")) +
+            File(paths.root, "apex").listFiles().orEmpty().map { File(it, "etc/classpaths") }
+        return dirs.any { d ->
+            d.listFiles().orEmpty().any { f ->
+                f.isFile && f.name.endsWith(".pb") && runCatching { String(f.readBytes(), Charsets.ISO_8859_1).contains("Baklava") }.getOrDefault(false)
+            }
+        }
+    }
+
+    /**
      * 12+: the generator of the linker's namespaces takes the active modules from /apex/apex-info-list.xml, which
      * apexd writes when it mounts them; here they are plain directories, so the list is written from their manifests.
      */
@@ -2400,6 +2488,8 @@ class GuestVm(val ctx: Context, val img: GuestImage, val lowPowerBoot: Boolean =
                     if (name == "mediaserver" && (code == 139 || code == 134) && n == 1) swapAudioPolicy()
                     // the AOSP stand-in crashed as well (different service ABI): keep the firmware's own policy for good
                     if (name == "mediaserver" && (code == 139 || code == 134) && n == 2) abandonAospPolicy()
+                    // Modified for AEmulator Plus (2026-10-30): the firmware's own policy behind the wrapper (ROM mode) crashed as well
+                    if (name == "mediaserver" && (code == 139 || code == 134) && n == 3) abandonRomPolicy()
                     // (init restarts every service that is not oneshot; a HAL that leaves when its only client, system_server, is
                     // restarted would otherwise keep the new system_server waiting for it forever)
                     val hal = name.contains("-hal-") && n < 3
@@ -2435,7 +2525,13 @@ class GuestVm(val ctx: Context, val img: GuestImage, val lowPowerBoot: Boolean =
         val parked = File(paths.root, "system/.aemu-parked/system#lib#hw#audio_policy.default.so")
         val failedMark = File(paths.root, "system/.aemu-parked/audio-aosp-failed")
         if (failedMark.isFile) { // the AOSP stand-in already crashed on this firmware: never install it again
-            if (parked.isFile) runCatching { parked.copyTo(f, overwrite = true); aosp.delete() }
+            // Modified for AEmulator Plus (2026-10-30): this used to put the firmware's own policy back on every boot, silently,
+            // and nothing else was ever tried (mediaserver crashed 12 times in a row, in the policy's constructor). The wrapper
+            // has a ROM mode for exactly this (the firmware's own policy behind it, binder thread pool started first):
+            // use it, and only when that crashes too (abandonRomPolicy) fall back to the bare firmware policy.
+            if (!File(paths.root, "system/.aemu-parked/audio-rom-failed").isFile && installRomPolicy()) return
+            if (parked.isFile) runCatching { parked.copyTo(f, overwrite = true); aosp.delete(); File(paths.root, "system/lib/libaemu_approm.so").delete() }
+                .onFailure { log("audio: cannot restore the firmware audio policy: ${it.message}") }
             return
         }
         // The previous stream-tail bug made mediaserver crash and triggered a
@@ -2445,6 +2541,7 @@ class GuestVm(val ctx: Context, val img: GuestImage, val lowPowerBoot: Boolean =
             AudioHalAbi.usesDirectTrackTail(File(paths.root, "system/lib/libnbaio.so").readBytes())
         }.getOrDefault(false)
         if (directTrack) {
+            log("audio: CAF direct-track build, the AOSP policy stand-in is not used")
             if (parked.isFile) runCatching {
                 parked.copyTo(f, overwrite = true) // retain saved stock binary
                 log("audio: CAF direct-track, restored firmware audio policy")
@@ -2464,9 +2561,10 @@ class GuestVm(val ctx: Context, val img: GuestImage, val lowPowerBoot: Boolean =
         // right after it is added): after three more crashes in a row it is taken out again for good, and mediaserver
         // runs as it did before the swap
         val bad = File(paths.root, "system/.aemu-parked/audio_policy.aosp-bad")
-        if (bad.isFile) return
+        if (bad.isFile) { log("audio: the AOSP policy stand-in was taken out earlier (audio_policy.aosp-bad), the firmware's policy stays"); return }
         fun assetSize(n: String) = runCatching { EngineAssets.size(ctx, "engines/kk/$n") }.getOrDefault(-1L)
         if (aosp.length() == assetSize("audio_policy.default.so") && f.length() == assetSize("audio_policy.wrap.so")) {
+            fixAospPolicyLibc(aosp) // a stand-in installed by an earlier build may still name helpers this libc lacks
             if (!crashed) return
             runCatching {
                 bad.parentFile?.mkdirs(); bad.writeText("")
@@ -2481,8 +2579,31 @@ class GuestVm(val ctx: Context, val img: GuestImage, val lowPowerBoot: Boolean =
             if (!parked.isFile && f.isFile) f.copyTo(parked, overwrite = true)
             EngineAssets.open(ctx, "engines/kk/audio_policy.default.so").use { i -> aosp.outputStream().use { o -> i.copyTo(o) } }
             EngineAssets.open(ctx, "engines/kk/audio_policy.wrap.so").use { i -> f.outputStream().use { o -> i.copyTo(o) } }
+            fixAospPolicyLibc(aosp)
             log("audio: firmware audio_policy crashes, installed AOSP one (stock kept)")
-        }
+        }.onFailure { log("audio: cannot install the AOSP policy stand-in: ${it.message}") }
+    }
+
+    /**
+     * The AOSP policy stand-in is built for a newer libc than Android 4.1 has (no __strlen_chk): its linker then refuses
+     * the library, the wrapper answers -EINVAL and the whole audio service is left without a policy (see ElfAlias).
+     * References to fortify helpers this firmware's libc lacks are pointed at the plain functions, and whatever else is
+     * still unresolved is logged so the next missing symbol is named in the log instead of found by trial.
+     */
+    private fun fixAospPolicyLibc(aosp: File) {
+        runCatching {
+            val libc = File(paths.root, "system/lib/libc.so")
+            if (!aosp.isFile || !libc.isFile) return@runCatching
+            var bytes = aosp.readBytes()
+            val fixed = ElfAlias.aliasMissing(bytes, libc.readBytes())
+            if (fixed != null) {
+                aosp.writeBytes(fixed.bytes)
+                bytes = fixed.bytes
+                log("audio: AOSP policy stand-in pointed at plain functions this libc has (${fixed.renamed.joinToString()})")
+            }
+            val left = ElfAlias.unresolved(bytes, File(paths.root, "system/lib"))
+            if (left.isNotEmpty()) log("audio: AOSP policy stand-in still has symbols this firmware does not define: ${left.take(12).joinToString()}")
+        }.onFailure { log("audio: AOSP policy libc check failed: ${it.message}") }
     }
 
     /**
@@ -2522,6 +2643,61 @@ class GuestVm(val ctx: Context, val img: GuestImage, val lowPowerBoot: Boolean =
             File(paths.root, "system/.aemu-parked/audio-aosp-failed").writeText("1")
             log("audio: AOSP policy crashed too, restored the firmware's own audio policy")
         }.onFailure { log("audio: cannot restore firmware audio policy: ${it.message}") }
+        // Modified for AEmulator Plus (2026-10-30): the next start runs the firmware's policy behind the wrapper's ROM mode
+        installRomPolicy()
+    }
+
+    /**
+     * Added for AEmulator Plus, 2026-10-30. Runs the firmware's own audio policy behind the engine's wrapper in ROM mode:
+     * the firmware's library goes to /system/lib/libaemu_approm.so (the name the wrapper dlopen()s first, see
+     * native/apwrap/apwrap.c) and the wrapper becomes hw/audio_policy.default.so. In that mode every slot goes straight to
+     * the firmware's policy, but the binder thread pool is started before the policy's constructor runs: the policy
+     * calls AudioFlinger of the same process (binderd hands a process its own service as a proxy) while it builds its
+     * outputs, and without a pool thread to answer those calls the constructor works on half-initialised state.
+     * Nothing installed this file before: ROM mode was never reached, and a firmware whose policy crashes in its
+     * constructor (Samsung GT-I8260 4.1.2: SIGSEGV in audio_policy.default.so +0x9d98, NULL object, every start, 12 restarts)
+     * was left with the bare firmware policy for good. Returns true when the wrapper is in place.
+     */
+    private fun installRomPolicy(): Boolean {
+        val dir = File(paths.root, "system/.aemu-parked")
+        val f = File(paths.root, "system/lib/hw/audio_policy.default.so")
+        val parked = File(dir, "system#lib#hw#audio_policy.default.so")
+        val approm = File(paths.root, "system/lib/libaemu_approm.so")
+        val marker = File(dir, "audio-rom-wrap")
+        return runCatching {
+            val wrapSize = runCatching { EngineAssets.size(ctx, "engines/kk/audio_policy.wrap.so") }.getOrDefault(-1L)
+            if (wrapSize <= 0) error("the engine has no audio_policy.wrap.so")
+            dir.mkdirs()
+            // the firmware's own library: the parked copy, or the live file when nothing was parked yet and it is not the wrapper
+            if (!parked.isFile) {
+                if (f.isFile && f.length() != wrapSize) f.copyTo(parked, overwrite = true)
+                else error("no firmware audio policy to run")
+            }
+            if (marker.isFile && f.length() == wrapSize && approm.isFile && approm.length() == parked.length()) return@runCatching true
+            parked.copyTo(approm, overwrite = true)
+            approm.setReadable(true, false); approm.setExecutable(true, false)
+            EngineAssets.open(ctx, "engines/kk/audio_policy.wrap.so").use { i -> f.outputStream().use { o -> i.copyTo(o) } }
+            f.setReadable(true, false); f.setExecutable(true, false)
+            File(paths.root, "system/lib/libaemu_apaosp.so").delete()
+            marker.writeText("1")
+            log("audio: firmware audio policy runs behind the engine wrapper (binder thread pool started before the policy)")
+            true
+        }.getOrElse { log("audio: cannot put the firmware audio policy behind the wrapper: ${it.message}"); false }
+    }
+
+    /** The wrapper's ROM mode crashed too: the bare firmware policy goes back for good, and the reason is in the log. */
+    private fun abandonRomPolicy() {
+        val dir = File(paths.root, "system/.aemu-parked")
+        if (!File(dir, "audio-rom-wrap").isFile) return
+        val f = File(paths.root, "system/lib/hw/audio_policy.default.so")
+        val parked = File(dir, "system#lib#hw#audio_policy.default.so")
+        runCatching {
+            if (parked.isFile) parked.copyTo(f, overwrite = true)
+            File(paths.root, "system/lib/libaemu_approm.so").delete()
+            File(dir, "audio-rom-wrap").delete()
+            File(dir, "audio-rom-failed").writeText("1")
+            log("audio: the firmware policy crashed behind the wrapper as well, its own library is back (no wrapper, no AOSP stand-in)")
+        }.onFailure { log("audio: cannot take the policy wrapper out: ${it.message}") }
     }
 
     private val bootAnimCheckRunning = java.util.concurrent.atomic.AtomicBoolean(false)

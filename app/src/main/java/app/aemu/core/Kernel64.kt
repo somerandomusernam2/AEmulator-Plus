@@ -459,7 +459,12 @@ enum class Kernel64(
             // (netd of 14 waits for init to report that the network BPF loader has finished)
             "init.svc.mdnsd_netbpfload" to "stopped",
             "dalvik.vm.dex2oat-threads" to "2", "dalvik.vm.background-dex2oat-threads" to "1", "dalvik.vm.boot-dex2oat-threads" to "2"),
-        procFiles = mapOf("tp_lockdown_info" to "4636320131320200\n"),
+        procFiles = mapOf("tp_lockdown_info" to "4636320131320200\n",
+            // (system_server of 14 asks the kernel configuration whether stacks are vmapped (Debug.isVmapStack, first
+            // call from the ActivityManager thread) and aborts without one: "Could not open /proc/config.gz: 13",
+            // "Check failed: result == OK Kernel configs could not be fetched", zygote exit 137. The firmware has no
+            // 64-bit side, so the file is read through qemu-arm, which takes the tree's proc/config.gz when it exists)
+            "config.gz" to "CONFIG_ARM64=y\nCONFIG_64BIT=y\nCONFIG_VMAP_STACK=y\n"),
         // (a generic system image of 14 carries the VNDK of 29..34 only, and its linkerconfig aborts on a version it
         // has no package of; the engine's HAL services find their own VNDK 28 copy by ownVndkDir)
         // (the software KeyMint inside keystore2 waits for the vendor's patch level property to exist, for ever over

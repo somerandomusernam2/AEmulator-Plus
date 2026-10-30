@@ -325,7 +325,7 @@
     <string name="vs_strace">Трасування системних викликів служб</string>
     <string name="vs_strace_sub">Назви служб через кому, наприклад mediaserver,zygote. Уповільнює ці служби й записує трасування в їхні журнали. Застосовується під час наступного завантаження.</string>
     <string name="vs_wifi">Мережа Wi-Fi</string>
-    <string name="vs_wifi_sub">Показує ВМ інтернет хоста як підключену мережу Wi-Fi замість Ethernet. Android 4.0–7.x. Застосовується під час наступного завантаження.</string>
+    <string name="vs_wifi_sub">Показує ВМ інтернет хоста як підключену мережу Wi-Fi замість Ethernet. Android 2.3, 4.0–7.x. Застосовується під час наступного завантаження.</string>
     <string name="vs_wifi_ssid">Назва мережі (SSID)</string>
     <string name="vs_wifi_ssid_sub">До 32 байтів</string>
     <string name="vs_wifi_ssid_error">Назва мережі не може бути порожньою</string>

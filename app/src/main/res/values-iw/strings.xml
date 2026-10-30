@@ -132,7 +132,7 @@
     <string name="vs_strace">עקוב אחר קריאות מערכת של שירותים</string>
     <string name="vs_strace_sub">שמות שירותים מופרדים בפסיקים, למשל mediaserver,zygote. מאט את השירותים האלה וכותב את המעקב ליומנים שלהם. מוחל באתחול הבא.</string>
     <string name="vs_wifi">רשת Wi-Fi</string>
-    <string name="vs_wifi_sub">מציג את האינטרנט של המארח למכונה הווירטואלית כרשת Wi-Fi מחוברת במקום Ethernet. ‏Android 4.0–7.x. מוחל באתחול הבא.</string>
+    <string name="vs_wifi_sub">מציג את האינטרנט של המארח למכונה הווירטואלית כרשת Wi-Fi מחוברת במקום Ethernet. ‏Android 2.3, 4.0–7.x. מוחל באתחול הבא.</string>
     <string name="vs_wifi_ssid">שם הרשת (SSID)</string>
     <string name="vs_wifi_ssid_sub">עד 32 בייטים</string>
     <string name="vs_wifi_ssid_error">שם הרשת לא יכול להיות ריק</string>

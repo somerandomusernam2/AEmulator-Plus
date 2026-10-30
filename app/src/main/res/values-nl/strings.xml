@@ -133,7 +133,7 @@
     <string name="vs_strace">Systeemaanroepen van services traceren</string>
     <string name="vs_strace_sub">Servicenamen gescheiden door komma’s, bijv. mediaserver,zygote. Vertraagt die services en schrijft de trace naar hun logs. Wordt toegepast bij de volgende start.</string>
     <string name="vs_wifi">Wifi-netwerk</string>
-    <string name="vs_wifi_sub">Toont het internet van de host aan de VM als een verbonden wifi-netwerk in plaats van Ethernet. Android 4.0–7.x. Wordt toegepast bij de volgende start.</string>
+    <string name="vs_wifi_sub">Toont het internet van de host aan de VM als een verbonden wifi-netwerk in plaats van Ethernet. Android 2.3, 4.0–7.x. Wordt toegepast bij de volgende start.</string>
     <string name="vs_wifi_ssid">Netwerknaam (SSID)</string>
     <string name="vs_wifi_ssid_sub">Maximaal 32 bytes</string>
     <string name="vs_wifi_ssid_error">De netwerknaam mag niet leeg zijn</string>

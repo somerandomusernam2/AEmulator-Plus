@@ -133,7 +133,7 @@
     <string name="vs_strace">Проследяване на системните извиквания на услугите</string>
     <string name="vs_strace_sub">Имена на услуги, разделени със запетаи, напр. mediaserver,zygote. Забавя тези услуги и записва проследяването в техните дневници. Прилага се при следващото зареждане.</string>
     <string name="vs_wifi">Wi-Fi мрежа</string>
-    <string name="vs_wifi_sub">Показва интернета на хоста на виртуалната машина като свързана Wi-Fi мрежа вместо Ethernet. Android 4.0–7.x. Прилага се при следващото зареждане.</string>
+    <string name="vs_wifi_sub">Показва интернета на хоста на виртуалната машина като свързана Wi-Fi мрежа вместо Ethernet. Android 2.3, 4.0–7.x. Прилага се при следващото зареждане.</string>
     <string name="vs_wifi_ssid">Име на мрежата (SSID)</string>
     <string name="vs_wifi_ssid_sub">До 32 байта</string>
     <string name="vs_wifi_ssid_error">Името на мрежата не може да бъде празно</string>

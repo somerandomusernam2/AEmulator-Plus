@@ -133,7 +133,7 @@
     <string name="vs_strace">Urmărește apelurile de sistem ale serviciilor</string>
     <string name="vs_strace_sub">Numele serviciilor separate prin virgulă, de ex. mediaserver,zygote. Încetinește aceste servicii și scrie urmărirea în jurnalele lor. Se aplică la următoarea pornire.</string>
     <string name="vs_wifi">Rețea Wi-Fi</string>
-    <string name="vs_wifi_sub">Arată internetul gazdei către VM ca pe o rețea Wi-Fi conectată, în loc de Ethernet. Android 4.0–7.x. Se aplică la următoarea pornire.</string>
+    <string name="vs_wifi_sub">Arată internetul gazdei către VM ca pe o rețea Wi-Fi conectată, în loc de Ethernet. Android 2.3, 4.0–7.x. Se aplică la următoarea pornire.</string>
     <string name="vs_wifi_ssid">Numele rețelei (SSID)</string>
     <string name="vs_wifi_ssid_sub">Până la 32 de octeți</string>
     <string name="vs_wifi_ssid_error">Numele rețelei nu poate fi gol</string>

@@ -133,7 +133,7 @@
     <string name="vs_strace">Ανίχνευση κλήσεων συστήματος των υπηρεσιών</string>
     <string name="vs_strace_sub">Ονόματα υπηρεσιών χωρισμένα με κόμματα, π.χ. mediaserver,zygote. Επιβραδύνει αυτές τις υπηρεσίες και γράφει το ίχνος στα αρχεία καταγραφής τους. Εφαρμόζεται στην επόμενη εκκίνηση.</string>
     <string name="vs_wifi">Δίκτυο Wi-Fi</string>
-    <string name="vs_wifi_sub">Εμφανίζει το διαδίκτυο του κεντρικού υπολογιστή στο VM ως συνδεδεμένο δίκτυο Wi-Fi αντί για Ethernet. Android 4.0–7.x. Εφαρμόζεται στην επόμενη εκκίνηση.</string>
+    <string name="vs_wifi_sub">Εμφανίζει το διαδίκτυο του κεντρικού υπολογιστή στο VM ως συνδεδεμένο δίκτυο Wi-Fi αντί για Ethernet. Android 2.3, 4.0–7.x. Εφαρμόζεται στην επόμενη εκκίνηση.</string>
     <string name="vs_wifi_ssid">Όνομα δικτύου (SSID)</string>
     <string name="vs_wifi_ssid_sub">Έως 32 byte</string>
     <string name="vs_wifi_ssid_error">Το όνομα δικτύου δεν μπορεί να είναι κενό</string>

@@ -133,7 +133,7 @@
     <string name="vs_strace">ติดตามการเรียกระบบของบริการ</string>
     <string name="vs_strace_sub">ชื่อบริการคั่นด้วยจุลภาค เช่น mediaserver,zygote ทำให้บริการเหล่านั้นช้าลงและเขียนผลการติดตามลงในล็อกของบริการ มีผลเมื่อบูตครั้งถัดไป</string>
     <string name="vs_wifi">เครือข่าย Wi-Fi</string>
-    <string name="vs_wifi_sub">แสดงอินเทอร์เน็ตของโฮสต์ให้ VM เห็นเป็นเครือข่าย Wi-Fi ที่เชื่อมต่ออยู่ แทนที่จะเป็นอีเทอร์เน็ต Android 4.0–7.x มีผลเมื่อบูตครั้งถัดไป</string>
+    <string name="vs_wifi_sub">แสดงอินเทอร์เน็ตของโฮสต์ให้ VM เห็นเป็นเครือข่าย Wi-Fi ที่เชื่อมต่ออยู่ แทนที่จะเป็นอีเทอร์เน็ต Android 2.3, 4.0–7.x มีผลเมื่อบูตครั้งถัดไป</string>
     <string name="vs_wifi_ssid">ชื่อเครือข่าย (SSID)</string>
     <string name="vs_wifi_ssid_sub">ไม่เกิน 32 ไบต์</string>
     <string name="vs_wifi_ssid_error">ชื่อเครือข่ายต้องไม่ว่างเปล่า</string>

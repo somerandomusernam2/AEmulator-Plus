@@ -31,7 +31,12 @@ class WifiEmuTest {
         assertTrue(WifiEmu.supported(Engine.KK, 14, false, false))
         assertTrue(WifiEmu.supported(Engine.KK, 19, false, false))
         assertTrue(WifiEmu.supported(Engine.KK, 25, false, false))
-        assertFalse(WifiEmu.supported(Engine.KK, 13, false, false))
+        assertTrue(WifiEmu.supported(Engine.KK, 9, false, false))   // Gingerbread 2.3
+        assertTrue(WifiEmu.supported(Engine.KK, 10, false, false))  // Gingerbread 2.3.3-2.3.7
+        assertFalse(WifiEmu.supported(Engine.KK, 8, false, false))  // Froyo
+        for (api in 11..13) assertFalse(WifiEmu.supported(Engine.KK, api, false, false)) // Honeycomb: not looked at
+        assertFalse(WifiEmu.supported(Engine.GB, 10, false, false))
+        assertFalse(WifiEmu.supported(Engine.KK, 10, true, false))
         assertFalse(WifiEmu.supported(Engine.KK, 26, false, false))
         assertFalse(WifiEmu.supported(Engine.GB, 19, false, false))
         assertFalse(WifiEmu.supported(Engine.KK, 19, true, false))
