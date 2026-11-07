@@ -1032,7 +1032,12 @@ class VmActivity : ComponentActivity() {
                     Text(stringResource(R.string.log), style = MaterialTheme.typography.titleLarge, modifier = Modifier.weight(1f),
                         maxLines = 1, overflow = TextOverflow.Ellipsis)
                     IconButton(onClick = { copyLog(list.toList()) }) { Icon(Icons.Rounded.ContentCopy, stringResource(R.string.log_copy)) }
-                    IconButton(onClick = { pendingExport = list.toList(); exportLog.launch("aemu-${vm.img.id}-${if (guestTab) "logcat" else "host"}.log") }) {
+                    IconButton(onClick = {
+                        // the whole run, not the lines on the screen: what killed a boot is usually far above them
+                        val shown = list.toList()
+                        pendingExport = if (guestTab) ({ fullGuestLog().ifEmpty { shown } }) else ({ fullHostLog().ifEmpty { shown } })
+                        exportLog.launch("aemu-${vm.img.id}-${if (guestTab) "logcat" else "host"}.log")
+                    }) {
                         Icon(Icons.Rounded.Download, stringResource(R.string.log_export))
                     }
                     FilledTonalIconButton(onClick = onClose) { Icon(Icons.Rounded.Close, stringResource(R.string.close)) }
@@ -1123,14 +1128,34 @@ class VmActivity : ComponentActivity() {
         }
     }
 
-    private var pendingExport: List<String> = emptyList()
+    private var pendingExport: () -> List<String> = { emptyList() }
     private val exportLog = registerForActivityResult(ActivityResultContracts.CreateDocument("text/plain")) { uri ->
         if (uri == null) return@registerForActivityResult
         val lines = pendingExport
         thread {
-            val ok = runCatching { contentResolver.openOutputStream(uri)!!.bufferedWriter().use { w -> lines.forEach { w.write(it); w.write("\n") } } }.isSuccess
+            val ok = runCatching { contentResolver.openOutputStream(uri)!!.bufferedWriter().use { w -> lines().forEach { w.write(it); w.write("\n") } } }.isSuccess
             runOnUiThread { Toast.makeText(this, if (ok) R.string.log_exported else R.string.log_export_failed, Toast.LENGTH_SHORT).show() }
         }
+    }
+
+    /** this run's host log as written to run/aemu.log (the screen keeps only its last 400 lines) */
+    private fun fullHostLog(): List<String> =
+        runCatching { java.io.File(vm.paths.bin, "aemu.log").readLines() }.getOrDefault(emptyList())
+
+    /** every buffer of the guest's log in this run (8 MB at most from the end of each), like `logcat -b all -d` */
+    private fun fullGuestLog(): List<String> {
+        val out = ArrayList<String>()
+        val dir = java.io.File(vm.paths.root, "dev/log")
+        val names = (listOf("main", "system", "crash", "radio") + (dir.list()?.sorted() ?: emptyList())).distinct().filter { it != "events" }
+        for (b in names) {
+            val f = java.io.File(dir, b)
+            if (!f.isFile || f.length() == 0L) continue
+            val recs = GuestLog.tail(vm.paths.root, 8 shl 20, b)
+            if (recs.isEmpty()) continue
+            out += "--------- beginning of $b"
+            recs.mapTo(out) { "${it.prio}/${it.tag}: ${it.msg.trimEnd('\n')}" }
+        }
+        return out
     }
 
     private fun copyLog(lines: List<String>) {

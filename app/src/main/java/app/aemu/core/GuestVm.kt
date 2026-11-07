@@ -661,7 +661,9 @@ class GuestVm(val ctx: Context, val img: GuestImage) {
                 waitFor("GL bridge socket", 10_000) { paths.glSock.exists() }
             }
             Engine.KK -> {
-                if (surface == null) waitFor("screen surface", 10_000) { surface != null }
+                // only the in-app bridge (below 5.0) draws on the screen's surface; from 5.0 on the view is not even shown,
+                // and waiting for it only held every boot back by 10 s
+                if (surface == null && img.api < 21) waitFor("screen surface", 10_000) { surface != null }
                 val sf = surface
                 HostNative.relaxFdsanSafe()
                 // 5.0+: hwui's GL stream has crashed the in-app bridge (SIGSEGV in serve_one_raw took the whole app down);
@@ -775,13 +777,38 @@ class GuestVm(val ctx: Context, val img: GuestImage) {
                 }
             }
             val code = runCatching { p.waitFor() }.getOrDefault(-1)
-            if (!stopping) log("· $name exited, code $code")
+            if (!stopping) {
+                log("· $name exited, code $code")
+                // (not the ones stopped here: SIGKILL 137, SIGTERM 143)
+                if (code != 0 && code != 137 && code != 143) runCatching { crashContext(name, log) }
+            }
             // a restarted service is already running again under this name
             synchronized(procs) { if (procs[name].let { it == null || it === p }) props.put("init.svc.$name", "stopped") }
         }, "log-$name").apply { isDaemon = true; start() }
     }
 
     private fun alive(): List<String> = synchronized(procs) { procs.filterValues { it.isAlive }.keys.toList() }
+
+    /**
+     * Why a service ended, in the host log people send: the last lines it printed in this run (the translator's
+     * "uncaught target signal", the linker's "CANNOT LINK EXECUTABLE", an abort message) and the guest's fatal records
+     * that name it. Both stay in the app's own files otherwise, where a user cannot reach them.
+     */
+    private fun crashContext(name: String, file: File) {
+        val text = java.io.RandomAccessFile(file, "r").use { r ->
+            val n = minOf(r.length(), 64L * 1024).toInt()
+            r.seek(r.length() - n)
+            String(ByteArray(n).also { r.readFully(it) }, Charsets.UTF_8)
+        }
+        val run = text.substringAfterLast("=== $name ", "").substringAfter('\n', "")
+        val own = run.lines().map { it.trim() }.filter { it.isNotEmpty() }.takeLast(6)
+        val guest = GuestLog.tail(paths.root, 256 * 1024).filter { r ->
+            (r.prio == 'F' || r.msg.contains("Fatal signal") || r.tag == "DEBUG") && (r.msg.contains(name) || r.tag == name) ||
+                r.tag == name && r.prio == 'E'
+        }.takeLast(4).map { "${it.prio}/${it.tag}: ${it.msg.trim()}" }
+        for (l in own) log("  │ ${l.take(220)}")
+        for (l in guest) log("  │ guest ${l.take(220)}")
+    }
 
     private fun waitFor(what: String, ms: Long, cond: () -> Boolean): Boolean {
         val until = SystemClock.uptimeMillis() + ms
@@ -1056,16 +1083,17 @@ class GuestVm(val ctx: Context, val img: GuestImage) {
                     val p = synchronized(procs) { procs[name] } ?: continue
                     val code = runCatching { p.exitValue() }.getOrDefault(-1)
                     if (name == "zygote" || name == "zygote_secondary") {
-                        if (state != State.FAILED && bootDoneAt == 0L && !(everBooted && zygoteRestarts < 6)) {
-                            failure = "$name exited (code $code)" + if (code == 137) " — killed: the phone ran out of memory, or system_server died and took zygote with it (see the guest log)" else ""
-                            if (code == 137 && guestLogHas("No original dex files found"))
-                                failure = "system_server cannot start: the precompiled code of the framework (system/framework/oat) is missing from this container — import the firmware again"
-                            log("✖ $failure"); setState(State.FAILED)
-                        } else if (plannedRestart) {
+                        // (a restart asked for here comes first: before the first boot it is not a failure)
+                        if (plannedRestart && name == "zygote") {
                             plannedRestart = false
                             killZygoteChildren()
                             TreeFixer(ctx, paths, img, ::log).noScreenSleep()
                             restartZygote()
+                        } else if (state != State.FAILED && bootDoneAt == 0L && !(everBooted && zygoteRestarts < 6)) {
+                            failure = "$name exited (code $code)" + if (code == 137) " — killed: the phone ran out of memory, or system_server died and took zygote with it (see the guest log)" else ""
+                            if (code == 137 && guestLogHas("No original dex files found"))
+                                failure = "system_server cannot start: the precompiled code of the framework (system/framework/oat) is missing from this container — import the firmware again"
+                            log("✖ $failure"); setState(State.FAILED)
                         } else if (bootDoneAt > 0 || everBooted) {
                             zygoteRestarts++
                             val now = System.currentTimeMillis()
@@ -1080,12 +1108,34 @@ class GuestVm(val ctx: Context, val img: GuestImage) {
                                 restartZygote()
                             }
                         }
-                        synchronized(procs) { procs.remove(name) }
+                        // only the dead one: restartZygote has put the new zygote under the same name, and removing that
+                        // left it unwatched (a later crash went unnoticed, and the next restart found no zygote to stop)
+                        synchronized(procs) { if (procs[name] === p) procs.remove(name) }
                         continue
                     }
                     val n = restarts.getOrDefault(name, 0)
                     val svc = img.services.firstOrNull { it.name == name }
                         ?: if (name.contains("-hal-") && n < 3) servicePlan().firstOrNull { it.name == name } else null
+                    // before the first boot too: init does the same at any time, and here the boot stayed on a black
+                    // screen for good. Two tries; a compositor that dies a third time will not come up.
+                    if (name == "surfaceflinger" && svc != null && bootDoneAt == 0L && !everBooted) {
+                        synchronized(procs) { procs.remove(name) }
+                        if (n >= 2) {
+                            failure = "surfaceflinger keeps crashing before the system is up (code $code, ${n + 1} times)" +
+                                if (settings.gpu) " — try with GPU acceleration off in this firmware's settings" else ""
+                            log("✖ $failure"); setState(State.FAILED)
+                            continue
+                        }
+                        restarts[name] = n + 1
+                        log("✖ surfaceflinger crashed during boot (code $code), restarting it (${n + 1}/2)")
+                        runCatching { startService(svc) }
+                        // and zygote, if it runs already: its system_server holds the dead compositor
+                        synchronized(procs) { procs["zygote"] }?.let { z ->
+                            plannedRestart = true
+                            pidOf(z)?.let { runCatching { AProcess.sendSignal(it, 9) } }
+                        }
+                        continue
+                    }
                     // init restarts surfaceflinger and then zygote ("onrestart restart zygote"); without that a
                     // crashed compositor leaves the last frame on screen forever
                     if (name == "surfaceflinger" && svc != null && bootDoneAt > 0 && n < 12) {
