@@ -20,7 +20,7 @@ AEmulator सीधे फ़र्मवेयर फ़ाइल से अस
 
 ## ✨ विशेषताएँ
 
-- लगभग हर फ़ॉर्मेट आयात करें: CWM/TWRP ZIP, Samsung Odin `.tar.md5`, Google फ़ैक्टरी `.tgz`, `system.img`, OTA `system.new.dat.br`
+- लगभग हर फ़ॉर्मेट आयात करें: CWM/TWRP ZIP, Samsung Odin `.tar.md5`, Google फ़ैक्टरी `.tgz`, `system.img`, OTA `system.new.dat.br`, Huawei `UPDATE.APP`, Xiaomi fastboot `super.zst`
 - कंपनियों के स्किन जैसे हैं वैसे चलते हैं: HTC Sense, Samsung TouchWiz, MIUI, AOSP
 - GL ब्रिज से हार्डवेयर ग्राफ़िक्स, आवाज़, टच और मल्टीटच, आधुनिक TLS प्रॉक्सी के साथ नेटवर्क
 - APK, संगीत और फ़ोटो के लिए साझा मेमोरी कार्ड फ़ोल्डर

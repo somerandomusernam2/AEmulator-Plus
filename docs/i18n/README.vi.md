@@ -20,7 +20,7 @@ AEmulator khởi động một hệ thống Android 2.3–17 thật trực tiế
 
 ## ✨ Tính năng
 
-- Nhập gần như mọi định dạng: ZIP CWM/TWRP, Odin `.tar.md5` của Samsung, factory `.tgz` của Google, `system.img`, OTA `system.new.dat.br`
+- Nhập gần như mọi định dạng: ZIP CWM/TWRP, Odin `.tar.md5` của Samsung, factory `.tgz` của Google, `system.img`, OTA `system.new.dat.br`, `UPDATE.APP` của Huawei, fastboot `super.zst` của Xiaomi
 - Giao diện hãng chạy nguyên bản: HTC Sense, Samsung TouchWiz, MIUI, AOSP
 - Đồ họa phần cứng qua cầu GL, âm thanh, cảm ứng và đa điểm, mạng với proxy TLS hiện đại
 - Thư mục thẻ nhớ dùng chung cho APK, nhạc và ảnh

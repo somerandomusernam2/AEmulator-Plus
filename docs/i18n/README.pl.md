@@ -20,7 +20,7 @@ AEmulator uruchamia prawdziwy system Android 2.3–17 prosto z pliku firmware: Z
 
 ## ✨ Funkcje
 
-- Import niemal każdego formatu: ZIP CWM/TWRP, Odin `.tar.md5` Samsunga, obraz fabryczny Google `.tgz`, `system.img`, OTA `system.new.dat.br`
+- Import niemal każdego formatu: ZIP CWM/TWRP, Odin `.tar.md5` Samsunga, obraz fabryczny Google `.tgz`, `system.img`, OTA `system.new.dat.br`, `UPDATE.APP` Huawei, fastboot `super.zst` Xiaomi
 - Nakładki producentów działają bez zmian: HTC Sense, Samsung TouchWiz, MIUI, AOSP
 - Sprzętowa grafika przez mostek GL, dźwięk, dotyk i multitouch, sieć z nowoczesnym proxy TLS
 - Wspólny folder karty pamięci na APK, muzykę i zdjęcia

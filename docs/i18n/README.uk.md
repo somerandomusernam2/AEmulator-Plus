@@ -20,7 +20,7 @@ AEmulator завантажує справжню систему Android 2.3–17 
 
 ## ✨ Можливості
 
-- Імпорт майже будь-яких форматів: ZIP для CWM/TWRP, Odin `.tar.md5` від Samsung, factory `.tgz` від Google, `system.img`, OTA `system.new.dat.br`
+- Імпорт майже будь-яких форматів: ZIP для CWM/TWRP, Odin `.tar.md5` від Samsung, factory `.tgz` від Google, `system.img`, OTA `system.new.dat.br`, `UPDATE.APP` від Huawei, fastboot `super.zst` від Xiaomi
 - Оболонки виробників працюють як є: HTC Sense, Samsung TouchWiz, MIUI, AOSP
 - Апаратна графіка через GL-міст, звук, дотики й мультитач, мережа із сучасним TLS-проксі
 - Спільна папка «карти пам’яті» для APK, музики й фото

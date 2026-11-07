@@ -20,7 +20,7 @@ AEmulator mem-boot sistem Android 2.3–17 asli langsung dari file firmware: ZIP
 
 ## ✨ Fitur
 
-- Impor hampir semua format: ZIP CWM/TWRP, Odin `.tar.md5` Samsung, factory image Google `.tgz`, `system.img`, OTA `system.new.dat.br`
+- Impor hampir semua format: ZIP CWM/TWRP, Odin `.tar.md5` Samsung, factory image Google `.tgz`, `system.img`, OTA `system.new.dat.br`, `UPDATE.APP` Huawei, fastboot `super.zst` Xiaomi
 - Tampilan pabrikan berjalan apa adanya: HTC Sense, Samsung TouchWiz, MIUI, AOSP
 - Grafis hardware lewat jembatan GL, suara, sentuh dan multisentuh, jaringan dengan proxy TLS modern
 - Folder kartu memori bersama untuk APK, musik, dan foto

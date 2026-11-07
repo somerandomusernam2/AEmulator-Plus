@@ -20,7 +20,7 @@ AEmulator はファームウェアファイルから本物の Android 2.3〜17 �
 
 ## ✨ 特長
 
-- ほぼすべての形式をインポート：CWM/TWRP ZIP、Samsung Odin `.tar.md5`、Google ファクトリー `.tgz`、`system.img`、OTA `system.new.dat.br`
+- ほぼすべての形式をインポート：CWM/TWRP ZIP、Samsung Odin `.tar.md5`、Google ファクトリー `.tgz`、`system.img`、OTA `system.new.dat.br`、Huawei `UPDATE.APP`、Xiaomi fastboot `super.zst`
 - メーカー独自 UI がそのまま動作：HTC Sense、Samsung TouchWiz、MIUI、AOSP
 - GL ブリッジによるハードウェア描画、音声、タッチとマルチタッチ、最新 TLS プロキシ付きネットワーク
 - APK・音楽・写真用の共有メモリーカードフォルダー

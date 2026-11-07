@@ -20,7 +20,7 @@ AEmulator는 펌웨어 파일에서 진짜 Android 2.3–17 시스템을 바로 
 
 ## ✨ 기능
 
-- 거의 모든 형식 가져오기: CWM/TWRP ZIP, 삼성 Odin `.tar.md5`, Google 팩토리 `.tgz`, `system.img`, OTA `system.new.dat.br`
+- 거의 모든 형식 가져오기: CWM/TWRP ZIP, 삼성 Odin `.tar.md5`, Google 팩토리 `.tgz`, `system.img`, OTA `system.new.dat.br`, 화웨이 `UPDATE.APP`, 샤오미 fastboot `super.zst`
 - 제조사 UI가 그대로 동작: HTC Sense, Samsung TouchWiz, MIUI, AOSP
 - GL 브리지 하드웨어 그래픽, 소리, 터치와 멀티터치, 최신 TLS 프록시 네트워크
 - APK·음악·사진을 위한 공유 메모리 카드 폴더

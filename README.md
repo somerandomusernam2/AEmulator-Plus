@@ -20,7 +20,7 @@ AEmulator boots a real Android 2.3–17 system image straight from a firmware fi
 
 ## ✨ Features
 
-- Import almost any firmware format: CWM/TWRP ZIP, Samsung Odin `.tar.md5`, Google factory `.tgz`, `system.img`, OTA `system.new.dat.br`
+- Import almost any firmware format: CWM/TWRP ZIP, Samsung Odin `.tar.md5`, Google factory `.tgz`, `system.img`, OTA `system.new.dat.br`, Huawei `UPDATE.APP`, Xiaomi fastboot `super.zst`
 - Vendor skins work as shipped: HTC Sense, Samsung TouchWiz, MIUI, AOSP
 - Hardware graphics through the GL bridge, sound, touch and multitouch, network with a modern TLS proxy
 - Shared memory-card folder for APKs, music and photos

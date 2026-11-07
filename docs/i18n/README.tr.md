@@ -20,7 +20,7 @@ AEmulator gerçek bir Android 2.3–17 sistemini doğrudan yazılım dosyasında
 
 ## ✨ Özellikler
 
-- Neredeyse her biçimi içe aktarma: CWM/TWRP ZIP, Samsung Odin `.tar.md5`, Google fabrika `.tgz`, `system.img`, OTA `system.new.dat.br`
+- Neredeyse her biçimi içe aktarma: CWM/TWRP ZIP, Samsung Odin `.tar.md5`, Google fabrika `.tgz`, `system.img`, OTA `system.new.dat.br`, Huawei `UPDATE.APP`, Xiaomi fastboot `super.zst`
 - Üretici arayüzleri olduğu gibi çalışır: HTC Sense, Samsung TouchWiz, MIUI, AOSP
 - GL köprüsüyle donanım grafikleri, ses, dokunma ve çoklu dokunma, modern TLS vekilli ağ
 - APK, müzik ve fotoğraflar için ortak hafıza kartı klasörü

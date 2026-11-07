@@ -20,7 +20,7 @@ AEmulator 直接从固件文件启动真实的 Android 2.3–17 系统：Recover
 
 ## ✨ 功能
 
-- 导入几乎所有格式：CWM/TWRP 卡刷 ZIP、三星 Odin `.tar.md5`、Google 出厂 `.tgz`、`system.img`、OTA `system.new.dat.br`
+- 导入几乎所有格式：CWM/TWRP 卡刷 ZIP、三星 Odin `.tar.md5`、Google 出厂 `.tgz`、`system.img`、OTA `system.new.dat.br`、华为 `UPDATE.APP`、小米线刷包 `super.zst`
 - 厂商系统原样运行：HTC Sense、三星 TouchWiz、MIUI、AOSP
 - 经 GL 桥的硬件图形、声音、触控与多点触控，带现代 TLS 代理的网络
 - 共享存储卡文件夹，方便放 APK、音乐和照片
