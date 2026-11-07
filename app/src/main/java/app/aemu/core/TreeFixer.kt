@@ -1811,6 +1811,9 @@ class TreeFixer(
                 val src = File(root, "$vndkDir/$n"); val dst = File(root, "vendor/lib64/$n")
                 runCatching {
                     if (dst.isFile && dst.length() == src.length() && dst.readBytes().contentEquals(src.readBytes())) return@runCatching
+                    // (the engine's libhwbinder pointed at its own libcutils by oldCutilsForHwbinder below: in place already)
+                    if (n == "libhwbinder.so" && dst.isFile && dst.length() == src.length() &&
+                        OLD_CUTILS in (ElfPatch.needed64(dst) ?: emptyList())) return@runCatching
                     if (dst.isFile && !isEngineStandIn(dst)) backupOnce(dst, File(origDir, dst.relativeTo(root).path.replace('/', '#')))
                     if (dst.isFile) dst.setWritable(true)
                     src.copyTo(dst, overwrite = true)
@@ -1819,7 +1822,9 @@ class TreeFixer(
                 }.onFailure { log("GL: $n could not be put into /vendor/lib64: ${it.message}") }
             }
             if (swapped.isNotEmpty()) log("GL: passthrough mapper stack taken whole from ${vndkDir}: ${swapped.joinToString()}")
+            runCatching { oldCutilsForHwbinder(vndkDir) }.onFailure { log("GL: libcutils for libhwbinder: ${it.message}") }
         }
+        if (vendorNeedsNewStack) File(root, "vendor/lib64/$OLD_CUTILS").let { if (it.isFile) it.delete() }
         if (hasVndkPackage) return // (the VNDK package's libraries are visible in the vendor namespace: nothing else to bring)
         val queue = ArrayDeque(roots)
         val seen = HashSet<String>()
@@ -1975,6 +1980,48 @@ class TreeFixer(
     }
 
     /** Added for AEmulator Plus (2026-10-31). The engine's empty libhwbinder / libhidltransport stand-ins (no exports): nothing of the firmware's to keep. */
+    /**
+     * Added for AEmulator Plus (2026-11-07). The engine's libhwbinder.so of the stack set above (aemu-vndk, built for VNDK 28) imports
+     * thread_store_get / thread_store_set, which libcutils lost after Android 11. Where the libcutils the vendor namespace sees is a
+     * newer one - a VNDK package of 12+ (v34 for kernel 36: Xiaomi HyperOS 3, Android 16) - the passthrough mapper does not load:
+     * "cannot locate symbol "thread_store_get" referenced by "/vendor/lib64/libhwbinder.so"", "mapper 2.x is not supported",
+     * "gralloc-mapper is missing", SurfaceFlinger aborts (134) at every start. The engine's own libcutils goes into /vendor/lib64
+     * as libcutold.so (its soname renamed too, so it is never taken for the vendor's libcutils.so) and only that libhwbinder is
+     * pointed at it; every other library keeps the libcutils it had. Nothing is done when the visible libcutils has what it needs.
+     */
+    private fun oldCutilsForHwbinder(vndkDir: String) {
+        val hwb = File(root, "vendor/lib64/libhwbinder.so")
+        val engineHwb = File(root, "$vndkDir/libhwbinder.so")
+        val engineCutils = File(root, "$vndkDir/libcutils.so")
+        val copy = File(root, "vendor/lib64/$OLD_CUTILS")
+        if (!hwb.isFile || !engineHwb.isFile || !engineCutils.isFile || hwb.length() != engineHwb.length()) return
+        val needed = ElfPatch.needed64(hwb) ?: return
+        // (already pointed at the copy: the copy must be there)
+        if (OLD_CUTILS in needed && copy.isFile) return
+        if (OLD_CUTILS !in needed && (!hwb.readBytes().contentEquals(engineHwb.readBytes()) || "libcutils.so" !in needed)) return
+        val wanted = (ElfPatch.dynSyms64(engineHwb)?.undefined ?: return) intersect (ElfPatch.dynSyms64(engineCutils)?.defined ?: return)
+        if (wanted.isEmpty()) return
+        if (OLD_CUTILS !in needed) {
+            val vndkVer = runCatching { PropArea.parseProps(File(root, "vendor/build.prop").readText())["ro.vndk.version"] }.getOrNull()
+                ?: kernel.propDefaults["ro.vndk.version"]
+            val visible = listOfNotNull(File(root, "vendor/lib64/libcutils.so"),
+                vndkVer?.let { File(root, "apex/com.android.vndk.v$it/lib64/libcutils.so") }, File(root, "system/lib64/libcutils.so"))
+                .firstOrNull { it.isFile }
+            val has = visible?.let { ElfPatch.dynSyms64(it)?.defined }
+            val missing = if (has == null) wanted else wanted - has
+            if (missing.isEmpty()) return
+            log("GL: the libcutils the vendor namespace sees (${visible?.relativeTo(root)?.path ?: "none"}) lacks ${missing.sorted().joinToString()}, " +
+                "which the engine's libhwbinder imports")
+        }
+        copy.delete()
+        engineCutils.copyTo(copy)
+        check(ElfPatch.redirectDynName64(copy, 14, "libcutils.so", OLD_CUTILS) == 1) { "soname of the copy not renamed" }
+        copy.setReadable(true, false); copy.setExecutable(true, false)
+        if (OLD_CUTILS !in needed) check(ElfPatch.redirectDynName64(hwb, 1, "libcutils.so", OLD_CUTILS) == 1) { "DT_NEEDED of libhwbinder not changed" }
+        hwb.setReadable(true, false)
+        log("GL: /vendor/lib64/libhwbinder.so takes the engine's libcutils as $OLD_CUTILS (the rest keep theirs)")
+    }
+
     private fun isEngineStandIn(f: File) = f.name in setOf("libhwbinder.so", "libhidltransport.so") && f.length() < 64 * 1024
 
     /**
@@ -2275,6 +2322,9 @@ class TreeFixer(
         }
         if (written.isNotEmpty()) log("vintf: board AIDL declarations restored for the board's own services: ${written.joinToString("; ")}")
     }
+
+    /** the engine's own libcutils beside the newer one, for its libhwbinder only (oldCutilsForHwbinder); as long as "libcutils.so" */
+    private val OLD_CUTILS = "libcutold.so"
 
     private val FRAG_COMPOSER2 = "aemu.graphics.composer2.xml"
 

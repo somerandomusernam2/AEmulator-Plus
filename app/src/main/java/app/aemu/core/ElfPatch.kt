@@ -280,6 +280,57 @@ object ElfPatch {
     }
 
     /**
+     * Added for AEmulator Plus (2026-11-07): [redirectNeeded] for a 64-bit (AArch64, little endian) ELF file, and for its
+     * DT_SONAME as well ([tag] 1 = DT_NEEDED, 14 = DT_SONAME). [to] must not be longer than [from]; the string is overwritten
+     * in place and NUL-terminated. Returns the number of entries changed.
+     */
+    fun redirectDynName64(f: File, tag: Long, from: String, to: String): Int {
+        if (to.length > from.length || f.length() < 64 || f.length() > 64L shl 20) return 0
+        val d = runCatching { f.readBytes() }.getOrNull() ?: return 0
+        if (d[0] != 0x7f.toByte() || d[1] != 'E'.code.toByte() || d[4] != 2.toByte() || d[5] != 1.toByte()) return 0
+        val b = ByteBuffer.wrap(d).order(ByteOrder.LITTLE_ENDIAN)
+        val phoff = b.getLong(32); val phentsize = b.getShort(54).toInt() and 0xffff; val phnum = b.getShort(56).toInt() and 0xffff
+        if (phoff <= 0 || phentsize < 56 || phoff + phnum.toLong() * phentsize > d.size) return 0
+        class Load(val off: Long, val va: Long, val size: Long)
+        val loads = ArrayList<Load>()
+        var dynOff = -1L; var dynSize = 0L
+        for (i in 0 until phnum) {
+            val ph = (phoff + i.toLong() * phentsize).toInt()
+            when (b.getInt(ph)) {
+                1 -> loads.add(Load(b.getLong(ph + 8), b.getLong(ph + 16), b.getLong(ph + 32)))
+                2 -> { dynOff = b.getLong(ph + 8); dynSize = b.getLong(ph + 32) }
+            }
+        }
+        if (dynOff < 0 || dynOff + dynSize > d.size) return 0
+        fun toFile(va: Long): Long? = loads.firstOrNull { va >= it.va && va < it.va + it.size }?.let { it.off + va - it.va }
+        var strVa = -1L
+        val names = ArrayList<Long>()
+        var e = dynOff
+        while (e + 16 <= dynOff + dynSize) {
+            val t = b.getLong(e.toInt()); val v = b.getLong(e.toInt() + 8)
+            if (t == 0L) break
+            if (t == 5L) strVa = v
+            if (t == tag) names.add(v)
+            e += 16
+        }
+        val strOff = toFile(strVa) ?: return 0
+        val want = from.toByteArray(Charsets.US_ASCII)
+        val hits = ArrayList<Long>()
+        for (n in names) {
+            val p = strOff + n
+            if (p < 0 || p + want.size + 1 > d.size) continue
+            var same = d[(p + want.size).toInt()] == 0.toByte()
+            for (k in want.indices) if (d[(p + k).toInt()] != want[k]) { same = false; break }
+            if (same) hits.add(p)
+        }
+        if (hits.isEmpty()) return 0
+        if (!f.canWrite()) f.setWritable(true, true)
+        val repl = to.toByteArray(Charsets.US_ASCII) + byteArrayOf(0)
+        RandomAccessFile(f, "rw").use { raf -> for (p in hits) { raf.seek(p); raf.write(repl) } }
+        return hits.size
+    }
+
+    /**
      * Switches off the load-time constructors (DT_INIT and DT_INIT_ARRAY) of an ELF file, 32-bit or 64-bit, little
      * endian, in place: DT_INIT_ARRAYSZ becomes 0 and DT_INIT is renamed to a tag the linker ignores (the dynamic
      * section keeps its size, so nothing else moves). Returns 1 when the file was changed, 0 when it has no
