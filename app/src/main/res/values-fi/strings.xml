@@ -202,6 +202,7 @@
     <string name="m_shell_ctrlc">Ctrl+C</string>
     <string name="m_adb_enable">Ota käyttöön</string>
     <string name="m_adb_hint">Kuka tahansa tässä Wi-Fi-verkossa saa laiteohjelmiston root shellin. Poista käytöstä julkisissa verkoissa.</string>
+    <string name="m_adb_open_hint">Kuka tahansa tässä Wi-Fi-verkossa saa laiteohjelmiston root shellin. Poista käytöstä julkisissa verkoissa.</string>
     <string name="add_import">Tuo laiteohjelmistotiedosto</string>
     <string name="add_import_sub">ZIP, TAR/MD5, IMG, TWRP- ja CWM-varmuuskopiot</string>
     <string name="add_container">Uusi kontti</string>

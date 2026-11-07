@@ -201,6 +201,7 @@
     <string name="m_shell_ctrlc">Ctrl+C</string>
     <string name="m_adb_enable">Aktivizo</string>
     <string name="m_adb_hint">Kushdo në këtë rrjet Wi-Fi merr një root shell të firmware-it. Çaktivizojeni në rrjete publike.</string>
+    <string name="m_adb_open_hint">Kushdo në këtë rrjet Wi-Fi merr një root shell të firmware-it. Çaktivizojeni në rrjete publike.</string>
     <string name="add_import">Importo skedar firmware</string>
     <string name="add_import_sub">ZIP, TAR/MD5, IMG, kopje rezervë TWRP dhe CWM</string>
     <string name="add_container">Kontejner i ri</string>

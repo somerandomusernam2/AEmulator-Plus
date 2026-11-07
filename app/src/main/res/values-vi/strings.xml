@@ -147,7 +147,14 @@
     <string name="vs_recovery_failed">Không phải ảnh recovery</string>
     <string name="m_adb">ADB qua mạng</string>
     <string name="m_adb_enable">Bật</string>
-    <string name="m_adb_hint">Bất kỳ ai trong mạng Wi-Fi này đều có shell root của firmware. Hãy tắt khi dùng mạng công cộng.</string>
+    <string name="m_adb_hint">Mỗi máy tính phải được cho phép trên màn hình này khi kết nối lần đầu. Hãy tắt ADB khi không dùng.</string>
+    <string name="m_adb_require">Hỏi trước khi máy tính mới kết nối</string>
+    <string name="m_adb_open_hint">Bất kỳ ai trong mạng Wi-Fi này đều có shell root của firmware. Hãy tắt khi dùng mạng công cộng.</string>
+    <string name="m_adb_auth_title">Cho phép kết nối ADB?</string>
+    <string name="m_adb_auth_text">%1$s muốn kết nối.\n\nVân tay khóa RSA của máy tính:\n%2$s</string>
+    <string name="m_adb_auth_always">Luôn cho phép từ máy tính này</string>
+    <string name="m_adb_deny">Từ chối</string>
+    <string name="m_adb_revoke">Quên các máy tính đã cho phép</string>
     <string name="add_import">Nhập tệp firmware</string>
     <string name="add_import_sub">ZIP, TAR/MD5, IMG — mọi ROM gốc hoặc tùy biến</string>
     <string name="add_container">Container mới</string>

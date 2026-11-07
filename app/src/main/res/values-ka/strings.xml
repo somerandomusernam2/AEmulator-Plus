@@ -212,6 +212,7 @@
     <string name="m_shell_ctrlc">Ctrl+C</string>
     <string name="m_adb_enable">ჩართვა</string>
     <string name="m_adb_hint">ამ Wi-Fi ქსელში ყველას შეუძლია მიიღოს ფირმვერის root shell. საჯარო ქსელებში გამორთეთ.</string>
+    <string name="m_adb_open_hint">ამ Wi-Fi ქსელში ყველას შეუძლია მიიღოს ფირმვერის root shell. საჯარო ქსელებში გამორთეთ.</string>
     <string name="add_import">ფირმვერის ფაილის იმპორტი</string>
     <string name="add_import_sub">ZIP, TAR/MD5, IMG, TWRP და CWM სარეზერვო ასლები</string>
     <string name="add_container">ახალი კონტეინერი</string>

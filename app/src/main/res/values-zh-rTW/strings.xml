@@ -201,7 +201,14 @@
     <string name="m_shell_clear">清除</string>
     <string name="m_shell_ctrlc">Ctrl+C</string>
     <string name="m_adb_enable">啟用</string>
-    <string name="m_adb_hint">此 Wi-Fi 網路上的任何人都能取得韌體的 root shell。在公共網路上請將其關閉。</string>
+    <string name="m_adb_hint">每台電腦第一次連線時，都必須在這個畫面上允許。不使用時請關閉 ADB。</string>
+    <string name="m_adb_require">新電腦連線前先詢問</string>
+    <string name="m_adb_open_hint">此 Wi-Fi 網路上的任何人都能取得韌體的 root shell。在公共網路上請將其關閉。</string>
+    <string name="m_adb_auth_title">要允許 ADB 連線嗎？</string>
+    <string name="m_adb_auth_text">%1$s 要求連線。\n\n這台電腦的 RSA 金鑰指紋：\n%2$s</string>
+    <string name="m_adb_auth_always">一律允許這台電腦</string>
+    <string name="m_adb_deny">拒絕</string>
+    <string name="m_adb_revoke">忘記已允許的電腦</string>
     <string name="add_import">匯入韌體檔案</string>
     <string name="add_import_sub">ZIP、TAR/MD5、IMG、TWRP 與 CWM 備份</string>
     <string name="add_container">新增容器</string>

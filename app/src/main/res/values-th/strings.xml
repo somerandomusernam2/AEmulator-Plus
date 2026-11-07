@@ -202,6 +202,7 @@
     <string name="m_shell_ctrlc">Ctrl+C</string>
     <string name="m_adb_enable">เปิดใช้</string>
     <string name="m_adb_hint">ทุกคนในเครือข่าย Wi-Fi นี้จะได้เชลล์ root ของเฟิร์มแวร์ ปิดไว้เมื่ออยู่บนเครือข่ายสาธารณะ</string>
+    <string name="m_adb_open_hint">ทุกคนในเครือข่าย Wi-Fi นี้จะได้เชลล์ root ของเฟิร์มแวร์ ปิดไว้เมื่ออยู่บนเครือข่ายสาธารณะ</string>
     <string name="add_import">นำเข้าไฟล์เฟิร์มแวร์</string>
     <string name="add_import_sub">ZIP, TAR/MD5, IMG, ข้อมูลสำรอง TWRP และ CWM</string>
     <string name="add_container">คอนเทนเนอร์ใหม่</string>

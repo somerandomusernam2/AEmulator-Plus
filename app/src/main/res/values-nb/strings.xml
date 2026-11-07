@@ -202,6 +202,7 @@
     <string name="m_shell_ctrlc">Ctrl+C</string>
     <string name="m_adb_enable">Aktiver</string>
     <string name="m_adb_hint">Alle på dette Wi-Fi-nettverket får en root-shell for fastvaren. Slå av på offentlige nettverk.</string>
+    <string name="m_adb_open_hint">Alle på dette Wi-Fi-nettverket får en root-shell for fastvaren. Slå av på offentlige nettverk.</string>
     <string name="add_import">Importer fastvarefil</string>
     <string name="add_import_sub">ZIP, TAR/MD5, IMG, TWRP- og CWM-sikkerhetskopier</string>
     <string name="add_container">Ny container</string>

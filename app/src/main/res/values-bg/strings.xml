@@ -202,6 +202,7 @@
     <string name="m_shell_ctrlc">Ctrl+C</string>
     <string name="m_adb_enable">Включване</string>
     <string name="m_adb_hint">Всеки в тази Wi-Fi мрежа получава root shell на фърмуера. Изключете го в публични мрежи.</string>
+    <string name="m_adb_open_hint">Всеки в тази Wi-Fi мрежа получава root shell на фърмуера. Изключете го в публични мрежи.</string>
     <string name="add_import">Импортиране на файл с фърмуер</string>
     <string name="add_import_sub">ZIP, TAR/MD5, IMG, резервни копия на TWRP и CWM</string>
     <string name="add_container">Нов контейнер</string>

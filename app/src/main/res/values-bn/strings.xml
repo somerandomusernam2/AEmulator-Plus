@@ -201,6 +201,7 @@
     <string name="m_shell_ctrlc">Ctrl+C</string>
     <string name="m_adb_enable">চালু করুন</string>
     <string name="m_adb_hint">এই Wi-Fi নেটওয়ার্কের যে কেউ ফার্মওয়্যারের রুট শেল পাবে। পাবলিক নেটওয়ার্কে এটি বন্ধ রাখুন।</string>
+    <string name="m_adb_open_hint">এই Wi-Fi নেটওয়ার্কের যে কেউ ফার্মওয়্যারের রুট শেল পাবে। পাবলিক নেটওয়ার্কে এটি বন্ধ রাখুন।</string>
     <string name="add_import">ফার্মওয়্যার ফাইল ইমপোর্ট করুন</string>
     <string name="add_import_sub">ZIP, TAR/MD5, IMG, TWRP ও CWM ব্যাকআপ</string>
     <string name="add_container">নতুন কনটেইনার</string>

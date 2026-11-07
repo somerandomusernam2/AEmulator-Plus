@@ -212,6 +212,7 @@
     <string name="m_shell_ctrlc">Ctrl+C</string>
     <string name="m_adb_enable">Уключыць</string>
     <string name="m_adb_hint">Любы чалавек у гэтай сетцы Wi-Fi атрымлівае root-абалонку прашыўкі. Выключайце гэта ў публічных сетках.</string>
+    <string name="m_adb_open_hint">Любы чалавек у гэтай сетцы Wi-Fi атрымлівае root-абалонку прашыўкі. Выключайце гэта ў публічных сетках.</string>
     <string name="add_import">Імпартаваць файл прашыўкі</string>
     <string name="add_import_sub">ZIP, TAR/MD5, IMG, рэзервовыя копіі TWRP і CWM</string>
     <string name="add_container">Новы кантэйнер</string>

@@ -202,6 +202,7 @@
     <string name="m_shell_ctrlc">Ctrl+C</string>
     <string name="m_adb_enable">Activează</string>
     <string name="m_adb_hint">Oricine din această rețea Wi-Fi primește un shell root al firmware-ului. Dezactivează-l în rețelele publice.</string>
+    <string name="m_adb_open_hint">Oricine din această rețea Wi-Fi primește un shell root al firmware-ului. Dezactivează-l în rețelele publice.</string>
     <string name="add_import">Importă fișier firmware</string>
     <string name="add_import_sub">ZIP, TAR/MD5, IMG, copii de rezervă TWRP și CWM</string>
     <string name="add_container">Container nou</string>

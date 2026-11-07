@@ -147,7 +147,14 @@
     <string name="vs_recovery_failed">Não é uma imagem de recovery</string>
     <string name="m_adb">ADB pela rede</string>
     <string name="m_adb_enable">Ativar</string>
-    <string name="m_adb_hint">Qualquer pessoa nesta rede Wi-Fi obtém um shell root do firmware. Desative em redes públicas.</string>
+    <string name="m_adb_hint">Cada computador precisa ser permitido nesta tela na primeira conexão. Desative o ADB quando não estiver usando.</string>
+    <string name="m_adb_require">Perguntar antes de um novo computador se conectar</string>
+    <string name="m_adb_open_hint">Qualquer pessoa nesta rede Wi-Fi obtém um shell root do firmware. Desative em redes públicas.</string>
+    <string name="m_adb_auth_title">Permitir conexão ADB?</string>
+    <string name="m_adb_auth_text">%1$s quer se conectar.\n\nImpressão digital da chave RSA do computador:\n%2$s</string>
+    <string name="m_adb_auth_always">Sempre permitir deste computador</string>
+    <string name="m_adb_deny">Negar</string>
+    <string name="m_adb_revoke">Esquecer computadores permitidos</string>
     <string name="add_import">Importar arquivo de firmware</string>
     <string name="add_import_sub">ZIP, TAR/MD5, IMG — qualquer ROM stock ou custom</string>
     <string name="add_container">Novo contêiner</string>

@@ -147,7 +147,14 @@
     <string name="vs_recovery_failed">این ایمیج ریکاوری نیست</string>
     <string name="m_adb">ADB از طریق شبکه</string>
     <string name="m_adb_enable">فعال‌سازی</string>
-    <string name="m_adb_hint">هر کسی در این شبکه Wi-Fi به پوسته root سیستم دسترسی دارد. در شبکه‌های عمومی خاموشش کنید.</string>
+    <string name="m_adb_hint">هر رایانه باید بار اولی که وصل می‌شود در این صفحه مجاز شود. وقتی از ADB استفاده نمی‌کنید آن را خاموش کنید.</string>
+    <string name="m_adb_require">پیش از اتصال رایانهٔ جدید بپرس</string>
+    <string name="m_adb_open_hint">هر کسی در این شبکه Wi-Fi به پوسته root سیستم دسترسی دارد. در شبکه‌های عمومی خاموشش کنید.</string>
+    <string name="m_adb_auth_title">اجازهٔ اتصال ADB داده شود؟</string>
+    <string name="m_adb_auth_text">%1$s می‌خواهد وصل شود.\n\nاثر انگشت کلید RSA رایانه:\n%2$s</string>
+    <string name="m_adb_auth_always">همیشه به این رایانه اجازه داده شود</string>
+    <string name="m_adb_deny">رد کردن</string>
+    <string name="m_adb_revoke">فراموش کردن رایانه‌های مجاز</string>
     <string name="add_import">وارد کردن فایل فریم‌ور</string>
     <string name="add_import_sub">ZIP، TAR/MD5، IMG — هر رام رسمی یا سفارشی</string>
     <string name="add_container">کانتینر جدید</string>

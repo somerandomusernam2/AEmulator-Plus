@@ -202,6 +202,7 @@
     <string name="m_shell_ctrlc">Ctrl+C</string>
     <string name="m_adb_enable">Inschakelen</string>
     <string name="m_adb_hint">Iedereen op dit wifi-netwerk krijgt een rootshell van de firmware. Zet dit uit op openbare netwerken.</string>
+    <string name="m_adb_open_hint">Iedereen op dit wifi-netwerk krijgt een rootshell van de firmware. Zet dit uit op openbare netwerken.</string>
     <string name="add_import">Firmwarebestand importeren</string>
     <string name="add_import_sub">Zip, TAR/MD5, IMG, TWRP- en CWM-back-ups</string>
     <string name="add_container">Nieuwe container</string>

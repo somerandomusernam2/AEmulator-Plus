@@ -149,6 +149,7 @@
     <string name="m_adb">ADB através da rede</string>
     <string name="m_adb_enable">Ativar</string>
     <string name="m_adb_hint">Qualquer pessoa nesta rede Wi-Fi obtém uma shell root do firmware. Desative em redes públicas.</string>
+    <string name="m_adb_open_hint">Qualquer pessoa nesta rede Wi-Fi obtém uma shell root do firmware. Desative em redes públicas.</string>
     <string name="add_import">Importar um ficheiro de firmware</string>
     <string name="add_import_sub">ZIP, TAR/MD5, IMG — qualquer ROM de origem ou personalizada</string>
     <string name="add_container">Novo contentor</string>

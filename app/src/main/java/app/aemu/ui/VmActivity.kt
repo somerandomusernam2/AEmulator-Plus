@@ -202,6 +202,9 @@ class VmActivity : ComponentActivity() {
     private var showLed by mutableStateOf(true)
     private var guestTopPx by mutableStateOf(0)
     private val logLines = mutableStateListOf<String>()
+    /** Modified for AEmulator Aster (2026-11-07): a computer waiting to be allowed on network ADB (AdbServer.pending) */
+    private var adbAsk by mutableStateOf<app.aemu.core.AdbServer.Ask?>(null)
+    private val adbAskListener: (app.aemu.core.AdbServer.Ask?) -> Unit = { a -> runOnUiThread { adbAsk = a } }
     private var controlsHeightPx = 0
     private var iconTurns by mutableStateOf(0)
     private var windowTurns by mutableStateOf(0)
@@ -414,6 +417,10 @@ class VmActivity : ComponentActivity() {
         vm.cameraFeed.onPermissionNeeded = { runOnUiThread { askCamera.launch(android.Manifest.permission.CAMERA) } }
         led = vm.lights.current
         vm.lights.onChange { l -> runOnUiThread { led = l } }
+        // (Modified for AEmulator Aster, 2026-11-07) network ADB: a computer that was not allowed before waits for the person at the
+        // phone, also when this screen was closed: the notification of the question opens it again, and it is still pending then
+        adbAsk = vm.adb.pending
+        vm.adb.onAsk(adbAskListener)
         vm.onLog { line -> runOnUiThread { logLines.add(line); if (logLines.size > 400) logLines.removeRange(0, logLines.size - 400) } }
         guest.start()
         resetMenuOffset() // every start of the emulator puts the menu button back in its corner
@@ -465,14 +472,14 @@ class VmActivity : ComponentActivity() {
         applyVmTheme()
         applyCutoutBarrier()
         orientationListener?.enable()
-        if (::vm.isInitialized) { vm.cameraVisible(true); vm.micVisible(true); vm.motionVisible(true); if (vm.engine == Engine.N64) vm.sensors.resume(true) }
+        if (::vm.isInitialized) { vm.cameraVisible(true); vm.micVisible(true); vm.motionVisible(true); if (vm.engine == Engine.N64) vm.sensors.resume(true); vm.adb.screenVisible = true }
     }
 
     override fun onPause() {
         captureThumbnail()
         orientationListener?.disable()
         heldNavKeys.releaseAll()
-        if (::vm.isInitialized) { vm.cameraVisible(false); vm.micVisible(false); vm.motionVisible(false); if (vm.engine == Engine.N64) vm.sensors.resume(false) }
+        if (::vm.isInitialized) { vm.cameraVisible(false); vm.micVisible(false); vm.motionVisible(false); if (vm.engine == Engine.N64) vm.sensors.resume(false); vm.adb.screenVisible = false }
         super.onPause()
     }
 
@@ -567,7 +574,7 @@ class VmActivity : ComponentActivity() {
     }
 
     override fun onDestroy() {
-        if (::vm.isInitialized) vm.resurface = null
+        if (::vm.isInitialized) { vm.resurface = null; vm.adb.removeOnAsk(adbAskListener) }
         orientationListener?.disable()
         vmRoot = null
         heldNavKeys.releaseAll()
@@ -1002,10 +1009,43 @@ class VmActivity : ComponentActivity() {
                             Text("adb connect $ip:${vm.adb.port}", style = MaterialTheme.typography.bodyLarge,
                                 fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace)
                     }
-                    Text(stringResource(R.string.m_adb_hint), style = MaterialTheme.typography.bodySmall)
+                    // Modified for AEmulator Aster (2026-11-07): authorization switch (off: no handshake, as before it existed - adb older
+                    // than 1.0.31 has none) and the computers allowed so far
+                    var secure by remember { mutableStateOf(vm.adb.requireAuth) }
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(stringResource(R.string.m_adb_require), Modifier.weight(1f))
+                        Switch(secure, { v -> vm.adb.requireAuth = v; secure = v })
+                    }
+                    Text(stringResource(if (secure) R.string.m_adb_hint else R.string.m_adb_open_hint), style = MaterialTheme.typography.bodySmall,
+                        color = if (secure) Color.Unspecified else MaterialTheme.colorScheme.error)
+                    var allowed by remember { mutableStateOf(vm.adb.auth.count()) }
+                    if (secure && allowed > 0) OutlinedButton(onClick = { vm.adb.auth.revokeAll(); allowed = 0 }) {
+                        Text(stringResource(R.string.m_adb_revoke))
+                    }
                 }
             },
             confirmButton = { Button(onClick = onDone) { Text(stringResource(R.string.close)) } })
+    }
+
+    /** Added for AEmulator Aster (2026-11-07): "Allow ADB connection?" for a computer seen for the first time, as a real phone asks it */
+    @Composable
+    private fun AdbAuthDialog(ask: app.aemu.core.AdbServer.Ask) {
+        var always by remember(ask) { mutableStateOf(true) }
+        fun answer(a: app.aemu.core.AdbAuth.Answer) { ask.answer(a); adbAsk = null }
+        AlertDialog(onDismissRequest = {},
+            title = { Text(stringResource(R.string.m_adb_auth_title)) },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(stringResource(R.string.m_adb_auth_text, ask.from, ask.key.fingerprint))
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        androidx.compose.material3.Checkbox(always, { always = it })
+                        Text(stringResource(R.string.m_adb_auth_always))
+                    }
+                }
+            },
+            confirmButton = { Button(onClick = { answer(if (always) app.aemu.core.AdbAuth.Answer.ALWAYS else app.aemu.core.AdbAuth.Answer.ONCE) }) {
+                Text(stringResource(R.string.allow)) } },
+            dismissButton = { OutlinedButton(onClick = { answer(app.aemu.core.AdbAuth.Answer.DENY) }) { Text(stringResource(R.string.m_adb_deny)) } })
     }
 
     @Composable
@@ -1287,6 +1327,7 @@ class VmActivity : ComponentActivity() {
                 Dlg.THERMAL -> ThermalDialog(vm.img) { dialog = Dlg.NONE }
                 Dlg.NONE -> {}
             }
+            adbAsk?.let { AdbAuthDialog(it) }
 
             // MMI/FTM builds ignore Back/Home/Recents/Menu: unless the user chose buttons, show volume + power
             // Recovery is driven by hardware keys too (and the strip must exist even when the user hid the navbar)

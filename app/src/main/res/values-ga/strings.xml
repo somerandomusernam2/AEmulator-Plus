@@ -212,6 +212,7 @@
     <string name="m_shell_ctrlc">Ctrl+C</string>
     <string name="m_adb_enable">Cumasaigh</string>
     <string name="m_adb_hint">Faigheann aon duine ar an líonra Wi-Fi seo blaosc fhréimhe na ndochtearraí. Múch é ar líonraí poiblí.</string>
+    <string name="m_adb_open_hint">Faigheann aon duine ar an líonra Wi-Fi seo blaosc fhréimhe na ndochtearraí. Múch é ar líonraí poiblí.</string>
     <string name="add_import">Allmhairigh comhad dochtearraí</string>
     <string name="add_import_sub">ZIP, TAR/MD5, IMG, cúltacaí TWRP agus CWM</string>
     <string name="add_container">Coimeádán nua</string>

@@ -213,7 +213,14 @@
     <string name="m_shell_clear">Clear</string>
     <string name="m_shell_ctrlc">Ctrl+C</string>
     <string name="m_adb_enable">Enable</string>
-    <string name="m_adb_hint">Anyone on this Wi-Fi network gets a root shell of the firmware. Switch it off on public networks.</string>
+    <string name="m_adb_hint">Every computer has to be allowed on this screen the first time it connects. Switch ADB off when you do not use it.</string>
+    <string name="m_adb_require">Ask before a new computer connects</string>
+    <string name="m_adb_open_hint">Anyone on this Wi-Fi network gets a root shell of the firmware. Switch it off on public networks.</string>
+    <string name="m_adb_auth_title">Allow ADB connection?</string>
+    <string name="m_adb_auth_text">%1$s wants to connect.\n\nThe computer\'s RSA key fingerprint is:\n%2$s</string>
+    <string name="m_adb_auth_always">Always allow from this computer</string>
+    <string name="m_adb_deny">Deny</string>
+    <string name="m_adb_revoke">Forget allowed computers</string>
     <string name="add_import">Import firmware file</string>
     <string name="add_import_sub">ZIP, TAR/MD5, IMG, TWRP &amp; CWM backups</string>
     <string name="add_container">New container</string>

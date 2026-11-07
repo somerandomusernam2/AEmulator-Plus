@@ -202,6 +202,7 @@
     <string name="m_shell_ctrlc">Ctrl+C</string>
     <string name="m_adb_enable">Қосу</string>
     <string name="m_adb_hint">Осы Wi-Fi желісіндегі кез келген адам микробағдарламаның root shell-іне қол жеткізеді. Қоғамдық желілерде өшіріп қойыңыз.</string>
+    <string name="m_adb_open_hint">Осы Wi-Fi желісіндегі кез келген адам микробағдарламаның root shell-іне қол жеткізеді. Қоғамдық желілерде өшіріп қойыңыз.</string>
     <string name="add_import">Микробағдарлама файлын импорттау</string>
     <string name="add_import_sub">ZIP, TAR/MD5, IMG, TWRP және CWM сақтық көшірмелері</string>
     <string name="add_container">Жаңа контейнер</string>

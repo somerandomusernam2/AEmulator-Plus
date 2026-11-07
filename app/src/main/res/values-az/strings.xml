@@ -212,6 +212,7 @@
     <string name="m_shell_ctrlc">Ctrl+C</string>
     <string name="m_adb_enable">Aktivləşdir</string>
     <string name="m_adb_hint">Bu Wi-Fi şəbəkəsindəki hər kəs mikroproqramın root shell-ini əldə edir. İctimai şəbəkələrdə söndürün.</string>
+    <string name="m_adb_open_hint">Bu Wi-Fi şəbəkəsindəki hər kəs mikroproqramın root shell-ini əldə edir. İctimai şəbəkələrdə söndürün.</string>
     <string name="add_import">Mikroproqram faylını idxal et</string>
     <string name="add_import_sub">ZIP, TAR/MD5, IMG, TWRP və CWM ehtiyat nüsxələri</string>
     <string name="add_container">Yeni konteyner</string>
