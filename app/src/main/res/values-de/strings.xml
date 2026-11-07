@@ -147,6 +147,8 @@
     <string name="m_adb">ADB über Netzwerk</string>
     <string name="m_adb_enable">Aktivieren</string>
     <string name="m_adb_hint">Jeder Computer muss bei der ersten Verbindung auf diesem Bildschirm erlaubt werden. ADB ausschalten, wenn es nicht gebraucht wird.</string>
+    <string name="m_adb_require">Vor der Verbindung eines neuen Computers fragen</string>
+    <string name="m_adb_open_hint">Jeder in diesem WLAN erhält eine Root-Shell der Firmware. In öffentlichen Netzen ausschalten.</string>
     <string name="m_adb_auth_title">ADB-Verbindung erlauben?</string>
     <string name="m_adb_auth_text">%1$s möchte sich verbinden.\n\nFingerabdruck des RSA-Schlüssels des Computers:\n%2$s</string>
     <string name="m_adb_auth_always">Diesem Computer immer erlauben</string>

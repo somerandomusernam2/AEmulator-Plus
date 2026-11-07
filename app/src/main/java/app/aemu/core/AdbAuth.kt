@@ -21,6 +21,9 @@ import java.util.Base64
  * [file], one "<base64> <user@host>" per line like /data/misc/adb/adb_keys, and are shared by every firmware.
  */
 class AdbAuth(private val file: File) {
+    /** what the person at the phone said to a computer seen for the first time */
+    enum class Answer { DENY, ONCE, ALWAYS }
+
     /** A client's public key as the adb client sends it (AUTH RSAPUBLICKEY): its own binary form in base64, then a comment. */
     class Key(val line: String, val key: PublicKey, val fingerprint: String) {
         val comment: String get() = line.substringAfter(' ', "").trim()

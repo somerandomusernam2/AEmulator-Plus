@@ -147,6 +147,8 @@
     <string name="m_adb">ADB qua mạng</string>
     <string name="m_adb_enable">Bật</string>
     <string name="m_adb_hint">Mỗi máy tính phải được cho phép trên màn hình này khi kết nối lần đầu. Hãy tắt ADB khi không dùng.</string>
+    <string name="m_adb_require">Hỏi trước khi máy tính mới kết nối</string>
+    <string name="m_adb_open_hint">Bất kỳ ai trong mạng Wi-Fi này đều có shell root của firmware. Hãy tắt khi dùng mạng công cộng.</string>
     <string name="m_adb_auth_title">Cho phép kết nối ADB?</string>
     <string name="m_adb_auth_text">%1$s muốn kết nối.\n\nVân tay khóa RSA của máy tính:\n%2$s</string>
     <string name="m_adb_auth_always">Luôn cho phép từ máy tính này</string>

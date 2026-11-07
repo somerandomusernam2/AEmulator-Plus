@@ -1,8 +1,6 @@
 package app.aemu.core
 
 import java.io.File
-import java.io.InputStream
-import java.io.OutputStream
 import java.net.InetAddress
 import java.net.NetworkInterface
 import java.net.ServerSocket
@@ -10,8 +8,6 @@ import java.net.Socket
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
 import java.util.concurrent.ConcurrentHashMap
-import java.util.concurrent.LinkedBlockingQueue
-import java.util.concurrent.Semaphore
 import java.util.concurrent.TimeUnit
 import kotlin.concurrent.thread
 
@@ -22,8 +18,10 @@ import kotlin.concurrent.thread
  * No shell_v2 / stat_v2 features are announced, so any adb client falls back to the legacy services
  * (install = push to /data/local/tmp + pm install).
  *
- * A client has to pass the RSA handshake of a real adbd first ([AdbAuth]): a computer not allowed before is shown to
- * the person at the phone through [confirm], and nothing is served until it is allowed.
+ * A client has to pass the RSA handshake of a real adbd first ([AdbAuth], wire protocol in [AdbConn]): a computer not
+ * allowed before becomes the [pending] question, shown by the machine's screen (or a notification that opens it when
+ * the screen is not in front), and nothing is served until it is allowed. [requireAuth] off serves every client
+ * without the handshake, as before it existed (adb older than 1.0.31 has none).
  */
 class AdbServer(private val vm: GuestVm) {
     @Volatile var port = 0
@@ -31,18 +29,72 @@ class AdbServer(private val vm: GuestVm) {
     private var server: ServerSocket? = null
     private val conns = ConcurrentHashMap.newKeySet<Socket>()
 
-    enum class Answer { DENY, ONCE, ALWAYS }
-
     /** the computers allowed to connect (shared by every firmware, like a phone's adb_keys) */
     val auth = AdbAuth(File(vm.ctx.filesDir, "adb_keys"))
 
-    /**
-     * Asks the person at the phone whether the computer with this key (and address) may connect; blocks until they
-     * answer. Set by the screen of the running machine; without it every unknown computer is refused.
-     */
-    @Volatile var confirm: ((key: AdbAuth.Key, from: String) -> Answer)? = null
-    /** one question on the screen at a time: further unknown computers are refused while it is open */
+    private val prefs by lazy { vm.ctx.getSharedPreferences("adb", android.content.Context.MODE_PRIVATE) }
+    /** a computer has to be allowed before it is served (the handshake); off: anyone on the network, as before */
+    var requireAuth: Boolean
+        get() = prefs.getBoolean("require_auth", true)
+        set(v) { prefs.edit().putBoolean("require_auth", v).apply() }
+
+    /** A computer seen for the first time, waiting for the person at the phone. */
+    class Ask(val key: AdbAuth.Key, val from: String) {
+        internal val result = java.util.concurrent.CompletableFuture<AdbAuth.Answer>()
+        fun answer(a: AdbAuth.Answer) { result.complete(a) }
+    }
+
+    /** the question on the screen now, if any (one at a time: another unknown computer is refused meanwhile) */
+    @Volatile var pending: Ask? = null
+        private set
+    private val askListeners = java.util.concurrent.CopyOnWriteArrayList<(Ask?) -> Unit>()
+    /** the screen shows [pending] as it changes (null: answered or given up) */
+    fun onAsk(l: (Ask?) -> Unit) { askListeners.add(l) }
+    fun removeOnAsk(l: (Ask?) -> Unit) { askListeners.remove(l) }
+    /** the machine's screen is in front: the question needs no notification (until the screen goes behind) */
+    @Volatile var screenVisible = false
+        set(v) { field = v; if (!v) pending?.let { notice(it.from) } }
     private val asking = java.util.concurrent.atomic.AtomicBoolean(false)
+
+    private fun ask(key: AdbAuth.Key, from: String): AdbAuth.Answer {
+        if (!asking.compareAndSet(false, true)) { vm.log("adb: $from refused, another computer is waiting for an answer"); return AdbAuth.Answer.DENY }
+        val a = Ask(key, from)
+        try {
+            pending = a
+            askListeners.forEach { runCatching { it(a) } }
+            if (!screenVisible) notice(from)
+            return runCatching { a.result.get(ASK_SECONDS, TimeUnit.SECONDS) }.getOrDefault(AdbAuth.Answer.DENY)
+        } finally {
+            pending = null
+            askListeners.forEach { runCatching { it(null) } }
+            runCatching { vm.ctx.getSystemService(android.app.NotificationManager::class.java).cancel(NOTE_ID) }
+            asking.set(false)
+        }
+    }
+
+    /** the machine runs behind its notification: this one, on a channel that pops up, opens its screen and the question */
+    private fun notice(from: String) = runCatching {
+        val ctx = vm.ctx
+        val nm = ctx.getSystemService(android.app.NotificationManager::class.java)
+        nm.createNotificationChannel(android.app.NotificationChannel("adb", ctx.getString(app.aemu.R.string.m_adb), android.app.NotificationManager.IMPORTANCE_HIGH))
+        val open = android.app.PendingIntent.getActivity(ctx, 2, android.content.Intent(ctx, app.aemu.ui.VmActivity::class.java)
+            .addFlags(android.content.Intent.FLAG_ACTIVITY_SINGLE_TOP), android.app.PendingIntent.FLAG_IMMUTABLE or android.app.PendingIntent.FLAG_UPDATE_CURRENT)
+        nm.notify(NOTE_ID, android.app.Notification.Builder(ctx, "adb")
+            .setContentTitle(ctx.getString(app.aemu.R.string.m_adb_auth_title))
+            .setContentText(from)
+            .setSmallIcon(app.aemu.R.drawable.ic_stat_vm)
+            .setContentIntent(open)
+            .setAutoCancel(true)
+            .setTimeoutAfter(ASK_SECONDS * 1000)
+            .build())
+    }
+
+    private fun banner(): String {
+        val p = vm.props
+        return "device::ro.product.name=${p.get("ro.product.name") ?: "aemu"};" +
+            "ro.product.model=${p.get("ro.product.model") ?: vm.img.name};" +
+            "ro.product.device=${p.get("ro.product.device") ?: "aemu"};\u0000"
+    }
 
     val running get() = server != null
 
@@ -57,7 +109,8 @@ class AdbServer(private val vm: GuestVm) {
                     val c = runCatching { s.accept() }.getOrNull() ?: break
                     conns.add(c)
                     thread(name = "adb-conn", isDaemon = true) {
-                        runCatching { Conn(c).run() }.onFailure { if (!s.isClosed) vm.log("adb: ${it.message}") }
+                        runCatching { AdbConn(c, auth, { requireAuth }, ::ask, ::banner, vm::log, ::serve).run() }
+                            .onFailure { if (!s.isClosed) vm.log("adb: ${it.message}") }
                         conns.remove(c); runCatching { c.close() }
                     }
                 }
@@ -76,183 +129,9 @@ class AdbServer(private val vm: GuestVm) {
         vm.log("adb: stopped")
     }
 
-    // ------------------------------------------------------------------ wire protocol
-
-    private inner class Conn(private val sock: Socket) {
-        private val input = sock.getInputStream().buffered(65536)
-        private val output = sock.getOutputStream()
-        private var maxData = 4096
-        private var nextId = 1
-        private val streams = ConcurrentHashMap<Int, Stream>()
-        /** the handshake is done: only then are streams opened */
-        private var authorized = false
-        /** the token the client has to sign (a new one after every wrong signature, as adbd does) */
-        private var token: ByteArray? = null
-        private var tokens = 0
-        private var keyOffered = false
-        private val peer: String = sock.inetAddress?.hostAddress ?: "?"
-
-        fun run() {
-            sock.tcpNoDelay = true
-            while (true) {
-                val h = ByteArray(24)
-                if (!readFully(input, h)) break
-                val b = ByteBuffer.wrap(h).order(ByteOrder.LITTLE_ENDIAN)
-                val cmd = b.int; val a0 = b.int; val a1 = b.int; val len = b.int
-                b.int                                               // checksum (0 from clients of version 0x01000001)
-                val magic = b.int
-                // not an adb client (or a broken stream): a length straight from the network is not allocated blindly
-                if (magic != cmd.inv() || len !in 0..MAX_PAYLOAD) { vm.log("adb: $peer: bad packet header, closing"); break }
-                val data = ByteArray(len)
-                if (len > 0 && !readFully(input, data)) break
-                when (cmd) {
-                    CNXN -> {
-                        maxData = a1.coerceIn(4096, MAX_PAYLOAD)
-                        if (authorized) connected() else sendToken()
-                    }
-                    AUTH -> if (!authorized && !auth(a0, data)) break
-                    // (nothing but the handshake before it is done, as in adbd)
-                    OPEN -> if (authorized) open(a0, String(data).trimEnd('\u0000'))
-                    OKAY -> if (authorized) streams[a1]?.acked(a0)
-                    WRTE -> if (authorized) streams[a1]?.let { it.feed(data); send(OKAY, it.local, it.remote) }
-                    CLSE -> if (authorized) streams.remove(a1)?.closedByPeer()
-                }
-            }
-            streams.values.forEach { it.closedByPeer() }
-        }
-
-        private fun connected() {
-            val p = vm.props
-            val banner = "device::ro.product.name=${p.get("ro.product.name") ?: "aemu"};" +
-                "ro.product.model=${p.get("ro.product.model") ?: vm.img.name};" +
-                "ro.product.device=${p.get("ro.product.device") ?: "aemu"};\u0000"
-            send(CNXN, VERSION, maxData, banner.toByteArray())
-        }
-
-        private fun sendToken() {
-            val t = auth.token()
-            token = t
-            send(AUTH, AUTH_TOKEN, 0, t)
-        }
-
-        /** one AUTH packet of the client; false ends the connection */
-        private fun auth(type: Int, data: ByteArray): Boolean {
-            when (type) {
-                AUTH_SIGNATURE -> {
-                    val t = token ?: return false
-                    token = null
-                    if (auth.verify(t, data)) {
-                        authorized = true
-                        vm.log("adb: $peer connected")
-                        connected()
-                        return true
-                    }
-                    // the client tries each of its keys in turn, then offers its public key
-                    if (++tokens > 16) { vm.log("adb: $peer: too many wrong signatures"); return false }
-                    sendToken()
-                    return true
-                }
-                AUTH_RSAPUBLICKEY -> {
-                    if (keyOffered) return false
-                    keyOffered = true
-                    val key = AdbAuth.parse(String(data, Charsets.ISO_8859_1))
-                    if (key == null) { vm.log("adb: $peer: unreadable public key"); return false }
-                    val ask = confirm
-                    if (ask == null) { vm.log("adb: $peer: unknown computer refused (the machine's screen is closed)"); return false }
-                    if (!asking.compareAndSet(false, true)) { vm.log("adb: $peer: refused, another computer is waiting for an answer"); return false }
-                    val answer = try {
-                        vm.log("adb: $peer asks to connect, key ${key.fingerprint}")
-                        runCatching { ask(key, if (key.comment.isEmpty()) peer else "${key.comment} ($peer)") }.getOrDefault(Answer.DENY)
-                    } finally { asking.set(false) }
-                    if (answer == Answer.DENY || sock.isClosed) { vm.log("adb: $peer refused"); return false }
-                    auth.trust(key, answer == Answer.ALWAYS)
-                    authorized = true
-                    vm.log("adb: $peer allowed" + if (answer == Answer.ALWAYS) " (remembered)" else "")
-                    connected()
-                    return true
-                }
-                else -> return false
-            }
-        }
-
-        @Synchronized fun send(cmd: Int, a0: Int, a1: Int, data: ByteArray = EMPTY, off: Int = 0, len: Int = data.size) {
-            val h = ByteBuffer.allocate(24).order(ByteOrder.LITTLE_ENDIAN)
-            var sum = 0
-            for (i in off until off + len) sum += data[i].toInt() and 0xff
-            h.putInt(cmd).putInt(a0).putInt(a1).putInt(len).putInt(sum).putInt(cmd.inv())
-            output.write(h.array()); if (len > 0) output.write(data, off, len); output.flush()
-        }
-
-        private fun open(remote: Int, service: String) {
-            val s = Stream(this, nextId++, remote)
-            streams[s.local] = s
-            send(OKAY, s.local, remote)
-            thread(name = "adb-$service".take(40), isDaemon = true) {
-                runCatching { serve(s, service) }.onFailure { vm.log("adb: $service: ${it.message}") }
-                s.close()
-            }
-        }
-
-        fun maxData() = maxData
-        fun drop(s: Stream) { streams.remove(s.local) }
-    }
-
-    /** One adb stream: incoming WRTE payloads as an InputStream, outgoing writes paced by the peer's OKAYs. */
-    private class Stream(private val c: Conn, val local: Int, var remote: Int) {
-        private val q = LinkedBlockingQueue<ByteArray>()
-        private val window = Semaphore(1)
-        @Volatile var closed = false
-
-        fun feed(d: ByteArray) { if (d.isNotEmpty()) q.put(d) }
-        fun acked(r: Int) { remote = r; window.release() }
-        fun closedByPeer() { closed = true; q.put(EMPTY); window.release(100) }
-
-        val inp = object : InputStream() {
-            private var cur: ByteArray = EMPTY
-            private var pos = 0
-            private fun fill(): Boolean {
-                while (pos >= cur.size) {
-                    if (closed && q.isEmpty()) return false
-                    val n = q.poll(500, TimeUnit.MILLISECONDS) ?: continue
-                    if (n.isEmpty()) return false
-                    cur = n; pos = 0
-                }
-                return true
-            }
-            override fun read(): Int = if (fill()) cur[pos++].toInt() and 0xff else -1
-            override fun read(b: ByteArray, off: Int, len: Int): Int {
-                if (len == 0) return 0
-                if (!fill()) return -1
-                val n = minOf(len, cur.size - pos)
-                System.arraycopy(cur, pos, b, off, n); pos += n
-                return n
-            }
-        }
-
-        val out = object : OutputStream() {
-            override fun write(b: Int) = write(byteArrayOf(b.toByte()), 0, 1)
-            override fun write(b: ByteArray, off: Int, len: Int) {
-                var o = off
-                while (o < off + len) {
-                    if (closed) throw java.io.IOException("stream closed")
-                    window.acquire()
-                    if (closed) throw java.io.IOException("stream closed")
-                    val n = minOf(c.maxData(), off + len - o)
-                    c.send(WRTE, local, remote, b, o, n)
-                    o += n
-                }
-            }
-        }
-
-        fun close() {
-            if (!closed) { closed = true; runCatching { c.send(CLSE, local, remote) } }
-            c.drop(this)
-        }
-    }
-
     // ------------------------------------------------------------------ services
 
-    private fun serve(s: Stream, service: String) {
+    private fun serve(s: AdbStream, service: String) {
         when {
             service.startsWith("shell:") -> shell(s, service.removePrefix("shell:"), interactive = service == "shell:")
             service.startsWith("exec:") -> shell(s, service.removePrefix("exec:"), interactive = false)
@@ -270,7 +149,7 @@ class AdbServer(private val vm: GuestVm) {
     }
 
     /** guest sh under qemu; stdout+stderr merged (legacy shell protocol has no separate stderr) */
-    private fun shell(s: Stream, cmd: String, interactive: Boolean) {
+    private fun shell(s: AdbStream, cmd: String, interactive: Boolean) {
         if (!interactive && logcat(s, cmd)) return
         val r = vm.guestRunner
         val argv = if (interactive) listOf("/system/bin/sh", "-i") else listOf("/system/bin/sh", "-c", vm.shellPrefix + cmd)
@@ -322,7 +201,7 @@ class AdbServer(private val vm: GuestVm) {
      * Supports -d (dump and exit), -c (clear) and -b <buffer>; without -d it keeps following like logcat does.
      * Records carry no time or pid, so the brief format "P/Tag: message" is used.
      */
-    private fun logcat(s: Stream, raw: String): Boolean {
+    private fun logcat(s: AdbStream, raw: String): Boolean {
         // `adb logcat` sends: export ANDROID_LOG_TAGS="" ; exec logcat <args>
         val cmd = raw.trim().replaceFirst(Regex("^export ANDROID_LOG_TAGS=(\"[^\"]*\"|'[^']*'|\\S*)\\s*;\\s*"), "").removePrefix("exec ").trim()
         val args = cmd.split(Regex("\\s+"))
@@ -378,7 +257,7 @@ class AdbServer(private val vm: GuestVm) {
         return if (p == "/") vm.paths.root else File(vm.paths.root, p.removePrefix("/"))
     }
 
-    private fun sync(s: Stream) {
+    private fun sync(s: AdbStream) {
         val i = s.inp
         val o = java.io.BufferedOutputStream(s.out, 512 * 1024)
         val h = ByteArray(8)
@@ -463,27 +342,12 @@ class AdbServer(private val vm: GuestVm) {
     }
 
     companion object {
-        private const val CNXN = 0x4e584e43
-        private const val OPEN = 0x4e45504f
-        private const val OKAY = 0x59414b4f
-        private const val WRTE = 0x45545257
-        private const val CLSE = 0x45534c43
-        private const val AUTH = 0x48545541
-        private const val AUTH_TOKEN = 1
-        private const val AUTH_SIGNATURE = 2
-        private const val AUTH_RSAPUBLICKEY = 3
-        private const val VERSION = 0x01000000
-        /** adbd's own limits: a packet's payload, a sync path, a sync data chunk */
-        private const val MAX_PAYLOAD = 1024 * 1024
+        /** adbd's own limits on a sync path and a sync data chunk */
         private const val SYNC_PATH_MAX = 1024
         private const val SYNC_DATA_MAX = 64 * 1024
-        private val EMPTY = ByteArray(0)
-
-        private fun readFully(i: InputStream, b: ByteArray): Boolean {
-            var o = 0
-            while (o < b.size) { val n = i.read(b, o, b.size - o); if (n < 0) return false; o += n }
-            return true
-        }
+        /** how long a computer waits for the person at the phone (adbd waits for ever; the client can connect again) */
+        private const val ASK_SECONDS = 120L
+        private const val NOTE_ID = 0xadb
         private fun le(b: ByteArray, o: Int) = ByteBuffer.wrap(b, o, 4).order(ByteOrder.LITTLE_ENDIAN).int
         private fun le4(v: Int) = ByteBuffer.allocate(4).order(ByteOrder.LITTLE_ENDIAN).putInt(v).array()
         private fun id4(s: String) = s.toByteArray(Charsets.ISO_8859_1)

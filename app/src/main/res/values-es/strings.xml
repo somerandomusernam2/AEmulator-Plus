@@ -147,6 +147,8 @@
     <string name="m_adb">ADB por red</string>
     <string name="m_adb_enable">Activar</string>
     <string name="m_adb_hint">Cada ordenador debe permitirse en esta pantalla la primera vez que se conecta. Desactiva ADB cuando no lo uses.</string>
+    <string name="m_adb_require">Preguntar antes de que se conecte un ordenador nuevo</string>
+    <string name="m_adb_open_hint">Cualquiera en esta red Wi-Fi obtiene una shell root del firmware. Desactívalo en redes públicas.</string>
     <string name="m_adb_auth_title">¿Permitir la conexión ADB?</string>
     <string name="m_adb_auth_text">%1$s quiere conectarse.\n\nHuella digital de la clave RSA del ordenador:\n%2$s</string>
     <string name="m_adb_auth_always">Permitir siempre desde este ordenador</string>

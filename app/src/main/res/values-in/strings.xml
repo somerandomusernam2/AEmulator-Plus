@@ -147,6 +147,8 @@
     <string name="m_adb">ADB lewat jaringan</string>
     <string name="m_adb_enable">Aktifkan</string>
     <string name="m_adb_hint">Setiap komputer harus diizinkan di layar ini saat pertama kali terhubung. Matikan ADB jika tidak digunakan.</string>
+    <string name="m_adb_require">Tanya sebelum komputer baru terhubung</string>
+    <string name="m_adb_open_hint">Siapa pun di jaringan Wi-Fi ini mendapat shell root firmware. Matikan di jaringan publik.</string>
     <string name="m_adb_auth_title">Izinkan koneksi ADB?</string>
     <string name="m_adb_auth_text">%1$s ingin terhubung.\n\nSidik jari kunci RSA komputer:\n%2$s</string>
     <string name="m_adb_auth_always">Selalu izinkan dari komputer ini</string>

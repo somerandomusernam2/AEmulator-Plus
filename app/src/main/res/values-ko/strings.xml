@@ -147,6 +147,8 @@
     <string name="m_adb">네트워크 ADB</string>
     <string name="m_adb_enable">사용</string>
     <string name="m_adb_hint">각 컴퓨터는 처음 연결할 때 이 화면에서 허용해야 합니다. 사용하지 않을 때는 ADB를 끄세요.</string>
+    <string name="m_adb_require">새 컴퓨터가 연결되기 전에 묻기</string>
+    <string name="m_adb_open_hint">이 Wi-Fi 네트워크의 누구나 펌웨어의 root 셸을 얻습니다. 공용 네트워크에서는 끄세요.</string>
     <string name="m_adb_auth_title">ADB 연결을 허용할까요?</string>
     <string name="m_adb_auth_text">%1$s에서 연결하려고 합니다.\n\n컴퓨터의 RSA 키 지문:\n%2$s</string>
     <string name="m_adb_auth_always">이 컴퓨터에서 항상 허용</string>

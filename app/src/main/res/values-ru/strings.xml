@@ -151,6 +151,8 @@
     <string name="m_terminal">Терминал</string>
     <string name="m_adb_enable">Включить</string>
     <string name="m_adb_hint">Каждый компьютер нужно разрешить на этом экране при первом подключении. Выключайте ADB, когда он не нужен.</string>
+    <string name="m_adb_require">Спрашивать перед подключением нового компьютера</string>
+    <string name="m_adb_open_hint">Любой в этой Wi-Fi-сети получит root-доступ к прошивке. Выключайте в общественных сетях.</string>
     <string name="m_adb_auth_title">Разрешить подключение ADB?</string>
     <string name="m_adb_auth_text">%1$s хочет подключиться.\n\nОтпечаток RSA-ключа компьютера:\n%2$s</string>
     <string name="m_adb_auth_always">Всегда разрешать этому компьютеру</string>
