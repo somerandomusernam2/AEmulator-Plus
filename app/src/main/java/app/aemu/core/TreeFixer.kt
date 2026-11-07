@@ -709,6 +709,39 @@ class TreeFixer(
         if (parked > 0) log("vendor HALs set aside: $parked")
     }
 
+    /**
+     * A libui built for Qualcomm's gralloc (CAF / CyanogenMod QCOM_BSP_LEGACY, msm8960 generation: MIUI 9 for the Mi 2)
+     * calls allocSize() in the allocator's first reserved slot, which AOSP's module leaves empty: SurfaceFlinger jumped
+     * to address 0 and the boot stayed black. The engine's wrapper (native/grallocwrap/gralloc_caf.c) goes in front of
+     * whatever gralloc.default is there, which is kept as system/lib/libgralloc_aosp.so.
+     */
+    private fun qcomAllocSizeGralloc() {
+        val hw = File(root, "system/lib/hw/gralloc.default.so")
+        val aosp = File(root, "system/lib/libgralloc_aosp.so")
+        val asset = "engines/kk/gralloc.caf.so"
+        val libui = File(root, "system/lib/libui.so")
+        val wants = libui.isFile && libui.length() < 4_000_000 &&
+            runCatching { String(libui.readBytes(), Charsets.ISO_8859_1).contains("allocSize") }.getOrDefault(false)
+        val hwIsWrapper = hw.isFile && runCatching { hw.length() == EngineAssets.size(ctx, asset) && sameContent(asset, hw) }.getOrDefault(false)
+        runCatching {
+            when {
+                wants && !(hwIsWrapper && aosp.isFile) -> {
+                    // the module in place goes behind it (never the wrapper itself: it would load itself), or the engine's
+                    if (hw.isFile && !isLink(hw) && !hwIsWrapper) { aosp.delete(); check(hw.renameTo(aosp)) }
+                    else if (!aosp.isFile) EngineAssets.open(ctx, "engines/kk/gralloc.default.so").use { i -> aosp.outputStream().use { o -> i.copyTo(o) } }
+                    if (!hwIsWrapper) {
+                        hw.parentFile?.mkdirs(); if (isLink(hw)) Os.remove(hw.absolutePath)
+                        EngineAssets.open(ctx, asset).use { i -> hw.outputStream().use { o -> i.copyTo(o) } }
+                    }
+                    hw.setReadable(true, false); aosp.setReadable(true, false)
+                    log("gralloc: libui calls Qualcomm's allocSize, engine gralloc wrapper in front of the default one")
+                }
+                // (a libui without it: the module back in its place)
+                !wants && hwIsWrapper -> { hw.delete(); if (aosp.isFile) check(aosp.renameTo(hw)); log("gralloc: allocSize wrapper removed") }
+            }
+        }.onFailure { log("gralloc: allocSize wrapper: ${it.message}") }
+    }
+
     private val VENDOR_HALS = setOf("gralloc", "hwcomposer", "copybit", "lights", "sensors", "audio", "power", "memtrack",
         "camera", "gps", "fingerprint", "gxfingerprint", "consumerir", "bluetooth", "nfc", "vibrator", "keystore", "gatekeeper")
 
@@ -808,6 +841,7 @@ class TreeFixer(
                 copied++
             }.onFailure { log("${from.removePrefix("@")} missing from engine set: ${it.message}") }
         }
+        if (engine == Engine.KK) qcomAllocSizeGralloc()
         // Replicate camera.default.so into vendor/lib/hw and 64-bit libraries for modern cameraserver and apps
         val cam32 = File(root, "system/lib/hw/camera.default.so")
         val vcam32 = File(root, "vendor/lib/hw/camera.default.so")

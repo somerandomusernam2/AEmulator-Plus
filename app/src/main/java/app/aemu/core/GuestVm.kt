@@ -22,6 +22,9 @@ private val N64_SKIP = setOf("audiod", "ATFWD-daemon", "imsqmidaemon", "loc_laun
     "tftp_server", "qcom-system-daemon", "hvdcp_opti", "pm-service", "mtd", "mlipayd", "vsimd", "fdpp", "perfd", "ipacm",
     "qti", "netmgrd", "port-bridge", "ims_rtp_daemon", "imsdatadaemon", "wcnss_service", "msm_irqbalance", "energy-awareness", "sscrpcd", "adsprpcd", "cdsprpcd", "audioadsprpcd")
 
+/** 4.4 engine (32-bit firmware): vendor daemons that only spin without their hardware. */
+private val KK_SKIP = setOf("loc_launcher")
+
 /**
  * Одна запущенная виртуальная машина. Живёт в процессе :vm (одна на процесс: GL-мост нельзя
  * поднять дважды), заменяет собой init: готовит дерево, поднимает службы хоста (свойства, ввод,
@@ -713,6 +716,10 @@ class GuestVm(val ctx: Context, val img: GuestImage) {
             return
         }
         if (engine == Engine.N64 && ((svc.name == "zygote_secondary" && !n64Has32) || svc.argv.first().substringAfterLast('/') in N64_SKIP)) return
+        // Qualcomm's location launcher on the 4.4 engine too: its daemons (xtwifi-client…) find no modem and exit, and
+        // its wait loop then spins on EINTR ("Parent woken up! Interrupted system call": 227,000 lines in six minutes
+        // of a Mi 2 MIUI 9 boot, 15 MB of log and a core of the translator)
+        if (engine == Engine.KK && svc.argv.first().substringAfterLast('/') in KK_SKIP) { log("· ${svc.name}: skipped (no hardware for it)"); return }
         if (engine == Engine.N64 && !paths.nativeBin("libqemu_arm.so").canExecute() && !runsNatively(File(paths.root, svc.argv.first().removePrefix("/")))) {
             log("· ${svc.name}: 32-bit program, skipped by the native arm64 engine")
             return
