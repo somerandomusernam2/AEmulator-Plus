@@ -3381,10 +3381,9 @@ class GuestVm(val ctx: Context, val img: GuestImage, val lowPowerBoot: Boolean =
         }
     }
 
-    private fun gmtZone(): String {
-        val h = java.util.TimeZone.getDefault().getOffset(System.currentTimeMillis()) / 3_600_000
-        return if (h == 0) "Etc/GMT" else "Etc/GMT" + (if (h > 0) "-$h" else "+${-h}")
-    }
+    /** Modified for AEmulator Aster (2026-11-07): whole hours as Etc/GMT as before; +5:30 and the like by a named zone the
+     *  firmware's own tz database agrees on (GuestZone), where Etc/GMT left the guest's clock 15 to 45 minutes off */
+    private fun gmtZone(): String = GuestZone.pick(paths.root)
 
     private fun isLinkTo(f: File, target: String) = runCatching { android.system.Os.readlink(f.absolutePath) == target }.getOrDefault(false)
 
