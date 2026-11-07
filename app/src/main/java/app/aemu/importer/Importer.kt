@@ -43,8 +43,8 @@ class Importer(
 ) {
     private lateinit var paths: VmPaths
     private lateinit var root: File
-    /** [root] resolved once: every file of the image is checked against it */
-    private val rootCanon: String by lazy { root.canonicalPath }
+    /** [root] resolved once (set with it): every file of the image is checked against it */
+    private lateinit var rootCanon: String
     private val tmp = File(ctx.cacheDir, "import").apply { mkdirs() }
     private var ramdisk: List<BootImage.CpioEntry>? = null
     private var recovery: ByteArray? = null
@@ -60,6 +60,7 @@ class Importer(
         paths = VmPaths(ctx, id)
         root = paths.root
         root.mkdirs()
+        rootCanon = root.canonicalPath
         try {
             onProgress("Opening $name", 0f)
             val pfd = ctx.contentResolver.openFileDescriptor(uri, "r") ?: throw IOException("file failed to open")
