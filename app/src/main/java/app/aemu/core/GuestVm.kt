@@ -30,6 +30,9 @@ private const val PURE32_GPU_MODE = "3"
  * (MIUI installd dies in the LBE security hook on start). */
 private val ALWAYS_RESTART = setOf("mediaserver", "installd", "netd", "keystore")
 
+/** Added for AEmulator Plus (2026-11-07): 4.4 engine (32-bit firmware): vendor daemons that only spin without their hardware. */
+private val KK_SKIP = setOf("loc_launcher")
+
 /** Native arm64 engine: vendor daemons that only poll hardware the phone does not have (modem, DSP, TrustZone). */
 private val N64_SKIP = setOf("audiod", "ATFWD-daemon", "imsqmidaemon", "loc_launcher", "cnd", "dpmd", "cnss-daemon",
     "tftp_server", "qcom-system-daemon", "hvdcp_opti", "pm-service", "mtd", "mlipayd", "vsimd", "fdpp", "perfd", "ipacm",
@@ -897,8 +900,11 @@ class GuestVm(val ctx: Context, val img: GuestImage, val lowPowerBoot: Boolean =
                 overrides["dalvik.vm.dex2oat-flags"] = overrides["dalvik.vm.dex2oat-flags"] + " --runtime-arg -Xnorelocate"
                 // Samsung 5.x/6.0 installd hands the whole property to dex2oat as one argument, which then fails to parse
                 // ("-j" value '4 --runtime-arg -Xnorelocate'): split it in a dex2oat wrapper. Other devices are untouched.
-                if (isSamsungImage && img.api in 21..23 && Dex2oatArgSplit.install(paths.root))
-                    log("dex2oat: wrapper splits the combined dex2oat-flags argument (Samsung installd)")
+                // Modified for AEmulator Plus (2026-11-07): AOSP's own installd of 5.0/5.1 does the same (argv[i++] = dex2oat_flags;
+                // the split came with 6.0), so every 5.x firmware gets the wrapper: on a Xiaomi Mi 2 MIUI 9 (5.0.2) the dexopt of
+                // every app failed ("Failed to parse -j argument '4 --runtime-arg -Xnorelocate' as an integer", status 0x0100).
+                if ((img.api in 21..22 || isSamsungImage && img.api == 23) && Dex2oatArgSplit.install(paths.root))
+                    log("dex2oat: wrapper splits the combined dex2oat-flags argument (installd of 5.x / Samsung 6.0 passes it as one)")
             }
         }
         // Modified for AEmulator Plus (2026-10-29): 14+ firmware whose boot.oat was built for the userfaultfd collector (oat
@@ -1560,7 +1566,11 @@ class GuestVm(val ctx: Context, val img: GuestImage, val lowPowerBoot: Boolean =
                 waitFor("GL bridge socket", 10_000) { paths.glSock.exists() }
             }
             Engine.KK -> {
-                if (surface == null) waitFor("screen surface", 10_000) { surface != null }
+                // Modified for AEmulator Plus (2026-11-07): only the in-app bridge (below 5.0, not on Mali) draws on the screen's
+                // surface; elsewhere the view is not shown at all and the wait ran out on every boot ("timed out waiting for:
+                // screen surface", 10 s)
+                val mali = HostInfo.gpu().contains("mali")
+                if (surface == null && img.api < 21 && !mali) waitFor("screen surface", 10_000) { surface != null }
                 val sf = surface
                 HostNative.relaxFdsanSafe()
                 // 5.0+: hwui's GL stream has crashed the in-app bridge (SIGSEGV in serve_one_raw took the whole app down);
@@ -1570,7 +1580,6 @@ class GuestVm(val ctx: Context, val img: GuestImage, val lowPowerBoot: Boolean =
                 // for system_server, driver refused 0x502). Sense 3's Rosie launcher and the lockscreen are ES2 and stay invisible
                 // (only the ES1 wallpaper shows). The standalone *_mali server keeps ES2 contexts out of that group, so Mali uses it
                 // for old images too.
-                val mali = HostInfo.gpu().contains("mali")
                 if (img.api < 21 && !mali && sf != null && GlBridge.start(sf, paths.glSock.absolutePath, paths.log("glbridge").absolutePath, w, h, false)) {
                     log("★ GPU bridge running in-app: frames render straight to the surface")
                     waitFor("GL bridge socket", 5_000) { paths.glSock.exists() }
@@ -1744,6 +1753,10 @@ class GuestVm(val ctx: Context, val img: GuestImage, val lowPowerBoot: Boolean =
             return
         }
         if (engine == Engine.N64 && ((svc.name == "zygote_secondary" && !n64Has32) || svc.argv.first().substringAfterLast('/') in N64_SKIP)) return
+        // Modified for AEmulator Plus (2026-11-07): Qualcomm's location launcher on the 4.4 engine too. Its daemons (xtwifi-client…)
+        // find no modem and exit, and its wait loop then spins on EINTR ("Parent woken up! Interrupted system call": 227,000
+        // lines in six minutes of a Mi 2 MIUI 9 boot, 15 MB of log and a translator core busy during the boot)
+        if (engine == Engine.KK && svc.argv.first().substringAfterLast('/') in KK_SKIP) { log("· ${svc.name}: skipped (no hardware for it)"); return }
         if (engine == Engine.N64 && !paths.nativeBin("libqemu_arm.so").canExecute() && !runsNatively(File(paths.root, svc.argv.first().removePrefix("/")))) {
             log("· ${svc.name}: 32-bit program, skipped by the native arm64 engine")
             return

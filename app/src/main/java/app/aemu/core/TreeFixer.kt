@@ -3484,7 +3484,9 @@ class TreeFixer(
         // устройство выделения получается пустым и SurfaceFlinger падает — ставим gralloc движка
         val romGralloc = File(root, "system/lib/hw/gralloc.default.so")
         // (x86: there is no engine gralloc to put in its place yet, the firmware keeps its own)
-        if (engine == Engine.KK && img.arch == GuestArch.ARM && romGralloc.isFile && romGralloc.length() < 2_000_000) {
+        // Modified for AEmulator Plus (2026-11-07): the engine's own allocSize wrapper (qcomAllocSizeGralloc) is not a firmware
+        // gralloc: its device is 0x6c bytes (it keeps the real one), which the size check below would take for the Sony layout
+        if (engine == Engine.KK && img.arch == GuestArch.ARM && romGralloc.isFile && romGralloc.length() < 2_000_000 && !isAllocSizeWrapper(romGralloc)) {
             val text = runCatching { String(romGralloc.readBytes(), Charsets.ISO_8859_1) }.getOrDefault("")
             // Qualcomm CAF gralloc (Sony Xperia 4.2.x on msm8960: "Failed to open the dev ion file!") allocates through /dev/ion
             // and libmemalloc / genlock, which the guest has no kernel for: the device it opens has no usable alloc() and
@@ -3687,6 +3689,7 @@ class TreeFixer(
         }
         if (skippedForArch > 0)
             log("${img.arch.id}: $skippedForArch engine helper files have no ${img.arch.id} build yet (assets/engines/*${img.arch.assetSuffix}); the guest runs without them")
+        if (engine == Engine.KK && img.arch == GuestArch.ARM) qcomAllocSizeGralloc()
         // Replicate camera.default.so into vendor/lib/hw and 64-bit libraries for modern cameraserver and apps
         val cam32 = File(root, "system/lib/hw/camera.default.so")
         val vcam32 = File(root, "vendor/lib/hw/camera.default.so")
@@ -3869,6 +3872,46 @@ class TreeFixer(
     private fun isElf64(f: File): Boolean = runCatching {
         f.inputStream().use { i -> val b = ByteArray(5); i.read(b) == 5 && b[4] == 2.toByte() }
     }.getOrDefault(false)
+
+    /**
+     * Added for AEmulator Plus (2026-11-07): a libui built for Qualcomm's gralloc (CAF / CyanogenMod QCOM_BSP_LEGACY, msm8960
+     * generation: MIUI 9 for the Xiaomi Mi 2, 5.0.2) calls allocSize() in the first reserved slot of alloc_device_t (+0x4c),
+     * which the AOSP-layout engine gralloc leaves empty: SurfaceFlinger died in a binder thread with pc 0, lr in libui, r0
+     * the allocator device and r1-r3 = width, height, format; system_server waited for it until zygote was killed (137).
+     * The engine's wrapper (native/grallocwrap/gralloc_caf.c) goes in front of whatever gralloc.default is there, which is
+     * kept as system/lib/libgralloc_aosp.so. Not where libui frees through +0x48 (the Sony layout, see GrallocProbe):
+     * the wrapper keeps AOSP's slots.
+     */
+    private fun isAllocSizeWrapper(f: File): Boolean = f.isFile && !isLink(f) &&
+        runCatching { f.length() == eaSize("engines/kk/gralloc.caf.so") && sameContent("engines/kk/gralloc.caf.so", f) }.getOrDefault(false)
+
+    private fun qcomAllocSizeGralloc() {
+        val hw = File(root, "system/lib/hw/gralloc.default.so")
+        val aosp = File(root, "system/lib/libgralloc_aosp.so")
+        val asset = "engines/kk/gralloc.caf.so"
+        val libui = File(root, "system/lib/libui.so")
+        val libuiBytes = if (libui.isFile && libui.length() < 4_000_000) runCatching { libui.readBytes() }.getOrNull() else null
+        val wants = libuiBytes != null && String(libuiBytes, Charsets.ISO_8859_1).contains("allocSize") &&
+            runCatching { GrallocProbe.libuiFreeSlot(libuiBytes) }.getOrNull() != 0x48
+        val hwIsWrapper = isAllocSizeWrapper(hw)
+        runCatching {
+            when {
+                wants && !(hwIsWrapper && aosp.isFile) -> {
+                    // the module in place goes behind it (never the wrapper itself: it would load itself), or the engine's
+                    if (hw.isFile && !isLink(hw) && !hwIsWrapper) { aosp.delete(); check(hw.renameTo(aosp)) }
+                    else if (!aosp.isFile) eaOpen("engines/kk/gralloc.default.so").use { i -> aosp.outputStream().use { o -> i.copyTo(o) } }
+                    if (!hwIsWrapper) {
+                        hw.parentFile?.mkdirs(); if (isLink(hw)) Os.remove(hw.absolutePath)
+                        eaOpen(asset).use { i -> hw.outputStream().use { o -> i.copyTo(o) } }
+                    }
+                    hw.setReadable(true, false); aosp.setReadable(true, false)
+                    log("gralloc: libui calls Qualcomm's allocSize (alloc_device_t +0x4c), engine gralloc wrapper in front of the default one")
+                }
+                // (a libui without it: the module back in its place)
+                !wants && hwIsWrapper -> { hw.delete(); if (aosp.isFile) check(aosp.renameTo(hw)); log("gralloc: allocSize wrapper removed") }
+            }
+        }.onFailure { log("gralloc: allocSize wrapper: ${it.message}") }
+    }
 
     private fun sameContent(asset: String, f: File): Boolean = runCatching {
         fun crc(i: java.io.InputStream): Long {
