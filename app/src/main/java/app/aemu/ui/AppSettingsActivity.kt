@@ -1,18 +1,23 @@
+/* Modified for AEmulator Sunset through 2026-10-03: host display options, fork links, catalog,
+ * experimental unlock and local license/notices.
+ * Modified for AEmulator Plus, 2026-10-12: VM screen themes (replace the navigation bar style; merged from Super Plus). GPL-3.0; see NOTICE.md. */
 package app.aemu.ui
 
-import android.content.ClipData
-import android.content.ClipboardManager
+import app.aemu.core.userMessageOrNull
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
-import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.text.selection.SelectionContainer
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -30,14 +35,12 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.Code
 import androidx.compose.material.icons.rounded.ContentCopy
-import androidx.compose.material.icons.rounded.Favorite
 import androidx.compose.material.icons.rounded.History
 import androidx.compose.material.icons.rounded.Language
 import androidx.compose.material.icons.rounded.Person
-import androidx.compose.material.icons.rounded.Public
-import androidx.compose.material.icons.rounded.Send
 import androidx.compose.material.icons.rounded.SystemUpdate
 import androidx.compose.material.icons.rounded.Translate
+import androidx.compose.material.icons.rounded.List
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ButtonGroupDefaults
 import androidx.compose.material3.Card
@@ -70,6 +73,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.toArgb
+import androidx.compose.foundation.background
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalContext
@@ -84,14 +89,14 @@ import app.aemu.AppPrefs
 import app.aemu.BuildConfig
 import app.aemu.R
 
-/** Ссылки проекта — одни и те же в приложении, README и на сайте. */
+/** Modified for AEmulator Sunset on 2026-09-30: fork links and attribution.
+ * Modified for AEmulator Plus on 2026-10-04: Plus links; Sunset and original credited as upstream. */
 object Links {
-    const val SITE = "https://aemulator.gt.tc"
-    const val GITHUB = "https://github.com/uxazu/aemulator"
-    const val CHANNEL = "https://t.me/aemulatorofficial"
-    const val AUTHOR = "https://github.com/uxazu"
-    const val ORIGINAL = "https://t.me/istratii_tech1"
-    const val DONATE = "https://dalink.to/uxazu"
+    const val GITHUB = "https://github.com/somerandomusernam2/AEmulator-Plus"
+    const val AUTHOR = "https://github.com/somerandomusernam2"
+    const val SUNSET = "https://github.com/drel4/AEmulator-Sunset"
+    const val UPSTREAM = "https://github.com/uxazu/AEmulator"
+    const val ORIGINAL = "https://t.me/istratiit_ech"
 }
 
 class AppSettingsActivity : ComponentActivity() {
@@ -114,13 +119,31 @@ private fun AppSettings(onBack: () -> Unit, onRestyle: () -> Unit) {
     val ctx = LocalContext.current
     val scroll = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
     var langDialog by remember { mutableStateOf(false) }
+    var legalDialog by remember { mutableStateOf(false) }
     var defaults by remember { mutableStateOf(AppPrefs.defaults(ctx)) }
     var theme by remember { mutableStateOf(AppPrefs.theme(ctx)) }
     var dynamic by remember { mutableStateOf(AppPrefs.dynamicColor(ctx)) }
+    var accent by remember { mutableStateOf(AppPrefs.accentColor(ctx)) }
+    var accentDialog by remember { mutableStateOf(false) }
+    var hostUi by remember { mutableStateOf(AppPrefs.hostUiOptions(ctx)) }
     val scope = rememberCoroutineScope()
     var autoUpdates by remember { mutableStateOf(AppPrefs.autoCheckUpdates(ctx)) }
+    var library3d by remember { mutableStateOf(AppPrefs.library3d(ctx)) }
+    var newHome by remember { mutableStateOf(AppPrefs.newHome(ctx)) }
     var updateState by remember { mutableStateOf<UpdateState>(UpdateState.Idle) }
     var downloadJob by remember { mutableStateOf<Job?>(null) }
+
+    if (accentDialog) {
+        ColorPickerDialog(
+            initial = if (accent == 0) Color(0xFFF4511E) else Color(accent),
+            onDismiss = { accentDialog = false },
+            onReset = { accent = 0; AppPrefs.setAccentColor(ctx, 0); accentDialog = false; onRestyle() },
+            onApply = { c ->
+                val argb = c.toArgb() or 0xFF000000.toInt()
+                accent = argb; AppPrefs.setAccentColor(ctx, argb); accentDialog = false; onRestyle()
+            },
+        )
+    }
 
     fun checkForUpdates() {
         updateState = UpdateState.Checking
@@ -139,7 +162,7 @@ private fun AppSettings(onBack: () -> Unit, onRestyle: () -> Unit) {
                     }
                 },
                 onFailure = { err ->
-                    updateState = UpdateState.Error(err.localizedMessage ?: "Ошибка сети")
+                    updateState = UpdateState.Error(err.userMessageOrNull(ctx) ?: ctx.getString(R.string.update_network_error))
                 }
             )
         }
@@ -156,17 +179,13 @@ private fun AppSettings(onBack: () -> Unit, onRestyle: () -> Unit) {
                 AppUpdateManager.installApk(ctx, file)
             } catch (e: Exception) {
                 if (e !is kotlinx.coroutines.CancellationException) {
-                    updateState = UpdateState.Error(e.localizedMessage ?: "Ошибка загрузки")
+                    updateState = UpdateState.Error(e.userMessageOrNull(ctx) ?: ctx.getString(R.string.update_download_failed_generic))
                 }
             }
         }
     }
 
     fun open(url: String) = runCatching { ctx.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url))) }
-    fun copy(text: String) {
-        (ctx.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager).setPrimaryClip(ClipData.newPlainText("address", text))
-        Toast.makeText(ctx, ctx.getString(R.string.as_copied), Toast.LENGTH_SHORT).show()
-    }
     val langTag = AppPrefs.language(ctx)
     val langName = AppPrefs.LANGUAGES.firstOrNull { it.first == langTag }?.second?.ifEmpty { null } ?: stringResource(R.string.as_lang_system)
 
@@ -185,6 +204,14 @@ private fun AppSettings(onBack: () -> Unit, onRestyle: () -> Unit) {
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
             item { AboutCard() }
+
+            item {
+                Section(stringResource(R.string.catalog_title)) {
+                    Row_(Icons.Rounded.List, stringResource(R.string.catalog_open), AppPrefs.catalogUrl(ctx)) {
+                        ctx.startActivity(Intent(ctx, RomCatalogActivity::class.java))
+                    }
+                }
+            }
 
             item {
                 Section(stringResource(R.string.as_updates)) {
@@ -208,6 +235,22 @@ private fun AppSettings(onBack: () -> Unit, onRestyle: () -> Unit) {
 
             item {
                 Section(stringResource(R.string.as_appearance)) {
+                    Toggle(stringResource(R.string.as_new_home), stringResource(R.string.as_new_home_sub), newHome) {
+                        newHome = it; AppPrefs.setNewHome(ctx, it)
+                    }
+                    Toggle(stringResource(R.string.as_library_3d), stringResource(R.string.as_library_3d_sub), library3d) {
+                        library3d = it; AppPrefs.setLibrary3d(ctx, it)
+                    }
+                    if (app.aemu.core.HostDisplayPolicy.rotateWindow(ctx.resources.configuration.smallestScreenWidthDp)) {
+                        Toggle(stringResource(R.string.as_tablet_navbar_rotation), stringResource(R.string.as_tablet_navbar_rotation_sub), hostUi.tabletNavbarRotation) {
+                            hostUi = hostUi.copy(tabletNavbarRotation = it); AppPrefs.setHostUiOptions(ctx, hostUi)
+                        }
+                    }
+                    Toggle(stringResource(R.string.as_cutout_barrier), stringResource(R.string.as_cutout_barrier_sub), hostUi.cutoutBarrier) {
+                        hostUi = hostUi.copy(cutoutBarrier = it); AppPrefs.setHostUiOptions(ctx, hostUi)
+                    }
+                    // the navigation bar style is now part of the VM screen theme (Original, Sunset, 2.x-5.x eras, own themes)
+                    VmThemeRow()
                     Row_(Icons.Rounded.Translate, stringResource(R.string.as_language), langName) { langDialog = true }
                     Text(stringResource(R.string.as_theme), style = MaterialTheme.typography.labelLarge,
                         modifier = Modifier.padding(start = 16.dp, top = 8.dp, bottom = 8.dp))
@@ -231,7 +274,19 @@ private fun AppSettings(onBack: () -> Unit, onRestyle: () -> Unit) {
                             }
                         }
                     }
-                    if (Build.VERSION.SDK_INT >= 31) {
+                    ListItem(
+                        headlineContent = { Text(stringResource(R.string.as_accent)) },
+                        supportingContent = { Text(if (accent == 0) stringResource(R.string.as_accent_default)
+                            else "#%06X".format(accent and 0xFFFFFF)) },
+                        trailingContent = {
+                            androidx.compose.foundation.layout.Box(Modifier.size(28.dp)
+                                .clip(androidx.compose.foundation.shape.CircleShape)
+                                .background(if (accent == 0) Color(0xFFF4511E) else Color(accent)))
+                        },
+                        colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+                        modifier = Modifier.clickable { accentDialog = true },
+                    )
+                    if (Build.VERSION.SDK_INT >= 31 && accent == 0) {
                         Toggle(stringResource(R.string.as_dynamic), stringResource(R.string.as_dynamic_sub), dynamic) {
                             dynamic = it; AppPrefs.setDynamicColor(ctx, it)
                         }
@@ -246,6 +301,7 @@ private fun AppSettings(onBack: () -> Unit, onRestyle: () -> Unit) {
                     Toggle(stringResource(R.string.vs_jit), stringResource(R.string.vs_jit_sub), defaults.jit) { set(defaults.copy(jit = it)) }
                     Toggle(stringResource(R.string.vs_proxy), stringResource(R.string.vs_proxy_sub), defaults.netProxy) { set(defaults.copy(netProxy = it)) }
                     Toggle(stringResource(R.string.vs_nav), stringResource(R.string.vs_nav_sub), defaults.showNavBar) { set(defaults.copy(showNavBar = it)) }
+                    NavigationSettings(defaults, ::set)
                     Toggle(stringResource(R.string.vs_awake), stringResource(R.string.vs_awake_sub), defaults.keepScreenOn) { set(defaults.copy(keepScreenOn = it)) }
                     Toggle(stringResource(R.string.as_led), stringResource(R.string.as_led_sub), defaults.showLed) { set(defaults.copy(showLed = it)) }
                 }
@@ -253,20 +309,32 @@ private fun AppSettings(onBack: () -> Unit, onRestyle: () -> Unit) {
 
             item {
                 Section(stringResource(R.string.as_links)) {
-                    Row_(Icons.Rounded.Public, stringResource(R.string.as_site), "aemulator.gt.tc") { open(Links.SITE) }
-                    Row_(Icons.Rounded.Send, stringResource(R.string.as_channel), "@aemulatorofficial") { open(Links.CHANNEL) }
-                    Row_(Icons.Rounded.Person, stringResource(R.string.as_author), "uxazu") { open(Links.AUTHOR) }
-                    Row_(Icons.Rounded.History, stringResource(R.string.as_orig), "t.me/istratii_tech1") { open(Links.ORIGINAL) }
-                    Row_(Icons.Rounded.Code, stringResource(R.string.as_github), "github.com/uxazu/aemulator") { open(Links.GITHUB) }
-                }
-            }
-
-            item {
-                Section(stringResource(R.string.as_support)) {
-                    Row_(Icons.Rounded.Favorite, stringResource(R.string.as_donate), "dalink.to/uxazu") { open(Links.DONATE) }
+                    Row_(Icons.Rounded.Person, stringResource(R.string.as_author), "somerandomusername2") { open(Links.AUTHOR) }
+                    Row_(Icons.Rounded.History, stringResource(R.string.as_orig), "t.me/istratiit_ech") { open(Links.ORIGINAL) }
+                    Row_(Icons.Rounded.Code, stringResource(R.string.as_github), "github.com/somerandomusernam2/AEmulator-Plus") { open(Links.GITHUB) }
+                    Row_(Icons.Rounded.History, stringResource(R.string.as_upstream_row, "AEmulator Sunset"), "github.com/drel4/AEmulator-Sunset") { open(Links.SUNSET) }
+                    Row_(Icons.Rounded.History, stringResource(R.string.as_original_row, "AEmulator"), "github.com/uxazu/AEmulator") { open(Links.UPSTREAM) }
+                    Row_(Icons.Rounded.Code, stringResource(R.string.as_license_notices), "GPL-3.0") { legalDialog = true }
                 }
             }
         }
+    }
+
+    if (legalDialog) {
+        val notices = remember {
+            listOf("NOTICE.md", "license-audit.md", "LICENSE").joinToString("\n\n") { file ->
+                ctx.assets.open("legal/$file").bufferedReader().use { it.readText() }
+            }
+        }
+        AlertDialog(onDismissRequest = { legalDialog = false },
+            title = { Text(stringResource(R.string.as_license_notices)) },
+            text = {
+                SelectionContainer {
+                    Text(notices, style = MaterialTheme.typography.bodySmall,
+                        modifier = Modifier.heightIn(max = 400.dp).verticalScroll(rememberScrollState()))
+                }
+            },
+            confirmButton = { TextButton(onClick = { legalDialog = false }) { Text(stringResource(R.string.cancel)) } })
     }
 
     if (langDialog) {
@@ -314,7 +382,7 @@ private fun AboutCard() {
             Image(painterResource(R.drawable.logo), null, Modifier.size(64.dp).clip(RoundedCornerShape(20.dp)))
             Spacer(Modifier.width(16.dp))
             Column(Modifier.weight(1f)) {
-                Text("AEmulator", style = MaterialTheme.typography.headlineSmall, color = MaterialTheme.colorScheme.onPrimaryContainer)
+                SunsetTitle(style = MaterialTheme.typography.headlineSmall, color = MaterialTheme.colorScheme.onPrimaryContainer)
                 Text(stringResource(R.string.as_version, BuildConfig.VERSION_NAME), style = MaterialTheme.typography.labelLarge,
                     color = MaterialTheme.colorScheme.onPrimaryContainer)
                 Spacer(Modifier.height(4.dp))

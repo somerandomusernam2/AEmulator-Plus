@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="vs_cdma">CDMA 调制解调器</string>
+    <string name="vs_cdma_sub">模拟 CDMA 调制解调器：1xRTT / EV-DO 注册、MEID、CDMA 订阅和 CDMA 短信。下次完整启动时生效。</string>
+    <string name="vs_cdma_fw_yes">此固件为 LTE on CDMA（telephony.lteOnCdmaDevice=1）：默认开启。</string>
+    <string name="vs_cdma_fw_no">此固件不是 LTE on CDMA：默认关闭。</string>
+</resources>

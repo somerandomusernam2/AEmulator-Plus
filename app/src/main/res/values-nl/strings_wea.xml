@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="m_wea">Nep-noodmelding</string>
+    <string name="m_wea_type">Meldingstype</string>
+    <string name="m_wea_sent">Noodmelding verzonden</string>
+    <string name="m_wea_failed">Niet verzonden: de telefonie van de telefoon draait niet</string>
+    <string name="wea_presidential">Presidentiële melding</string>
+    <string name="wea_extreme">Extreme dreiging</string>
+    <string name="wea_severe">Ernstige dreiging</string>
+    <string name="wea_amber">AMBER-melding</string>
+    <string name="wea_test">Verplichte maandelijkse test</string>
+    <string name="wea_body_presidential">Presidentiële melding: dit is een test van het noodmeldingssysteem. Er is geen actie nodig.</string>
+    <string name="wea_body_extreme">Extreme melding: tornadowaarschuwing in uw omgeving. Zoek nu dekking. Dit is een test.</string>
+    <string name="wea_body_severe">Ernstige melding: onweerswaarschuwing in uw omgeving tot 18.00 uur. Dit is een test.</string>
+    <string name="wea_body_amber">AMBER-melding: vermist kind, blauwe sedan. Bel 911 als u de auto ziet. Dit is een test.</string>
+    <string name="wea_body_test">Dit is een test van het Wireless Emergency Alert-systeem. Er is geen actie nodig.</string>
+</resources>

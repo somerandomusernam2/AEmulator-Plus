@@ -1,5 +1,6 @@
 package app.aemu.core
 
+import app.aemu.R
 import android.content.Context
 import android.system.Os
 import org.json.JSONObject
@@ -45,13 +46,16 @@ object ImageStore {
         return if (f.isFile) runCatching { GuestImage.fromJson(JSONObject(f.readText())) }.getOrNull() else null
     }
 
-    fun save(ctx: Context, img: GuestImage) {
+    @Synchronized fun save(ctx: Context, img: GuestImage) {
         val p = VmPaths(ctx, img.id)
         p.dir.mkdirs()
         val tmp = File(p.dir, "image.json.tmp")
         tmp.writeText(img.toJson().toString(2))
-        tmp.renameTo(p.meta)
+        check(tmp.renameTo(p.meta)) { "Cannot save VM metadata" }
     }
+
+    @Synchronized internal fun update(ctx: Context, id: String, change: (GuestImage) -> GuestImage): GuestImage? =
+        get(ctx, id)?.let { change(it).also { updated -> save(ctx, updated) } }
 
     fun newId(ctx: Context): String {
         val abc = "abcdefghijkmnpqrstuvwxyz23456789"
@@ -75,7 +79,7 @@ object ImageStore {
         val from = VmPaths(ctx, src.id)
         val need = du(from.root) + du(File(from.root, "system").canonicalFile).takeIf { File(from.root, "system").canonicalPath != File(from.root, "system").path } .let { it ?: 0 }
         val free = imagesDir(ctx).usableSpace
-        if (need + (200L shl 20) > free) error("not enough space: need ${need shr 20} MB, free ${free shr 20} MB")
+        if (need + (200L shl 20) > free) localizedError("not enough space: need ${need shr 20} MB, free ${free shr 20} MB", R.string.err_not_enough_space_need_mb_free, need shr 20, free shr 20)
         val id = newId(ctx)
         val to = VmPaths(ctx, id)
         try {
@@ -114,7 +118,7 @@ object ImageStore {
             File(to.root, "dev").mkdirs()
             // ownership table is keyed by inode: the fresh copy gets its own on first boot
             if (!copyData) { File(to.root, "dhd.owners").delete(); File(to.root, "dhd.owners.seeded").delete() }
-            listOf("props.base").forEach { n -> File(from.dir, n).takeIf { it.isFile }?.copyTo(File(to.dir, n), true) }
+            (listOf("props.base", "system.base.img") + SystemLayout.ALL_NAMES).forEach { n -> File(from.dir, n).takeIf { it.isFile }?.copyTo(File(to.dir, n), true) }
             val img = src.copy(id = id, name = name, baseId = src.baseId.ifEmpty { src.id },
                 settings = customSettings ?: src.settings,
                 createdAt = System.currentTimeMillis(),
@@ -144,12 +148,6 @@ object ImageStore {
 
     private val RESET_DIRS = listOf("data", "system", "user", "property", "anr", "tombstones", "backup", "misc/wifi",
         "misc/keystore", "local/tmp", "app", "app-private", "app-asec", "media", "user_de", "system_de", "system_ce", "misc_de", "misc_ce")
-
-    /** Changes the stored image from its current state (not from a copy read earlier: the machine updates boot counters). */
-    @Synchronized
-    fun update(ctx: Context, id: String, f: (GuestImage) -> GuestImage) {
-        get(ctx, id)?.let { save(ctx, f(it)) }
-    }
 
     fun wipe(f: File) {
         val isLink = runCatching { android.system.OsConstants.S_ISLNK(Os.lstat(f.path).st_mode) }.getOrDefault(false)

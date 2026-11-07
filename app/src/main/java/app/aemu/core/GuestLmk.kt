@@ -45,7 +45,7 @@ class GuestLmk(private val root: File, private val lowRam: Boolean, private val 
         running = false
         runCatching { server?.close() }; runCatching { bound?.close() }
         // разбудить читателя FIFO
-        runCatching { File(fifo.absolutePath).appendText("\n") }
+        UnixServer.poke(File(fifo.absolutePath), "\n")
         adj.clear()
     }
 
@@ -152,6 +152,10 @@ class GuestLmk(private val root: File, private val lowRam: Boolean, private val 
             // providers gone under their clients, the CPU busy with restarts)
             val tight = avail < minHost * 2
             if (avail >= minHost && !(tight && (cached.size > maxCached || overBudget))) continue
+            // Soft pressure (host free below minHost, but the guest holds only a few cached processes): killing them just
+            // makes ActivityManager respawn gms/launcher helpers every few seconds, which starves system_server and
+            // crash-loops the Wear home app. Below KEEP_CACHED only a real shortage (avail < HARD_HOST_MB) justifies a kill.
+            if (cached.size <= KEEP_CACHED && avail >= HARD_HOST_MB && !overBudget) continue
             val sizes = cached.associateWith { rssMb(it) }
             // сначала самый неважный, среди равных — самый большой
             val victim = cached.maxWithOrNull(compareBy<Int> { adj[it] ?: 0 }.thenBy { sizes[it] ?: 0 }) ?: continue
@@ -169,5 +173,9 @@ class GuestLmk(private val root: File, private val lowRam: Boolean, private val 
         const val CACHED = 9
         const val MAX_CACHED = 10
         const val MIN_HOST_MB = 1500L
+        /** Cached guest processes that are never killed for merely soft host memory pressure. */
+        const val KEEP_CACHED = 3
+        /** Host MemAvailable below which even the last cached processes may be killed. */
+        const val HARD_HOST_MB = 400L
     }
 }

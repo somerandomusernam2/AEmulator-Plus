@@ -1,26 +1,148 @@
 #!/usr/bin/env python3
-import os
-import sys
-import subprocess
-import glob
+"""Builds the 32-bit guest components (shims, HALs, GL bridge, eglprobe) with the Android NDK's clang.
 
-def find_ndk():
-    candidates = [
-        os.environ.get("ANDROID_NDK_HOME"),
-        os.environ.get("NDK_HOME"),
-    ]
-    sdk = os.environ.get("ANDROID_HOME") or os.environ.get("ANDROID_SDK_ROOT") or os.path.expandvars(r"%LOCALAPPDATA%\Android\Sdk")
-    if os.path.isdir(os.path.join(sdk, "ndk")):
-        for d in sorted(os.listdir(os.path.join(sdk, "ndk")), reverse=True):
-            candidates.append(os.path.join(sdk, "ndk", d))
-    for c in candidates:
-        if c and os.path.isdir(c):
-            bin_dir = os.path.join(c, "toolchains", "llvm", "prebuilt", "windows-x86_64", "bin")
-            if not os.path.isdir(bin_dir):
-                bin_dir = os.path.join(c, "toolchains", "llvm", "prebuilt", "linux-x86_64", "bin")
-            if os.path.isdir(bin_dir):
-                return c, bin_dir
-    raise RuntimeError("Could not find Android NDK")
+The NDK is looked for in --ndk, $ANDROID_NDK_HOME / $ANDROID_NDK_ROOT / $NDK_HOME, then in the SDK's ndk/ folder
+($ANDROID_HOME, $ANDROID_SDK_ROOT, the usual per-OS locations). Hosts: Windows x64, Linux x86_64, macOS, and
+Linux aarch64:
+  * an aarch64 NDK build (e.g. Termux's, or lzhiyong/android-ndk-aarch64: toolchains/llvm/prebuilt/linux-aarch64)
+    is used as it is;
+  * Google's NDK only ships x86_64 host tools. If those cannot run here (no qemu-user / box64 binfmt), its
+    sysroot, which is the same for every host, is used with the machine's own clang + lld ($CLANG overrides which
+    clang). Needs `clang`, `lld` and, to strip, `llvm-strip` (llvm-objcopy) installed, e.g.
+    `apt install clang lld llvm`.
+"""
+import argparse
+import atexit
+import glob
+import os
+import platform
+import shutil
+import stat
+import subprocess
+import sys
+import tempfile
+
+EXE = ".exe" if os.name == "nt" else ""
+
+
+def host_tags():
+    """Names of NDK prebuilt/ folders that were built for this host, best first."""
+    machine = platform.machine().lower()
+    arm = machine in ("aarch64", "arm64", "armv8l")
+    if os.name == "nt":
+        return ["windows-x86_64"]
+    if sys.platform == "darwin":
+        return (["darwin-aarch64", "darwin-arm64"] if arm else []) + ["darwin-x86_64"]
+    return (["linux-aarch64", "linux-arm64"] if arm else []) + ["linux-x86_64"]
+
+
+def _version_key(name):
+    return [int(x) if x.isdigit() else 0 for x in name.replace("-", ".").split(".")]
+
+
+def ndk_roots(cli_ndk=None):
+    roots = [cli_ndk]
+    for var in ("ANDROID_NDK_HOME", "ANDROID_NDK_ROOT", "ANDROID_NDK", "NDK_HOME"):
+        roots.append(os.environ.get(var))
+    home = os.path.expanduser("~")
+    sdks = [os.environ.get("ANDROID_HOME"), os.environ.get("ANDROID_SDK_ROOT")]
+    if os.name == "nt":
+        sdks.append(os.path.expandvars(r"%LOCALAPPDATA%\Android\Sdk"))
+    sdks += [os.path.join(home, "Android", "Sdk"), os.path.join(home, "Library", "Android", "sdk"),
+             os.path.join(home, "android-sdk"), "/opt/android-sdk", "/usr/lib/android-sdk"]
+    for sdk in sdks:
+        if not sdk:
+            continue
+        ndk_dir = os.path.join(sdk, "ndk")
+        if os.path.isdir(ndk_dir):
+            roots += [os.path.join(ndk_dir, d) for d in sorted(os.listdir(ndk_dir), key=_version_key, reverse=True)]
+        roots.append(os.path.join(sdk, "ndk-bundle"))
+    for pattern in (os.path.join(home, "android-ndk*"), "/opt/android-ndk*", "/usr/lib/android-ndk*"):
+        roots += sorted(glob.glob(pattern), key=_version_key, reverse=True)
+    seen, out = set(), []
+    for r in roots:
+        if r and os.path.isdir(r) and os.path.realpath(r) not in seen:
+            seen.add(os.path.realpath(r))
+            out.append(r)
+    return out
+
+
+def runs_here(tool):
+    """True when the program can be executed on this machine (an x86_64 clang on aarch64 cannot, without binfmt)."""
+    try:
+        return subprocess.run([tool, "--version"], stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                              timeout=120).returncode == 0
+    except (OSError, subprocess.SubprocessError):
+        return False
+
+
+def _wrapper(dir_, name, body):
+    path = os.path.join(dir_, name)
+    with open(path, "w") as f:
+        f.write("#!/bin/sh\n" + body + "\n")
+    os.chmod(path, os.stat(path).st_mode | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH)
+    return path
+
+
+def find_toolchain(cli_ndk=None):
+    """Returns {"clang", "strip", "sysroot"}: paths to a clang that runs here, a strip tool and the NDK sysroot."""
+    unusable, fallback = [], None
+    for ndk in ndk_roots(cli_ndk):
+        base = os.path.join(ndk, "toolchains", "llvm", "prebuilt")
+        if not os.path.isdir(base):
+            continue
+        tags = host_tags()
+        dirs = [t for t in tags if os.path.isdir(os.path.join(base, t))]
+        dirs += [d for d in sorted(os.listdir(base)) if d not in dirs and os.path.isdir(os.path.join(base, d))]
+        for d in dirs:
+            prebuilt = os.path.join(base, d)
+            clang = os.path.join(prebuilt, "bin", "clang" + EXE)
+            sysroot = os.path.join(prebuilt, "sysroot")
+            if not os.path.isfile(clang) or not os.path.isdir(sysroot):
+                continue
+            if runs_here(clang):
+                return {"clang": clang, "strip": os.path.join(prebuilt, "bin", "llvm-strip" + EXE),
+                        "sysroot": sysroot, "ndk": ndk}
+            unusable.append(clang)
+            if fallback is None:
+                fallback = {"ndk": ndk, "prebuilt": prebuilt, "sysroot": sysroot}
+    if fallback is not None and os.name != "nt":
+        return _host_clang_toolchain(fallback, unusable)
+    raise RuntimeError(
+        "Could not find a usable Android NDK. Pass --ndk <dir> or set ANDROID_NDK_HOME"
+        + ("; on aarch64 Linux either use an aarch64 NDK build (toolchains/llvm/prebuilt/linux-aarch64), "
+           "or install clang + lld and point at Google's NDK for its sysroot." if platform.machine().lower()
+           in ("aarch64", "arm64") else "."))
+
+
+def _host_clang_toolchain(fb, unusable):
+    clang = os.environ.get("CLANG") or shutil.which("clang")
+    lld = shutil.which("ld.lld") or shutil.which("lld")
+    if not clang or not lld:
+        missing = " and ".join(n for n, v in (("clang", clang), ("lld", lld)) if not v)
+        raise RuntimeError(
+            "The NDK at %s only has host tools that cannot run on %s/%s (%s), and this machine has no %s.\n"
+            "Install them (Debian/Ubuntu: apt install clang lld llvm), use an aarch64 NDK build, or enable "
+            "qemu-user/box64 binfmt so the NDK's x86_64 clang can run." % (
+                fb["ndk"], platform.system(), platform.machine(), unusable[0], missing))
+    tmp = tempfile.mkdtemp(prefix="aemu-ndk-")
+    atexit.register(shutil.rmtree, tmp, ignore_errors=True)
+    flags = ['--sysroot="%s"' % fb["sysroot"], "-fuse-ld=lld"]
+    # compiler-rt's Android builtins and the compiler's own headers come from the NDK too, when it ships them
+    for rd in sorted(glob.glob(os.path.join(fb["prebuilt"], "lib", "clang", "*"))):
+        if os.path.isfile(os.path.join(rd, "lib", "linux", "libclang_rt.builtins-arm-android.a")):
+            flags.append('-resource-dir="%s"' % rd)
+            break
+    wrapped = _wrapper(tmp, "clang", 'exec "%s" %s "$@"' % (clang, " ".join(flags)))
+    strip = shutil.which("llvm-strip")
+    if strip is None:
+        objcopy = shutil.which("llvm-objcopy")
+        body = ('exec "%s" --strip-all "$1"' % objcopy) if objcopy else \
+            'echo "warning: no llvm-strip / llvm-objcopy, $1 left unstripped" >&2; exit 0'
+        strip = _wrapper(tmp, "strip", body)
+    print("NDK host tools cannot run here: using %s with the sysroot of %s" % (clang, fb["ndk"]))
+    return {"clang": wrapped, "strip": strip, "sysroot": fb["sysroot"], "ndk": fb["ndk"]}
+
 
 def run(cmd, cwd=None):
     print(" ".join(cmd))
@@ -28,15 +150,18 @@ def run(cmd, cwd=None):
     if res.returncode != 0:
         sys.exit(f"Failed with code {res.returncode}: {' '.join(cmd)}")
 
+
 def main():
-    ndk_dir, bin_dir = find_ndk()
-    clang = os.path.join(bin_dir, "clang.exe" if os.name == "nt" else "clang")
-    strip = os.path.join(bin_dir, "llvm-strip.exe" if os.name == "nt" else "llvm-strip")
+    ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
+    ap.add_argument("--ndk", help="Android NDK directory (default: $ANDROID_NDK_HOME, then the SDK's ndk/ folder)")
+    args = ap.parse_args()
+    try:
+        tc = find_toolchain(args.ndk)
+    except RuntimeError as e:
+        sys.exit(str(e))
+    clang, strip, sysroot = tc["clang"], tc["strip"], tc["sysroot"]
     repo_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     assets = os.path.join(repo_root, "app", "src", "main", "assets", "engines")
-    
-    sysroot = os.path.join(ndk_dir, "toolchains", "llvm", "prebuilt", 
-                           "windows-x86_64" if os.name == "nt" else "linux-x86_64", "sysroot")
     arm_lib = os.path.join(sysroot, "usr", "lib", "arm-linux-androideabi", "21")
 
     print(f"Using NDK Clang: {clang}")
@@ -98,7 +223,7 @@ def main():
     subprocess.run([strip, out_sensors])
 
     # 4. camerahal: camera.default.so, libcamera.none.so
-    camera_dir = os.path.join(repo_root, "native", "camerahal")
+    camera_dir = os.path.join(repo_root, "native", "camerahal-n64")
     out_camera = os.path.join(common_dir, "camera.default.so")
     run([clang, "--target=armv7a-linux-androideabi21", "-march=armv7-a", "-mthumb", "-Os", "-fPIC", "-shared",
          "-nostdlib", "-ffreestanding", "-fno-builtin", "-fvisibility=hidden", "-fno-stack-protector",
@@ -163,6 +288,14 @@ def main():
          "-Wl,-soname,libGLES_split.so", "-Wl,--build-id=none", "-o", out_split, "split.c", "stubs.S",
          f"-L{arm_lib}", "-ldl", "-lc", "-llog"], cwd=glsplit_dir)
     subprocess.run([strip, out_split])
+
+    # 8. eglprobe: guest diagnostic (what the guest's EGL / SwiftShader accepts). A PIE executable, not a library:
+    #    installed by TreeFixer.installEglProbe on 32-bit-only firmware.
+    probe_dir = os.path.join(repo_root, "native", "eglprobe")
+    out_probe = os.path.join(common_dir, "eglprobe")
+    run([clang, "--target=armv7a-linux-androideabi21", "-march=armv7-a", "-Os", "-fPIE", "-pie",
+         "-fno-stack-protector", "-Wl,--build-id=none", "-o", out_probe, "eglprobe.c", "-ldl"], cwd=probe_dir)
+    subprocess.run([strip, out_probe])
 
     print("=== All native guest components compiled successfully! ===")
 

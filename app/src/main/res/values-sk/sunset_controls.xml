@@ -1,0 +1,33 @@
+<resources>
+    <string name="vs_hide_menu">Skryť tlačidlo ponuky</string>
+    <string name="vs_hide_menu_sub">Skryje tlačidlo …. Tlačidlo Späť na telefóne alebo gesto späť namiesto odoslania Späť do Androidu otvorí ponuku emulátora. Navigačné tlačidlá hosťovaného systému naďalej ovládajú Android.</string>
+    <string name="vs_vibration">Vibrácie hosťovaného systému</string>
+    <string name="vs_vibration_sub">Preposielať staršie vibrácie hosťovaného systému do telefónu. Použije sa pri ďalšom spustení; každý impulz je obmedzený na 60 sekúnd.</string>
+    <string name="nav_buttons">Navigačné tlačidlá</string>
+    <string name="nav_order">Poradie tlačidiel (zľava doprava)</string>
+    <string name="nav_earlier">Skôr</string>
+    <string name="nav_later">Neskôr</string>
+    <string name="nav_reset">Obnoviť tlačidlá</string>
+    <string name="nav_search">Hľadať</string>
+    <string name="nav_power">Vypínač</string>
+    <string name="nav_go_to_recovery">Prejsť do recovery</string>
+    <string name="nav_volume_down">Zníženie hlasitosti</string>
+    <string name="nav_volume_up">Zvýšenie hlasitosti</string>
+    <string name="nav_up">D-pad hore</string>
+    <string name="nav_down">D-pad dole</string>
+    <string name="nav_left">D-pad doľava</string>
+    <string name="nav_right">D-pad doprava</string>
+    <string name="nav_center">D-pad stred</string>
+    <string name="nav_trackball">Trackball</string>
+    <string name="nav_trackball_sub">Potiahnutím kruhu nad navigačnou lištou ho zakotúľate; klepnutím vyberiete.</string>
+    <string name="nav_dpad_mode">Režim šípok</string>
+    <string name="nav_dpad_sub">Vypnuté: skutočné relatívne udalosti trackballu pre aplikácie hosťovaného systému. Zapnuté: namiesto toho stlačenia kláves D-padu. Neodosiela obe naraz.</string>
+    <string name="nav_sensitivity">Citlivosť: %1$d dp na krok (nižšie je rýchlejšie)</string>
+    <string name="nav_trackball_waiting">Zatiaľ žiadne pripojenie trackballu hosťovaného systému</string>
+    <string name="nav_trackball_recovery">Recovery: použite režim šípok</string>
+    <string name="vs_bluetooth">Bluetooth hostiteľa (experimentálne)</string>
+    <string name="vs_bluetooth_sub">Umožní hosťovanému systému vyhľadávať zariadenia Bluetooth, zobrazovať zoznam spárovaných zariadení a komunikovať s nimi cez telefón: klasický sériový prenos (RFCOMM) a Bluetooth LE (GATT). Vyžaduje povolenie Bluetooth a úplný reštart VM. Nie je to surový HCI: hosťovaný systém vidí adaptér telefónu cez most, takže slúchadlá (zvukové profily) nie sú podporované.</string>
+    <string name="bluetooth_permission_denied">Povolenie Bluetooth bolo zamietnuté: hosťovaný systém sa spustí bez Bluetooth hostiteľa.</string>
+    <string name="vs_sf_tombstone">Tombstone pádu SurfaceFlingeru (ladenie)</string>
+    <string name="vs_sf_tombstone_sub">Keď SurfaceFlinger spadne, firmvér zapíše do protokolu bežný tombstone (s funkciou, ktorá spadla) namiesto krátkej správy. Použite pri odosielaní hlásenia chyby. Použije sa pri ďalšom úplnom spustení VM.</string>
+</resources>

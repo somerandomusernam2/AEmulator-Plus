@@ -48,7 +48,7 @@ class Sensors(private val ctx: Context, private val root: File, private val log:
         running = false
         apply()
         runCatching { out?.let { Os.close(it) } }; out = null
-        runCatching { File(vibFifo.absolutePath).appendText("0\n") }
+        UnixServer.poke(File(vibFifo.absolutePath), "0\n")
     }
 
     @Volatile private var visible = false

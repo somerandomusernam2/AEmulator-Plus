@@ -27,7 +27,7 @@ void enter_guest(void *entry, void *sp) __attribute__((noreturn));
 #define S6(n, a, b, c, d, e, f) sc(n, (long)(a), (long)(b), (long)(c), (long)(d), (long)(e), (long)(f))
 
 enum {
-    NR_setxattr = 5, NR_lsetxattr = 6, NR_getxattr = 8, NR_lgetxattr = 9, NR_listxattr = 11, NR_llistxattr = 12,
+    NR_setxattr = 5, NR_lsetxattr = 6, NR_getxattr = 8, NR_lgetxattr = 9, NR_fgetxattr = 10, NR_listxattr = 11, NR_llistxattr = 12,
     NR_removexattr = 14, NR_lremovexattr = 15, NR_getcwd = 17, NR_dup = 23, NR_dup3 = 24, NR_fcntl = 25,
     NR_inotify_add_watch = 27, NR_ioctl = 29,
     NR_mknodat = 33, NR_mkdirat = 34, NR_unlinkat = 35, NR_symlinkat = 36, NR_linkat = 37, NR_renameat = 38,
@@ -41,8 +41,13 @@ enum {
     NR_prctl = 167, NR_getpid = 172, NR_getuid = 174, NR_geteuid = 175, NR_getgid = 176, NR_getegid = 177, NR_gettid = 178,
     NR_socket = 198, NR_socketpair = 199, NR_bind = 200, NR_connect = 203, NR_getsockname = 204, NR_sendto = 206, NR_setsockopt = 208, NR_getsockopt = 209,
     NR_shutdown = 210, NR_sendmsg = 211, NR_recvmsg = 212, NR_munmap = 215, NR_execve = 221, NR_mmap = 222, NR_mprotect = 226,
-    NR_renameat2 = 276, NR_memfd_create = 279, NR_statx = 291,
+    NR_renameat2 = 276, NR_memfd_create = 279, NR_statx = 291, NR_faccessat2 = 439,
 };
+
+// A ring buffer map of the eBPF stand-in (bpf(), OBJ_GET): the data area, and the size of the file that maps it - the
+// consumer page, the producer page and the data twice over, which is how it is mapped
+#define RB_DATA 0x40000UL
+#define RB_FILE (2 * 4096UL + 2 * RB_DATA)
 
 #define AT_FDCWD (-100)
 #define ENOENT 2
@@ -144,6 +149,40 @@ static int host_dev(const char *n) {
 
 // Guest path → host path. Relative paths stay as they are (the working directory is already inside the root).
 // Returns the path to use, or 0 with *err set.
+// 10+: libc, libm, libdl and libdl_android are links into the runtime APEX (/apex/com.android.runtime/lib64/bionic/); with
+// the APEX not in place (an absolute link target resolves on the phone, not in the image) the link dangles and every program
+// without a linker config died with 'library "libc.so" not found'. The real copies of those four are in
+// /system/lib[64]/bootstrap/ (hwasan builds: .../bootstrap/hwasan/): when the asked file does not resolve, the bootstrap one
+// stands in. A plain request never gets the hwasan build, an hwasan request never the plain one.
+static void bootstrap_lib(char *buf, char *n) {
+    static const char *const dirs[] = { "/system/lib64", "/system/lib", "/apex/com.android.runtime/lib64/bionic",
+                                        "/apex/com.android.runtime/lib/bionic", 0 };
+    static const char *const names[] = { "libc.so", "libm.so", "libdl.so", "libdl_android.so", 0 };
+    u64 len = slen(n);
+    if (len >= 160 || (!pre(n, "/system/lib") && !pre(n, "/apex/com.android.runtime/lib"))) return;
+    u64 sl = len; while (sl && n[sl - 1] != '/') sl--;              // n[sl..] is the file name, n[..sl-1] its directory
+    if (sl < 2) return;
+    int ok = 0;
+    for (int i = 0; names[i]; i++) if (seq(n + sl, names[i])) ok = 1;
+    if (!ok) return;
+    char dir[160]; memcpy(dir, n, sl - 1); dir[sl - 1] = 0;         // without the trailing slash
+    int hw = 0; u64 dl = sl - 1;
+    if (dl > 7 && seq(dir + dl - 7, "/hwasan")) { hw = 1; dir[dl - 7] = 0; }
+    int d = -1;
+    for (int i = 0; dirs[i]; i++) if (seq(dir, dirs[i])) d = i;
+    if (d < 0) return;
+    memcpy(buf, g_root, g_rootlen);
+    if (S4(NR_faccessat, AT_FDCWD, buf, 0, 0) == 0) return;         // resolves on its own
+    char orig[160]; memcpy(orig, n, len + 1);
+    const char *bd = (d == 0 || d == 2) ? "/system/lib64/bootstrap" : "/system/lib/bootstrap";
+    u64 bl = slen(bd);
+    memcpy(n, bd, bl); u64 o = bl;
+    if (hw) { memcpy(n + o, "/hwasan", 8); o += 7; }
+    n[o++] = '/';
+    memcpy(n + o, orig + sl, slen(orig + sl) + 1);
+    if (S4(NR_faccessat, AT_FDCWD, buf, 0, 0) != 0) memcpy(n, orig, len + 1);   // no such bootstrap copy: leave the request alone
+}
+
 static const char *xl(const char *p, char *buf, int *err) {
     if (!p) return p;
     if (p[0] != '/') return p;
@@ -183,6 +222,7 @@ static const char *xl(const char *p, char *buf, int *err) {
             return buf;
         }
     }
+    bootstrap_lib(buf, n);
     memcpy(buf, g_root, g_rootlen);
     if (!n[1]) n[0] = 0;
     return buf;
@@ -567,8 +607,10 @@ static long input_ioctl(u32 cmd, u64 arg) {
         memset(out, 0, len);
         switch (nr - 0x20) {
         case 0: setbit(out, len, 0); setbit(out, len, 1); setbit(out, len, 3); break;
-        case 1: for (u32 k = 1; k < 0xf0; k++) setbit(out, len, k); setbit(out, len, 580); break;
-        case 3: setbit(out, len, 48); setbit(out, len, 50); setbit(out, len, 53); setbit(out, len, 54); setbit(out, len, 57); break;
+        // (14's EventHub aborts system_server on an event the device has not declared - "received invalid EV_ABS event
+        // code: ABS_MT_PRESSURE" on the first touch: everything the host sends is declared, pressure and BTN_TOUCH too)
+        case 1: for (u32 k = 1; k < 0xf0; k++) setbit(out, len, k); setbit(out, len, 580); setbit(out, len, 330); break;
+        case 3: setbit(out, len, 48); setbit(out, len, 50); setbit(out, len, 53); setbit(out, len, 54); setbit(out, len, 57); setbit(out, len, 58); break;
         }
         return len;
     }
@@ -576,7 +618,7 @@ static long input_ioctl(u32 cmd, u64 arg) {
         int *a = (int *)arg; u32 ax = nr - 0x40;
         memset(a, 0, 24);
         if (ax == 53) a[2] = (int)g_fbw - 1; else if (ax == 54) a[2] = (int)g_fbh - 1;
-        else if (ax == 48 || ax == 50) a[2] = 255; else if (ax == 57) a[2] = 31; else return -EINVAL;
+        else if (ax == 48 || ax == 50 || ax == 58) a[2] = 255; else if (ax == 57) a[2] = 31; else return -EINVAL;
         return 0;
     }
     if (nr == 0x90 || nr == 0xa0 || nr == 0x03) return 0;                        // grab, clock id, repeat
@@ -714,6 +756,25 @@ static int bpf_perm(const char *p, u32 *mode, u32 *uid, u32 *gid, char *ctx /* 9
 }
 
 
+// Diagnostics for the connectivity module's file checks: every call that names clatd's directory or the pinned eBPF
+// objects is written (name of the call, path, attribute name) to /dev/aemu-xattr.log of the guest tree.
+static int dbg_on(const char *p) { return p && (pre(p, "/sys/fs/bpf") || pre(p, "/apex/com.android.tethering/bin")); }
+static void dbg(long nr, const char *p, const char *q, long r) {
+    static int cnt;
+    if (!g_rootlen || cnt >= 400) return;
+    cnt++;
+    char f[600], l[1100]; u64 o = 0; char d[24], *s;
+    memcpy(f, g_root, g_rootlen); memcpy(f + g_rootlen, "/dev/aemu-xattr.log", 20);
+    long fd = S4(NR_openat, AT_FDCWD, f, 02101 /*O_WRONLY|O_CREAT|O_APPEND*/, 0666);
+    if (fd < 0) return;
+    memcpy(l, "nr=", 3); o = 3; s = utoa((u64)nr, d + sizeof d); memcpy(l + o, s, slen(s)); o += slen(s);
+    l[o++] = ' '; if (p) { u64 n = slen(p); if (n > 900) n = 900; memcpy(l + o, p, n); o += n; }
+    l[o++] = ' '; if (q) { u64 n = slen(q); if (n > 60) n = 60; memcpy(l + o, q, n); o += n; }
+    memcpy(l + o, " ret=", 5); o += 5; if (r < 0) { l[o++] = '-'; r = -r; }
+    s = utoa((u64)r, d + sizeof d); memcpy(l + o, s, slen(s)); o += slen(s); l[o++] = '\n';
+    S3(NR_write, fd, l, o); S1(NR_close, fd);
+}
+
 static long trap2(long nr, long *a, void *uc, char **pbp);
 
 static long trap(long nr, long *a, void *uc) {
@@ -727,6 +788,8 @@ static long trap(long nr, long *a, void *uc) {
 
 static long trap2(long nr, long *a, void *uc, char **pbp) {
     int err = 0;
+    if ((nr == NR_getxattr || nr == NR_lgetxattr) && dbg_on(P(0))) dbg(nr, P(0), (const char *)a[1], 0);
+    else if ((nr == NR_openat || nr == NR_newfstatat || nr == NR_statx || nr == NR_faccessat || nr == NR_readlinkat) && dbg_on(P(1))) dbg(nr, P(1), 0, 0);
     switch (nr) {
     case NR_openat: {
         char *b1 = PB(0);
@@ -850,7 +913,7 @@ static long trap2(long nr, long *a, void *uc, char **pbp) {
         }
         return r;
     }
-    case NR_faccessat: {
+    case NR_faccessat: case NR_faccessat2: {     // faccessat2 has the same first three arguments and takes the flags in a[3]
         char *b1 = PB(0);
         if (P(1)) {
             if (seq(P(1), "/dev/binder") || seq(P(1), "/dev/hwbinder") || seq(P(1), "/dev/vndbinder") || seq(P(1), "/dev/ashmem")) {
@@ -865,11 +928,28 @@ static long trap2(long nr, long *a, void *uc, char **pbp) {
             if (seq(P(1), "/sys/fs/selinux/enforce")) return 0;
         }
         NEEDX(1);
-        return S4(nr, a[0], h1, a[2], a[3]);
+        {
+            long r = S4(nr, a[0], h1, a[2], a[3]);
+            // Android 17 hosts: access(R_OK) on a path of the image can come back EACCES although the app owns the file
+            // and open() still serves it (libselinux of 14 probes every *_service_contexts with R_OK, finds none, hands
+            // servicemanager a null handle and it aborts). A read probe is answered by opening the path for reading;
+            // if that is refused too, the refusal is real and stays.
+            if (r == -13 /*EACCES*/ && h1 && (a[2] & 4) && !(a[2] & 3)) {
+                long fd = S4(NR_openat, a[0], h1, 02000000 /*O_RDONLY|O_CLOEXEC*/, 0);
+                if (fd >= 0) { S1(NR_close, fd); return 0; }
+            }
+            return r;
+        }
     }
     case NR_mkdirat: case NR_unlinkat: case NR_fchmodat: case NR_utimensat: case NR_mknodat:
     case NR_statx: {
         char *b1 = PB(0);
+        { u32 bm, bu, bg; char bc[96];
+          if (P(1) && bpf_perm(P(1), &bm, &bu, &bg, bc)) {      // the same type/mode/owner as the stat calls above
+            u32 *sx = (u32 *)a[4]; memset(sx, 0, 256);
+            sx[0] = 0x7ff; sx[1] = 4096; sx[4] = 1; sx[5] = bu; sx[6] = bg; *(u16 *)((char *)sx + 28) = (u16)bm;
+            return 0;
+          } }
         NEEDX(1);
         return S5(nr, a[0], h1, a[2], a[3], a[4]);
     }
@@ -960,6 +1040,18 @@ static long trap2(long nr, long *a, void *uc, char **pbp) {
         }
         NEEDX(0);
         long r = S5(nr, h0, a[1], a[2], a[3], a[4]);
+        // (a label the phone does not give out: installd of 14 reads the label of an app's data directory before and
+        // after its restorecon (lgetfilecon) and the phone answers EINVAL for the directories already in the image.
+        // installd then reports "Failed to restorecon /data/data/<pkg>", PackageManager deletes the directory and
+        // makes it again, for every such package on every boot. The same fallback as in the runner of 15, where it is
+        // what the child zygotes need)
+        if ((nr == NR_getxattr || nr == NR_lgetxattr) && r < 0 && r != -34 && r != -2 && a[1] && seq((const char *)a[1], "security.selinux")) {
+            static const char lab[] = "u:object_r:system_data_file:s0";
+            if (!a[3]) return sizeof lab;
+            if ((u64)a[3] < sizeof lab) return -34;
+            memcpy((void *)a[2], lab, sizeof lab);
+            return sizeof lab;
+        }
         if (nr == NR_statfs && r == 0) {
             // a nearly full phone reads as a nearly full guest disk (no dropbox, low-storage modes): the guest's disk
             // is what is still free plus as much again
@@ -967,6 +1059,28 @@ static long trap2(long nr, long *a, void *uc, char **pbp) {
             if (s[4] && s[2] > 2 * s[4]) { s[2] = 2 * s[4]; if (s[3] > s[2]) s[3] = s[2]; }
         }
         return r;
+    }
+    case NR_fgetxattr: {
+        // the same label answers as for the path calls (bpf_perm), for a file that is open: the connectivity module
+        // may ask through the descriptor, and the phone's own label (app_data_file) aborts system_server
+        if (a[1] && seq((const char *)a[1], "security.selinux")) {
+            char *t = PB(0), lk[48], d[24]; u32 bm, bu, bg; char bc[96];
+            char *ds = utoa((u64)a[0], d + sizeof d);
+            memcpy(lk, "/proc/self/fd/", 14); memcpy(lk + 14, ds, slen(ds) + 1);
+            long ln = S4(NR_readlinkat, AT_FDCWD, lk, t, PATH_MAX - 1);
+            if (ln > 0) {
+                t[ln] = 0; unxl(t);
+                if (dbg_on(t)) dbg(nr, t, (const char *)a[1], 0);
+                if (bpf_perm(t, &bm, &bu, &bg, bc)) {
+                    u64 n = slen(bc) + 1;
+                    if (!a[3]) return (long)n;
+                    if ((u64)a[3] < n) return -34;      // ERANGE
+                    memcpy((void *)a[2], bc, n);
+                    return (long)n;
+                }
+            }
+        }
+        return S4(nr, a[0], a[1], a[2], a[3]);
     }
     case NR_inotify_add_watch: {
         char *b1 = PB(0);
@@ -991,6 +1105,19 @@ static long trap2(long nr, long *a, void *uc, char **pbp) {
         }
         return unix_addr(nr, a[0], (const struct sockaddr_un *)a[1], (u64)a[2], PB(0));
     case NR_getsockname: {
+        // Added for AEmulator Plus (2026-11-03): an emulated netlink socket is an AF_UNIX socketpair end, so the real call answers
+        // with an unnamed AF_UNIX address (2 bytes). libnl's nl_connect() reads the local address back after bind() and fails with
+        // NLE_NOADDR unless it is a sockaddr_nl, so genl_connect() failed (17's libnetworkstackutilsjni.so returns JNI_ERR from
+        // JNI_OnLoad for it: the network stack process died, system_server threw "Lost network stack", zygote exited with 137).
+        // Answer like a netlink socket the kernel has bound itself.
+        if (is_nl_fd((int)a[0])) {
+            if (!a[1] || !a[2]) return -14; /* EFAULT */
+            struct { u16 family; u16 pad; u32 pid; u32 groups; } nl = { 16 /*AF_NETLINK*/, 0, (u32)S0(NR_getpid), 0 };
+            u32 have = *(u32 *)a[2], n = have < sizeof nl ? have : (u32)sizeof nl;
+            memcpy((void *)a[1], &nl, n);
+            *(u32 *)a[2] = (u32)sizeof nl;
+            return 0;
+        }
         long r = S3(nr, a[0], a[1], a[2]);
         if (r == 0 && a[1] && a[2] && *(u32 *)a[2] > 2) {
             // a service's socket lives in the run directory as <name>.sock; the guest made it as /dev/socket/<name>
@@ -1078,7 +1205,23 @@ static long trap2(long nr, long *a, void *uc, char **pbp) {
             if (base && g_rootlen + 16 + slen(base) < sizeof hp) {
                 memcpy(hp, g_root, g_rootlen); memcpy(hp + g_rootlen, "/dev/.aemu-bpf/", 15);
                 memcpy(hp + g_rootlen + 15, base, slen(base) + 1);
-                long fd = S4(NR_openat, AT_FDCWD, hp, 02000000 /*O_RDONLY|O_CLOEXEC*/, 0);
+                // (read-write: the networking module's netd tests the exclusive lock of a map on the descriptor,
+                // F_OFD_SETLK with F_WRLCK, and aborts when it is refused with EBADF; each OBJ_GET being its own
+                // open file, the locks then conflict exactly as they do on real maps)
+                long fd = S4(NR_openat, AT_FDCWD, hp, 02000002 /*O_RDWR|O_CLOEXEC*/, 0);
+                if (fd < 0) fd = S4(NR_openat, AT_FDCWD, hp, 02000000 /*O_RDONLY|O_CLOEXEC*/, 0);
+                // (a ring buffer, type 27, is mapped by its user: the consumer position in the first page, the producer
+                // position and the data from the second one on, the data twice over. The note is 12 bytes long, and
+                // the first access to a page past its end is a SIGBUS - netd of 17 died on its first read of a ring buffer.
+                // An empty one stands in: a memory file of the right size, every position 0, nothing ever produced)
+                u32 nt[3];
+                if (fd >= 0 && S4(NR_pread64, fd, nt, sizeof nt, 0) == (long)sizeof nt && nt[0] == 27) {
+                    long m = S2(NR_memfd_create, "aemu-ringbuf", 1 /*MFD_CLOEXEC*/);
+                    if (m >= 0) {
+                        if (S2(NR_ftruncate, m, RB_FILE) == 0) { S1(NR_close, fd); return m; }
+                        S1(NR_close, m);
+                    }
+                }
                 if (fd >= 0) return fd;
             }
             return S4(NR_openat, AT_FDCWD, "/dev/null", 02000002 /*O_RDWR|O_CLOEXEC*/, 0);
@@ -1088,6 +1231,13 @@ static long trap2(long nr, long *a, void *uc, char **pbp) {
             u32 note[3], len = at[1], *info = (u32 *)*(u64 *)(at + 2);
             if (!info) return 0;
             for (u32 i = 0; i < len; i++) ((u8 *)info)[i] = 0;
+            {   // the ring buffer stand-in (see OBJ_GET): its size is the mark, and the data size is the maximum of entries
+                struct kstat rs;
+                if (len >= 20 && S2(NR_fstat, at[0], &rs) == 0 && (u64)rs.st_size == RB_FILE) {
+                    info[0] = 27; info[1] = 1; info[2] = 0; info[3] = 0; info[4] = (u32)RB_DATA;
+                    return 0;
+                }
+            }
             if (S4(NR_pread64, at[0], note, sizeof note, 0) == (long)sizeof note && len >= 20) {
                 info[0] = note[0]; info[1] = 1; info[2] = note[1]; info[3] = note[2]; info[4] = 1;   // type, id, key, value, max
             }
@@ -1204,6 +1354,17 @@ static long trap2(long nr, long *a, void *uc, char **pbp) {
     case NR_getsockopt: {
         if (is_nl_fd((int)a[0])) return 0;
         long r = S5(nr, a[0], a[1], a[2], a[3], a[4]);
+        // SO_MARK read: fwmarkd of 8+ reads the socket's mark before setting its own (the set is forgiven above) and
+        // answers every bind-to-network with -errno when this fails, so NetworkMonitor's probes never get out
+        // ("Binding socket to network N failed: ENOPROTOOPT") and the Wi-Fi stays "validation failed". A guest socket
+        // has no mark: answer 0.
+        if (r < 0 && a[1] == 1 && a[2] == 36) {
+            if (!a[3] || !a[4]) return -14;                         // EFAULT
+            if (*(u32 *)a[4] < 4) return -22;                       // EINVAL
+            *(u32 *)a[3] = 0;
+            *(u32 *)a[4] = 4;
+            return 0;
+        }
         // SO_PEERCRED: every guest process is the host app's uid. The peer left the ids the guest gave it in
         // <root>/dev/.aemu-ids/<pid> (zygote of 13: "Only system UID is allowed to connect to Zygote").
         if (r == 0 && a[1] == 1 && a[2] == 17 && a[3] && a[4] && *(u32 *)a[4] >= 12) {
@@ -1410,7 +1571,7 @@ struct bpf { u16 code; u8 jt, jf; u32 k; };
 #define TRAP 0x00030000u
 
 static const u8 trapped[] = {
-    NR_setxattr, NR_lsetxattr, NR_getxattr, NR_lgetxattr, NR_listxattr, NR_llistxattr, NR_removexattr, NR_lremovexattr,
+    NR_setxattr, NR_lsetxattr, NR_getxattr, NR_lgetxattr, NR_fgetxattr, NR_listxattr, NR_llistxattr, NR_removexattr, NR_lremovexattr,
     NR_getcwd, NR_inotify_add_watch, NR_ioctl, NR_mknodat, NR_mkdirat, NR_unlinkat, NR_symlinkat, NR_linkat,
     NR_renameat, NR_umount2, NR_mount, NR_statfs, NR_truncate, NR_faccessat, NR_chdir, NR_chroot, NR_fchmodat,
     NR_fchownat, NR_fchown, NR_openat, NR_readlinkat, NR_newfstatat, NR_fstat, NR_utimensat, NR_capget, NR_capset,
@@ -1433,6 +1594,10 @@ static void install_filter(void) {
     for (u64 i = 0; i < sizeof trapped; i++) f[n++] = JEQ(trapped[i], L_TRAP, 0);
     f[n++] = JEQ(NR_renameat2, L_TRAP, 0);
     f[n++] = JEQ(NR_statx, L_TRAP, 0);
+    // glibc 2.33+ (the static qemu-arm's) answers faccessat() with faccessat2 first and falls back to faccessat only on ENOSYS;
+    // a phone kernel has it (5.8+), so without this entry every access() of a 32-bit guest went to the kernel with the
+    // GUEST path, i.e. to the phone's own /system, /vendor... (EACCES for an app), never into the image.
+    f[n++] = JEQ(NR_faccessat2, L_TRAP, 0);
     f[n++] = JEQ(280 /* bpf */, L_TRAP, 0);
     f[n++] = JEQ(NR_rt_sigprocmask, L_SIG, 0);
     f[n++] = JEQ(NR_prctl, L_PRCTL, 0);
@@ -1678,7 +1843,25 @@ void aemu_main(u64 *sp) {
     if (exe.interp[0]) {
         char ib[PATH_MAX];
         const char *ih = xl(exe.interp, ib, &err);
-        if (!ih || (err = load_elf(ih, &ld))) die("cannot load the linker ", exe.interp);
+        if (!ih || (err = load_elf(ih, &ld))) {
+            // 10+: /system/bin/linker[64] is only a link to the runtime APEX (/apex/com.android.runtime/bin/linker[64]);
+            // when that link does not resolve on the host (absolute target, APEX not in place) every program but the
+            // bootstrap ones died with 127. The real bootstrap linker is in /system/bin/bootstrap/: try the APEX copy,
+            // then that one.
+            static const char *const l64[] = { "/apex/com.android.runtime/bin/linker64", "/system/bin/bootstrap/linker64", 0 };
+            static const char *const l32[] = { "/apex/com.android.runtime/bin/linker", "/system/bin/bootstrap/linker", 0 };
+            u64 il = slen(exe.interp);
+            const char *const *alt = (il >= 8 && seq(exe.interp + il - 8, "linker64")) ? l64
+                                   : (il >= 6 && seq(exe.interp + il - 6, "linker")) ? l32 : 0;
+            int ok = 0;
+            for (int a = 0; alt && alt[a] && !ok; a++) {
+                if (seq(alt[a], exe.interp)) continue;
+                char ab[PATH_MAX]; int e2 = 0;
+                const char *ah = xl(alt[a], ab, &e2);
+                if (ah && !load_elf(ah, &ld)) ok = 1;
+            }
+            if (!ok) die("cannot load the linker ", exe.interp);
+        }
         entry = ld.entry; base = ld.bias;
     }
 

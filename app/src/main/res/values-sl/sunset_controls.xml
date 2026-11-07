@@ -1,0 +1,33 @@
+<resources>
+    <string name="vs_hide_menu">Skrij gumb menija</string>
+    <string name="vs_hide_menu_sub">Skrije gumb …. Gumb Nazaj na telefonu ali kretnja za nazaj namesto pošiljanja Nazaj v Android odpre meni emulatorja. Navigacijski gumbi gosta še vedno upravljajo Android.</string>
+    <string name="vs_vibration">Vibriranje gosta</string>
+    <string name="vs_vibration_sub">Posreduj starejše vibriranje gosta v telefon. Uporabi se ob naslednjem zagonu; vsak sunek je omejen na 60 sekund.</string>
+    <string name="nav_buttons">Navigacijski gumbi</string>
+    <string name="nav_order">Vrstni red gumbov (z leve proti desni)</string>
+    <string name="nav_earlier">Prej</string>
+    <string name="nav_later">Pozneje</string>
+    <string name="nav_reset">Ponastavi gumbe</string>
+    <string name="nav_search">Iskanje</string>
+    <string name="nav_power">Vklop</string>
+    <string name="nav_go_to_recovery">Pojdi v recovery</string>
+    <string name="nav_volume_down">Zmanjšaj glasnost</string>
+    <string name="nav_volume_up">Povečaj glasnost</string>
+    <string name="nav_up">D-pad gor</string>
+    <string name="nav_down">D-pad dol</string>
+    <string name="nav_left">D-pad levo</string>
+    <string name="nav_right">D-pad desno</string>
+    <string name="nav_center">D-pad sredina</string>
+    <string name="nav_trackball">Sledilna kroglica</string>
+    <string name="nav_trackball_sub">Podrsajte po krogu nad navigacijsko vrstico, da se zavrti; dotaknite se za izbiro.</string>
+    <string name="nav_dpad_mode">Način smernih tipk</string>
+    <string name="nav_dpad_sub">Izklopljeno: pravi relativni dogodki sledilne kroglice za aplikacije gosta. Vklopljeno: namesto tega pritiski tipk D-pad. Ne pošilja obojega.</string>
+    <string name="nav_sensitivity">Občutljivost: %1$d dp na korak (nižje je hitreje)</string>
+    <string name="nav_trackball_waiting">Povezave s sledilno kroglico gosta še ni</string>
+    <string name="nav_trackball_recovery">Recovery: uporabite način smernih tipk</string>
+    <string name="vs_bluetooth">Bluetooth gostitelja (poskusno)</string>
+    <string name="vs_bluetooth_sub">Gostu omogoči iskanje naprav Bluetooth, seznam seznanjenih naprav in komunikacijo z njimi prek telefona: klasična serijska povezava (RFCOMM) in Bluetooth LE (GATT). Zahteva dovoljenje za Bluetooth in popoln ponovni zagon navideznega stroja. Ni surovi HCI: gost vidi vmesnik telefona prek mostu, zato slušalke (zvočni profili) niso podprte.</string>
+    <string name="bluetooth_permission_denied">Dovoljenje za Bluetooth zavrnjeno: gost se bo zagnal brez Bluetootha gostitelja.</string>
+    <string name="vs_sf_tombstone">Tombstone zrušitve SurfaceFlingerja (odpravljanje napak)</string>
+    <string name="vs_sf_tombstone_sub">Če se SurfaceFlinger zruši, naj vdelana programska oprema v dnevnik zapiše navaden tombstone (s funkcijo, ki se je zrušila) namesto kratkega poročila. Uporabite pri pošiljanju poročila o napaki. Velja ob naslednjem popolnem zagonu VM.</string>
+</resources>

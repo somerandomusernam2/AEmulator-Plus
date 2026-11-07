@@ -8,8 +8,10 @@ _cfg = json.loads(_src[_src.index("window.AEMU_CONFIG =") + len("window.AEMU_CON
 
 VERSION = _cfg["version"]
 _L = _cfg["links"]
-REPO, SITE, FORUM, CHANNEL, AUTHOR, ORIGINAL = _L["repo"], _L["site"], _L["forum"], _L["channel"], _L["author"], _L["original"]
-DONATE = _L["donate"]
+REPO, SITE, CHANNEL, AUTHOR, ORIGINAL = _L["repo"], _L["site"], _L["channel"], _L["author"], _L["original"]
+UPSTREAM = "https://github.com/uxazu/AEmulator"
+SUNSET = "https://github.com/drel4/AEmulator-Sunset"
+AUTHOR_NAME = "somerandomusername2"  # GitHub display name; the URL slug is somerandomusernam2
 
 LANGS = [  # код, самоназвание, флаг
     ("en", "English", "🇬🇧"), ("ru", "Русский", "🇷🇺"), ("uk", "Українська", "🇺🇦"), ("de", "Deutsch", "🇩🇪"),

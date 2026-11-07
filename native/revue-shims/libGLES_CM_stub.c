@@ -1,0 +1,30 @@
+/* AEmulator Plus 2026-10-27: libGLES_CM.so stand-in for the Logitech Revue. The real EGL and GL entry points come from the firmware's
+ * software renderer installed as libEGL.so. These are the 28 GLES 1.x functions that libandroid_runtime references and it lacks. No-ops. */
+int glColor4ub(void){ return 0; }
+int glGetBooleanv(void){ return 0; }
+int glGetClipPlanef(void){ return 0; }
+int glGetClipPlanex(void){ return 0; }
+int glGetFixedv(void){ return 0; }
+int glGetFloatv(void){ return 0; }
+int glGetLightfv(void){ return 0; }
+int glGetLightxv(void){ return 0; }
+int glGetMaterialfv(void){ return 0; }
+int glGetMaterialxv(void){ return 0; }
+int glGetTexEnvfv(void){ return 0; }
+int glGetTexEnviv(void){ return 0; }
+int glGetTexEnvxv(void){ return 0; }
+int glGetTexParameterfv(void){ return 0; }
+int glGetTexParameteriv(void){ return 0; }
+int glGetTexParameterxv(void){ return 0; }
+int glIsBuffer(void){ return 0; }
+int glIsEnabled(void){ return 0; }
+int glIsTexture(void){ return 0; }
+int glPointParameterf(void){ return 0; }
+int glPointParameterfv(void){ return 0; }
+int glPointParameterx(void){ return 0; }
+int glPointParameterxv(void){ return 0; }
+int glPointSizePointerOES(void){ return 0; }
+int glTexEnvi(void){ return 0; }
+int glTexEnviv(void){ return 0; }
+int glTexParameterfv(void){ return 0; }
+int glTexParameterxv(void){ return 0; }

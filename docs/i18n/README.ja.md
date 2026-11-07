@@ -1,14 +1,10 @@
 <div align="center">
 
-<img src="../../docs/assets/logo.png" width="128" alt="AEmulator logo"/>
+<img src="../../docs/assets/logo.png" width="128" alt="AEmulator Plus logo"/>
 
-# AEmulator
-
-*Based on the original [SENSES emulator](https://github.com/Istratii-tech/SENSES)*
+# AEmulator Plus
 
 **懐かしの Android ファームウェア — HTC Sense、TouchWiz、MIUI、AOSP — を最新スマホで。root も PC も不要。**
-
-[![Version](https://img.shields.io/badge/version-0.0.0.3-3D5AFE?style=for-the-badge)](https://github.com/uxazu/aemulator/releases) [![License](https://img.shields.io/badge/license-GPL--3.0-3D5AFE?style=for-the-badge)](../../LICENSE) [![Android](https://img.shields.io/badge/Android-8.0%2B-3DDC84?style=for-the-badge&logo=android&logoColor=white)](https://github.com/uxazu/aemulator) [![Forum](https://img.shields.io/badge/Forum-aeforum-FF6D00?style=for-the-badge&logo=discourse&logoColor=white)](https://aeforum.uxazuu.space/) [![Telegram](https://img.shields.io/badge/Telegram-channel-26A5E4?style=for-the-badge&logo=telegram&logoColor=white)](https://t.me/aemulatorofficial) [![Website](https://img.shields.io/badge/site-aemulator.gt.tc-111?style=for-the-badge)](https://aemulator.gt.tc)
 
 [🇬🇧 English](../../README.md) · [🇷🇺 Русский](README.ru.md) · [🇺🇦 Українська](README.uk.md) · [🇩🇪 Deutsch](README.de.md) · [🇫🇷 Français](README.fr.md) · [🇪🇸 Español](README.es.md) · [🇧🇷 Português](README.pt-BR.md) · [🇮🇹 Italiano](README.it.md) · [🇵🇱 Polski](README.pl.md) · [🇹🇷 Türkçe](README.tr.md) · [🇸🇦 العربية](README.ar.md) · [🇮🇷 فارسی](README.fa.md) · [🇮🇳 हिन्दी](README.hi.md) · [🇮🇩 Indonesia](README.id.md) · [🇻🇳 Tiếng Việt](README.vi.md) · [🇨🇳 简体中文](README.zh-CN.md) · **🇯🇵 日本語** · [🇰🇷 한국어](README.ko.md)
 
@@ -16,34 +12,23 @@
 
 ---
 
-AEmulator はファームウェアファイルから本物の Android 2.3〜17 を直接起動します：リカバリー ZIP、Odin アーカイブ、Google ファクトリーイメージ、GSI。古い 32 ビットのファームウェア（2.3〜4.4）は改良版 QEMU で動かし、Android 5.0〜17 はスマホの arm64 コアでネイティブに動かします。カーネルの binder をエミュレートし、描画はスマホの GPU、音声は Android のオーディオを使います。すべて普通のアプリの中で動きます。
+AEmulator Plus はファームウェアファイルから本物の Android 2.3〜7.x を直接起動します：リカバリー ZIP、Odin アーカイブ、Google ファクトリーイメージ。古い ARM コードは改良版 QEMU で変換し、カーネルの binder をエミュレートし、描画はスマホの GPU、音声は Android のオーディオを使います。すべて普通のアプリの中で動きます。
 
 ## ✨ 特長
 
-- ほぼすべての形式をインポート：CWM/TWRP ZIP、Samsung Odin `.tar.md5`、Google ファクトリー `.tgz`、`system.img`、OTA `system.new.dat.br`、Huawei `UPDATE.APP`、Xiaomi fastboot `super.zst`
+- ほぼすべての形式をインポート：CWM/TWRP ZIP、Samsung Odin `.tar.md5`、Google ファクトリー `.tgz`、`system.img`、OTA `system.new.dat.br`
 - メーカー独自 UI がそのまま動作：HTC Sense、Samsung TouchWiz、MIUI、AOSP
 - GL ブリッジによるハードウェア描画、音声、タッチとマルチタッチ、最新 TLS プロキシ付きネットワーク
 - APK・音楽・写真用の共有メモリーカードフォルダー
 - 18 言語対応の Material 3 Expressive UI
 - 無料・オープンソース（GPL-3.0）
 
-## 📱 ファームウェア一覧
-
-動作確認済みファームウェアの一覧（状態・メモ・ダウンロードリンク付き）はフォーラムにあります。結果の共有や質問、新しいイメージ探しもそちらでどうぞ。
-
-<div align="center">
-
-<a href="https://aeforum.uxazuu.space/"><img src="https://img.shields.io/badge/%E3%83%95%E3%82%A9%E3%83%BC%E3%83%A9%E3%83%A0%E3%82%92%E9%96%8B%E3%81%8F-aeforum.uxazuu.space-FF6D00?style=for-the-badge&logo=discourse&logoColor=white" height="44" alt="フォーラム"/></a>
-
-</div>
-
 ## 🚀 クイックスタート
 
-1. [Releases](https://github.com/uxazu/aemulator/releases) から APK をダウンロードしてインストール。
-2. [フォーラム](https://aeforum.uxazuu.space/)でファームウェアを探し、スマホにダウンロードします。
-3. AEmulator を開き →**ファームウェアを追加**でファイルを選択。インポートには数分かかります。
-4. **起動**をタップ。初回はアプリ最適化のため時間がかかります。
-5. ⋮ メニューで音量・電源ボタン・ログ、⚙️ で設定と言語。
+1. [Releases](https://github.com/somerandomusernam2/AEmulator-Plus/releases) から APK をダウンロードしてインストール。
+2. AEmulator Plus を開き →**ファームウェアを追加**でファイルを選択。インポートには数分かかります。
+3. **起動**をタップ。初回はアプリ最適化のため時間がかかります。
+4. ⋮ メニューで音量・電源ボタン・ログ、⚙️ で設定と言語。
 
 ## 📋 動作要件
 
@@ -53,36 +38,34 @@ AEmulator はファームウェアファイルから本物の Android 2.3〜17 �
 
 ## ⚙️ 仕組み
 
-Android 2.3〜4.4 では各ゲストプロセスが改良版ユーザーモード QEMU で動き、5.0〜17 ではファームウェア自身の arm64 プログラムがネイティブに動き、Android のバージョンごとのエンジンカーネルがシステムコールを受け持ちます。binder デーモンがカーネルドライバーの代わりを務め、GL ブリッジが OpenGL ES 呼び出しを GPU に転送し、小さなゲストライブラリ（オーディオ HAL、audio policy ラッパー、LD_PRELOAD シム）がメーカーのコードをエミュレーターに合わせます。インポーターはファームウェアを読み、boot イメージの init スクリプトからサービスの起動計画を作ります。
+各ゲストプロセスは改良版ユーザーモード QEMU で動きます。binder デーモンがカーネルドライバーの代わりを務め、GL ブリッジが OpenGL ES 呼び出しを GPU に転送し、小さなゲストライブラリ（オーディオ HAL、audio policy ラッパー、LD_PRELOAD シム）がメーカーのコードをエミュレーターに合わせます。インポーターはファームウェアを読み、boot イメージの init スクリプトからサービスの起動計画を作ります。
 
 ## 🛠️ ソースからビルド
 
-JDK 17、Android SDK 36、NDK r28 が必要です。ゲスト用ライブラリは `native/*/build.sh` でビルドします。Gradle は `JAVA_HOME` の JDK で動きます（Android Studio 付属のもので可: `<Android Studio>/jbr`）。
+動作確認済みのアプリのリリースビルドは JDK 21 と Android SDK 36 を使用します。ネイティブツールチェーンや署名の詳細は[ビルド／ソース手順](../build-source.md)をご覧ください。**継承したエンジンのビルド済みバイナリについては、ソースコードとビルドの出自がまだ完全には検証されていません**。[監査ドキュメント](../license-audit.md)を参照してください。
 
 ```bash
-git clone https://github.com/uxazu/aemulator.git
-cd aemulator
-./gradlew assembleRelease
+git clone https://github.com/somerandomusernam2/AEmulator-Plus.git
+cd AEmulator-Plus
+./gradlew copyReleaseApks
 ```
 
 ## 🙏 クレジット
 
-AEmulator は[オリジナル作者](https://t.me/istratii_tech1)の HTC Desire HD・HTC One M7 エミュレーターから生まれました。そのエンジンなしにこのプロジェクトはありません。
+AEmulator Plus は[オリジナル作者](https://t.me/istratiit_ech)の HTC Desire HD・HTC One M7 エミュレーターから生まれました。そのエンジンなしにこのプロジェクトはありません。
 
-## 💙 プロジェクトを支援
-
-AEmulator で思い出のスマホがよみがえったら、開発を支援できます：
-
-- 💳 [dalink.to/uxazu](https://dalink.to/uxazu)
+これは [drel4/AEmulator-Sunset](https://github.com/drel4/AEmulator-Sunset) の改変フォークであり、そのリポジトリ自体も [uxazu/AEmulator](https://github.com/uxazu/AEmulator) の改変フォークです。
 
 ## 🔗 リンク
 
-- 🌐 ウェブサイト: [aemulator.gt.tc](https://aemulator.gt.tc)
-- 💬 フォーラム: [aeforum.uxazuu.space](https://aeforum.uxazuu.space/)
-- 📣 Telegram チャンネル: [@aemulatorofficial](https://t.me/aemulatorofficial)
-- 👤 作者: [uxazu](https://github.com/uxazu)
-- 🧬 オリジナル作者: [t.me/istratii_tech1](https://t.me/istratii_tech1)
+- 私のフォーク: [somerandomusernam2/AEmulator-Plus](https://github.com/somerandomusernam2/AEmulator-Plus)
+- アップストリーム: [drel4/AEmulator-Sunset](https://github.com/drel4/AEmulator-Sunset)
+- オリジナル: [uxazu/AEmulator](https://github.com/uxazu/AEmulator)
+- 作者: [somerandomusername2](https://github.com/somerandomusernam2)
+- オリジナル作者: [t.me/istratiit_ech](https://t.me/istratiit_ech)
 
 ## 📄 ライセンス
 
 GPL-3.0。Android、商標、ファームウェアは各所有者に帰属します。
+
+[日付入りの改変通知](../../NOTICE.md)と[未完了のソース／ライセンス監査](../license-audit.md)をご覧ください。GPL の表記は、同梱の各ビルド済みバイナリに対応する完全なソースがあることを保証するものではありません。

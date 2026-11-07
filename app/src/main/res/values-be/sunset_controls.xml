@@ -1,0 +1,33 @@
+<resources>
+    <string name="vs_hide_menu">Схаваць кнопку меню</string>
+    <string name="vs_hide_menu_sub">Схаваць кнопку «…». Кнопка «Назад» тэлефона або жэст «назад» будзе адкрываць меню эмулятара замест адпраўкі «Назад» у Android. Кнопкі навігацыі госця па-ранейшаму кіруюць Android.</string>
+    <string name="vs_vibration">Вібрацыя госця</string>
+    <string name="vs_vibration_sub">Пераадрасоўвае ўстарэлую вібрацыю госця на тэлефон. Уступае ў сілу пры наступнай загрузцы; кожны імпульс абмежаваны 60 секундамі.</string>
+    <string name="nav_buttons">Кнопкі навігацыі</string>
+    <string name="nav_order">Парадак кнопак (злева направа)</string>
+    <string name="nav_earlier">Раней</string>
+    <string name="nav_later">Пазней</string>
+    <string name="nav_reset">Скінуць кнопкі</string>
+    <string name="nav_search">Пошук</string>
+    <string name="nav_power">Сілкаванне</string>
+    <string name="nav_go_to_recovery">Перайсці ў рэкаверы</string>
+    <string name="nav_volume_down">Гучнасць ніжэй</string>
+    <string name="nav_volume_up">Гучнасць вышэй</string>
+    <string name="nav_up">D-pad уверх</string>
+    <string name="nav_down">D-pad уніз</string>
+    <string name="nav_left">D-pad улева</string>
+    <string name="nav_right">D-pad управа</string>
+    <string name="nav_center">D-pad цэнтр</string>
+    <string name="nav_trackball">Трэкбол</string>
+    <string name="nav_trackball_sub">Правядзіце па крузе над панэллю навігацыі, каб пракруціць; націсніце, каб выбраць.</string>
+    <string name="nav_dpad_mode">Рэжым стрэлак</string>
+    <string name="nav_dpad_sub">Выключана: сапраўдныя адносныя падзеі трэкбола для праграм госця. Уключана: замест іх націскі клавіш D-pad. Абодва тыпы не адпраўляюцца.</string>
+    <string name="nav_sensitivity">Адчувальнасць: %1$d dp на крок (менш — хутчэй)</string>
+    <string name="nav_trackball_waiting">Злучэння з трэкболам госця пакуль няма</string>
+    <string name="nav_trackball_recovery">Рэкаверы: выкарыстоўвайце рэжым стрэлак</string>
+    <string name="vs_bluetooth">Bluetooth хоста (эксперыментальна)</string>
+    <string name="vs_bluetooth_sub">Дазваляе госцю сканаваць прылады Bluetooth, праглядаць спарныя і абменьвацца з імі праз тэлефон: класічны паслядоўны порт (RFCOMM) і Bluetooth LE (GATT). Патрабуе дазволу Bluetooth і поўнага перазапуску віртуальнай машыны. Гэта не raw HCI: госць бачыць адаптар тэлефона праз мост, таму гарнітуры (аўдыяпрафілі) не падтрымліваюцца.</string>
+    <string name="vs_sf_tombstone">Tombstone збою SurfaceFlinger (адладка)</string>
+    <string name="vs_sf_tombstone_sub">Калі SurfaceFlinger падае, прашыўка запісвае ў журнал звычайны tombstone (з функцыяй, якая ўпала) замест кароткай справаздачы. Выкарыстоўвайце пры адпраўцы справаздачы пра памылку. Уступае ў сілу пры наступнай поўнай загрузцы віртуальнай машыны.</string>
+    <string name="bluetooth_permission_denied">Дазвол Bluetooth не атрыманы: госць загрузіцца без Bluetooth хоста.</string>
+</resources>

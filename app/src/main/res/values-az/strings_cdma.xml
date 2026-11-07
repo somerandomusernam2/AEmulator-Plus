@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="vs_cdma">CDMA modem</string>
+    <string name="vs_cdma_sub">CDMA modemini emulyasiya edir: 1xRTT / EV-DO qeydiyyatı, MEID, CDMA abunəliyi və CDMA mətn mesajları. Növbəti tam yükləmədə tətbiq olunur.</string>
+    <string name="vs_cdma_fw_yes">Bu mikroproqram CDMA üzərində LTE-dir (telephony.lteOnCdmaDevice=1): defolt olaraq açıqdır.</string>
+    <string name="vs_cdma_fw_no">Bu mikroproqram CDMA üzərində LTE deyil: defolt olaraq söndürülüdür.</string>
+</resources>

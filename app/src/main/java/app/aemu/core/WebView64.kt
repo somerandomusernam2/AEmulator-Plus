@@ -1,5 +1,8 @@
 package app.aemu.core
 
+import java.io.ByteArrayOutputStream
+import java.io.DataInputStream
+import java.io.DataOutputStream
 import java.io.File
 import java.io.RandomAccessFile
 import java.nio.ByteBuffer
@@ -22,9 +25,42 @@ import java.util.zip.Inflater
  */
 object WebView64 {
     private const val USE_32BIT_ABI = 0x01010515
+    private const val UNDO_MAGIC = "AEWV1"
+    /** [prefer64] keeps what it overwrites in "<backup folder>/<apk path with # for />" + this; a delta OTA needs the stock apk bytes */
+    const val UNDO_SUFFIX = ".webview-undo"
+
+    /**
+     * Puts the original bytes back into [current] (the apk as [prefer64] left it) from the record [rec] it saved:
+     * the entry's data (and data descriptor) region, its local header and its central directory record. Null if the
+     * record is not for this file.
+     */
+    fun undo(current: ByteArray, rec: ByteArray): ByteArray? = runCatching {
+        val i = DataInputStream(rec.inputStream())
+        if (i.readUTF() != UNDO_MAGIC) return@runCatching null
+        val out = current.copyOf()
+        repeat(3) {
+            val at = i.readLong(); val n = i.readInt()
+            if (at < 0 || n < 0 || at + n > out.size) return@runCatching null
+            i.readFully(out, at.toInt(), n)
+        }
+        out
+    }.getOrNull()
+
+    private fun saveUndo(to: File?, parts: List<Pair<Long, ByteArray>>) {
+        if (to == null) return
+        runCatching {
+            val b = ByteArrayOutputStream()
+            DataOutputStream(b).use { o ->
+                o.writeUTF(UNDO_MAGIC)
+                for ((at, bytes) in parts) { o.writeLong(at); o.writeInt(bytes.size); o.write(bytes) }
+            }
+            to.parentFile?.mkdirs()
+            to.writeBytes(b.toByteArray())
+        }
+    }
 
     /** true when the manifest of [apk] was changed */
-    fun prefer64(apk: File, log: (String) -> Unit): Boolean = runCatching {
+    fun prefer64(apk: File, log: (String) -> Unit, undoFile: File? = null): Boolean = runCatching {
         RandomAccessFile(apk, "rw").use { f ->
             // end of central directory: the last "PK\5\6"
             val tailLen = minOf(f.length(), 66_000L).toInt()
@@ -70,6 +106,9 @@ object WebView64 {
                     o.copyOf(n)
                 }
                 val crc = CRC32().also { it.update(xml) }.value.toInt()
+                // keep what is about to be overwritten (the apk is unchanged until now, lh and cd still hold the originals)
+                val was = ByteArray(room).also { f.seek(dataOff); f.readFully(it) }
+                saveUndo(undoFile, listOf(dataOff to was, lho to lh.copyOf(), (cdOff + p) to cd.copyOfRange(p, p + 46)))
                 f.seek(dataOff); f.write(packed); f.write(ByteArray(room - packed.size))
                 l.putShort(6, (flags and 8.inv()).toShort()); l.putInt(14, crc); l.putInt(18, packed.size); l.putInt(22, usize)
                 f.seek(lho); f.write(lh)

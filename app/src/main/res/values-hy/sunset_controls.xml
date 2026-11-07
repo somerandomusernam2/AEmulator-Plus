@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="vs_hide_menu">Թաքցնել ընտրացանկի կոճակը</string>
+    <string name="vs_hide_menu_sub">Թաքցնում է … կոճակը։ Հեռախոսի «Հետ» կոճակը կամ հետ գնալու ժեստը բացում է էմուլյատորի ընտրացանկը և Android-ին «Հետ» չի ուղարկում։ Հյուրի նավիգացիոն կոճակները շարունակում են կառավարել Android-ը։</string>
+    <string name="vs_vibration">Հյուրի թրթռում</string>
+    <string name="vs_vibration_sub">Հյուրի հին թրթռումը փոխանցում է հեռախոսին։ Կիրառվում է հաջորդ բեռնման ժամանակ. յուրաքանչյուր իմպուլս սահմանափակվում է 60 վայրկյանով։</string>
+    <string name="nav_buttons">Նավիգացիոն կոճակներ</string>
+    <string name="nav_order">Կոճակների կարգը (ձախից աջ)</string>
+    <string name="nav_earlier">Ավելի շուտ</string>
+    <string name="nav_later">Ավելի ուշ</string>
+    <string name="nav_reset">Վերակայել կոճակները</string>
+    <string name="nav_search">Որոնում</string>
+    <string name="nav_power">Սնուցում</string>
+    <string name="nav_go_to_recovery">Անցնել recovery-ին</string>
+    <string name="nav_volume_down">Ձայնը նվազեցնել</string>
+    <string name="nav_volume_up">Ձայնը բարձրացնել</string>
+    <string name="nav_up">D-pad վերև</string>
+    <string name="nav_down">D-pad ներքև</string>
+    <string name="nav_left">D-pad ձախ</string>
+    <string name="nav_right">D-pad աջ</string>
+    <string name="nav_center">D-pad կենտրոն</string>
+    <string name="nav_trackball">Թրեքբոլ</string>
+    <string name="nav_trackball_sub">Սահեցրեք մատը նավիգացիոն վահանակից վերև գտնվող շրջանի վրա՝ գլորելու համար. հպեք՝ ընտրելու համար։</string>
+    <string name="nav_dpad_mode">Սլաքների ստեղների ռեժիմ</string>
+    <string name="nav_dpad_sub">Անջատված է. իրական հարաբերական թրեքբոլի իրադարձություններ հյուրի հավելվածների համար։ Միացված է. դրա փոխարեն D-pad ստեղների սեղմումներ։ Երկուսը միասին չի ուղարկում։</string>
+    <string name="nav_sensitivity">Զգայունություն՝ %1$d dp մեկ քայլում (որքան քիչ, այնքան արագ)</string>
+    <string name="nav_trackball_waiting">Հյուրի թրեքբոլի կապ դեռ չկա</string>
+    <string name="nav_trackball_recovery">Recovery. օգտագործեք սլաքների ստեղների ռեժիմը</string>
+    <string name="vs_bluetooth">Հոսթի Bluetooth (փորձարարական)</string>
+    <string name="vs_bluetooth_sub">Հյուրին թույլ է տալիս հեռախոսի միջոցով որոնել Bluetooth սարքեր, տեսնել զուգակցվածների ցանկը և շփվել նրանց հետ՝ դասական սերիական (RFCOMM) և Bluetooth LE (GATT)։ Պահանջում է Bluetooth-ի թույլտվություն և VM-ի լրիվ վերագործարկում։ Raw HCI չէ. հյուրը հեռախոսի ադապտերը տեսնում է կամրջի միջոցով, ուստի ականջակալները (աուդիո պրոֆիլներ) չեն աջակցվում։</string>
+    <string name="vs_sf_tombstone">SurfaceFlinger-ի վթարի tombstone (վրիպազերծում)</string>
+    <string name="vs_sf_tombstone_sub">Եթե SurfaceFlinger-ը վթարվի, որոնվածքը մատյանում կգրի սովորական tombstone (վթարված ֆունկցիայի նշումով)՝ կարճ հաշվետվության փոխարեն։ Օգտագործեք սխալի մասին հաղորդում ուղարկելիս։ Ուժի մեջ է մտնում VM-ի հաջորդ լրիվ բեռնման ժամանակ։</string>
+    <string name="bluetooth_permission_denied">Bluetooth-ի թույլտվությունը մերժվել է. հյուրը կբեռնվի առանց հոսթի Bluetooth-ի։</string>
+</resources>

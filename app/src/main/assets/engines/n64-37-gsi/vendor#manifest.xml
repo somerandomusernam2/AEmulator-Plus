@@ -123,13 +123,6 @@
     <sepolicy>
         <version>31.0</version>
     </sepolicy>
-    <!-- 16: HintManagerService reads a field of a null object when there is no AIDL power HAL at all; the name is
-         answered by the engine's stand-in service (interface version 0: every optional part is off) -->
-    <hal format="aidl">
-        <name>android.hardware.power</name>
-        <version>5</version>
-        <fqname>IPower/default</fqname>
-    </hal>
     <!-- 17: libui takes a mapper of version 4 or 5 only; the engine's own (native/gralloc5) over its gralloc module -->
     <hal format="aidl">
         <name>android.hardware.graphics.allocator</name>

@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="vs_cdma">CDMA modems</string>
+    <string name="vs_cdma_sub">Emulē CDMA modemu: 1xRTT / EV-DO reģistrāciju, MEID, CDMA abonementu un CDMA īsziņas. Tiek lietots nākamajā pilnajā palaišanā.</string>
+    <string name="vs_cdma_fw_yes">Šī aparātprogrammatūra ir LTE uz CDMA (telephony.lteOnCdmaDevice=1): pēc noklusējuma ieslēgts.</string>
+    <string name="vs_cdma_fw_no">Šī aparātprogrammatūra nav LTE uz CDMA: pēc noklusējuma izslēgts.</string>
+</resources>

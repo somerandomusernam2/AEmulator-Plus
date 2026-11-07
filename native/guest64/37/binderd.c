@@ -41,6 +41,10 @@ typedef uint32_t u32;
 #define BC_REQUEST_DEATH_NOTIFICATION 0x400c630eu
 #define BC_CLEAR_DEATH_NOTIFICATION 0x400c630fu
 #define BC_DEAD_BINDER_DONE 0x40086310u
+/* freeze notifications (Linux 6.1+ / android14-5.15+ binder, libbinder of 15+: BpBinder::addFrozenStateChangeCallback) */
+#define BC_REQUEST_FREEZE_NOTIFICATION 0x400c6313u
+#define BC_CLEAR_FREEZE_NOTIFICATION 0x400c6314u
+#define BC_FREEZE_NOTIFICATION_DONE 0x40086315u
 /* private: ioctls the front end forwards */
 #define BC_AEMU_MAX_THREADS 0x4004633du
 #define BC_AEMU_CTX_MGR 0x0000633eu
@@ -57,6 +61,10 @@ typedef uint32_t u32;
 #define BR_DEAD_BINDER 0x8008720fu
 #define BR_CLEAR_DEATH_NOTIFICATION_DONE 0x80087210u
 #define BR_FAILED_REPLY 0x00007211u
+#define BR_FROZEN_BINDER 0x80107215u                /* _IOR('r', 21, struct binder_frozen_state_info { u64 cookie; u32 is_frozen; u32 reserved; }) = 16 bytes.
+                                                     * The 12-byte "packed" size (0x800c7215) is rejected by the guest libbinder as BAD COMMAND,
+                                                     * which then aborts system_server/audioserver in joinThreadPool. */
+#define BR_CLEAR_FREEZE_NOTIFICATION_DONE 0x80087216u
 
 #define T_BINDER 0x73622a85u
 #define T_WEAK_BINDER 0x77622a85u
@@ -71,7 +79,7 @@ struct fbo { u32 type, flags; u64 binder, cookie; };   /* flat_binder_object, 64
 
 struct proc; struct thread; struct node; struct txn;
 
-enum { W_TXN = 1, W_COMPLETE, W_NODE, W_DEAD_BINDER, W_CLEAR_DONE, W_ERROR };
+enum { W_TXN = 1, W_COMPLETE, W_NODE, W_DEAD_BINDER, W_CLEAR_DONE, W_ERROR, W_FROZEN, W_CLEAR_FREEZE_DONE };
 struct work { struct work *next; int type, deferred; struct txn *t; struct node *node; u64 cookie; u32 err; };
 struct wq { struct work *head, *tail; };
 
@@ -434,6 +442,9 @@ static void deliver(struct thread *th) {
             stop = 1;       /* the death recipient may make calls of its own: nothing may follow it in this batch (as in the driver) */
             break;
         case W_CLEAR_DONE: br[k] = BR_CLEAR_DEATH_NOTIFICATION_DONE; memcpy(br + k + 1, &w->cookie, 8); k += 3; break;
+        /* nothing in this system is ever frozen: the state a request is answered with, once, is "not frozen" */
+        case W_FROZEN: br[k] = BR_FROZEN_BINDER; memcpy(br + k + 1, &w->cookie, 8); br[k + 3] = 0; br[k + 4] = 0; k += 5; break;
+        case W_CLEAR_FREEZE_DONE: br[k] = BR_CLEAR_FREEZE_NOTIFICATION_DONE; memcpy(br + k + 1, &w->cookie, 8); k += 3; break;
         case W_TXN: t = w->t; break;
         }
         free(w);
@@ -548,6 +559,19 @@ static void do_bcs(struct thread *th, u32 *c, int words) {
             break;
         }
         case BC_DEAD_BINDER_DONE: break;
+        case BC_REQUEST_FREEZE_NOTIFICATION: {
+            /* SensorService (17) asks for these on every client connection and gives up the whole registration of
+             * android.frameworks.sensorservice@1.0::ISensorManager when it cannot (system_server then aborts) */
+            struct ref *r = ref_get(p, (u32)a);
+            if (!r || !r->node->owner) break;
+            struct work *w = mkwork(W_FROZEN); w->cookie = b; wq_push(&th->todo, w);
+            break;
+        }
+        case BC_CLEAR_FREEZE_NOTIFICATION: {
+            struct work *w = mkwork(W_CLEAR_FREEZE_DONE); w->cookie = b; wq_push(&th->todo, w);
+            break;
+        }
+        case BC_FREEZE_NOTIFICATION_DONE: break;
         case BC_AEMU_FREE: { struct dbuf *d = (struct dbuf *)(uintptr_t)a; if (d && d->proc == p) buf_free(p, d); break; }
         case BC_AEMU_MAX_THREADS: p->max_threads = (int)a; break;
         case BC_AEMU_CTX_MGR: if (!ctx_mgr) { ctx_mgr = node_get(p, 0, 0, 1); ctx_mgr->local_strong++; ctx_mgr->has_strong = ctx_mgr->has_weak = 1; } break;

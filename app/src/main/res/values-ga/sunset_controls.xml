@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="vs_hide_menu">Folaigh cnaipe an roghchláir</string>
+    <string name="vs_hide_menu_sub">Folaigh an cnaipe … . Osclaíonn cnaipe Ar ais an ghutháin nó an chomhartha ar ais roghchlár an aithriseora in ionad Ar ais a sheoladh chuig Android. Rialaíonn cnaipí nascleanúna an aoi Android i gcónaí.</string>
+    <string name="vs_vibration">Creathadh an aoi</string>
+    <string name="vs_vibration_sub">Cuir seanchreathadh an aoi ar aghaidh chuig an nguthán. Cuirtear i bhfeidhm ag an gcéad tosú eile; tá gach bíoma teoranta do 60 soicind.</string>
+    <string name="nav_buttons">Cnaipí nascleanúna</string>
+    <string name="nav_order">Ord na gcnaipí (ó chlé go deas)</string>
+    <string name="nav_earlier">Níos luaithe</string>
+    <string name="nav_later">Níos déanaí</string>
+    <string name="nav_reset">Athshocraigh cnaipí</string>
+    <string name="nav_search">Cuardach</string>
+    <string name="nav_power">Cumhacht</string>
+    <string name="nav_go_to_recovery">Téigh go dtí an aisghabháil</string>
+    <string name="nav_volume_down">Toirt síos</string>
+    <string name="nav_volume_up">Toirt suas</string>
+    <string name="nav_up">D-pad suas</string>
+    <string name="nav_down">D-pad síos</string>
+    <string name="nav_left">D-pad clé</string>
+    <string name="nav_right">D-pad deas</string>
+    <string name="nav_center">D-pad lár</string>
+    <string name="nav_trackball">Liathróid rianta</string>
+    <string name="nav_trackball_sub">Scuab an ciorcal os cionn an bharra nascleanúna chun rolladh; tapáil chun roghnú.</string>
+    <string name="nav_dpad_mode">Mód eochracha saigheada</string>
+    <string name="nav_dpad_sub">Múchta: fíorimeachtaí coibhneasta liathróide rianta d’aipeanna an aoi. Casta air: brúnna eochracha D-pad ina n-ionad. Ní sheolann sé an dá cheann.</string>
+    <string name="nav_sensitivity">Íogaireacht: %1$d dp in aghaidh na céime (is tapúla é nuair a bhíonn sé níos ísle)</string>
+    <string name="nav_trackball_waiting">Gan nasc liathróide rianta an aoi go fóill</string>
+    <string name="nav_trackball_recovery">Aisghabháil: úsáid mód na n-eochracha saigheada</string>
+    <string name="vs_bluetooth">Bluetooth an óstríomhaire (turgnamhach)</string>
+    <string name="vs_bluetooth_sub">Lig don aoi scanadh, liosta péireála a fheiceáil agus cumarsáid a dhéanamh le feistí Bluetooth tríd an nguthán: sraithchumarsáid chlasaiceach (RFCOMM) agus Bluetooth LE (GATT). Teastaíonn cead Bluetooth agus atosú iomlán an mheaisín fhíorúil. Ní HCI amh é: feiceann an t-aoi cuibheoir an ghutháin trí dhroichead, mar sin ní thacaítear le cluasáin (próifílí fuaime).</string>
+    <string name="vs_sf_tombstone">Leac uaighe tuairte SurfaceFlinger (dífhabhtú)</string>
+    <string name="vs_sf_tombstone_sub">Má thuairteann SurfaceFlinger, lig do na dochtearraí leac uaighe gnáth a scríobh sa logchomhad (leis an bhfeidhm a thuairt) in ionad tuairisce gearra. Úsáid é agus tuairisc fhabht á seoladh. Cuirtear i bhfeidhm ag an gcéad tosú iomlán eile den mheaisín fíorúil.</string>
+    <string name="bluetooth_permission_denied">Diúltaíodh cead Bluetooth: tosóidh an t-aoi gan Bluetooth an óstríomhaire.</string>
+</resources>

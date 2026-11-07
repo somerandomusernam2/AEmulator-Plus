@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="m_wea">تنبيه طوارئ وهمي</string>
+    <string name="m_wea_type">نوع التنبيه</string>
+    <string name="m_wea_sent">تم إرسال تنبيه الطوارئ</string>
+    <string name="m_wea_failed">لم يُرسل: خدمة الاتصال في الهاتف لا تعمل</string>
+    <string name="wea_presidential">تنبيه رئاسي</string>
+    <string name="wea_extreme">تهديد شديد</string>
+    <string name="wea_severe">تهديد خطير</string>
+    <string name="wea_amber">تنبيه AMBER</string>
+    <string name="wea_test">اختبار شهري مطلوب</string>
+    <string name="wea_body_presidential">تنبيه رئاسي: هذا اختبار لنظام تنبيه الطوارئ. لا يلزم اتخاذ أي إجراء.</string>
+    <string name="wea_body_extreme">تنبيه شديد: تحذير من إعصار في منطقتك. احتمِ الآن. هذا اختبار.</string>
+    <string name="wea_body_severe">تنبيه خطير: تحذير من عاصفة رعدية في منطقتك حتى الساعة 6 مساءً. هذا اختبار.</string>
+    <string name="wea_body_amber">تنبيه AMBER: طفل مفقود، سيارة سيدان زرقاء. اتصل بـ 911 إذا رأيتها. هذا اختبار.</string>
+    <string name="wea_body_test">هذا اختبار لنظام Wireless Emergency Alert. لا يلزم اتخاذ أي إجراء.</string>
+</resources>

@@ -14,7 +14,7 @@ import java.net.InetAddress
  * binary layout DnsProxyListener uses. Netd creates the socket file itself, so [ensure] takes the path over again
  * whenever netd (re)starts.
  */
-class DnsProxy(private val paths: VmPaths, private val api: Int, private val probe: Boolean, private val log: (String) -> Unit) {
+class DnsProxy(private val paths: VmPaths, private val api: Int, private val log: (String) -> Unit, private val probe: Boolean = false) {
     /** Whether the firmware's libc takes struct addrinfo as one block (the layout of 5.0, which some vendors kept in
      *  5.1: TouchWiz) and not field by field. Nothing in the request tells, so with [probe] the first reply stops
      *  after "one more entry follows": a libc of the old layout takes that word for a block length, finds it too
@@ -73,7 +73,7 @@ class DnsProxy(private val paths: VmPaths, private val api: Int, private val pro
                 log("dns: struct addrinfo goes " + if (hungUp) "as one block" else "field by field")
                 if (hungUp) return
             }
-            while (sent < bytes.size) { val n = minOf(4, bytes.size - sent); sock.write(bytes, sent, n); sock.flush(); sent += n; if (DEBUG_SLOW) Thread.sleep(20) }
+            while (sent < bytes.size) { val n = minOf(4, bytes.size - sent); sock.write(bytes, sent, n); sock.flush(); sent += n }
         } catch (e: java.io.IOException) { log("dns: client closed after $sent of ${bytes.size} bytes") }
         if (queries <= 6) log("dns: reply " + out.toByteArray().take(96).joinToString("") { "%02x".format(it) })
         if (queries <= 40) log("dns: " + t.getOrElse(1) { "" } + " answered in " + (System.currentTimeMillis() - t0) + " ms")
@@ -173,7 +173,6 @@ class DnsProxy(private val paths: VmPaths, private val api: Int, private val pro
     }
 
     private companion object {
-        const val DEBUG_SLOW = false
         const val AF_INET = 2
         const val AF_INET6 = 10
         const val AI_PASSIVE = 1

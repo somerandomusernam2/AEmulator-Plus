@@ -371,6 +371,209 @@ static void binder_closed(int fd) {
     }
 }
 
+// ---------------------------------------------------------------------------------------------------- protocol 7
+// A 32-bit firmware built with BINDER_IPC_32BIT (Android Go / 32-bit-only 8.x) insists on binder protocol 7: the
+// driver answers BINDER_VERSION with 7 and every structure it passes is laid out with 32-bit pointers
+// (binder_write_read 24 bytes, binder_transaction_data 40, flat_binder_object 16, ...). binderd64 speaks protocol 8
+// (64-bit fields), so for such a program (qemu-arm, AEMU64_BINDER_PROTOCOL=7) the front end translates at the
+// boundary: guest -> daemon on BINDER_WRITE_READ, daemon -> guest on the way back. Programs that are not 32-bit
+// translated ones, and firmware that wants 8, never come here.
+
+#define BWR32 0xc0186201u                  /* _IOWR('b', 1, 24 bytes) */
+#define BC_INCREFS_DONE64 0x40106308u
+#define BC_ACQUIRE_DONE64 0x40106309u
+#define BC_REQUEST_DEATH64 0x400c630eu
+#define BC_CLEAR_DEATH64 0x400c630fu
+#define BC_DEAD_BINDER_DONE64 0x40086310u
+#define BR_TRANSACTION64 0x80407202u
+#define BR_REPLY64 0x80407203u
+#define BR_TRANSACTION32 0x80287202u
+#define BR_REPLY32 0x80287203u
+#define T_BINDER 0x73622a85u
+#define T_WBINDER 0x77622a85u
+#define T_HANDLE 0x73682a85u
+#define T_WHANDLE 0x77682a85u
+
+static int g_bproto;                        // AEMU64_BINDER_PROTOCOL: what the firmware's libbinder wants (0: the engine's 8)
+static int bcompat32(void) { return g_is32 && g_bproto == 7; }
+
+static u32 bobj32(u32 type) {
+    switch (type) {
+    case T_BINDER: case T_WBINDER: case T_HANDLE: case T_WHANDLE: case T_FD: return 16;
+    case T_PTR: return 24;
+    case T_FDA: return 20;
+    }
+    return 0;
+}
+static u32 bobj64(u32 type) { return type == T_PTR ? 40 : type == T_FDA ? 32 : bobj32(type) ? 24 : 0; }
+
+static void bcopy_fw(char *d, const char *s, u64 n) { for (u64 i = 0; i < n; i++) d[i] = s[i]; }   // d <= s, may overlap
+
+#define MAXBLK 8
+struct bblk { void *p; u64 n; };
+
+static void bblk_free(struct bblk *b, int n) { for (int i = 0; i < n; i++) if (b[i].p) S2(NR_munmap, b[i].p, b[i].n); }
+
+// 32-bit binder_transaction_data s[10] -> d; the parcel is rewritten into a new mapping (returned in *blk) when it holds objects
+static long txn32to64(const u32 *s, struct btd *d, struct bblk *blk) {
+    d->target = s[0]; d->cookie = s[1]; d->code = s[2]; d->flags = s[3]; d->sender_pid = (int)s[4]; d->sender_euid = s[5];
+    u32 dsz = s[6], osz = s[7], no = osz / 4;
+    const char *data = (const char *)(u64)s[8];
+    const u32 *offs = (const u32 *)(u64)s[9];
+    blk->p = 0; blk->n = 0;
+    if (!no) { d->data_size = dsz; d->offsets_size = 0; d->buffer = s[8]; d->offsets = s[9]; return 0; }
+    u64 grow = 0, pos = 0;
+    for (u32 i = 0; i < no; i++) {
+        u32 off = offs[i], sz;
+        if (off < pos || (u64)off + 4 > dsz) return -EINVAL;
+        u32 type = *(const u32 *)(data + off);
+        if (!(sz = bobj32(type)) || (u64)off + sz > dsz) return -EINVAL;
+        grow += bobj64(type) - sz; pos = (u64)off + sz;
+    }
+    u64 ndsz = dsz + grow, total = ((A8(ndsz) + (u64)no * 8) + 4095) & ~4095UL;
+    char *nd = (char *)S6(NR_mmap, 0, total, 3, 0x22, -1, 0);
+    if ((u64)nd >= (u64)-4095) return -ENOMEM;
+    blk->p = nd; blk->n = total;
+    u64 *no64 = (u64 *)(nd + A8(ndsz));
+    u64 p32 = 0, p64 = 0;
+    for (u32 i = 0; i < no; i++) {
+        u32 off = offs[i];
+        memcpy(nd + p64, data + p32, off - p32); p64 += off - p32; p32 = off;
+        const u32 *in = (const u32 *)(data + off);
+        u32 type = in[0], *o = (u32 *)(nd + p64);
+        no64[i] = p64;
+        if (type == T_PTR) {
+            struct bbo *b = (struct bbo *)o;
+            b->type = type; b->flags = in[1]; b->buffer = in[2]; b->length = in[3]; b->parent = in[4]; b->parent_offset = in[5];
+        } else if (type == T_FDA) {
+            struct bfda *f = (struct bfda *)o;
+            f->type = type; f->pad = in[1]; f->num_fds = in[2]; f->parent = in[3]; f->parent_offset = in[4];
+        } else {
+            o[0] = type; o[1] = in[1]; *(u64 *)(o + 2) = in[2]; *(u64 *)(o + 4) = in[3];
+        }
+        p32 += bobj32(type); p64 += bobj64(type);
+    }
+    memcpy(nd + p64, data + p32, dsz - p32);
+    d->data_size = ndsz; d->offsets_size = (u64)no * 8; d->buffer = (u64)nd; d->offsets = (u64)no64;
+    return 0;
+}
+
+// the transaction a delivered buffer (64-bit layout, made by bread) holds -> 32-bit binder_transaction_data out[10];
+// the parcel is shrunk where it lies, so the buffer keeps its place in the mapping (and BC_FREE_BUFFER its header)
+static long txn64to32(const struct btd *d, u32 *out) {
+    char *buf = (char *)d->buffer;
+    u64 dsz = d->data_size, no = d->offsets_size / 8;
+    u64 *offs = (u64 *)d->offsets;
+    u64 nd = dsz;
+    if (no) {
+        u64 po = 0, pn = 0;
+        for (u64 i = 0; i < no; i++) {
+            u64 off = offs[i];
+            if (off < po || off + 4 > dsz) return -EINVAL;
+            u32 type = *(u32 *)(buf + off), s64 = bobj64(type), s32 = bobj32(type);
+            if (!s64 || off + s64 > dsz) return -EINVAL;
+            bcopy_fw(buf + pn, buf + po, off - po); pn += off - po;
+            u32 w[10]; memcpy(w, buf + off, s64 > 40 ? 40 : s64);
+            u32 *o = (u32 *)(buf + pn);
+            offs[i] = pn;                                           // the new offset, narrowed below
+            if (type == T_PTR) {
+                const struct bbo *b = (const struct bbo *)w;
+                o[0] = type; o[1] = b->flags; o[2] = (u32)b->buffer; o[3] = (u32)b->length; o[4] = (u32)b->parent; o[5] = (u32)b->parent_offset;
+            } else if (type == T_FDA) {
+                const struct bfda *f = (const struct bfda *)w;
+                o[0] = type; o[1] = f->pad; o[2] = (u32)f->num_fds; o[3] = (u32)f->parent; o[4] = (u32)f->parent_offset;
+            } else {
+                o[0] = type; o[1] = w[1]; o[2] = w[2]; o[3] = w[4];
+            }
+            pn += s32; po = off + s64;
+        }
+        bcopy_fw(buf + pn, buf + po, dsz - po); pn += dsz - po;
+        nd = pn;
+        u32 *no32 = (u32 *)(buf + A8(nd));                          // lies at or below the u64 array it is made from
+        for (u64 i = 0; i < no; i++) no32[i] = (u32)offs[i];
+        out[9] = (u32)(u64)no32;
+    } else out[9] = (u32)d->offsets;
+    out[0] = (u32)d->target; out[1] = (u32)d->cookie; out[2] = d->code; out[3] = d->flags;
+    out[4] = (u32)d->sender_pid; out[5] = d->sender_euid;
+    out[6] = (u32)nd; out[7] = (u32)(no * 4); out[8] = (u32)(u64)buf;
+    return 0;
+}
+
+static long bwrite_read32(struct bth *t, u32 *w32) {
+    u64 ws = w32[0], wc = w32[1], rs = w32[3], rc = w32[4];
+    if (wc > ws) return -EINVAL;
+    u64 rwant = rs > rc ? rs - rc : 0;
+    u64 wcap = (ws - wc) * 2 + 128, total = (wcap + rwant + 128 + 4095) & ~4095UL;
+    char *mem = (char *)S6(NR_mmap, 0, total, 3, 0x22, -1, 0);
+    if ((u64)mem >= (u64)-4095) return -ENOMEM;
+    char *wconv = mem, *rtmp = mem + wcap;
+    struct bblk blk[MAXBLK]; int nb = 0;
+    long r = 0;
+    // guest commands -> the daemon's layout
+    const char *p = (const char *)(u64)w32[2] + wc, *end = (const char *)(u64)w32[2] + ws;
+    char *q = wconv;
+    while (p + 4 <= end) {
+        u32 cmd = *(const u32 *)p, sz = (cmd >> 16) & 0x3fff, nr = cmd & 0xff;
+        if (p + 4 + sz > end) break;
+        const u32 *a = (const u32 *)(p + 4);
+        if (((cmd >> 8) & 0xff) == 'c' && (nr == 0 || nr == 1 || nr == 0x11 || nr == 0x12) && sz >= 40) {
+            if (nb >= MAXBLK) { r = -ENOMEM; break; }
+            struct btd d;
+            if ((r = txn32to64(a, &d, &blk[nb])) < 0) break;
+            if (blk[nb].p) nb++;
+            u32 c64 = (nr == 0 || nr == 0x11) ? BC_TRANSACTION : BC_REPLY;
+            memcpy(q, &c64, 4); memcpy(q + 4, &d, sizeof d); q += 4 + sizeof d;
+        } else if (((cmd >> 8) & 0xff) == 'c' && nr == 3 && sz == 4) {
+            u32 c64 = BC_FREE_BUFFER; u64 v = a[0];
+            memcpy(q, &c64, 4); memcpy(q + 4, &v, 8); q += 12;
+        } else if (((cmd >> 8) & 0xff) == 'c' && (nr == 8 || nr == 9) && sz == 8) {
+            u32 c64 = nr == 8 ? BC_INCREFS_DONE64 : BC_ACQUIRE_DONE64; u64 v[2] = { a[0], a[1] };
+            memcpy(q, &c64, 4); memcpy(q + 4, v, 16); q += 20;
+        } else if (((cmd >> 8) & 0xff) == 'c' && (nr == 0x0e || nr == 0x0f) && sz == 8) {
+            u32 c64 = nr == 0x0e ? BC_REQUEST_DEATH64 : BC_CLEAR_DEATH64; u64 v = a[1];
+            memcpy(q, &c64, 4); memcpy(q + 4, &a[0], 4); memcpy(q + 8, &v, 8); q += 16;
+        } else if (((cmd >> 8) & 0xff) == 'c' && nr == 0x10 && sz == 4) {
+            u32 c64 = BC_DEAD_BINDER_DONE64; u64 v = a[0];
+            memcpy(q, &c64, 4); memcpy(q + 4, &v, 8); q += 12;
+        } else { memcpy(q, p, 4 + sz); q += 4 + sz; }
+        p += 4 + sz;
+    }
+    if (r < 0) { bblk_free(blk, nb); S2(NR_munmap, mem, total); return r; }
+    struct bwr b64 = { (u64)(q - wconv), 0, (u64)wconv, rwant, 0, (u64)rtmp };
+    r = bwrite_read(t, &b64);
+    bblk_free(blk, nb);
+    if (r < 0) { S2(NR_munmap, mem, total); return r; }
+    w32[1] = (u32)ws;
+    // the daemon's answers -> the guest's layout (never longer than what the daemon was allowed to write)
+    u32 *o = (u32 *)(u64)(w32[5] + rc);
+    const char *s = rtmp, *se = rtmp + b64.read_consumed;
+    char *oq = (char *)o;
+    while (s + 4 <= se) {
+        u32 cmd = *(const u32 *)s, sz = (cmd >> 16) & 0x3fff, nr = cmd & 0xff;
+        if (s + 4 + sz > se) break;
+        const u32 *a = (const u32 *)(s + 4);
+        u32 c32;
+        if (cmd == BR_TRANSACTION64 || cmd == BR_REPLY64) {
+            u32 out[10]; struct btd d; memcpy(&d, s + 4, sizeof d);
+            if ((r = txn64to32(&d, out)) < 0) break;
+            c32 = cmd == BR_TRANSACTION64 ? BR_TRANSACTION32 : BR_REPLY32;
+            memcpy(oq, &c32, 4); memcpy(oq + 4, out, 40); oq += 44;
+        } else if (((cmd >> 8) & 0xff) == 'r' && nr >= 7 && nr <= 0x0a && sz == 16) {
+            u32 v[2] = { (u32)*(const u64 *)a, (u32)*(const u64 *)(a + 2) };
+            c32 = 0x80087200u | nr;
+            memcpy(oq, &c32, 4); memcpy(oq + 4, v, 8); oq += 12;
+        } else if (((cmd >> 8) & 0xff) == 'r' && (nr == 0x0f || nr == 0x10) && sz == 8) {
+            u32 v = (u32)*(const u64 *)a;
+            c32 = 0x80047200u | nr;
+            memcpy(oq, &c32, 4); memcpy(oq + 4, &v, 4); oq += 8;
+        } else { memcpy(oq, s, 4 + sz); oq += 4 + sz; }
+        s += 4 + sz;
+    }
+    if (r >= 0) w32[4] = (u32)(rc + (u64)(oq - (char *)o));
+    S2(NR_munmap, mem, total);
+    return r;
+}
+
 static long binder_ioctl(int fd, u32 cmd, u64 arg) {
     struct bth *t = bthread(fd, 1);
     if (!t) return -ENOMEM;
@@ -378,6 +581,11 @@ static long binder_ioctl(int fd, u32 cmd, u64 arg) {
         long s = bconnect(0, 1, fd, sock_for_fd(fd));
         if (s < 0) { t->tid = 0; return s; }
         t->sock = (int)s;
+    }
+    if (bcompat32()) {                          // protocol 7 firmware (see above)
+        if (cmd == BWR32) return bwrite_read32(t, (u32 *)arg);
+        if (cmd == BINDER_VERSION) { *(int *)arg = 7; return 0; }
+        if (cmd == BINDER_WRITE_READ) return -EINVAL;
     }
     switch (cmd) {
     case BINDER_WRITE_READ: return bwrite_read(t, (struct bwr *)arg);

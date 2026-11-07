@@ -1,14 +1,10 @@
 <div align="center">
 
-<img src="../../docs/assets/logo.png" width="128" alt="AEmulator logo"/>
+<img src="../../docs/assets/logo.png" width="128" alt="AEmulator Plus logo"/>
 
-# AEmulator
-
-*Based on the original [SENSES emulator](https://github.com/Istratii-tech/SENSES)*
+# AEmulator Plus
 
 **Firmware Android cổ điển — HTC Sense, TouchWiz, MIUI, AOSP — trên điện thoại hiện đại. Không root, không cần PC.**
-
-[![Version](https://img.shields.io/badge/version-0.0.0.3-3D5AFE?style=for-the-badge)](https://github.com/uxazu/aemulator/releases) [![License](https://img.shields.io/badge/license-GPL--3.0-3D5AFE?style=for-the-badge)](../../LICENSE) [![Android](https://img.shields.io/badge/Android-8.0%2B-3DDC84?style=for-the-badge&logo=android&logoColor=white)](https://github.com/uxazu/aemulator) [![Forum](https://img.shields.io/badge/Forum-aeforum-FF6D00?style=for-the-badge&logo=discourse&logoColor=white)](https://aeforum.uxazuu.space/) [![Telegram](https://img.shields.io/badge/Telegram-channel-26A5E4?style=for-the-badge&logo=telegram&logoColor=white)](https://t.me/aemulatorofficial) [![Website](https://img.shields.io/badge/site-aemulator.gt.tc-111?style=for-the-badge)](https://aemulator.gt.tc)
 
 [🇬🇧 English](../../README.md) · [🇷🇺 Русский](README.ru.md) · [🇺🇦 Українська](README.uk.md) · [🇩🇪 Deutsch](README.de.md) · [🇫🇷 Français](README.fr.md) · [🇪🇸 Español](README.es.md) · [🇧🇷 Português](README.pt-BR.md) · [🇮🇹 Italiano](README.it.md) · [🇵🇱 Polski](README.pl.md) · [🇹🇷 Türkçe](README.tr.md) · [🇸🇦 العربية](README.ar.md) · [🇮🇷 فارسی](README.fa.md) · [🇮🇳 हिन्दी](README.hi.md) · [🇮🇩 Indonesia](README.id.md) · **🇻🇳 Tiếng Việt** · [🇨🇳 简体中文](README.zh-CN.md) · [🇯🇵 日本語](README.ja.md) · [🇰🇷 한국어](README.ko.md)
 
@@ -16,34 +12,23 @@
 
 ---
 
-AEmulator khởi động một hệ thống Android 2.3–17 thật trực tiếp từ tệp firmware: ZIP recovery, gói Odin factory image của Google hoặc GSI. Firmware 32-bit cũ (2.3–4.4) chạy qua QEMU đã chỉnh sửa, Android 5.0–17 chạy trực tiếp trên các nhân arm64 của điện thoại; binder của nhân được giả lập, đồ họa dùng GPU điện thoại và âm thanh đi qua hệ thống âm thanh Android — tất cả trong một ứng dụng bình thường.
+AEmulator Plus khởi động một hệ thống Android 2.3–7.x thật trực tiếp từ tệp firmware: ZIP recovery, gói Odin hoặc factory image của Google. Mã ARM cũ được dịch bằng QEMU đã chỉnh sửa, binder của nhân được giả lập, đồ họa dùng GPU điện thoại và âm thanh đi qua hệ thống âm thanh Android — tất cả trong một ứng dụng bình thường.
 
 ## ✨ Tính năng
 
-- Nhập gần như mọi định dạng: ZIP CWM/TWRP, Odin `.tar.md5` của Samsung, factory `.tgz` của Google, `system.img`, OTA `system.new.dat.br`, `UPDATE.APP` của Huawei, fastboot `super.zst` của Xiaomi
+- Nhập gần như mọi định dạng: ZIP CWM/TWRP, Odin `.tar.md5` của Samsung, factory `.tgz` của Google, `system.img`, OTA `system.new.dat.br`
 - Giao diện hãng chạy nguyên bản: HTC Sense, Samsung TouchWiz, MIUI, AOSP
 - Đồ họa phần cứng qua cầu GL, âm thanh, cảm ứng và đa điểm, mạng với proxy TLS hiện đại
 - Thư mục thẻ nhớ dùng chung cho APK, nhạc và ảnh
 - Giao diện Material 3 Expressive với 18 ngôn ngữ
 - Miễn phí và mã nguồn mở (GPL-3.0)
 
-## 📱 Danh sách firmware
-
-Danh sách firmware đã kiểm tra — kèm trạng thái, ghi chú và liên kết tải — nằm trên diễn đàn của chúng tôi. Tại đó bạn có thể chia sẻ kết quả, đặt câu hỏi và tìm image mới.
-
-<div align="center">
-
-<a href="https://aeforum.uxazuu.space/"><img src="https://img.shields.io/badge/M%E1%BB%9F%20di%E1%BB%85n%20%C4%91%C3%A0n-aeforum.uxazuu.space-FF6D00?style=for-the-badge&logo=discourse&logoColor=white" height="44" alt="Diễn đàn"/></a>
-
-</div>
-
 ## 🚀 Bắt đầu nhanh
 
-1. Tải APK từ [Releases](https://github.com/uxazu/aemulator/releases) và cài đặt.
-2. Tìm firmware trên [diễn đàn](https://aeforum.uxazuu.space/) và tải về điện thoại.
-3. Mở AEmulator → **Thêm firmware** và chọn tệp. Việc nhập mất vài phút.
-4. Nhấn **Chạy**. Lần khởi động đầu chậm hơn: hệ thống tối ưu ứng dụng.
-5. Menu ⋮ để chỉnh âm lượng, nút nguồn và nhật ký; ⚙️ mở cài đặt và ngôn ngữ.
+1. Tải APK từ [Releases](https://github.com/somerandomusernam2/AEmulator-Plus/releases) và cài đặt.
+2. Mở AEmulator Plus → **Thêm firmware** và chọn tệp. Việc nhập mất vài phút.
+3. Nhấn **Chạy**. Lần khởi động đầu chậm hơn: hệ thống tối ưu ứng dụng.
+4. Menu ⋮ để chỉnh âm lượng, nút nguồn và nhật ký; ⚙️ mở cài đặt và ngôn ngữ.
 
 ## 📋 Yêu cầu
 
@@ -53,36 +38,34 @@ Danh sách firmware đã kiểm tra — kèm trạng thái, ghi chú và liên k
 
 ## ⚙️ Cách hoạt động
 
-Trên Android 2.3–4.4 mỗi tiến trình khách chạy dưới QEMU chế độ người dùng đã chỉnh sửa; trên 5.0–17 các chương trình arm64 của firmware chạy trực tiếp, và một nhân động cơ riêng cho từng phiên bản Android bắt các lời gọi hệ thống của chúng. Một daemon binder thay cho driver nhân, cầu GL chuyển lệnh OpenGL ES tới GPU và các thư viện khách nhỏ (HAL âm thanh, lớp bọc audio policy, shim LD_PRELOAD) điều chỉnh mã của hãng cho hợp với trình giả lập. Trình nhập đọc firmware, tìm script init trong image boot và lập kế hoạch khởi động dịch vụ.
+Mỗi tiến trình khách chạy dưới QEMU chế độ người dùng đã chỉnh sửa. Một daemon binder thay cho driver nhân, cầu GL chuyển lệnh OpenGL ES tới GPU và các thư viện khách nhỏ (HAL âm thanh, lớp bọc audio policy, shim LD_PRELOAD) điều chỉnh mã của hãng cho hợp với trình giả lập. Trình nhập đọc firmware, tìm script init trong image boot và lập kế hoạch khởi động dịch vụ.
 
 ## 🛠️ Biên dịch từ mã nguồn
 
-Cần JDK 17, Android SDK 36 và NDK r28. Thư viện khách được dựng bằng `native/*/build.sh`. Gradle chạy bằng JDK trong `JAVA_HOME` (JDK đi kèm Android Studio cũng được: `<Android Studio>/jbr`).
+Bản dựng phát hành đã kiểm thử của ứng dụng dùng JDK 21 và Android SDK 36. Xem [hướng dẫn dựng/mã nguồn](../build-source.md), gồm chi tiết về toolchain native và ký ứng dụng. **Các tệp nhị phân dựng sẵn của engine được kế thừa vẫn chưa có nguồn gốc mã nguồn/bản dựng đầy đủ được xác minh**; xem [bản kiểm toán](../license-audit.md).
 
 ```bash
-git clone https://github.com/uxazu/aemulator.git
-cd aemulator
-./gradlew assembleRelease
+git clone https://github.com/somerandomusernam2/AEmulator-Plus.git
+cd AEmulator-Plus
+./gradlew copyReleaseApks
 ```
 
 ## 🙏 Ghi công
 
-AEmulator phát triển từ trình giả lập HTC Desire HD và HTC One M7 của [tác giả gốc](https://t.me/istratii_tech1) — không có engine của anh ấy thì không có dự án này.
+AEmulator Plus phát triển từ trình giả lập HTC Desire HD và HTC One M7 của [tác giả gốc](https://t.me/istratiit_ech) — không có engine của anh ấy thì không có dự án này.
 
-## 💙 Ủng hộ dự án
-
-Nếu AEmulator mang lại chiếc điện thoại bạn yêu thích, bạn có thể ủng hộ phát triển:
-
-- 💳 [dalink.to/uxazu](https://dalink.to/uxazu)
+Đây là bản fork đã chỉnh sửa của [drel4/AEmulator-Sunset](https://github.com/drel4/AEmulator-Sunset), vốn cũng là bản fork đã chỉnh sửa của [uxazu/AEmulator](https://github.com/uxazu/AEmulator).
 
 ## 🔗 Liên kết
 
-- 🌐 Trang web: [aemulator.gt.tc](https://aemulator.gt.tc)
-- 💬 Diễn đàn: [aeforum.uxazuu.space](https://aeforum.uxazuu.space/)
-- 📣 Kênh Telegram: [@aemulatorofficial](https://t.me/aemulatorofficial)
-- 👤 Tác giả: [uxazu](https://github.com/uxazu)
-- 🧬 Tác giả gốc: [t.me/istratii_tech1](https://t.me/istratii_tech1)
+- Fork của tôi: [somerandomusernam2/AEmulator-Plus](https://github.com/somerandomusernam2/AEmulator-Plus)
+- Upstream: [drel4/AEmulator-Sunset](https://github.com/drel4/AEmulator-Sunset)
+- Bản gốc: [uxazu/AEmulator](https://github.com/uxazu/AEmulator)
+- Tác giả: [somerandomusername2](https://github.com/somerandomusernam2)
+- Tác giả gốc: [t.me/istratiit_ech](https://t.me/istratiit_ech)
 
 ## 📄 Giấy phép
 
 GPL-3.0. Android, nhãn hiệu và firmware thuộc về chủ sở hữu.
+
+Xem [thông báo sửa đổi có ghi ngày](../../NOTICE.md) và [bản kiểm toán mã nguồn/giấy phép còn tồn đọng](../license-audit.md). Nhãn GPL không phải là xác nhận rằng mọi tệp nhị phân dựng sẵn đều có mã nguồn khớp đầy đủ.

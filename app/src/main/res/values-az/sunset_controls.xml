@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="vs_hide_menu">Menyu düyməsini gizlət</string>
+    <string name="vs_hide_menu_sub">… düyməsini gizlədir. Telefonun Geri düyməsi və ya geri jesti Androidə Geri göndərmək əvəzinə emulyator menyusunu açır. Qonaq naviqasiya düymələri yenə də Androidi idarə edir.</string>
+    <string name="vs_vibration">Qonaq vibrasiyası</string>
+    <string name="vs_vibration_sub">Köhnə qonaq vibrasiyasını telefona ötürür. Növbəti yükləmədə tətbiq olunur; hər impuls 60 saniyə ilə məhdudlaşır.</string>
+    <string name="nav_buttons">Naviqasiya düymələri</string>
+    <string name="nav_order">Düymələrin sırası (soldan sağa)</string>
+    <string name="nav_earlier">Əvvələ</string>
+    <string name="nav_later">Sonraya</string>
+    <string name="nav_reset">Düymələri sıfırla</string>
+    <string name="nav_search">Axtarış</string>
+    <string name="nav_power">Güc</string>
+    <string name="nav_go_to_recovery">Recovery-yə keç</string>
+    <string name="nav_volume_down">Səsi azalt</string>
+    <string name="nav_volume_up">Səsi artır</string>
+    <string name="nav_up">D-pad yuxarı</string>
+    <string name="nav_down">D-pad aşağı</string>
+    <string name="nav_left">D-pad sola</string>
+    <string name="nav_right">D-pad sağa</string>
+    <string name="nav_center">D-pad mərkəz</string>
+    <string name="nav_trackball">Trekbol</string>
+    <string name="nav_trackball_sub">Fırlatmaq üçün naviqasiya panelinin üstündəki dairəni sürüşdürün; seçmək üçün toxunun.</string>
+    <string name="nav_dpad_mode">Ox düymələri rejimi</string>
+    <string name="nav_dpad_sub">Söndürülü: qonaq tətbiqlər üçün real nisbi trekbol hadisələri. Açıq: əvəzinə D-pad düymə basmaları. Hər ikisini göndərmir.</string>
+    <string name="nav_sensitivity">Həssaslıq: addım başına %1$d dp (aşağı daha sürətlidir)</string>
+    <string name="nav_trackball_waiting">Hələ qonaq trekbol bağlantısı yoxdur</string>
+    <string name="nav_trackball_recovery">Recovery: ox düymələri rejimindən istifadə edin</string>
+    <string name="vs_bluetooth">Host Bluetooth (eksperimental)</string>
+    <string name="vs_bluetooth_sub">Qonağa telefon vasitəsilə Bluetooth cihazlarını skan etməyə, qoşulmuş siyahıya baxmağa və onlarla əlaqə qurmağa icazə verir: klassik serial (RFCOMM) və Bluetooth LE (GATT). Bluetooth icazəsi və virtual maşının tam yenidən başladılmasını tələb edir. Xam HCI deyil: qonaq telefon adapterini körpü vasitəsilə görür, ona görə qulaqlıqlar (audio profilləri) dəstəklənmir.</string>
+    <string name="vs_sf_tombstone">SurfaceFlinger çökmə tombstone-u (sazlama)</string>
+    <string name="vs_sf_tombstone_sub">SurfaceFlinger çökərsə, mikroproqramın qısa hesabat əvəzinə jurnala adi tombstone (çöküb funksiya ilə) yazmasına icazə verir. Xəta hesabatı göndərərkən istifadə edin. Növbəti tam virtual maşın yükləməsində tətbiq olunur.</string>
+    <string name="bluetooth_permission_denied">Bluetooth icazəsi rədd edildi: qonaq host Bluetooth olmadan yüklənəcək.</string>
+</resources>

@@ -1,0 +1,135 @@
+★ x86-32: SYSENTER no longer kills the guest with SIGILL.
+
+Symptom (every x86 firmware, first process that starts):
+
+  qemu: uncaught target signal 4 (Illegal instruction) - core dumped
+  EIP=40827615  EFER=0000000000000500  CS=0023 ... CS32
+  bytes at EIP: 0f 34 90 90 90 90 90 90 90 cd 80 5d   (sysenter; nop x7; int $0x80; pop %ebp)
+  in /system/bin/linker, and again in /sbin/healthd (static)
+
+servicemanager, surfaceflinger, healthd, keystore, installd, netd, drmserver,
+mediaserver, gatekeeperd all exit with code 135 / 132 before the first binder
+transaction; nothing ever reaches the screen.
+
+Cause: the stub is Android x86 bionic's copy of the vdso's __kernel_vsyscall.
+i386-linux-user runs the "max" CPU, whose vendor is AMD under TCG, and
+linux-user always switches the CPU to long mode (LMA, CS32 = compatibility
+mode).  translate.c makes SYSENTER illegal for an AMD CPU in long mode, so the
+very first system call through the stub raised #UD.  (An Intel vendor would not
+help: helper_sysenter wants a kernel CS in MSR_IA32_SYSENTER_CS and raises #GP
+in user mode.)
+
+Fix: in 32-bit user emulation SYSENTER raises the new EXCP_SYSENTER and the cpu
+loop does what the Linux SYSENTER entry does: the 6th argument is read from
+the user stack at %ebp, the system call runs with the int $0x80 register
+convention, and the guest resumes after the stub's "int $0x80" with ESP
+unchanged (a restart re-enters through that "int $0x80" with %ebp = arg6).  Only
+the exact vdso layout (0f 34, seven NOPs, cd 80) is accepted: any other SYSENTER
+has no return address to go to, and is still SIGILL, as before.  ARM, x86-64 and
+system emulation are not touched.
+
+--- a/target/i386/cpu.h
++++ b/target/i386/cpu.h
+@@ -1197,6 +1197,7 @@
+ #define EXCP_VMEXIT     0x100 /* only for system emulation */
+ #define EXCP_SYSCALL    0x101 /* only for user emulation */
+ #define EXCP_VSYSCALL   0x102 /* only for user emulation */
++#define EXCP_SYSENTER   0x103 /* only for user emulation, x86-32 */
+ 
+ /* i386-specific interrupt pending bits.  */
+ #define CPU_INTERRUPT_POLL      CPU_INTERRUPT_TGT_EXT_1
+--- a/target/i386/tcg/translate.c
++++ b/target/i386/tcg/translate.c
+@@ -5670,6 +5670,17 @@
+         s->base.is_jmp = DISAS_NORETURN;
+         break;
+     case 0x134: /* sysenter */
++#if defined(CONFIG_USER_ONLY) && !defined(TARGET_X86_64)
++        /*
++         * x86-32 linux-user: there is no kernel to enter.  Hand the
++         * instruction to the cpu loop, which does what the Linux SYSENTER
++         * entry does (see linux-user/i386/cpu_loop.c).  The vendor/long-mode
++         * test below must not apply: the "max" CPU reports AMD and user mode
++         * always runs with LMA set, which made every SYSENTER a SIGILL.
++         */
++        gen_exception(s, EXCP_SYSENTER);
++        break;
++#endif
+         /* For AMD SYSENTER is not valid in long mode */
+         if (LMA(s) && env->cpuid_vendor1 != CPUID_VENDOR_INTEL_1) {
+             goto illegal_op;
+--- a/linux-user/i386/cpu_loop.c
++++ b/linux-user/i386/cpu_loop.c
+@@ -236,6 +236,72 @@
+                 env->regs[R_EAX] = ret;
+             }
+             break;
++#ifndef TARGET_X86_64
++        case EXCP_SYSENTER:
++            /*
++             * Linux syscall from SYSENTER, as the 32-bit vdso's
++             * __kernel_vsyscall issues it:
++             *
++             *   push %ecx; push %edx; push %ebp; mov %esp,%ebp
++             *   sysenter; nop x7; int $0x80      <- restart entry
++             *   pop %ebp; pop %edx; pop %ecx; ret <- SYSENTER return
++             *
++             * The kernel takes the 6th argument from the user stack (%ebp
++             * points at the pushed %ebp), runs the call and returns to the
++             * instruction after the "int $0x80", with ESP unchanged.  Android's
++             * x86 bionic carries its own copy of this stub (the dynamic linker
++             * and static binaries use it before libc is up).
++             */
++            {
++                abi_ulong pc = env->eip;
++                abi_ulong arg6;
++                uint8_t b[11];
++                int i, match = 1;
++
++                for (i = 0; i < 11; i++) {
++                    if (get_user_u8(b[i], pc + i)) {
++                        match = 0;
++                        break;
++                    }
++                }
++                if (match) {
++                    match = b[0] == 0x0f && b[1] == 0x34 &&
++                            b[9] == 0xcd && b[10] == 0x80;
++                    for (i = 2; match && i < 9; i++) {
++                        match = b[i] == 0x90;
++                    }
++                }
++                if (!match) {
++                    /* Not the vdso stub: there is no known return address. */
++                    force_sig_fault(TARGET_SIGILL, TARGET_ILL_ILLOPN, pc);
++                    break;
++                }
++                if (get_user_u32(arg6, env->regs[R_EBP])) {
++                    force_sig_fault(TARGET_SIGSEGV, TARGET_SEGV_MAPERR,
++                                    env->regs[R_EBP]);
++                    break;
++                }
++                /* Advance first: fork/clone and signal frames use env->eip. */
++                env->eip = pc + 11;
++                ret = do_syscall(env,
++                                 env->regs[R_EAX],
++                                 env->regs[R_EBX],
++                                 env->regs[R_ECX],
++                                 env->regs[R_EDX],
++                                 env->regs[R_ESI],
++                                 env->regs[R_EDI],
++                                 arg6,
++                                 0, 0);
++                if (ret == -QEMU_ERESTARTSYS) {
++                    /* Restart through the stub's "int $0x80", %ebp = arg6. */
++                    env->regs[R_EBP] = arg6;
++                    env->eip = pc + 9;
++                } else if (ret != -QEMU_ESIGRETURN) {
++                    env->regs[R_EAX] = ret;
++                }
++            }
++            break;
++#endif
+ #ifdef TARGET_X86_64
+         case EXCP_SYSCALL:
+             /* linux syscall from syscall instruction.  */

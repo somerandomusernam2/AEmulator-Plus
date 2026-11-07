@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="vs_cdma">مودم CDMA</string>
+    <string name="vs_cdma_sub">يحاكي مودم CDMA: تسجيل 1xRTT / EV-DO، وMEID، واشتراك CDMA، ورسائل CDMA النصية. يُطبَّق عند التشغيل الكامل التالي.</string>
+    <string name="vs_cdma_fw_yes">هذه البرامج الثابتة LTE on CDMA (telephony.lteOnCdmaDevice=1): مفعّلة افتراضيًا.</string>
+    <string name="vs_cdma_fw_no">هذه البرامج الثابتة ليست LTE on CDMA: معطّلة افتراضيًا.</string>
+</resources>

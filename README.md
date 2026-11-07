@@ -1,14 +1,10 @@
 <div align="center">
 
-<img src="docs/assets/logo.png" width="128" alt="AEmulator logo"/>
+<img src="docs/assets/logo.png" width="128" alt="AEmulator Plus logo"/>
 
-# AEmulator
+# AEmulator Plus
 
-*Based on the original [SENSES emulator](https://github.com/Istratii-tech/SENSES)*
-
-**Run classic Android firmware — HTC Sense, TouchWiz, MIUI, AOSP — on a modern phone. No root, no PC.**
-
-[![Version](https://img.shields.io/badge/version-0.0.0.3-3D5AFE?style=for-the-badge)](https://github.com/uxazu/aemulator/releases) [![License](https://img.shields.io/badge/license-GPL--3.0-3D5AFE?style=for-the-badge)](LICENSE) [![Android](https://img.shields.io/badge/Android-8.0%2B-3DDC84?style=for-the-badge&logo=android&logoColor=white)](https://github.com/uxazu/aemulator) [![Forum](https://img.shields.io/badge/Forum-aeforum-FF6D00?style=for-the-badge&logo=discourse&logoColor=white)](https://aeforum.uxazuu.space/) [![Telegram](https://img.shields.io/badge/Telegram-channel-26A5E4?style=for-the-badge&logo=telegram&logoColor=white)](https://t.me/aemulatorofficial) [![Website](https://img.shields.io/badge/site-aemulator.gt.tc-111?style=for-the-badge)](https://aemulator.gt.tc)
+**Emulate almost any Android firmware — HTC Sense, TouchWiz, MIUI, AOSP — on a modern phone.** A fork of [AEmulator](https://github.com/uxazu/AEmulator) with more features and fixes.
 
 **🇬🇧 English** · [🇷🇺 Русский](docs/i18n/README.ru.md) · [🇺🇦 Українська](docs/i18n/README.uk.md) · [🇩🇪 Deutsch](docs/i18n/README.de.md) · [🇫🇷 Français](docs/i18n/README.fr.md) · [🇪🇸 Español](docs/i18n/README.es.md) · [🇧🇷 Português](docs/i18n/README.pt-BR.md) · [🇮🇹 Italiano](docs/i18n/README.it.md) · [🇵🇱 Polski](docs/i18n/README.pl.md) · [🇹🇷 Türkçe](docs/i18n/README.tr.md) · [🇸🇦 العربية](docs/i18n/README.ar.md) · [🇮🇷 فارسی](docs/i18n/README.fa.md) · [🇮🇳 हिन्दी](docs/i18n/README.hi.md) · [🇮🇩 Indonesia](docs/i18n/README.id.md) · [🇻🇳 Tiếng Việt](docs/i18n/README.vi.md) · [🇨🇳 简体中文](docs/i18n/README.zh-CN.md) · [🇯🇵 日本語](docs/i18n/README.ja.md) · [🇰🇷 한국어](docs/i18n/README.ko.md)
 
@@ -16,73 +12,57 @@
 
 ---
 
-AEmulator boots a real Android 2.3–17 system image straight from a firmware file you already have: a recovery ZIP, an Odin archive, a Google factory image or a GSI. Old 32-bit firmware (2.3–4.4) runs through a patched QEMU, Android 5.0–17 runs natively on the phone’s arm64 cores. The kernel’s binder is emulated, graphics use your phone’s GPU and sound goes through Android’s audio stack — everything runs inside a normal app.
+AEmulator Plus boots a real Android 1.0–17 system image straight from a firmware file you already have. It translates the old ARM code with a patched QEMU, emulates the kernel’s binder, draws with your phone’s GPU and plays sound through Android’s audio stack — everything runs inside a normal app. This project was made almost entirely with Claude Sonnet 5.5 (and the original emulator with Opus 5.5).
 
-## ✨ Features
+## Features
 
-- Import almost any firmware format: CWM/TWRP ZIP, Samsung Odin `.tar.md5`, Google factory `.tgz`, `system.img`, OTA `system.new.dat.br`, Huawei `UPDATE.APP`, Xiaomi fastboot `super.zst`
-- Vendor skins work as shipped: HTC Sense, Samsung TouchWiz, MIUI, AOSP
+- Import almost any firmware format: Android-x86 `.iso`, CWM/TWRP ZIP, Samsung Odin `.tar.md5`, Google factory `.tgz`, `system.img`, OTA `system.new.dat.br`, Motorola `.sbf`, sparse images, EDL images, Spreadtrum `.pac`, HTC `.nbh`, HTC `RUU.exe`, and many other formats
+- Vendor skins work as shipped if compatible: HTC Sense, Samsung TouchWiz, MIUI, AOSP
 - Hardware graphics through the GL bridge, sound, touch and multitouch, network with a modern TLS proxy
 - Shared memory-card folder for APKs, music and photos
-- Material 3 Expressive interface in 18 languages
+- **VM screen themes and theme editor**: the navigation bar and the frame around the guest screen follow a theme — Original, Sunset, Gingerbread 2.x, Honeycomb 3.x, Holo 4.x or Lollipop 5.x — or your own, made in an editor with a live preview (key shapes and size, bar/key/pressed/frame colours, glow and halo, floating or flat bar, frame picture, rounded screen corners). Themes can be shared as `.aetheme` files. App settings › Appearance › VM screen theme.
+- **Arrange your library**: press and hold a ROM and drag it up or down to reorder it (classic list and 0.0.0.3 grid), and group ROMs into named folders that open and close — drop a ROM on a folder, or use its ⋮ menu › Move to folder
+- Material 3 Expressive interface in 19 languages
 - Free and open source (GPL-3.0)
 
-## 📱 Firmware list
+## Quick start
 
-The list of firmware that has been checked — with statuses, notes and download links — lives on our forum. Share your results there, ask questions and find new images.
+1. Download the APK from [Releases](https://github.com/somerandomusernam2/AEmulator-Plus/releases) and install it.
+2. Open AEmulator Plus → **Add firmware** and pick the file. Import takes a few minutes.
+3. Press **Start**. The first boot is slower: the system optimises its apps.
+4. Use the ⋮ menu for volume, power button and logs; the ⚙️ button opens app settings and language.
 
-<div align="center">
-
-<a href="https://aeforum.uxazuu.space/"><img src="https://img.shields.io/badge/Open%20the%20forum-aeforum.uxazuu.space-FF6D00?style=for-the-badge&logo=discourse&logoColor=white" height="44" alt="Forum"/></a>
-
-</div>
-
-## 🚀 Quick start
-
-1. Download the APK from [Releases](https://github.com/uxazu/aemulator/releases) and install it.
-2. Find a firmware on the [forum](https://aeforum.uxazuu.space/) and download it to your phone.
-3. Open AEmulator → **Add firmware** and pick the file. Import takes a few minutes.
-4. Press **Start**. The first boot is slower: the system optimises its apps.
-5. Use the ⋮ menu for volume, power button and logs; the ⚙️ button opens app settings and language.
-
-## 📋 Requirements
+## Requirements
 
 - Android 8.0+ on a 64-bit ARM phone (arm64-v8a)
 - About 1–3 GB of free space per firmware
-- A recent Snapdragon / Dimensity / Tensor chip is recommended
+- A Snapdragon SoC is recommended, due to several issues with Mali GPUs
 
-## ⚙️ How it works
+## Build from source
 
-On Android 2.3–4.4 each guest process runs under a patched user-mode QEMU; on 5.0–17 the firmware’s own arm64 programs run natively, with one engine kernel per Android version catching their system calls. A binder daemon replaces the kernel driver, a GL bridge forwards OpenGL ES calls to the phone’s GPU, and small guest libraries (audio HAL, audio policy wrapper, LD_PRELOAD shim) adapt vendor code to the emulator. The importer reads the firmware, finds the init scripts in its boot image and builds a start plan for system services.
-
-## 🛠️ Build from source
-
-You need JDK 17, Android SDK 36 and NDK r28. Native guest parts are built with the scripts in `native/*/build.sh`. Gradle runs on the JDK in `JAVA_HOME` (Android Studio's own will do: `<Android Studio>/jbr`).
+The tested app release build uses JDK 21 and Android SDK 36. See [build/source instructions](docs/build-source.md), including native toolchain details and signing. 
 
 ```bash
-git clone https://github.com/uxazu/aemulator.git
-cd aemulator
-./gradlew assembleRelease
+git clone https://github.com/somerandomusernam2/AEmulator-Plus.git
+cd AEmulator-Plus
+./gradlew copyReleaseApks
 ```
 
-## 🙏 Credits
+## Credits
 
-AEmulator grew out of the HTC Desire HD and HTC One M7 emulators by [the original author](https://t.me/istratii_tech1) — their engine made this project possible.
+AEmulator Plus grew out of the HTC Desire HD and HTC One M7 emulators by [the original author](https://t.me/istratiit_ech) — their engine made this project possible.
 
-## 💙 Support the project
+This is a modified fork of [uxazu/AEmulator](https://github.com/uxazu/AEmulator), which additionally uses many features from [drel4/AEmulator-Sunset](https://github.com/drel4/AEmulator-Sunset).
+## Links
 
-If AEmulator brought back a phone you loved, you can support development:
+- My fork: [somerandomusernam2/AEmulator-Plus](https://github.com/somerandomusernam2/AEmulator-Plus)
+- Upstream: [uxazu/AEmulator](https://github.com/uxazu/AEmulator)
+- AEmulator-Sunset (huge credits for many features): [drel4/AEmulator-Sunset](https://github.com/drel4/AEmulator-Sunset)
+- Author: [somerandomusername2](https://github.com/somerandomusernam2)
+- Original author: [t.me/istratiit_ech](https://t.me/istratiit_ech)
 
-- 💳 [dalink.to/uxazu](https://dalink.to/uxazu)
-
-## 🔗 Links
-
-- 🌐 Website: [aemulator.gt.tc](https://aemulator.gt.tc)
-- 💬 Forum: [aeforum.uxazuu.space](https://aeforum.uxazuu.space/)
-- 📣 Telegram channel: [@aemulatorofficial](https://t.me/aemulatorofficial)
-- 👤 Author: [uxazu](https://github.com/uxazu)
-- 🧬 Original author: [t.me/istratii_tech1](https://t.me/istratii_tech1)
-
-## 📄 License
+## License
 
 GPL-3.0. Android, trademarks and firmware belong to their owners.
+
+See [dated modification notices](NOTICE.md) and the [outstanding source/licensing audit](docs/license-audit.md). The GPL label is not a certification that every bundled prebuilt has complete matching source.

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Генерирует res/values*/strings.xml и res/xml/locales_config.xml из langs/*.py.
 Запуск: python app/l10n/gen.py  (английский — язык по умолчанию, values/)."""
-import os, runpy, sys
+import os, re, runpy, sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 RES = os.path.join(HERE, "..", "src", "main", "res")
@@ -11,9 +11,10 @@ from keys import KEYS  # noqa: E402
 # код языка → каталог ресурсов Android
 DIRS = {
     "en": "values", "ru": "values-ru", "uk": "values-uk", "de": "values-de", "fr": "values-fr",
-    "es": "values-es", "pt-BR": "values-pt-rBR", "it": "values-it", "pl": "values-pl", "tr": "values-tr",
-    "ar": "values-ar", "fa": "values-fa", "hi": "values-hi", "id": "values-in", "vi": "values-vi",
-    "zh-CN": "values-zh-rCN", "ja": "values-ja", "ko": "values-ko",
+    "es": "values-es", "pt-BR": "values-pt-rBR", "pt-PT": "values-pt-rPT", "it": "values-it", "pl": "values-pl", "tr": "values-tr",
+    "ar": "values-ar", "fa": "values-fa", "hi": "values-hi", "id": "values-in", "ms": "values-ms", "vi": "values-vi",
+    "th": "values-th", "zh-CN": "values-zh-rCN", "zh-TW": "values-zh-rTW", "ja": "values-ja", "ko": "values-ko",
+    "fil": "values-fil", "ur": "values-ur",
 }
 
 
@@ -41,10 +42,19 @@ def main():
             print(f"{code}: нет {lack} лишние {extra}")
         out = ['<?xml version="1.0" encoding="utf-8"?>', "<!-- создано app/l10n/gen.py, правьте langs/*.py -->", "<resources>"]
         if code == "en":
-            out.append('    <string name="app_name" translatable="false">AEmulator</string>')
+            out.append('    <string name="app_name" translatable="false">AEmulator Plus</string>')
         for k in KEYS:
             if k in s:
                 out.append(f'    <string name="{k}">{esc(s[k])}</string>')
+        # Some newer VM strings still live only in strings.xml. Preserve them
+        # until they are migrated into the translation dictionaries.
+        existing = os.path.join(RES, d, "strings.xml")
+        if os.path.isfile(existing):
+            known = set(KEYS) | {"app_name"}
+            for line in open(existing, encoding="utf-8"):
+                match = re.search(r'<string name="([^"]+)"', line)
+                if match and match.group(1) not in known:
+                    out.append(line.rstrip("\r\n"))
         out.append("</resources>\n")
         path = os.path.join(RES, d)
         os.makedirs(path, exist_ok=True)

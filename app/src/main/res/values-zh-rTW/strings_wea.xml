@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="m_wea">模擬緊急警報</string>
+    <string name="m_wea_type">警報類型</string>
+    <string name="m_wea_sent">緊急警報已傳送</string>
+    <string name="m_wea_failed">未傳送：手機的電話功能未執行</string>
+    <string name="wea_presidential">總統警報</string>
+    <string name="wea_extreme">極端威脅</string>
+    <string name="wea_severe">嚴重威脅</string>
+    <string name="wea_amber">AMBER 警報</string>
+    <string name="wea_test">每月必測</string>
+    <string name="wea_body_presidential">總統警報：這是緊急警報系統的測試。無需採取任何行動。</string>
+    <string name="wea_body_extreme">極端警報：您所在地區發布龍捲風警告。請立即尋找庇護所。這是一次測試。</string>
+    <string name="wea_body_severe">嚴重警報：您所在地區在下午 6 點前有雷暴警告。這是一次測試。</string>
+    <string name="wea_body_amber">AMBER 警報：兒童失蹤，藍色轎車。如果看到請撥打 911。這是一次測試。</string>
+    <string name="wea_body_test">這是無線緊急警報系統的測試。無需採取任何行動。</string>
+</resources>

@@ -72,7 +72,7 @@ class Lights(private val root: File, private val log: (String) -> Unit) {
     fun stop() {
         running = false
         // wake readers
-        for (f in sysfsPaths + samsung + fifo) runCatching { File(f.absolutePath).appendText("0\n") }
+        for (f in sysfsPaths + samsung + fifo) UnixServer.poke(File(f.absolutePath), "0\n")
     }
 
     private fun mkfifo(f: File) {

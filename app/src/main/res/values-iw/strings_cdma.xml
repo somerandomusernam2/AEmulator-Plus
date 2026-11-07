@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="vs_cdma">מודם CDMA</string>
+    <string name="vs_cdma_sub">מדמה מודם CDMA: רישום 1xRTT / EV-DO, MEID, מנוי CDMA והודעות טקסט CDMA. יחול באתחול המלא הבא.</string>
+    <string name="vs_cdma_fw_yes">קושחה זו היא LTE on CDMA (telephony.lteOnCdmaDevice=1): מופעל כברירת מחדל.</string>
+    <string name="vs_cdma_fw_no">קושחה זו אינה LTE on CDMA: כבוי כברירת מחדל.</string>
+</resources>

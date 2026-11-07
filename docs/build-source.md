@@ -1,0 +1,110 @@
+# Building AEmulator Plus
+
+Updated 2026-10-11. AEmulator Plus is a modified fork of
+[drel4/AEmulator-Sunset](https://github.com/drel4/AEmulator-Sunset) (itself a fork of
+[uxazu/AEmulator](https://github.com/uxazu/AEmulator)); see [NOTICE.md](../NOTICE.md).
+Replace `<tag>` below with the Plus release tag you want to build.
+
+## Application APKs (uses checked-in engine prebuilts)
+
+The release tag identifies the application source, Gradle configuration and
+bundled assets used for that release. This builds the app, **not every engine
+component from source**; see [the outstanding audit](license-audit.md).
+
+The tested Linux release environment uses JDK 21, Android SDK platform 36,
+build-tools 36.0.0 and Gradle 8.14.2 (the checked-in wrapper). Kotlin/Java
+bytecode targets Java 17. First-time builds need network access to resolve the
+dependencies pinned in `build.gradle.kts` and `app/build.gradle.kts`.
+
+```sh
+git clone https://github.com/somerandomusernam2/AEmulator-Plus.git
+cd AEmulator-Plus
+git checkout <tag>
+export JAVA_HOME=/path/to/jdk-21
+export ANDROID_HOME=/path/to/Android/Sdk
+sh gradlew --no-daemon '-Dorg.gradle.jvmargs=-Xmx1536m -Dfile.encoding=UTF-8' \
+  -Pkotlin.compiler.execution.strategy=in-process --max-workers=1 \
+  testReleaseUnitTest assembleRelease
+```
+
+Output: `app/build/outputs/apk/release/`. The package is `app.aemu.plus` (there is no clone
+variant); it installs next to Sunset (`app.aemu`) and cannot update it. It requires an
+arm64-v8a Android host, API 26 or newer. `./gradlew copyReleaseApks` copies the APK to
+`release-apks/AEmulator-Plus-app.aemu.plus.apk`.
+
+Release signing uses private, untracked `keystore.properties`. Without it,
+release APKs are unsigned. To test/install without the publisher's key, build
+`assembleDebug` using your own debug key, or
+sign an unsigned release APK with your own key using Android `apksigner`.
+Your differently signed APK cannot update the publisher-signed installation.
+No publisher credentials are needed to compile or run your own build.
+
+## Fork native/helper source
+
+These scripts overwrite the corresponding bundled binaries; run them only in
+a build checkout. Sunset's tested guest-native toolchain is NDK
+`22.1.7171670` on Linux. The current APK build does not rebuild native assets
+automatically. Rebuilding may change binary hashes; byte-for-byte APK
+reproducibility has not been established.
+
+```sh
+export NDK="$ANDROID_HOME/ndk/22.1.7171670"
+(cd native/guestshim && sh build.sh)
+(cd native/audiohal && sh build.sh)
+(cd native/camerahal && sh build.sh)
+(cd native/sensorhal && sh build.sh)
+sh native/setupctl/build.sh
+```
+
+- `guestshim`: preload shim, recovery shim and `aemu_true.so`.
+- `audiohal`: AOSP, Sony DIRECTTRACK, ICS/Qualcomm and MTK audio HAL variants.
+  `native/audiohal/build-zig.sh` is a fallback that builds the same six
+  libraries with `zig cc` (Thumb-2, LLVM) for environments without the NDK;
+  it links against stub `libc.so`/`libdl.so` carrying the `@LIBC` symbol
+  versions bionic expects. Guest microphone input (`/dev/aemu_mic`, host side
+  in `app/.../core/MicBridge.kt`) ships in these libraries.
+- `camerahal`: `camera.aemu_host.so`, the experimental HAL1 bridge.
+- `sensorhal`: `sensors.aemu_host.so`, the experimental legacy motion-sensor
+  bridge. Its host transport/lifecycle smoke test is `sh native/sensorhal/tests/run.sh`
+  and requires a C compiler with ASan/UBSan (no guest firmware needed).
+- `setupctl`: `aemu-setup.jar`, setup and guest rotation helpers;
+  requires SDK 36/d8 and JDK 17+.
+- `native/guest64/37/hwservicemanager.c`: the HIDL service manager the engine
+  puts in a 64-bit Android 15, 16 or 17 tree that has none (installed as
+  `/system/bin/hwservicemanager` by `TreeFixer`, never over a firmware's own).
+  Built with zig, no NDK: `sh native/guest64/37/build-hwsm.sh` writes
+  `app/src/main/assets/engines/n64-37/arm64/system#bin#aemu-hwservicemanager`
+  and copies it to `n64-35/arm64` and `n64-36/arm64` (same binary).
+  Host test (fake binder driver, ASan/UBSan):
+  `cc -DAEMU_HOST_TEST -fsanitize=address,undefined -o t native/guest64/37/tests/hwsm_host_test.c && ASAN_OPTIONS=detect_leaks=0 ./t`.
+- Additional upstream source-backed scripts: `native/hostjni`, `native/apwrap`,
+  `native/glsplit`, `native/gueststubs`. Read their scripts and requirements;
+  do not mistake these for a complete engine build.
+
+JVM tests run via `testReleaseUnitTest`. Guest shim/audio/camera smoke
+tests have `tests/run.sh` scripts and require `qemu-arm` plus an ARM cross
+compiler (the audio test also runs under `native/audiohal/tests/run_arm.py`,
+a Unicorn-based runner for machines without `qemu-arm`; it needs python3 with
+`pyelftools` and `unicorn`); camera Bionic tests also require a separately supplied stock guest
+fixture and user/PID namespace support (see `native/camerahal/README.md`).
+Setup policy tests are in `native/setupctl/tests/PolicyTest.java`.
+
+## Source access beside downloads
+
+Release notes link the exact tagged checkout, this document and the audit.
+GitHub's tag source archives include the source tracked in that checkout, but
+cannot supply components absent from Git. Preserve license notices and make
+required source/build materials available when redistributing your own build.
+
+## Native engine assets split by architecture
+
+Each layer directory of the native arm64 engine (`assets/engines/n64-<api>`, `n64-<api>-own`, `n64-<api>-gsi`,
+`n64-gl`) may keep its guest files in `arm32/` and `arm64/` subdirectories next to (or instead of) plain files.
+Names are the flattened guest paths as before (`vendor#lib64#libfoo.so`).
+
+- Files that exist in only one place are installed as usual.
+- If the same name is in both `arm32/` and `arm64/` (the same path in the guest), the firmware decides: a
+  32-bit-only firmware (no `system/lib64/libc.so`, no `app_process64`) takes `arm32/`, any other takes `arm64/`.
+- Precedence inside one layer: plain files, then the other architecture's folder, then the firmware's own.
+  Later layers (`n64-gl` < `n64-<api>` < `-own`/`-gsi`) still win over earlier ones.
+- On a 32-bit-only firmware 64-bit ELF files are still never installed, as before.

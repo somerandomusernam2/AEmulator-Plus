@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="m_wea">Lažno nujno opozorilo</string>
+    <string name="m_wea_type">Vrsta opozorila</string>
+    <string name="m_wea_sent">Nujno opozorilo poslano</string>
+    <string name="m_wea_failed">Ni poslano: telefonija telefona ne deluje</string>
+    <string name="wea_presidential">Predsedniško opozorilo</string>
+    <string name="wea_extreme">Skrajna grožnja</string>
+    <string name="wea_severe">Huda grožnja</string>
+    <string name="wea_amber">Opozorilo AMBER</string>
+    <string name="wea_test">Obvezni mesečni preizkus</string>
+    <string name="wea_body_presidential">Predsedniško opozorilo: To je preizkus sistema nujnih opozoril. Ukrepanje ni potrebno.</string>
+    <string name="wea_body_extreme">Skrajno opozorilo: Opozorilo pred tornadom na vašem območju. Takoj poiščite zavetje. To je preizkus.</string>
+    <string name="wea_body_severe">Hudo opozorilo: Opozorilo pred nevihto na vašem območju do 18. ure. To je preizkus.</string>
+    <string name="wea_body_amber">Opozorilo AMBER: Pogrešan otrok, modra limuzina. Če ga zagledate, pokličite 911. To je preizkus.</string>
+    <string name="wea_body_test">To je preizkus sistema Wireless Emergency Alert. Ukrepanje ni potrebno.</string>
+</resources>

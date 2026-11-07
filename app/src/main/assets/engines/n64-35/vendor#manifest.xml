@@ -136,4 +136,13 @@
     <sepolicy>
         <version>27.0</version>
     </sepolicy>
+    <!-- 15+: HintManagerService (system_server) waits for this declared service and, from interface version 6 on, calls getSupportInfo();
+         without the service its mSupportInfo stays null and the constructor dies ("Failed to create service
+         com.android.server.power.hint.HintManagerService", NPE on SupportInfo.headroom). Served by the engine's own
+         android.hardware.power-service.aemu (native/powerhal/power_service.c): version 6, every optional part off -->
+    <hal format="aidl">
+        <name>android.hardware.power</name>
+        <version>6</version>
+        <fqname>IPower/default</fqname>
+    </hal>
 </manifest>

@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="m_wea">အတု အရေးပေါ်သတိပေးချက်</string>
+    <string name="m_wea_type">သတိပေးချက်အမျိုးအစား</string>
+    <string name="m_wea_sent">အရေးပေါ်သတိပေးချက် ပို့ပြီးပါပြီ</string>
+    <string name="m_wea_failed">မပို့ရသေးပါ- ဖုန်း၏ တယ်လီဖုန်းဝန်ဆောင်မှု မလည်ပတ်နေပါ</string>
+    <string name="wea_presidential">သမ္မတသတိပေးချက်</string>
+    <string name="wea_extreme">အလွန်ပြင်းထန်သော ခြိမ်းခြောက်မှု</string>
+    <string name="wea_severe">ပြင်းထန်သော ခြိမ်းခြောက်မှု</string>
+    <string name="wea_amber">AMBER သတိပေးချက်</string>
+    <string name="wea_test">မဖြစ်မနေ လစဉ်စမ်းသပ်မှု</string>
+    <string name="wea_body_presidential">သမ္မတသတိပေးချက်- ဤသည်မှာ အရေးပေါ်သတိပေးစနစ်၏ စမ်းသပ်မှုဖြစ်သည်။ ဆောင်ရွက်ရန် မလိုပါ။</string>
+    <string name="wea_body_extreme">အလွန်ပြင်းထန်သော သတိပေးချက်- သင့်ဒေသတွင် လေပြင်းမုန်တိုင်း သတိပေးချက်ရှိသည်။ ယခုပင် ခိုလှုံပါ။ ဤသည်မှာ စမ်းသပ်မှုဖြစ်သည်။</string>
+    <string name="wea_body_severe">ပြင်းထန်သော သတိပေးချက်- သင့်ဒေသတွင် ညနေ ၆ နာရီအထိ မိုးကြိုးမုန်တိုင်း သတိပေးချက်ရှိသည်။ ဤသည်မှာ စမ်းသပ်မှုဖြစ်သည်။</string>
+    <string name="wea_body_amber">AMBER သတိပေးချက်- ပျောက်ဆုံးနေသော ကလေး၊ အပြာရောင်ဆီဒန်။ တွေ့လျှင် 911 သို့ ခေါ်ပါ။ ဤသည်မှာ စမ်းသပ်မှုဖြစ်သည်။</string>
+    <string name="wea_body_test">ဤသည်မှာ Wireless Emergency Alert စနစ်၏ စမ်းသပ်မှုဖြစ်သည်။ ဆောင်ရွက်ရန် မလိုပါ။</string>
+</resources>

@@ -1,0 +1,33 @@
+<resources>
+    <string name="vs_hide_menu">Hide menu button</string>
+    <string name="vs_hide_menu_sub">Hide the … button. The phone’s Back button or back gesture opens the emulator menu instead of sending Back to Android. Guest navigation buttons still control Android.</string>
+    <string name="vs_vibration">Guest vibration</string>
+    <string name="vs_vibration_sub">Forward legacy guest vibration to the phone. Applies on next boot; each pulse is capped at 60 seconds.</string>
+    <string name="nav_buttons">Navigation buttons</string>
+    <string name="nav_order">Button order (left to right)</string>
+    <string name="nav_earlier">Earlier</string>
+    <string name="nav_later">Later</string>
+    <string name="nav_reset">Reset buttons</string>
+    <string name="nav_search">Search</string>
+    <string name="nav_power">Power</string>
+    <string name="nav_go_to_recovery">Go to recovery</string>
+    <string name="nav_volume_down">Volume down</string>
+    <string name="nav_volume_up">Volume up</string>
+    <string name="nav_up">D-pad up</string>
+    <string name="nav_down">D-pad down</string>
+    <string name="nav_left">D-pad left</string>
+    <string name="nav_right">D-pad right</string>
+    <string name="nav_center">D-pad center</string>
+    <string name="nav_trackball">Trackball</string>
+    <string name="nav_trackball_sub">Swipe the circle above the navigation bar to roll; tap to select.</string>
+    <string name="nav_dpad_mode">Arrow-key mode</string>
+    <string name="nav_dpad_sub">Off: real relative trackball events for guest apps. On: D-pad key presses instead. Does not send both.</string>
+    <string name="nav_sensitivity">Sensitivity: %1$d dp per step (lower is faster)</string>
+    <string name="nav_trackball_waiting">No guest trackball connection yet</string>
+    <string name="nav_trackball_recovery">Recovery: use arrow-key mode</string>
+    <string name="vs_bluetooth">Host Bluetooth (experimental)</string>
+    <string name="vs_bluetooth_sub">Let the guest scan, pair-list, and talk to Bluetooth devices through the phone: classic serial (RFCOMM) and Bluetooth LE (GATT). Needs Bluetooth permission and a full VM restart. Not raw HCI: the guest sees the phone adapter through a bridge, so headsets (audio profiles) are not supported.</string>
+    <string name="vs_sf_tombstone">SurfaceFlinger crash tombstone (debug)</string>
+    <string name="vs_sf_tombstone_sub">If SurfaceFlinger crashes, let the firmware write a normal tombstone to the log (with the crashing function) instead of a short report. Use it when sending a bug report. Applies at the next full VM boot.</string>
+    <string name="bluetooth_permission_denied">Bluetooth permission denied: the guest will boot without host Bluetooth.</string>
+</resources>

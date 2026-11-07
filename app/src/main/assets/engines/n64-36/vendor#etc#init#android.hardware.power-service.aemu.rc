@@ -1,0 +1,4 @@
+service aemu-power /vendor/bin/hw/android.hardware.power-service.aemu
+    class hal
+    user system
+    group system

@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="vs_hide_menu">Fela valmyndarhnapp</string>
+    <string name="vs_hide_menu_sub">Fela …-hnappinn. Til baka-hnappur símans eða bakbending opnar valmynd hermisins í stað þess að senda Til baka til Android. Leiðsagnarhnappar gestsins stjórna Android áfram.</string>
+    <string name="vs_vibration">Titringur gests</string>
+    <string name="vs_vibration_sub">Framsenda gamlan titring gests til símans. Tekur gildi við næstu ræsingu; hver púls er takmarkaður við 60 sekúndur.</string>
+    <string name="nav_buttons">Leiðsagnarhnappar</string>
+    <string name="nav_order">Röð hnappa (frá vinstri til hægri)</string>
+    <string name="nav_earlier">Fyrr</string>
+    <string name="nav_later">Síðar</string>
+    <string name="nav_reset">Endurstilla hnappa</string>
+    <string name="nav_search">Leita</string>
+    <string name="nav_power">Afl</string>
+    <string name="nav_go_to_recovery">Fara í recovery</string>
+    <string name="nav_volume_down">Hljóð niður</string>
+    <string name="nav_volume_up">Hljóð upp</string>
+    <string name="nav_up">D-pad upp</string>
+    <string name="nav_down">D-pad niður</string>
+    <string name="nav_left">D-pad vinstri</string>
+    <string name="nav_right">D-pad hægri</string>
+    <string name="nav_center">D-pad miðja</string>
+    <string name="nav_trackball">Stýrikúla</string>
+    <string name="nav_trackball_sub">Strjúktu um hringinn fyrir ofan leiðsagnarstikuna til að rúlla; ýttu til að velja.</string>
+    <string name="nav_dpad_mode">Örvatakkahamur</string>
+    <string name="nav_dpad_sub">Slökkt: raunveruleg afstæð stýrikúluatvik fyrir forrit gests. Kveikt: D-pad-takkaýtingar í staðinn. Sendir ekki bæði.</string>
+    <string name="nav_sensitivity">Næmi: %1$d dp á skref (lægra er hraðara)</string>
+    <string name="nav_trackball_waiting">Engin stýrikúlutenging gests enn</string>
+    <string name="nav_trackball_recovery">Recovery: notaðu örvatakkaham</string>
+    <string name="vs_bluetooth">Bluetooth hýsils (á tilraunastigi)</string>
+    <string name="vs_bluetooth_sub">Leyfa gestinum að leita, skoða pöruð tæki og eiga samskipti við Bluetooth-tæki í gegnum símann: klassíska raðtengingu (RFCOMM) og Bluetooth LE (GATT). Krefst Bluetooth-heimildar og fullrar endurræsingar sýndarvélarinnar. Ekki hrátt HCI: gesturinn sér millistykki símans í gegnum brú, svo heyrnartól (hljóðsnið) eru ekki studd.</string>
+    <string name="vs_sf_tombstone">SurfaceFlinger-hrunsmerki (villuleit)</string>
+    <string name="vs_sf_tombstone_sub">Ef SurfaceFlinger hrynur, láta fastbúnaðinn skrifa venjulegt tombstone í annálinn (með hrundu fallinu) í stað stuttrar skýrslu. Notaðu það þegar þú sendir villuskýrslu. Tekur gildi við næstu fullu ræsingu sýndarvélarinnar.</string>
+    <string name="bluetooth_permission_denied">Bluetooth-heimild hafnað: gesturinn ræsist án Bluetooth hýsils.</string>
+</resources>

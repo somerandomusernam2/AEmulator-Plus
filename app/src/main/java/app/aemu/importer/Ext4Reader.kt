@@ -35,11 +35,12 @@ class ChannelSource(private val ch: SeekableByteChannel, private val base: Long 
 /**
  * Читатель ext2/3/4 только на чтение: суперблок, группы (32/64 бита), inode любых размеров,
  * extent-деревья и классические косвенные блоки, каталоги (линейные и htree), символьные ссылки,
- * inline data (files, links and directories kept in the inode, the rest of them in its "system.data" attribute).
- * Этого хватает для system.img любых Android 2.x–6.x.
+ * inline data. Этого хватает для system.img любых Android 2.x–6.x.
  */
 class Ext4Reader(private val src: RandomSource) {
     val blockSize: Int
+    /** Blocks of the filesystem as the superblock counts them. */
+    val blockCount: Long
     private val inodesPerGroup: Int
     private val inodeSize: Int
     private val descSize: Int
@@ -51,10 +52,7 @@ class Ext4Reader(private val src: RandomSource) {
     data class Node(
         val ino: Int, val mode: Int, val uid: Int, val gid: Int, val size: Long,
         val flags: Int, val block: ByteArray, val mtime: Long,
-        /** inline data past the 60 bytes of i_block: the value of the in-inode attribute "system.data" */
-        val inlineMore: ByteArray = ByteArray(0),
     ) {
-        val inline get() = flags and INLINE_DATA_FL != 0
         val isDir get() = mode and 0xF000 == 0x4000
         val isFile get() = mode and 0xF000 == 0x8000
         val isLink get() = mode and 0xF000 == 0xA000
@@ -79,6 +77,7 @@ class Ext4Reader(private val src: RandomSource) {
         descSize = if (is64) maxOf(32, sb.getShort(0xFE).toInt() and 0xffff) else 32
         val blocksHi = if (is64) sb.getInt(0x150).toLong() and 0xffffffffL else 0
         val blocks = blocksLo or (blocksHi shl 32)
+        blockCount = blocks
         groupCount = maxOf(((blocks - firstDataBlock + blocksPerGroup - 1) / blocksPerGroup).toInt(), (inodesCount + inodesPerGroup - 1) / inodesPerGroup)
         val nameBytes = ByteArray(16).also { for (i in 0 until 16) it[i] = sb.get(0x78 + i) }
         volumeName = String(nameBytes).trimEnd('\u0000')
@@ -109,7 +108,7 @@ class Ext4Reader(private val src: RandomSource) {
         val g = (ino - 1) / inodesPerGroup
         val idx = (ino - 1) % inodesPerGroup
         val off = inodeTable(g) * blockSize + idx.toLong() * inodeSize
-        val b = buf(inodeSize.coerceIn(128, 4096))
+        val b = buf(minOf(inodeSize, 256).coerceAtLeast(128))
         src.read(off, b); b.flip()
         val mode = b.getShort(0).toInt() and 0xffff
         val uidLo = b.getShort(2).toInt() and 0xffff
@@ -121,40 +120,11 @@ class Ext4Reader(private val src: RandomSource) {
         val sizeHi = b.getInt(0x6C).toLong() and 0xffffffffL
         val uidHi = b.getShort(0x78).toInt() and 0xffff
         val gidHi = b.getShort(0x7A).toInt() and 0xffff
-        val more = if (flags and INLINE_DATA_FL != 0) systemData(b) else ByteArray(0)
-        return Node(ino, mode, uidLo or (uidHi shl 16), gidLo or (gidHi shl 16), sizeLo or (sizeHi shl 32), flags, block, mtime, more)
-    }
-
-    /**
-     * The value of "system.data" (index 7, name "data") among the attributes kept in the inode after its extra fields:
-     * a 4-byte magic, then entries (name length, index, value offset from the first entry, value inode, value size,
-     * hash, name padded to 4) up to a zero word.
-     */
-    private fun systemData(b: ByteBuffer): ByteArray {
-        if (b.capacity() <= 0x82) return ByteArray(0)
-        val extra = b.getShort(0x80).toInt() and 0xffff
-        val base = 0x80 + extra
-        if (base + 4 > b.capacity() || b.getInt(base) != XATTR_MAGIC) return ByteArray(0)
-        val first = base + 4
-        var e = first
-        while (e + 16 <= b.capacity() && b.getInt(e) != 0) {
-            val nameLen = b.get(e).toInt() and 0xff
-            val index = b.get(e + 1).toInt() and 0xff
-            val valueOff = b.getShort(e + 2).toInt() and 0xffff
-            val valueSize = b.getInt(e + 8)
-            if (index == 7 && nameLen == 4 && e + 16 + 4 <= b.capacity() &&
-                b.get(e + 16) == 'd'.code.toByte() && b.get(e + 17) == 'a'.code.toByte() && b.get(e + 18) == 't'.code.toByte() && b.get(e + 19) == 'a'.code.toByte()) {
-                val at = first + valueOff
-                if (valueSize <= 0 || at + valueSize > b.capacity()) return ByteArray(0)
-                return ByteArray(valueSize).also { for (i in 0 until valueSize) it[i] = b.get(at + i) }
-            }
-            e += (16 + nameLen + 3) and 3.inv()
-        }
-        return ByteArray(0)
+        return Node(ino, mode, uidLo or (uidHi shl 16), gidLo or (gidHi shl 16), sizeLo or (sizeHi shl 32), flags, block, mtime)
     }
 
     /** Список физических отрезков файла: (логический блок, физический блок, длина). */
-    private fun extents(n: Node): List<LongArray> {
+    fun extents(n: Node): List<LongArray> {
         val out = ArrayList<LongArray>()
         if (n.flags and 0x80000 != 0) { // EXT4_EXTENTS_FL
             walkExtents(ByteBuffer.wrap(n.block).order(ByteOrder.LITTLE_ENDIAN), out, 0)
@@ -219,14 +189,8 @@ class Ext4Reader(private val src: RandomSource) {
 
     /** Пишет содержимое файла в поток. */
     fun copy(n: Node, out: OutputStream) {
-        if (n.inline) {
-            val whole = n.block + n.inlineMore
-            val k = minOf(n.size, whole.size.toLong()).toInt()
-            out.write(whole, 0, k)
-            // (mke2fs leaves a file of nothing but zeros as an empty inline inode of the full size: a hole)
-            var left = n.size - k
-            val zeros = ByteArray(64 * 1024)
-            while (left > 0) { val z = minOf(left, zeros.size.toLong()).toInt(); out.write(zeros, 0, z); left -= z }
+        if (n.flags and 0x10000000 != 0) { // INLINE_DATA
+            out.write(n.block, 0, minOf(n.size, 60).toInt())
             return
         }
         val ex = extents(n).sortedBy { it[0] }
@@ -269,8 +233,7 @@ class Ext4Reader(private val src: RandomSource) {
     data class Entry(val name: String, val ino: Int, val type: Int)
 
     fun list(dir: Node): List<Entry> {
-        // an inline directory: the parent's inode number, then entries in the rest of i_block and in "system.data"
-        val data = if (dir.inline) dir.block.copyOfRange(4, 60) + dir.inlineMore else readAll(dir)
+        val data = readAll(dir)
         val out = ArrayList<Entry>()
         val bb = ByteBuffer.wrap(data).order(ByteOrder.LITTLE_ENDIAN)
         var off = 0
@@ -319,9 +282,6 @@ class Ext4Reader(private val src: RandomSource) {
     }
 
     companion object {
-        private const val INLINE_DATA_FL = 0x10000000
-        private const val XATTR_MAGIC = 0xEA020000.toInt()
-
         fun probe(src: RandomSource): Boolean = runCatching {
             val b = ByteBuffer.allocate(2).order(ByteOrder.LITTLE_ENDIAN)
             src.read(1024 + 0x38, b); b.flip()

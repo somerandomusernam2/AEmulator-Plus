@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="vs_cdma">Modem CDMA</string>
+    <string name="vs_cdma_sub">Emulon një modem CDMA: regjistrim 1xRTT / EV-DO, MEID, abonim CDMA dhe mesazhe teksti CDMA. Zbatohet në nisjen e plotë të radhës.</string>
+    <string name="vs_cdma_fw_yes">Ky firmuer është LTE on CDMA (telephony.lteOnCdmaDevice=1): aktiv si parazgjedhje.</string>
+    <string name="vs_cdma_fw_no">Ky firmuer nuk është LTE on CDMA: joaktiv si parazgjedhje.</string>
+</resources>

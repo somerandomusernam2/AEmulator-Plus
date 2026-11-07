@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="m_wea">가짜 긴급 재난 문자</string>
+    <string name="m_wea_type">알림 유형</string>
+    <string name="m_wea_sent">긴급 재난 문자를 보냈습니다</string>
+    <string name="m_wea_failed">보내지 않음: 휴대전화의 통화 기능이 실행 중이 아닙니다</string>
+    <string name="wea_presidential">대통령 경보</string>
+    <string name="wea_extreme">극단적 위협</string>
+    <string name="wea_severe">심각한 위협</string>
+    <string name="wea_amber">AMBER 경보</string>
+    <string name="wea_test">필수 월간 테스트</string>
+    <string name="wea_body_presidential">대통령 경보: 긴급 경보 시스템 테스트입니다. 별도의 조치는 필요하지 않습니다.</string>
+    <string name="wea_body_extreme">극단적 경보: 거주 지역에 토네이도 경보가 내려졌습니다. 지금 대피하세요. 테스트입니다.</string>
+    <string name="wea_body_severe">심각한 경보: 거주 지역에 오후 6시까지 뇌우 경보가 내려졌습니다. 테스트입니다.</string>
+    <string name="wea_body_amber">AMBER 경보: 실종 아동, 파란색 세단. 발견하면 911에 신고하세요. 테스트입니다.</string>
+    <string name="wea_body_test">무선 긴급 경보 시스템 테스트입니다. 별도의 조치는 필요하지 않습니다.</string>
+</resources>

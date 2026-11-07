@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="vs_cdma">Modem CDMA</string>
+    <string name="vs_cdma_sub">Aithrisíonn sé modem CDMA: clárú 1xRTT / EV-DO, MEID, síntiús CDMA agus teachtaireachtaí téacs CDMA. Cuirtear i bhfeidhm ag an gcéad tosú iomlán eile.</string>
+    <string name="vs_cdma_fw_yes">Is LTE ar CDMA iad na dochtearraí seo (telephony.lteOnCdmaDevice=1): casta air de réir réamhshocraithe.</string>
+    <string name="vs_cdma_fw_no">Ní LTE ar CDMA iad na dochtearraí seo: múchta de réir réamhshocraithe.</string>
+</resources>

@@ -1,3 +1,6 @@
+/* Modified for AEmulator Super Plus, 2026-10-11: configurable SIM card, empty SIM slot.
+ * Modified for AEmulator Super Plus, 2026-10-23: CDMA modem mode.
+ * Modified for AEmulator Plus, 2026-10-25: wireless emergency alerts. GPL-3.0; see LICENSE and NOTICE.md. */
 package app.aemu.core
 
 import android.net.LocalSocket
@@ -19,26 +22,80 @@ import java.util.Collections
  *
  * Response layouts follow the guest's RIL.java: RIL v6 parcels for 4.x, the string lists of 2.3.
  * Extra trailing fields are harmless — Parcel reads past the end as zero/null.
+ *
+ * With [cdma] the same modem speaks CDMA (see [CdmaMode]): 1x / EV-DO registration with the CDMA state layout, CDMA
+ * signal levels, MEID / ESN, the CDMA subscription (MDN / MIN / SID / NID) and CDMA short messages. [lteOnCdma] says
+ * that the firmware is an LTE-on-CDMA device: voice stays 1x, data may be LTE, the SIM carries the subscription.
  */
 class RilStub(
     private val paths: VmPaths,
     private val log: (String) -> Unit,
     private val imei: String = VmSettings.DEFAULT_IMEI,
     private val api: Int = 19,
+    private val baseband: String = VmSettings.DEFAULT_BASEBAND,
+    networkType: Int = NetworkType.DEFAULT,
+    private val sim: SimCard = SimCard(),
+    /** CDMA modem instead of GSM */
+    val cdma: Boolean = false,
+    /** CDMA on an LTE-on-CDMA firmware (voice 1x, data up to LTE, subscription from the SIM) */
+    val lteOnCdma: Boolean = false,
 ) {
     @Volatile var answered = 0L
         private set
 
     private val server = UnixServer(paths.socket("rild"), "rild") { c -> serveOne(c) }
-    private val operator: Pair<String, String> by lazy { pickOperator() }   // mcc to mnc
-    /** Samsung's 4.3 RIL.java reads a call type (CallDetails) after isVoicePrivacy */
+    /** the SIM as the modem reports it; blank settings resolve to the firmware's APN operator */
+    private val card: SimCards.Resolved by lazy { SimCards.resolve(sim, pickOperator()) }
+    private val operator: Pair<String, String> get() = card.mcc to card.mnc
+    private val simFiles: LegacySimIo.Files by lazy {
+        LegacySimIo.Files(SimCards.efIccid(card.iccid), SimCards.efSpn(card.operator), SimCards.efMsisdn(card.number), SimCards.efAd(card.mnc))
+    }
+    /** Samsung's RIL.java reads an extra call type int (CallDetails) around isVoicePrivacy, on 2.3.6 and 4.x alike */
     private val samsung: Boolean by lazy {
         runCatching { File(paths.root, "system/build.prop").readText().lowercase().contains("ro.product.manufacturer=samsung") }
             .getOrDefault(false)
     }
 
+    /** radio technology reported in the voice/data registration state (ServiceState.RIL_RADIO_TECHNOLOGY_*) */
+    @Volatile var networkType: Int = NetworkType.sanitize(networkType, api, cdma, lteOnCdma)
+        private set
+
+    /** Changes the reported network on the fly: telephony is told to poll the registration state again. False when telephony is not up. */
+    fun setNetworkType(tech: Int): Boolean {
+        networkType = NetworkType.sanitize(tech, api, cdma, lteOnCdma)
+        val o = out ?: return false
+        unsol(o, UNSOL_RESPONSE_VOICE_NETWORK_STATE_CHANGED, ByteArray(0))
+        return true
+    }
+
+    /** technology of the voice registration: with LTE on CDMA voice is always 1x, data follows [networkType]; a plain CDMA or GSM modem has one */
+    private val voiceTech: Int get() = if (cdma && lteOnCdma) NetworkType.ONE_X_RTT else networkType
+
+    /** a plain CDMA phone registers on the network with no card (its subscription is in the modem's NV) */
+    private val registered: Boolean get() = sim.present || (cdma && !lteOnCdma)
+
+    /** operator of the SIM as the guest sees it (MCC+MNC, name): the home operator of a plain CDMA phone */
+    val operatorNumeric: String get() = card.mcc + card.mnc
+    val operatorName: String get() = card.operator
+
+    private val meid: String by lazy { CdmaMode.meid(imei) }
+    private val esn: String by lazy { CdmaMode.esn(meid) }
+    /** RIL_REQUEST_CDMA_GET_SUBSCRIPTION_SOURCE: 0 = RUIM / SIM, 1 = modem NV. An LTE-on-CDMA phone takes the SIM, a plain one needs no card. */
+    private val cdmaSubscriptionSource: Int get() = if (lteOnCdma) 0 else 1
+    @Volatile private var preferredNetwork: Int = if (this.networkType == NetworkType.LTE) 8 else 4   // LTE/CDMA/EV-DO, CDMA/EV-DO auto
+    private val smsIds = java.util.concurrent.atomic.AtomicInteger((System.nanoTime() and 0x7fff).toInt())
+    /** serial number of the next alert: every alert needs a new one or the guest drops it as a repeat */
+    private val alertIds = java.util.concurrent.atomic.AtomicInteger((System.nanoTime() and 0x3ff).toInt())
+
     fun serve() = server.start(log)
     fun stop() = server.stop()
+
+    /**
+     * RIL_RadioState for "radio on". AOSP 4.0+ has ON = 10, but Samsung's 4.0.x RIL.java stops at the 2.3 list and throws
+     * "Unrecognized RIL_RadioState: 10" (GT-I9300 4.0.4: com.android.phone restarted in a loop until the modem was
+     * switched to "radio unavailable", so fake calls failed). Those builds take SIM_READY (4) as "on".
+     */
+    private val radioOnState: Int get() = if (api < 14 || (samsung && api <= 15)) 4 else 10
 
     @Volatile private var out: OutputStream? = null
     /** fake call: number and CallState (4 incoming, 0 active); null when idle */
@@ -54,47 +111,85 @@ class RilStub(
     }
 
     /**
-     * Incoming SMS from [from], delivered by the modem like on a phone (UNSOL_RESPONSE_NEW_SMS with a GSM
-     * SMS-DELIVER PDU), so every version from 2.3 on stores it, shows the notification and plays the tone.
-     * The text goes as UCS-2; longer texts are split into concatenated parts (UDH, 67 characters each).
+     * Incoming SMS from [from], like "sms send" in the SDK emulator console: an SMS-DELIVER PDU goes to the guest's
+     * telephony as RIL_UNSOL_RESPONSE_NEW_SMS, so the stock messaging app (TouchWiz included) gets it the normal way,
+     * with no shell and no `content` tool. A CDMA modem delivers it as a CDMA message (see [CdmaSms]). False when telephony is not up.
      */
-    fun sms(from: String, text: String): Boolean {
+    fun deliverSms(from: String, body: String): Boolean {
         val o = out ?: return false
-        val parts = if (text.length <= 70) listOf(text) else text.chunked(67)
-        val ref = (System.nanoTime() and 0xff).toInt()
-        parts.forEachIndexed { i, part ->
-            unsol(o, UNSOL_RESPONSE_NEW_SMS, str(smsPdu(from, part, if (parts.size > 1) Triple(ref, parts.size, i + 1) else null)))
-        }
+        if (cdma) unsol(o, UNSOL_RESPONSE_CDMA_NEW_SMS, CdmaSms.deliverParcel(from, body, smsIds.incrementAndGet()))
+        else unsol(o, UNSOL_RESPONSE_NEW_SMS, str(smsDeliverPdu(from, body)))
         return true
     }
 
-    private fun smsPdu(from: String, text: String, concat: Triple<Int, Int, Int>?): String {
-        val b = ByteArrayOutputStream()
-        b.write(0)                                          // no SMSC address
-        b.write(if (concat != null) 0x44 else 0x04)         // SMS-DELIVER, no more messages, UDHI for parts
-        val intl = from.startsWith("+")
-        val digits = from.filter { it.isDigit() }.ifEmpty { "0" }
-        b.write(digits.length); b.write(if (intl) 0x91 else 0x81)
-        b.write(semiOctets(digits))
-        b.write(0)                                          // PID
-        b.write(0x08)                                       // DCS: UCS-2
-        val t = java.util.Calendar.getInstance()
-        val tz = t.timeZone.getOffset(t.timeInMillis) / (15 * 60_000)
-        val stamp = "%02d%02d%02d%02d%02d%02d".format(t.get(java.util.Calendar.YEAR) % 100, t.get(java.util.Calendar.MONTH) + 1,
-            t.get(java.util.Calendar.DAY_OF_MONTH), t.get(java.util.Calendar.HOUR_OF_DAY), t.get(java.util.Calendar.MINUTE), t.get(java.util.Calendar.SECOND))
-        b.write(semiOctets(stamp))
-        val tzBcd = semiOctets("%02d".format(kotlin.math.abs(tz)))[0].toInt() or (if (tz < 0) 0x08 else 0)
-        b.write(tzBcd)
-        val ud = text.toByteArray(Charsets.UTF_16BE)
-        val udh = concat?.let { (r, n, k) -> byteArrayOf(5, 0, 3, r.toByte(), n.toByte(), k.toByte()) } ?: ByteArray(0)
-        b.write(udh.size + ud.size); b.write(udh); b.write(ud)
-        return b.toByteArray().joinToString("") { "%02X".format(it.toInt() and 0xff) }
+    /**
+     * Wireless Emergency Alert (CMAS) with the given [text], like the cell broadcast a carrier sends: the guest's cell
+     * broadcast receiver shows it full screen with the alert sound. A GSM / UMTS modem sends it as RIL_UNSOL_RESPONSE_NEW_
+     * BROADCAST_SMS, one 88-byte page after the other (see [WirelessAlert]); a CDMA modem as a broadcast CDMA message
+     * (see [CdmaSms.cmasParcel]). False when telephony is not up. Needs Android 4.2 (API 17) or newer.
+     */
+    fun deliverAlert(type: AlertType, text: String): Boolean {
+        val o = out ?: return false
+        val id = alertIds.incrementAndGet()
+        if (cdma) unsol(o, UNSOL_RESPONSE_CDMA_NEW_SMS, CdmaSms.cmasParcel(type, text, id))
+        else for (page in WirelessAlert.gsmPages(type, text, id)) unsol(o, UNSOL_RESPONSE_NEW_BROADCAST_SMS, raw(page))
+        log("radio: wireless alert ${type.name.lowercase()} (${text.length} chars)")
+        return true
     }
 
-    /** BCD with swapped nibbles, padded with F (addresses and time stamps of a PDU) */
-    private fun semiOctets(d: String): ByteArray {
+    /** hex of SMSC (none) + SMS-DELIVER TPDU; GSM 7-bit when the text allows it, UCS-2 otherwise */
+    private fun smsDeliverPdu(from: String, body: String): String {
+        val sb = StringBuilder("00")                                  // no SMSC
+        sb.append("04")                                               // SMS-DELIVER, no more messages
+        val num = from.trim()
+        val digits = num.filter { it.isDigit() }
+        if (digits.isNotEmpty() && num.all { it.isDigit() || it == '+' || it == '-' || it == ' ' }) {
+            sb.append("%02X".format(digits.length.coerceAtMost(20)))
+            sb.append(if (num.startsWith("+")) "91" else "81")
+            sb.append(bcd(digits.take(20)))
+        } else {                                                      // alphanumeric sender
+            val name = num.take(11).map { if (it in GSM7_SAFE) it else '?' }.joinToString("")
+            val packed = gsm7Pack(name)
+            sb.append("%02X".format((name.length * 7 + 3) / 4)).append("D0").append(hex(packed))
+        }
+        sb.append("00")                                               // PID
+        val text = body.ifEmpty { " " }
+        val gsm = text.all { it in GSM7_SAFE }
+        sb.append(if (gsm) "00" else "08")                            // DCS
+        val now = java.util.Calendar.getInstance(java.util.TimeZone.getTimeZone("UTC"))
+        sb.append(bcd("%02d%02d%02d%02d%02d%02d".format(now.get(java.util.Calendar.YEAR) % 100,
+            now.get(java.util.Calendar.MONTH) + 1, now.get(java.util.Calendar.DAY_OF_MONTH),
+            now.get(java.util.Calendar.HOUR_OF_DAY), now.get(java.util.Calendar.MINUTE), now.get(java.util.Calendar.SECOND))))
+        sb.append("00")                                               // timezone UTC
+        if (gsm) {
+            val t = text.take(160)
+            sb.append("%02X".format(t.length)).append(hex(gsm7Pack(t)))
+        } else {
+            val ud = text.take(70).toByteArray(Charsets.UTF_16BE)
+            sb.append("%02X".format(ud.size)).append(hex(ud))
+        }
+        return sb.toString()
+    }
+
+    /** semi-octet BCD, nibbles swapped, padded with F */
+    private fun bcd(d: String): String {
         val s = if (d.length % 2 == 1) d + "F" else d
-        return ByteArray(s.length / 2) { i -> ((s[2 * i + 1].digitToIntOrNull(16) ?: 0xf) shl 4 or (s[2 * i].digitToInt(16))).toByte() }
+        return s.chunked(2).joinToString("") { it.reversed() }
+    }
+
+    private fun hex(b: ByteArray) = b.joinToString("") { "%02X".format(it.toInt() and 0xff) }
+
+    private fun gsm7Pack(s: String): ByteArray {
+        val out = ByteArray((s.length * 7 + 7) / 8)
+        s.forEachIndexed { i, c ->
+            val bit = i * 7
+            val v = c.code and 0x7f
+            val idx = bit / 8
+            val sh = bit % 8
+            out[idx] = (out[idx].toInt() or (v shl sh)).toByte()
+            if (sh > 1) out[idx + 1] = (out[idx + 1].toInt() or (v shr (8 - sh))).toByte()
+        }
+        return out
     }
 
     private val connects = ArrayDeque<Long>()
@@ -116,7 +211,9 @@ class RilStub(
         out = o
         if (api >= 14) unsol(o, UNSOL_RIL_CONNECTED, ints(RIL_VERSION))
         unsol(o, UNSOL_RADIO_STATE_CHANGED, le(0))
-        log("radio: telephony connected, operator ${operator.first}${operator.second}")
+        if (cdma) log("radio: CDMA modem (${if (lteOnCdma) "LTE on CDMA" else "CDMA only"}), ${NetworkType.label(networkType)}, MEID $meid")
+        log(if (sim.present) "radio: telephony connected, SIM \"${card.operator}\" ${card.mcc}-${card.mnc}" +
+            (if (card.number.isNotEmpty()) ", number ${card.number}" else "") else "radio: telephony connected, no SIM card")
         val din = DataInputStream(c.inputStream)
         while (true) {
             val len = try { din.readInt() } catch (e: Exception) { break }
@@ -127,16 +224,12 @@ class RilStub(
             val b = ByteBuffer.wrap(body).order(ByteOrder.LITTLE_ENDIAN)
             val request = b.getInt()
             val serial = b.getInt()
+            // Qualcomm's own requests travel as OEM_HOOK_RAW with a "QOEMHOOK" header. The telephony of CAF
+            // builds treats a failure as "this modem has no such request" and goes on; a success with a
+            // made-up payload is parsed and crashes com.android.phone (MIUI 7 on 5.0: modem capability)
             val (err, payload) = runCatching {
-                when {
-                    request == RIL_REQUEST_SIM_IO -> 0 to simIo(b)
-                    // Qualcomm's own requests travel as OEM_HOOK_RAW with a "QOEMHOOK" header. The telephony of CAF
-                    // builds treats a failure as "this modem has no such request" and goes on; a success with a
-                    // made-up payload is parsed and crashes com.android.phone (MIUI 7 on 5.0: modem capability)
-                    request == RIL_REQUEST_OEM_HOOK_RAW && isQcomHook(body) -> E_GENERIC_FAILURE to ByteArray(0)
-                    else -> handle(request)
-                }
-            }.getOrElse { 0 to ByteArray(0) }
+                if (request == RIL_REQUEST_OEM_HOOK_RAW && isQcomHook(body)) E_GENERIC_FAILURE to ByteArray(0) else handle(request, b)
+            }.getOrElse { E_GENERIC_FAILURE to ByteArray(0) }
             val resp = ByteArrayOutputStream()
             resp.write(le(0)); resp.write(le(serial)); resp.write(le(err)); resp.write(payload)
             frame(o, resp.toByteArray())
@@ -144,6 +237,7 @@ class RilStub(
             if (request == RIL_REQUEST_RADIO_POWER) afterPower(o, b)
             if (request == RIL_REQUEST_ANSWER || request in HANGUPS) unsol(o, UNSOL_RESPONSE_CALL_STATE_CHANGED, ByteArray(0))
         }
+        if (out === o) { out = null; call = null }
     }
 
     /** the old stub: radio off, identifiers only — keeps a firmware alive that cannot use the modem */
@@ -163,8 +257,8 @@ class RilStub(
             val data = when (request) {
                 RIL_REQUEST_GET_IMEI -> str(imei)
                 RIL_REQUEST_GET_IMEISV -> str(IMEISV)
-                RIL_REQUEST_BASEBAND_VERSION -> str(BASEBAND)
-                RIL_REQUEST_DEVICE_IDENTITY -> strs(imei, IMEISV, "", "")
+                RIL_REQUEST_BASEBAND_VERSION -> str(baseband)
+                RIL_REQUEST_DEVICE_IDENTITY -> deviceIdentity()
                 else -> null
             }
             val err = if (request == RIL_REQUEST_RADIO_POWER || data != null) 0 else E_RADIO_NOT_AVAILABLE
@@ -177,29 +271,36 @@ class RilStub(
         return body.size >= 12 + tag.size && tag.indices.all { body[12 + it] == tag[it] }
     }
 
-    private fun handle(req: Int): Pair<Int, ByteArray> {
+    private fun handle(req: Int, args: ByteBuffer): Pair<Int, ByteArray> {
         val (mcc, mnc) = operator
+        val present = sim.present
+        val up = registered
+        if (cdma) handleCdma(req, args)?.let { return it }
         return when (req) {
             RIL_REQUEST_GET_SIM_STATUS -> 0 to simStatus()
             RIL_REQUEST_GET_CURRENT_CALLS -> 0 to callList()
             RIL_REQUEST_ANSWER -> { call = call?.let { it.first to CALL_ACTIVE }; 0 to ByteArray(0) }
             in HANGUPS -> { call = null; 0 to ByteArray(0) }
             RIL_REQUEST_LAST_CALL_FAIL_CAUSE -> 0 to ints(16)   // normal clearing
-            RIL_REQUEST_GET_IMSI -> 0 to str(mcc + mnc + "0123456789".take(15 - mcc.length - mnc.length))
-            RIL_REQUEST_SIGNAL_STRENGTH -> 0 to ints(20, 99, -1, -1, -1, -1, -1, 99, -1, -1, -1, -1, -1)
-            RIL_REQUEST_VOICE_REGISTRATION_STATE -> 0 to strs("1", "0001", "00000001", "3")
-            RIL_REQUEST_DATA_REGISTRATION_STATE -> 0 to strs("1", "0001", "00000001", "3", "0", "1")
-            RIL_REQUEST_OPERATOR -> 0 to strs(OPERATOR_NAME, OPERATOR_NAME, mcc + mnc)
-            RIL_REQUEST_SETUP_DATA_CALL -> 0 to dataCall(single = true)
-            RIL_REQUEST_DATA_CALL_LIST -> 0 to dataCall(single = false)
+            RIL_REQUEST_GET_IMSI -> if (present) 0 to str(card.imsi) else E_GENERIC_FAILURE to ByteArray(0)
+            RIL_REQUEST_SIGNAL_STRENGTH -> 0 to (if (cdma) cdmaSignal() else ints(20, 99, -1, -1, -1, -1, -1, 99, -1, -1, -1, -1, -1))
+            // no SIM: the network still answers (emergency calls only), but there is no data registration
+            RIL_REQUEST_VOICE_REGISTRATION_STATE -> 0 to (if (cdma) cdmaVoiceRegistration(up) else strs(if (up) "1" else "0", "0001", "00000001", voiceTech.toString()))
+            RIL_REQUEST_DATA_REGISTRATION_STATE -> 0 to strs(if (up) "1" else "0", "0001", "00000001", networkType.toString(), "0", "1")
+            RIL_REQUEST_OPERATOR -> 0 to (if (up) strs(card.operator, card.operator.take(8), mcc + mnc) else nullStrs(3))
+            RIL_REQUEST_SETUP_DATA_CALL -> if (up) 0 to dataCall(single = true) else E_GENERIC_FAILURE to ByteArray(0)
+            RIL_REQUEST_DATA_CALL_LIST -> 0 to (if (up) dataCall(single = false) else noDataCalls())
+            RIL_REQUEST_SIM_IO -> if (!present) E_GENERIC_FAILURE to ByteArray(0)
+                else LegacySimIo.handle(args, simFiles).let { 0 to (le(it.sw1) + le(it.sw2) + str(it.hex)) }
             RIL_REQUEST_GET_IMEI -> 0 to str(imei)
             RIL_REQUEST_GET_IMEISV -> 0 to str(IMEISV)
-            RIL_REQUEST_BASEBAND_VERSION -> 0 to str(BASEBAND)
-            RIL_REQUEST_DEVICE_IDENTITY -> 0 to strs(imei, IMEISV, "", "")
+            RIL_REQUEST_BASEBAND_VERSION -> 0 to str(baseband)
+            RIL_REQUEST_DEVICE_IDENTITY -> 0 to deviceIdentity()
             RIL_REQUEST_QUERY_NETWORK_SELECTION_MODE -> 0 to ints(0)
             RIL_REQUEST_GET_PREFERRED_NETWORK_TYPE -> 0 to ints(0)
             RIL_REQUEST_GET_NEIGHBORING_CELL_IDS -> 0 to le(0)
-            RIL_REQUEST_VOICE_RADIO_TECH -> 0 to ints(3)
+            RIL_REQUEST_VOICE_RADIO_TECH -> 0 to ints(voiceTech)
+            RIL_REQUEST_SMS_ACKNOWLEDGE -> 0 to ByteArray(0)
             RIL_REQUEST_GET_SMSC_ADDRESS -> 0 to str("+10000000000")
             RIL_REQUEST_QUERY_FACILITY_LOCK -> 0 to ints(0)
             RIL_REQUEST_SEND_SMS, RIL_REQUEST_SEND_SMS_EXPECT_MORE -> 0 to (le(1) + str(null) + le(-1))
@@ -208,39 +309,61 @@ class RilStub(
             in 114..117 -> E_GENERIC_FAILURE to ByteArray(0)
             // unknown request: four elements that parse both as int[4] of zeros and String[4] of "" —
             // shorter payloads crash com.android.phone (Samsung reads [0], Qualcomm IMS state reads [1])
-            else -> 0 to (le(4) + ByteArray(32))
+            else -> { log("radio: unhandled request $req"); 0 to (le(4) + ByteArray(32)) }
         }
+    }
+
+    /** IMEI, IMEISV, ESN, MEID: a CDMA modem knows its ESN and MEID (GsmCdmaPhone.getDeviceId() shows the MEID) */
+    private fun deviceIdentity(): ByteArray = if (cdma) strs(imei, IMEISV, esn, meid) else strs(imei, IMEISV, "", "")
+
+    /** requests only a CDMA modem answers differently; null = the common handler decides */
+    private fun handleCdma(req: Int, args: ByteBuffer): Pair<Int, ByteArray>? = when (req) {
+        RIL_REQUEST_CDMA_SET_SUBSCRIPTION_SOURCE -> 0 to ByteArray(0)           // the answer to the next query stays our own
+        RIL_REQUEST_CDMA_GET_SUBSCRIPTION_SOURCE -> 0 to ints(cdmaSubscriptionSource)
+        RIL_REQUEST_CDMA_SUBSCRIPTION -> 0 to cdmaSubscription()
+        RIL_REQUEST_CDMA_SET_ROAMING_PREFERENCE -> 0 to ByteArray(0)
+        RIL_REQUEST_CDMA_QUERY_ROAMING_PREFERENCE -> 0 to ints(2)               // any system
+        RIL_REQUEST_CDMA_SET_PREFERRED_VOICE_PRIVACY_MODE -> 0 to ByteArray(0)
+        RIL_REQUEST_CDMA_QUERY_PREFERRED_VOICE_PRIVACY_MODE -> 0 to ints(0)
+        RIL_REQUEST_CDMA_FLASH, RIL_REQUEST_CDMA_BURST_DTMF, RIL_REQUEST_EXIT_EMERGENCY_CALLBACK_MODE -> 0 to ByteArray(0)
+        RIL_REQUEST_CDMA_SEND_SMS -> 0 to (le(1) + str(null) + le(-1))
+        RIL_REQUEST_CDMA_SMS_ACKNOWLEDGE -> 0 to ByteArray(0)
+        RIL_REQUEST_SET_PREFERRED_NETWORK_TYPE -> {
+            runCatching { args.position(12); preferredNetwork = args.getInt() }
+            0 to ByteArray(0)
+        }
+        RIL_REQUEST_GET_PREFERRED_NETWORK_TYPE -> 0 to ints(preferredNetwork)
+        else -> null
     }
 
     /**
-     * SIM file access. Only EF_ICCID is answered: from 5.1 SubscriptionController creates the SIM's subscription
-     * from its ICCID, and without one the system shows "No SIM card" (no SMS, no mobile network). Everything else
-     * stays "file not found" (no contacts, SMS or settings stored on the SIM).
+     * CDMA voice registration, RIL v6 layout: state, two unused, radio technology, base station id and position, concurrent
+     * services, SID, NID, roaming indicator (1 = home), in PRL, default roaming indicator, denial reason, one spare.
      */
-    private fun simIo(b: ByteBuffer): ByteArray {
-        val notFound = le(0x6A) + le(0x82) + str(null)
-        val command = runCatching { b.getInt() }.getOrDefault(0)
-        val file = runCatching { b.getInt() }.getOrDefault(0)
-        if (file != EF_ICCID) return notFound
-        return when (command) {
-            SIM_GET_RESPONSE -> le(0x90) + le(0) + str("0000000a2fe204000fa0aa01020000")   // transparent EF, 10 bytes
-            SIM_READ_BINARY -> le(0x90) + le(0) + str(iccid())
-            else -> notFound
-        }
+    private fun cdmaVoiceRegistration(up: Boolean): ByteArray = strs(
+        if (up) "1" else "0", "0", "0", voiceTech.toString(), "1", "0", "0", "0", CDMA_SID, CDMA_NID, "1", "1", "1", "0", "0")
+
+    /** MDN, SID, NID, MIN, PRL version. A MIN of zeros (or the factory 1111110111) would start the OTASP activation wizard. */
+    private fun cdmaSubscription(): ByteArray {
+        val min = card.imsi.filter(Char::isDigit).takeLast(10).takeIf { it.length == 10 && !it.startsWith("000000") && it != "1111110111" } ?: "5555550100"
+        return strs(card.number.filter(Char::isDigit), CDMA_SID, CDMA_NID, min, "1")
     }
 
-    /** ICCID in the SIM's swapped-BCD form: 89 (telecom) + the operator's MCC + digits from the IMEI */
-    private fun iccid(): String {
-        val digits = ("89" + operator.first + imei.filter { it.isDigit() } + "0000000000").take(20)
-        return digits.chunked(2).joinToString("") { "${it[1]}${it[0]}" }
+    /** gsm, ber, CDMA dBm and Ec/Io, EV-DO dBm, Ec/Io and SNR, LTE signal, RSRP, RSRQ, RSSNR, CQI, TD-SCDMA; the technologies the modem is not on stay unknown */
+    private fun cdmaSignal(): ByteArray {
+        val t = networkType
+        val evdo = t == NetworkType.EVDO_0 || t == NetworkType.EVDO_A || t == NetworkType.EVDO_B || t == NetworkType.EHRPD || t == NetworkType.LTE
+        val e = if (evdo) intArrayOf(85, 100, 6) else intArrayOf(-1, -1, -1)
+        return if (t == NetworkType.LTE) ints(99, -1, 85, 100, e[0], e[1], e[2], 20, 90, 10, 100, 10, -1)
+        else ints(99, -1, 85, 100, e[0], e[1], e[2], 99, -1, -1, -1, -1, -1)
     }
 
     private fun afterPower(o: OutputStream, args: ByteBuffer) {
         val on = runCatching { args.position(12); args.getInt() != 0 }.getOrDefault(true)
         // 4.0+ knows only OFF/UNAVAILABLE/ON(10); 2.3 has "SIM ready" (4) instead of ON
-        unsol(o, UNSOL_RADIO_STATE_CHANGED, le(if (!on) 0 else if (api >= 14) 10 else 4))
+        unsol(o, UNSOL_RADIO_STATE_CHANGED, le(if (!on) 0 else radioOnState))
         if (on) {
-            unsol(o, UNSOL_RESPONSE_SIM_STATUS_CHANGED, ByteArray(0))
+            if (api > 4) unsol(o, UNSOL_RESPONSE_SIM_STATUS_CHANGED, ByteArray(0))   // Cupcake RIL does not know 1019
             unsol(o, UNSOL_RESPONSE_VOICE_NETWORK_STATE_CHANGED, ByteArray(0))
         }
     }
@@ -249,11 +372,17 @@ class RilStub(
         val (number, state) = call ?: return le(0)
         val b = ByteArrayOutputStream()
         b.write(le(1))
+        if (api <= 4) {   // Cupcake DriverCall: state, index, TOA, mpty, MT, als, voice, number, presentation - nothing else
+            b.write(le(state)); b.write(le(1)); b.write(le(129))
+            b.write(le(0)); b.write(le(1)); b.write(le(0)); b.write(le(1))
+            b.write(str(number)); b.write(le(0))
+            return b.toByteArray()
+        }
         b.write(le(state)); b.write(le(1)); b.write(le(129))   // state, index, type of address
         b.write(le(0)); b.write(le(1)); b.write(le(0))         // not multiparty, mobile terminated, als
         b.write(le(1))                                         // voice
         b.write(le(0))                                         // no voice privacy
-        if (samsung && api >= 18) b.write(le(0))               // Samsung 4.3: CallDetails call type (voice)
+        if (samsung) b.write(le(0))                            // Samsung (2.3.6, 4.0.4, 4.3 alike): extra call type int before the number
         b.write(str(number)); b.write(le(0))                   // number, presentation allowed
         b.write(str(null)); b.write(le(2))                     // no name, presentation unknown
         b.write(le(0))                                         // no UUS info
@@ -261,21 +390,46 @@ class RilStub(
     }
 
     private fun simStatus(): ByteArray {
+        // Cupcake RIL.responseSimStatus: one int, RIL_SIM_ABSENT 0 / NOT_READY 1 / READY 2 / PIN 3 / PUK 4 (no card-status struct)
+        if (api <= 4) return ints(if (sim.present) 2 else 0)
         val b = ByteArrayOutputStream()
+        if (!sim.present) {                               // empty slot: "No SIM card"
+            b.write(le(0)); b.write(le(0))                // CARDSTATE_ABSENT, universal PIN unknown
+            b.write(le(-1)); b.write(le(-1))              // no GSM/UMTS app, no CDMA app
+            if (api >= 16) b.write(le(-1))                // no IMS app
+            b.write(le(0))                                // no applications
+            return b.toByteArray()
+        }
         b.write(le(1)); b.write(le(0))                    // card present, universal PIN unknown
-        b.write(le(0)); b.write(le(-1))                   // GSM/UMTS app 0, no CDMA app
+        // GSM/UMTS app 0. CDMA modem: a second application, CSIM, is the CDMA subscription. IccCardProxy of a CDMA phone only
+        // takes the 3GPP2 application (the 1xRTT voice tech is forced on LTE-on-CDMA builds) and UiccCard refuses any index
+        // that is not a CSIM / RUIM, so without it the card stays "not ready" although SIMRecords loaded. Its files are not
+        // emulated (reads fail, which the records tolerate); the phone's IMSI, number and operator come from the USIM.
+        b.write(le(0)); b.write(le(if (cdma) 1 else -1))
         if (api >= 16) b.write(le(-1))                    // no IMS app (field added in 4.1)
-        b.write(le(1))                                    // one application
+        b.write(le(if (cdma) 2 else 1))                   // applications
         b.write(le(if (api >= 14) 2 else 1))              // USIM (SIM on 2.3)
         b.write(le(5))                                    // APPSTATE_READY
         b.write(le(0))                                    // perso substate
         b.write(str(null)); b.write(str(null))            // aid, label
         b.write(le(0)); b.write(le(0)); b.write(le(0))    // pin1 replaced, pin1, pin2
+        if (cdma) {
+            b.write(le(if (api >= 14) 4 else 3))          // CSIM (RUIM before 4.0)
+            b.write(le(5)); b.write(le(0))                // ready, no perso substate
+            b.write(str(CSIM_AID)); b.write(str(null))
+            b.write(le(0)); b.write(le(0)); b.write(le(0))
+        }
         return b.toByteArray()
     }
 
+    /** RIL_REQUEST_DATA_CALL_LIST with no connection (2.3: plain count; 4.x: version + count) */
+    private fun noDataCalls(): ByteArray = if (api < 14) le(0) else le(RIL_VERSION) + le(0)
+
+    private fun nullStrs(n: Int) = le(n) + (1..n).fold(ByteArray(0)) { acc, _ -> acc + str(null) }
+
     private fun dataCall(single: Boolean): ByteArray {
         if (api < 14) {   // 2.3: cid, interface, address
+            if (!single && api <= 4) return le(1) + le(1) + le(2) + str("IP") + str("internet") + str("10.0.2.15")   // Cupcake PDPContextState: cid, active, type, apn, address
             return if (single) strs("1", IFACE, "10.0.2.15") else (le(1) + le(1) + le(2) + str("IP") + str("10.0.2.15"))
         }
         val b = ByteArrayOutputStream()
@@ -315,6 +469,9 @@ class RilStub(
     private fun ints(vararg v: Int) = le(v.size) + v.fold(ByteArray(0)) { acc, x -> acc + le(x) }
     private fun strs(vararg v: String) = le(v.size) + v.fold(ByteArray(0)) { acc, x -> acc + str(x) }
 
+    /** Parcel.writeByteArray: length, then the bytes padded to 4 (what the guest's RIL.responseRaw reads) */
+    private fun raw(b: ByteArray): ByteArray = le(b.size) + b + ByteArray((4 - b.size % 4) % 4)
+
     /** Parcel.writeString: length (-1 for null), UTF-16 with a terminator, padded to 4 bytes */
     private fun str(s: String?): ByteArray {
         if (s == null) return le(-1)
@@ -328,14 +485,13 @@ class RilStub(
     companion object {
         private const val RIL_VERSION = 6
         private const val IFACE = "rmnet0"
-        private const val OPERATOR_NAME = "AEmulator"
         private const val UNSOL_RADIO_STATE_CHANGED = 1000
         private const val UNSOL_RESPONSE_CALL_STATE_CHANGED = 1001
-        private const val UNSOL_CALL_RING = 1018
         private const val UNSOL_RESPONSE_NEW_SMS = 1003
-        private const val EF_ICCID = 0x2FE2
-        private const val SIM_READ_BINARY = 176
-        private const val SIM_GET_RESPONSE = 192
+        private const val UNSOL_CALL_RING = 1018
+        private const val RIL_REQUEST_SMS_ACKNOWLEDGE = 37
+        /** characters whose GSM 03.38 code equals ASCII, so packing needs no lookup table */
+        private val GSM7_SAFE: Set<Char> = (('A'..'Z') + ('a'..'z') + ('0'..'9') + " \n\r!\"#%&'()*+,-./:;<=>?".toList()).toSet()
         private const val CALL_ACTIVE = 0
         private const val CALL_INCOMING = 4
         private const val RIL_REQUEST_LAST_CALL_FAIL_CAUSE = 18
@@ -343,6 +499,11 @@ class RilStub(
         private val HANGUPS = setOf(12, 13, 14, 17)   // hangup, waiting, foreground, reject (UDUB)
         private const val UNSOL_RESPONSE_VOICE_NETWORK_STATE_CHANGED = 1002
         private const val UNSOL_RESPONSE_SIM_STATUS_CHANGED = 1019
+        private const val UNSOL_RESPONSE_CDMA_NEW_SMS = 1020
+        private const val UNSOL_RESPONSE_NEW_BROADCAST_SMS = 1021
+        private const val CSIM_AID = "A0000003431002F310FFFF89020000FF"
+        private const val CDMA_SID = "1"
+        private const val CDMA_NID = "65535"
         private const val UNSOL_RIL_CONNECTED = 1034
         private const val E_GENERIC_FAILURE = 2
         private const val E_RADIO_NOT_AVAILABLE = 1
@@ -366,13 +527,25 @@ class RilStub(
         private const val RIL_REQUEST_QUERY_NETWORK_SELECTION_MODE = 45
         private const val RIL_REQUEST_BASEBAND_VERSION = 51
         private const val RIL_REQUEST_DATA_CALL_LIST = 57
+        private const val RIL_REQUEST_SET_PREFERRED_NETWORK_TYPE = 73
         private const val RIL_REQUEST_GET_PREFERRED_NETWORK_TYPE = 74
+        private const val RIL_REQUEST_CDMA_SET_SUBSCRIPTION_SOURCE = 77
+        private const val RIL_REQUEST_CDMA_SET_ROAMING_PREFERENCE = 78
+        private const val RIL_REQUEST_CDMA_QUERY_ROAMING_PREFERENCE = 79
+        private const val RIL_REQUEST_CDMA_SET_PREFERRED_VOICE_PRIVACY_MODE = 82
+        private const val RIL_REQUEST_CDMA_QUERY_PREFERRED_VOICE_PRIVACY_MODE = 83
+        private const val RIL_REQUEST_CDMA_FLASH = 84
+        private const val RIL_REQUEST_CDMA_BURST_DTMF = 85
+        private const val RIL_REQUEST_CDMA_SEND_SMS = 87
+        private const val RIL_REQUEST_CDMA_SMS_ACKNOWLEDGE = 88
+        private const val RIL_REQUEST_CDMA_SUBSCRIPTION = 95
+        private const val RIL_REQUEST_EXIT_EMERGENCY_CALLBACK_MODE = 99
+        private const val RIL_REQUEST_CDMA_GET_SUBSCRIPTION_SOURCE = 104
         private const val RIL_REQUEST_GET_NEIGHBORING_CELL_IDS = 75
         private const val RIL_REQUEST_DEVICE_IDENTITY = 98
         private const val RIL_REQUEST_GET_SMSC_ADDRESS = 100
         private const val RIL_REQUEST_VOICE_RADIO_TECH = 108
         private const val IMEISV = "01"
-        private const val BASEBAND = "AEmulator"
     }
 }
 
@@ -388,7 +561,16 @@ class VoldStub(
     /** остальные тома прошивки (съёмные карты, USB): сообщаем о них как о «нет носителя» */
     private val others: List<String> = emptyList(),
     private val api: Int = 19,
+    /** Called with the Environment state string ("mounted", "unmounted"…) whenever the card state changes. Android up to
+     *  2.1 (API <= 7) has no MountService<->vold state query: Environment.getExternalStorageState() reads the
+     *  EXTERNAL_STORAGE_STATE property, which the real mountd / vold sets (the emulator runs neither, so it must). */
+    private val onStorageState: ((String) -> Unit)? = null,
 ) {
+    /** 1.0-2.1: plain "command[:argument]\0" lines instead of vold2's numbered replies. mountd (1.0-1.5, socket
+     *  "mountd") speaks media_* events, the old vold (1.6-2.1) volume_* ones. */
+    private val legacy = api in 1..7
+    private val legacyMountd = legacy && sockName == "mountd"
+    private val evtPrefix = if (legacyMountd) "media_" else "volume_"
     @Volatile var state = MOUNTED
     private val label = mountPoint.substringAfterLast('/').ifEmpty { "sdcard" }
     private val clients = Collections.synchronizedList(ArrayList<LocalSocket>())
@@ -401,6 +583,12 @@ class VoldStub(
     private fun serveOne(c: LocalSocket) {
         clients.add(c)
         try {
+            // mountd tells the framework the card is mounted as soon as it connects (the event the daemon sent at boot
+            // went nowhere: nobody was listening yet)
+            if (legacyMountd && state == MOUNTED) {
+                publish(MOUNTED_PROP)
+                runCatching { send(c.outputStream, listOf("${evtPrefix}mounted:$mountPoint")) }
+            }
             val out = c.outputStream
             val ins = c.inputStream
             val buf = ByteArray(4096)
@@ -421,7 +609,37 @@ class VoldStub(
         }
     }
 
+    /** the old (API 1-7) protocol: the command is "name" or "name:path", the events are "name:path" */
+    private fun answerLegacy(cmd: String, out: OutputStream) {
+        val name = cmd.substringBefore(':').trim()
+        when (name) {
+            "mount_volume", "mount_media" -> {
+                state = MOUNTED
+                publish(MOUNTED_PROP)
+                send(out, listOf("${evtPrefix}mounted:$mountPoint"))
+            }
+            "eject_media" -> {
+                state = IDLE
+                publish(UNMOUNTED_PROP)
+                send(out, listOf("${evtPrefix}unmounted:$mountPoint"))
+            }
+            // no USB cable, no mass storage
+            "send_ums_status", "send_status" -> send(out, listOf("ums_disconnected", "ums_disabled"))
+            "enable_ums", "disable_ums" -> send(out, listOf("ums_disabled"))
+            "format_media" -> {
+                // nothing to format: the card is a host folder; report it mounted again
+                state = MOUNTED
+                publish(MOUNTED_PROP)
+                send(out, listOf("${evtPrefix}unmounted:$mountPoint", "${evtPrefix}mounted:$mountPoint"))
+            }
+            else -> log("vold: legacy command ignored: $cmd")
+        }
+    }
+
+    private fun publish(envState: String) { runCatching { onStorageState?.invoke(envState) } }
+
     private fun answer(cmd: String, out: OutputStream) {
+        if (legacy) { answerLegacy(cmd, out); return }
         val parts = cmd.trim().split(Regex("\\s+"))
         val seq = parts.getOrNull(0)?.toIntOrNull()
         val args = if (seq != null) parts.drop(1) else parts
@@ -459,9 +677,10 @@ class VoldStub(
             head == "asec" && sub == "list" -> listOf("200 Asec listed.")
             head == "asec" && sub == "path" -> listOf("211 /mnt/asec/${args.getOrElse(2) { "" }}")
             head == "obb" && sub == "list" -> listOf("200 Obb listed.")
-            // the answer is one number that MountService parses whole (Samsung's moveDumpstates dies in system_server
-            // on anything else); cryptocomplete: 1 = not encrypted
-            head == "cryptfs" -> listOf(if (sub == "cryptocomplete") "200 1" else "200 0")
+            // MountService parses most cryptfs replies with Integer.parseInt(event.getMessage()): the old "200 0 0"
+            // made Samsung's DirEncryptService (moveDumpstates, run on BOOT_COMPLETED) throw NumberFormatException
+            // ("Invalid int: \"0 0\"") in system_server, which killed zygote ~25 s after boot. Only getfield keeps two fields.
+            head == "cryptfs" -> { log("vold: cryptfs ${args.drop(1).joinToString(" ")}"); if (sub == "getfield") listOf("200 0 0") else listOf("200 0") }
             else -> listOf("200 ok")
         }
         send(out, reply.map { withSeq(it, seq) })
@@ -491,6 +710,12 @@ class VoldStub(
 
     fun rescan() {
         state = MOUNTED
+        if (legacy) {
+            publish(MOUNTED_PROP)
+            val list = synchronized(clients) { ArrayList(clients) }
+            for (c in list) runCatching { send(c.outputStream, listOf("${evtPrefix}mounted:$mountPoint")) }
+            return
+        }
         announce(IDLE, MOUNTED)
     }
 
@@ -510,6 +735,10 @@ class VoldStub(
     companion object {
         const val IDLE = 1
         const val MOUNTED = 4
+        const val MOUNTED_PROP = "mounted"
+        const val UNMOUNTED_PROP = "unmounted"
+        /** the property Environment.getExternalStorageState() reads on Android 1.0-2.1 */
+        const val STATE_PROP = "EXTERNAL_STORAGE_STATE"
     }
 }
 
@@ -588,7 +817,10 @@ class LogdSink(paths: VmPaths, private val log: (String) -> Unit) {
                     if (n < 0) break
                     if (n <= 12) continue
                     val id = buf[0].toInt() and 0xff
-                    val name = when (id) { 0 -> "main"; 1 -> "radio"; 3 -> "system"; 4 -> "main"; else -> continue }
+                    // Modified for AEmulator Plus (2026-10-30): the other buffers (events 2, stats 5, security 6, kernel 7) were dropped
+                    // here; a record a dying process sends to one of them (liblog picks the buffer, not the caller) never
+                    // reached the export. They go to files of their own now, the export's raw tail shows them.
+                    val name = when (id) { 0 -> "main"; 1 -> "radio"; 2 -> "events"; 3 -> "system"; 4 -> "main"; 5 -> "stats"; 6 -> "security"; 7 -> "kernel"; else -> continue }
                     val o = outs.getOrPut(id) { java.io.FileOutputStream(File(dir, name), true) }
                     runCatching { o.write(buf, 11, n - 11); if (buf[n - 1].toInt() != 0) o.write(0) }
                 }

@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="vs_hide_menu">Sakrij dugme menija</string>
+    <string name="vs_hide_menu_sub">Sakrij dugme … . Dugme Nazad na telefonu ili pokret za nazad otvara meni emulatora umjesto da šalje Nazad Androidu. Navigaciona dugmad gosta i dalje upravljaju Androidom.</string>
+    <string name="vs_vibration">Vibracija gosta</string>
+    <string name="vs_vibration_sub">Prosljeđuje staru vibraciju gosta telefonu. Primjenjuje se pri sljedećem pokretanju; svaki impuls ograničen je na 60 sekundi.</string>
+    <string name="nav_buttons">Navigaciona dugmad</string>
+    <string name="nav_order">Redoslijed dugmadi (slijeva udesno)</string>
+    <string name="nav_earlier">Ranije</string>
+    <string name="nav_later">Kasnije</string>
+    <string name="nav_reset">Vrati dugmad</string>
+    <string name="nav_search">Pretraga</string>
+    <string name="nav_power">Napajanje</string>
+    <string name="nav_go_to_recovery">Idi u recovery</string>
+    <string name="nav_volume_down">Utišaj</string>
+    <string name="nav_volume_up">Pojačaj</string>
+    <string name="nav_up">D-pad gore</string>
+    <string name="nav_down">D-pad dolje</string>
+    <string name="nav_left">D-pad lijevo</string>
+    <string name="nav_right">D-pad desno</string>
+    <string name="nav_center">D-pad sredina</string>
+    <string name="nav_trackball">Trackball</string>
+    <string name="nav_trackball_sub">Prevucite preko kruga iznad navigacione trake da se kotrlja; dodirnite za izbor.</string>
+    <string name="nav_dpad_mode">Režim tastera sa strelicama</string>
+    <string name="nav_dpad_sub">Isključeno: pravi relativni trackball događaji za aplikacije gosta. Uključeno: umjesto toga pritisci D-pad tastera. Ne šalje oboje.</string>
+    <string name="nav_sensitivity">Osjetljivost: %1$d dp po koraku (niže je brže)</string>
+    <string name="nav_trackball_waiting">Još nema veze s trackballom gosta</string>
+    <string name="nav_trackball_recovery">Recovery: koristite režim tastera sa strelicama</string>
+    <string name="vs_bluetooth">Bluetooth domaćina (eksperimentalno)</string>
+    <string name="vs_bluetooth_sub">Dozvolite gostu da skenira, prikazuje spareni spisak i komunicira s Bluetooth uređajima preko telefona: klasični serijski (RFCOMM) i Bluetooth LE (GATT). Traži Bluetooth dozvolu i potpuno ponovno pokretanje virtuelne mašine. Nije sirovi HCI: gost vidi adapter telefona preko mosta, pa slušalice (audio profili) nisu podržane.</string>
+    <string name="vs_sf_tombstone">SurfaceFlinger tombstone pada (otklanjanje grešaka)</string>
+    <string name="vs_sf_tombstone_sub">Ako SurfaceFlinger padne, dozvolite firmveru da u dnevnik upiše običan tombstone (s funkcijom koja je pala) umjesto kratkog izvještaja. Koristite ga kad šaljete prijavu greške. Primjenjuje se pri sljedećem potpunom pokretanju virtuelne mašine.</string>
+    <string name="bluetooth_permission_denied">Bluetooth dozvola je odbijena: gost će se pokrenuti bez Bluetootha domaćina.</string>
+</resources>

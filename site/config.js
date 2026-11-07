@@ -1,20 +1,16 @@
 /*
- * AEmulator — настройки сайта (без бэкенда). Правьте этот файл и обновите страницу.
+ * AEmulator Plus — fork settings. Modified for Sunset 2026-09-30; for Plus 2026-10-04.
  * Его же читает генератор README (docs/readme/gen.py), так что ссылки на GitHub совпадут с сайтом.
- *
- * Список прошивок ведётся на форуме (links.forum), а не здесь.
  *
  * Внутри AEMU_CONFIG должен оставаться чистый JSON (двойные кавычки, без комментариев и хвостовых запятых).
  */
 window.AEMU_CONFIG = {
-  "version": "0.0.0.3",
+  "version": "0.0.0.2.1",
   "links": {
-    "repo": "https://github.com/uxazu/aemulator",
+    "repo": "https://github.com/somerandomusernam2/AEmulator-Plus",
     "site": "https://aemulator.gt.tc",
-    "forum": "https://aeforum.uxazuu.space/",
     "channel": "https://t.me/aemulatorofficial",
-    "author": "https://github.com/uxazu",
-    "original": "https://t.me/istratii_tech1",
-    "donate": "https://dalink.to/uxazu"
+    "author": "https://github.com/somerandomusernam2",
+    "original": "https://t.me/istratiit_ech"
   }
 };

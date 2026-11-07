@@ -1,0 +1,93 @@
+★ x86-32: отчёт о падении гостя и обратный след (продолжение 0035 и 0037).
+
+Оба патча печатают регистры, PC/LR по отображениям и след по стеку ТОЛЬКО под
+`#ifdef TARGET_ARM`: у i386-linux-user в журнале оставался один дамп состояния
+процессора. Здесь то же самое для x86-32: байты и отображение у EIP, адрес
+возврата из кадра EBP и след по стеку (слово стека считается адресом возврата,
+если перед ним оканчивается команда CALL — E8 rel32 и формы FF /2).
+
+Только для i386 (x86-64 не поддерживается). Для ARM ничего не меняется.
+
+--- a/linux-user/signal.c
++++ b/linux-user/signal.c
+@@ -774,6 +774,38 @@
+     fclose(m);
+     fprintf(stderr, "qemu: %s=0x%08lx — вне отображений\n", tag, a);
+ }
+ 
++#if defined(TARGET_I386) && !defined(TARGET_X86_64)
++/*
++ * ★ x86-32: is there a CALL right before this address? The x86 counterpart of
++ * the ARM return-address filter: a word on the stack is only reported when the
++ * bytes before it end a call instruction (E8 rel32, FF /2 in its register,
++ * [reg], [reg+d8], [reg+d32], SIB and absolute forms).
++ */
++static int guest_x86_is_return_addr(abi_ulong a)
++{
++    uint8_t b[7];
++    int i;
++
++    if (!guest_addr_is_code((unsigned long)a)) {
++        return 0;
++    }
++    for (i = 0; i < 7; i++) {
++        if (get_user_u8(b[i], a - 7 + i)) {
++            return 0;
++        }
++    }
++    return b[2] == 0xe8 ||                                  /* call rel32 */
++           (b[5] == 0xff && (b[6] & 0xf8) == 0xd0) ||       /* call r32 */
++           (b[5] == 0xff && (b[6] & 0xf8) == 0x10) ||       /* call [r32] */
++           (b[4] == 0xff && b[5] == 0x14) ||                /* call [sib] */
++           (b[4] == 0xff && (b[5] & 0xf8) == 0x50) ||       /* call [r32+d8] */
++           (b[3] == 0xff && b[4] == 0x54) ||                /* call [sib+d8] */
++           (b[1] == 0xff && (b[2] & 0xf8) == 0x90) ||       /* call [r32+d32] */
++           (b[1] == 0xff && b[2] == 0x15) ||                /* call [abs32] */
++           (b[0] == 0xff && b[1] == 0x94);                  /* call [sib+d32] */
++}
++#endif
++
+ static G_NORETURN
+ void dump_core_and_abort(CPUArchState *env, int target_sig)
+@@ -990,6 +1022,41 @@
+         }
+     }
+ #endif
++#if defined(TARGET_I386) && !defined(TARGET_X86_64)
++    /*
++     * ★★★ x86-32 crash report: the ARM block above is TARGET_ARM only, an x86
++     * guest got nothing but the register dump. Same idea: where EIP and the
++     * caller point (file and offset from the host's own maps, the guest's
++     * libraries live in qemu's address space), the bytes at EIP, and a poor
++     * man's backtrace read from the stack.
++     */
++    {
++        abi_ulong sp = env->regs[R_ESP];
++        abi_ulong ret = 0;
++        int shown = 0;
++
++        guest_addr_bytes("EIP", (unsigned long)env->eip, 0, 14);
++        guest_addr_where("EIP", (unsigned long)env->eip);
++        if (!get_user_u32(ret, env->regs[R_EBP] + 4)) {
++            guest_addr_where("EBP-ret", (unsigned long)ret);
++        }
++        fprintf(stderr, "qemu: stack trace (top down):\n");
++        for (int i = 0; i < 256 && shown < 12; i++) {
++            abi_ulong w = 0;
++
++            if (get_user_u32(w, sp + (abi_ulong)(i * 4))) {
++                break;
++            }
++            if (w < 0x1000) {
++                continue;
++            }
++            if (guest_x86_is_return_addr(w)) {
++                guest_addr_where("  return", (unsigned long)w);
++                shown++;
++            }
++        }
++    }
++#endif
+     fflush(stderr);
+ 
+     /* ★ Р-35: летописи — «ушёл от сигнала», а не «вышел сам» (exit.c). */

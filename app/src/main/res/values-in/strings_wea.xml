@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="m_wea">Peringatan darurat palsu</string>
+    <string name="m_wea_type">Jenis peringatan</string>
+    <string name="m_wea_sent">Peringatan darurat terkirim</string>
+    <string name="m_wea_failed">Tidak terkirim: telepon pada ponsel tidak berjalan</string>
+    <string name="wea_presidential">Peringatan presiden</string>
+    <string name="wea_extreme">Ancaman ekstrem</string>
+    <string name="wea_severe">Ancaman parah</string>
+    <string name="wea_amber">Peringatan AMBER</string>
+    <string name="wea_test">Uji bulanan wajib</string>
+    <string name="wea_body_presidential">Peringatan presiden: Ini adalah uji sistem peringatan darurat. Tidak perlu tindakan apa pun.</string>
+    <string name="wea_body_extreme">Peringatan ekstrem: Peringatan tornado di wilayah Anda. Segera cari perlindungan. Ini adalah uji coba.</string>
+    <string name="wea_body_severe">Peringatan parah: Peringatan badai petir di wilayah Anda hingga pukul 18.00. Ini adalah uji coba.</string>
+    <string name="wea_body_amber">Peringatan AMBER: Anak hilang, sedan biru. Hubungi 911 jika melihatnya. Ini adalah uji coba.</string>
+    <string name="wea_body_test">Ini adalah uji sistem Wireless Emergency Alert. Tidak perlu tindakan apa pun.</string>
+</resources>

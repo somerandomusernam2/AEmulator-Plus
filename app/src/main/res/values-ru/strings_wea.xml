@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="m_wea">Ложное экстренное оповещение</string>
+    <string name="m_wea_type">Тип оповещения</string>
+    <string name="m_wea_sent">Экстренное оповещение отправлено</string>
+    <string name="m_wea_failed">Не отправлено: телефония телефона не запущена</string>
+    <string name="wea_presidential">Президентское оповещение</string>
+    <string name="wea_extreme">Крайняя угроза</string>
+    <string name="wea_severe">Серьёзная угроза</string>
+    <string name="wea_amber">Оповещение AMBER</string>
+    <string name="wea_test">Обязательная ежемесячная проверка</string>
+    <string name="wea_body_presidential">Президентское оповещение: это проверка системы экстренного оповещения. Никаких действий не требуется.</string>
+    <string name="wea_body_extreme">Экстренное оповещение: в вашем районе предупреждение о торнадо. Немедленно укройтесь. Это проверка.</string>
+    <string name="wea_body_severe">Серьёзное оповещение: в вашем районе предупреждение о грозе до 18:00. Это проверка.</string>
+    <string name="wea_body_amber">Оповещение AMBER: пропал ребёнок, синий седан. Если увидите, позвоните 911. Это проверка.</string>
+    <string name="wea_body_test">Это проверка системы Wireless Emergency Alert. Никаких действий не требуется.</string>
+</resources>

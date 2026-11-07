@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="m_wea">Võlts-hädateade</string>
+    <string name="m_wea_type">Teate tüüp</string>
+    <string name="m_wea_sent">Hädateade saadetud</string>
+    <string name="m_wea_failed">Ei saadetud: telefoni telefonivõimalused ei tööta</string>
+    <string name="wea_presidential">Presidendi teade</string>
+    <string name="wea_extreme">Äärmuslik oht</string>
+    <string name="wea_severe">Tõsine oht</string>
+    <string name="wea_amber">AMBER-teade</string>
+    <string name="wea_test">Kohustuslik igakuine test</string>
+    <string name="wea_body_presidential">Presidendi teade: see on hädateadete süsteemi test. Tegutseda pole vaja.</string>
+    <string name="wea_body_extreme">Äärmuslik hoiatus: teie piirkonnas on tornaadohoiatus. Otsige viivitamatult varjupaika. See on test.</string>
+    <string name="wea_body_severe">Tõsine hoiatus: teie piirkonnas on kella 18.00-ni äikesehoiatus. See on test.</string>
+    <string name="wea_body_amber">AMBER-teade: kadunud laps, sinine sedaan. Nähes helistage 911. See on test.</string>
+    <string name="wea_body_test">See on juhtmevaba hädateadete süsteemi test. Tegutseda pole vaja.</string>
+</resources>

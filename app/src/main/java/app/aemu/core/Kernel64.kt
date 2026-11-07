@@ -257,16 +257,40 @@ enum class Kernel64(
         absentFeatures = listOf("consumerir", "fingerprint", "nfc", "nfc.hce", "nfc.hcef"), trafficAccounting = true, noQemuPipe = true,
         // 8.0's Skia pipeline of hwui is experimental and stops system_server with "GL errors!" (SkiaOpenGLPipeline):
         // 8.0 draws with its OpenGL pipeline
-        props = mapOf("ro.treble.enabled" to "false", "debug.hwui.renderer" to "opengl"),
+        // (a Pixel 2 image says ro.cp_system_other_odex=1: PackageManagerService then asks init to copy its second slot's
+        // preopt files, waits 100 s for "sys.cppreopt=finished" that nothing here answers and ends in Slog.wtf "cppreopt did
+        // not finish!", as on 15+)
+        props = mapOf("ro.treble.enabled" to "false", "debug.hwui.renderer" to "opengl", "ro.cp_system_other_odex" to "0"),
+        // BatteryStatsImpl reads the kernel's wakelocks from /proc/wakelocks, then /d/wakeup_sources; the phone's kernel has
+        // neither for the guest, so KernelWakelockReader ends in Slog.wtf "neither /proc/wakelocks nor /d/wakeup_sources exists".
+        // system_server posts that WTF to the ActivityManager thread, whose dropbox code reads Settings before
+        // InstallSystemProviders: that thread loads SettingsProvider itself (first boot: dex2oat of SettingsProvider.apk
+        // runs under it) while the main thread installs a second instance, both set up the same settings state and
+        // system_server dies ("cannot interact with a closed instance", zygote 137). An empty table (the header line the
+        // reader skips) means "no wakelocks" and no WTF.
+        procFiles = mapOf("wakelocks" to "name\tcount\texpire_count\twake_count\tactive_since\ttotal_time\tsleep_time\tmax_time\tlast_change\n"),
         // The engine's codec service is the 64-bit one of the emulator image, whose codec library a phone's system of
         // 8.0 has only as a 32-bit build: a firmware with its own vendor side keeps its own (32-bit) service.
         firmwareOwn = listOf("vendor#bin#hw#android.hardware.media.omx@1.0-service", "vendor#etc#init#android.hardware.media.omx@1.0-service.rc",
-            "vendor#lib#libmediacodecservice.so")),
+            "vendor#lib#libmediacodecservice.so"),
+        // (the passthrough lookup takes any "-impl*.so": Qualcomm's one waits for the secure world forever, and keystore
+        // waits for the keymaster service for ever after it: "Waited one second for ...IKeymasterDevice/default")
+        firmwareAside = listOf("vendor#lib64#hw#android.hardware.keymaster@3.0-impl-qti.so")),
+        // (the engine's keymaster impl is built for 8.1: it needs libkeymaster1.so, which 8.0 does not have, and 8.1's
+        // libkeymaster_messages.so, 8.0's lacks keymaster::copy_size_and_data_from_buf. Both are engine assets of this
+        // kernel under vendor/lib64: the guest linker's search path is /vendor/lib64 first, and neither LD_LIBRARY_PATH
+        // nor AEMU64_LIBPATH of a service is read by 8.0's runner)
     // Android 8.1
     A8_1("27", 27..27, gpuBridge64 = true, bridgeAsEmulation = true, qcomHandles = true, webViewSingleProcess = true, registeredNetwork = true, treble = true, eglDir = "vendor/lib64/egl", gles = "2",
         // MIUI's system_server reads the panel colour from the touch controller's lockdown bytes before anything else
         // and dies closing the reader it never opened when the file is not there
-        procFiles = mapOf("tp_lockdown_info" to "4636320131320200\n"),
+        // (and, as on 8.0 above: BatteryStatsImpl's KernelWakelockReader posts Slog.wtf "neither /proc/wakelocks nor
+        // /d/wakeup_sources exists" from system_server's main thread; the ActivityManager thread then loads
+        // SettingsProvider for the dropbox code while the main thread installs it too, the two set up the same settings
+        // state and system_server dies with "cannot interact with a closed instance", zygote 137 - seen on Android
+        // Things 8.1. An empty table (only the header line the reader skips) means "no wakelocks" and no WTF.)
+        procFiles = mapOf("tp_lockdown_info" to "4636320131320200\n",
+            "wakelocks" to "name\tcount\texpire_count\twake_count\tactive_since\ttotal_time\tsleep_time\tmax_time\tlast_change\n"),
         absentFeatures = listOf("consumerir", "fingerprint", "nfc", "nfc.hce", "nfc.hcef"), trafficAccounting = true, noQemuPipe = true,
         // The framework calls a Treble device consistent only after checking the running kernel (its SELinux policy
         // version, release and build options) against its certification list. There is no SELinux for the guest and
@@ -297,7 +321,11 @@ enum class Kernel64(
         firmwareOwn = listOf("vendor#bin#hw#android.hardware.media.omx@1.0-service", "vendor#etc#init#android.hardware.media.omx@1.0-service.rc",
             "vendor#lib#libavservices_minijail_vendor.so", "vendor#lib#libmediacodecservice.so", "vendor#lib#libminijail_vendor.so",
             // (and the buffer mapper for 32-bit programs: the engine has that one built for 8.1 only)
-            "vendor#lib#hw#android.hardware.graphics.mapper@2.0-impl.so")),
+            "vendor#lib#hw#android.hardware.graphics.mapper@2.0-impl.so"),
+        // (the passthrough lookup takes any "-impl*.so": Qualcomm's ones wait for the secure world forever. The 32-bit
+        // paths are the ones of a firmware with no 64-bit side, e.g. Wear OS 9)
+        firmwareAside = listOf("vendor#lib64#hw#android.hardware.keymaster@3.0-impl-qti.so", "vendor#lib64#hw#android.hardware.gatekeeper@1.0-impl-qti.so",
+            "vendor#lib#hw#android.hardware.keymaster@3.0-impl-qti.so", "vendor#lib#hw#android.hardware.gatekeeper@1.0-impl-qti.so")),
     // Android 10: starts as kernel 28 (the 8.1 vendor side under a generic system image)
     A10("29", 29..29, gpuBridge64 = true, webView64 = true, qcomHandles = true, derivedIdentity = true, oneIncludePolicy = true, webViewSingleProcess = true, registeredNetwork = true, treble = true, eglDir = "vendor/lib64/egl", gles = "2",
         absentFeatures = listOf("consumerir", "fingerprint", "nfc", "nfc.hce", "nfc.hcef", "bluetooth", "bluetooth_le"), trafficAccounting = true, noQemuPipe = true, binderVold = true,
@@ -362,7 +390,11 @@ enum class Kernel64(
         ownVndkDir = "vendor/lib64/aemu-vndk", manifestFragmentsAside = true, trebleLinkerConfig = true, propAreaSize = 512 * 1024,
         // (the firmware's own 32-bit codec service: as on 9)
         firmwareOwn = listOf("vendor#bin#hw#android.hardware.media.omx@1.0-service", "vendor#etc#init#android.hardware.media.omx@1.0-service.rc",
-            "vendor#lib#libavservices_minijail_vendor.so", "vendor#lib#libmediacodecservice.so", "vendor#lib#libminijail_vendor.so"),
+            "vendor#lib#libavservices_minijail_vendor.so", "vendor#lib#libmediacodecservice.so", "vendor#lib#libminijail_vendor.so",
+            // (the empty libhidltransport and libhwbinder of 10+: a vendor side built for 9 names them, and over the
+            // system of 11 they live only inside the VNDK package, where the sphal namespace does not look: the 32-bit
+            // allocator service and mapper impl of such a firmware failed to link, SurfaceFlinger: "gralloc-mapper is missing")
+            "vendor#lib64#libhidltransport.so", "vendor#lib64#libhwbinder.so", "vendor#lib#libhidltransport.so", "vendor#lib#libhwbinder.so"),
         // (the passthrough lookup takes any "-impl*.so": Qualcomm's ones wait for the secure world forever)
         firmwareAside = listOf("vendor#lib64#hw#android.hardware.keymaster@3.0-impl-qti.so", "vendor#lib64#hw#android.hardware.gatekeeper@1.0-impl-qti.so")),
     // Android 12: starts as kernel 30
@@ -382,7 +414,12 @@ enum class Kernel64(
         sysFiles = mapOf("android_lcd/lcd_name" to "aemu\n"),
         ownVndkDir = "vendor/lib64/aemu-vndk", manifestFragmentsAside = true, trebleLinkerConfig = true, propAreaSize = 512 * 1024, cgroup2Root = true, oneFingerprint = true, vendorHeapProps = true,
         firmwareOwn = listOf("vendor#bin#hw#android.hardware.media.omx@1.0-service", "vendor#etc#init#android.hardware.media.omx@1.0-service.rc",
-            "vendor#lib#libavservices_minijail_vendor.so", "vendor#lib#libmediacodecservice.so", "vendor#lib#libminijail_vendor.so"),
+            "vendor#lib#libavservices_minijail_vendor.so", "vendor#lib#libmediacodecservice.so", "vendor#lib#libminijail_vendor.so",
+            // Added for AEmulator Plus (2026-11-02): the empty libhidltransport and libhwbinder of 10+. A stock vendor side built for
+            // 9 - 11 names them as dependencies of its HAL programs and libraries, and over the system of 12 / 13 they live only inside
+            // the VNDK package, where the vendor namespace does not look ("library libhidltransport.so not found: needed by main
+            // executable": fingerprint, gatekeeper, keymaster, light... exit code 1, restarted 12 times). As on 14+.
+            "vendor#lib64#libhidltransport.so", "vendor#lib64#libhwbinder.so", "vendor#lib#libhidltransport.so", "vendor#lib#libhwbinder.so"),
         firmwareAside = listOf("vendor#lib64#hw#android.hardware.keymaster@3.0-impl-qti.so", "vendor#lib64#hw#android.hardware.gatekeeper@1.0-impl-qti.so")),
     // Android 13: a copy of the kernel of 12 (its own from here on)
     A13("33", 33..33, volumeAtUserStart = true, derivedIdentity = true, oneIncludePolicy = true, webViewSingleProcess = true, registeredNetwork = true, treble = true, eglDir = "vendor/lib64/egl", gles = "2",
@@ -401,11 +438,16 @@ enum class Kernel64(
         sysFiles = mapOf("android_lcd/lcd_name" to "aemu\n"),
         ownVndkDir = "vendor/lib64/aemu-vndk", manifestFragmentsAside = true, trebleLinkerConfig = true, propAreaSize = 512 * 1024, cgroup2Root = true, partitionsAtRoot = true, bpfMapNotes = true, oneFingerprint = true, vendorHeapProps = true,
         firmwareOwn = listOf("vendor#bin#hw#android.hardware.media.omx@1.0-service", "vendor#etc#init#android.hardware.media.omx@1.0-service.rc",
-            "vendor#lib#libavservices_minijail_vendor.so", "vendor#lib#libmediacodecservice.so", "vendor#lib#libminijail_vendor.so"),
+            "vendor#lib#libavservices_minijail_vendor.so", "vendor#lib#libmediacodecservice.so", "vendor#lib#libminijail_vendor.so",
+            // Added for AEmulator Plus (2026-11-02): the empty libhidltransport and libhwbinder of 10+. A stock vendor side built for
+            // 9 - 11 names them as dependencies of its HAL programs and libraries, and over the system of 12 / 13 they live only inside
+            // the VNDK package, where the vendor namespace does not look ("library libhidltransport.so not found: needed by main
+            // executable": fingerprint, gatekeeper, keymaster, light... exit code 1, restarted 12 times). As on 14+.
+            "vendor#lib64#libhidltransport.so", "vendor#lib64#libhwbinder.so", "vendor#lib#libhidltransport.so", "vendor#lib#libhwbinder.so"),
         firmwareAside = listOf("vendor#lib64#hw#android.hardware.keymaster@3.0-impl-qti.so", "vendor#lib64#hw#android.hardware.gatekeeper@1.0-impl-qti.so")),
     // Android 14: a copy of the kernel of 13 (its own from here on)
     A14("34", 34..34, volumeAtUserStart = true, derivedIdentity = true, oneIncludePolicy = true, webViewSingleProcess = true, registeredNetwork = true, treble = true, eglDir = "vendor/lib64/egl", gles = "2",
-        absentFeatures = listOf("consumerir", "fingerprint", "nfc", "nfc.hce", "nfc.hcef", "bluetooth", "bluetooth_le"), trafficAccounting = true, noQemuPipe = true, binderVold = true,
+        absentFeatures = listOf("consumerir", "nfc", "nfc.hce", "nfc.hcef", "bluetooth", "bluetooth_le"), trafficAccounting = true, noQemuPipe = true, binderVold = true,
         // (12 has no VNDK 27 any more: the 8.1 vendor side links against the oldest one there is)
         props = mapOf("ro.treble.enabled" to "false", "bpf.progs_loaded" to "1", "ro.product.first_api_level" to "27", "debug.stagefright.c2inputsurface" to "1",
             "ro.apex.updatable" to "false", "dalvik.vm.jdwp-provider" to "none", "ro.property_service.version" to "2",
@@ -415,18 +457,36 @@ enum class Kernel64(
             // SurfaceFlinger of 12 composes with Skia by default, which draws nothing over SwiftShader: the GLES
             // composer of the releases before is still in it
             "debug.renderengine.backend" to "gles",
+            // Modified for AEmulator Plus (2026-10-28): 14's SurfaceFlinger is Skia only too ("gles" above is ignored), and the
+            // drawings its RenderEngine thread makes at start to fill the shader cache include a RGBA_FP16 buffer, which
+            // SwiftShader cannot make an EGL image of ("Unsupported EGL image format 22", "CreateImage badness unsupported HAL
+            // format=16"): AutoBackendTexture then dereferences the null image, surfaceflinger aborts (code 134) right after
+            // "Enter boot animation" and nothing registers SurfaceFlingerAIDL. As on 15: no priming.
+            "service.sf.prime_shader_cache" to "0",
             // the sound trigger HAL takes the engine's stand-in module, not the board's (which wants its DSP)
             "ro.hardware.sound_trigger.primary" to "aemu",
             // app compilation shares the phone's cores with the guest's UI, which SwiftShader draws on them too
+            // (netd of 14 waits for init to report that the network BPF loader has finished)
+            "init.svc.mdnsd_netbpfload" to "stopped",
             "dalvik.vm.dex2oat-threads" to "2", "dalvik.vm.background-dex2oat-threads" to "1", "dalvik.vm.boot-dex2oat-threads" to "2"),
-        procFiles = mapOf("tp_lockdown_info" to "4636320131320200\n"),
+        procFiles = mapOf("tp_lockdown_info" to "4636320131320200\n",
+            // (system_server of 14 asks the kernel configuration whether stacks are vmapped (Debug.isVmapStack, first
+            // call from the ActivityManager thread) and aborts without one: "Could not open /proc/config.gz: 13",
+            // "Check failed: result == OK Kernel configs could not be fetched", zygote exit 137. The firmware has no
+            // 64-bit side, so the file is read through qemu-arm, which takes the tree's proc/config.gz when it exists)
+            "config.gz" to "CONFIG_ARM64=y\nCONFIG_64BIT=y\nCONFIG_VMAP_STACK=y\n"),
         // (a generic system image of 14 carries the VNDK of 29..34 only, and its linkerconfig aborts on a version it
         // has no package of; the engine's HAL services find their own VNDK 28 copy by ownVndkDir)
         // (the software KeyMint inside keystore2 waits for the vendor's patch level property to exist, for ever over
         // a generic system image: no keystore service, system_server dies in LockSettingsService)
         propDefaults = mapOf("ro.vndk.version" to "34", "ro.vendor.build.security_patch" to "2023-12-05"),
-        sysFiles = mapOf("android_lcd/lcd_name" to "aemu\n"),
-        ownVndkDir = "vendor/lib64/aemu-vndk", manifestFragmentsAside = true, trebleLinkerConfig = true, propAreaSize = 512 * 1024, cgroup2Root = true, partitionsAtRoot = true, bpfMapNotes = true, linkerConfigTool = "apex/com.android.runtime/bin/linkerconfig", mediaProfilesFallback = true, manifestFragmentsKept = listOf("health", "aemu-"), oneFingerprint = true, vendorHeapProps = true, ownVendorUnderGsi = true, odmManifestFragmentsAside = true, lazyAidlServices = true, ramBudget = true, gpuBridge64 = true, bootHardwareProp = true,
+        sysFiles = mapOf("android_lcd/lcd_name" to "aemu\n",
+            // (netd of 14 also looks for the mark the network BPF loader leaves when it is done)
+            "fs/bpf/netd_shared/mainline_done" to ""),
+        // (14: the package manager asks apexd's binder service for the modules too; without the engine's stand-in nobody
+        // answers, the apps inside the modules - the permission controller among them - are never scanned and system_server
+        // dies with "There must be exactly one permissions manager; found []", zygote exit 137)
+        ownVndkDir = "vendor/lib64/aemu-vndk", manifestFragmentsAside = true, trebleLinkerConfig = true, propAreaSize = 512 * 1024, cgroup2Root = true, partitionsAtRoot = true, bpfMapNotes = true, linkerConfigTool = "apex/com.android.runtime/bin/linkerconfig", mediaProfilesFallback = true, manifestFragmentsKept = listOf("health", "aemu-"), oneFingerprint = true, vendorHeapProps = true, ownVendorUnderGsi = true, odmManifestFragmentsAside = true, lazyAidlServices = true, apexStandIn = true, ramBudget = true, gpuBridge64 = true, bootHardwareProp = true,
         firmwareOwn = listOf("vendor#bin#hw#android.hardware.media.omx@1.0-service", "vendor#etc#init#android.hardware.media.omx@1.0-service.rc",
             "vendor#lib#libavservices_minijail_vendor.so", "vendor#lib#libmediacodecservice.so", "vendor#lib#libminijail_vendor.so",
             // (the empty libhidltransport and libhwbinder of 10+, which the engine's HALs of 9 still name: a vendor side
@@ -435,7 +495,7 @@ enum class Kernel64(
         firmwareAside = listOf("vendor#lib64#hw#android.hardware.keymaster@3.0-impl-qti.so", "vendor#lib64#hw#android.hardware.gatekeeper@1.0-impl-qti.so")),
     // Android 15: a copy of the kernel of 14 (its own from here on)
     A15("35", 35..35, volumeAtUserStart = true, derivedIdentity = true, oneIncludePolicy = true, webViewSingleProcess = true, registeredNetwork = true, treble = true, eglDir = "vendor/lib64/egl", gles = "2",
-        absentFeatures = listOf("consumerir", "fingerprint", "nfc", "nfc.hce", "nfc.hcef", "bluetooth", "bluetooth_le"), trafficAccounting = true, noQemuPipe = true, binderVold = true,
+        absentFeatures = listOf("consumerir", "nfc", "nfc.hce", "nfc.hcef", "bluetooth", "bluetooth_le"), trafficAccounting = true, noQemuPipe = true, binderVold = true,
         // (12 has no VNDK 27 any more: the 8.1 vendor side links against the oldest one there is)
         props = mapOf("ro.treble.enabled" to "false", "bpf.progs_loaded" to "1", "ro.product.first_api_level" to "27", "debug.stagefright.c2inputsurface" to "1",
             "ro.apex.updatable" to "false", "dalvik.vm.jdwp-provider" to "none", "ro.property_service.version" to "2",
@@ -447,6 +507,11 @@ enum class Kernel64(
             "debug.renderengine.backend" to "gles",
             // (15 has the Skia one only; the drawings it makes at start to fill its shader cache crash SwiftShader)
             "service.sf.prime_shader_cache" to "0",
+            // Added for AEmulator Plus (2026-10-31). A Wear image has no vendor build.prop, so nothing sets the vendor API level
+            // and HintManagerService of system_server gets no SupportInfo ("NullPointerException ... SupportInfo.headroom",
+            // "Failed to create service HintManagerService", system_server dies, zygote is restarted): as on 17, the engine's
+            // vendor side is the one of 8.1.
+            "ro.vendor.api_level" to "27",
             // (a generic image asks init to copy its second slot's preopt files and waits 100 s for an answer)
             "ro.cp_system_other_odex" to "0",
             // (netd of 15 waits for init to report that the network BPF loader has finished)
@@ -466,7 +531,7 @@ enum class Kernel64(
         sysFiles = mapOf("android_lcd/lcd_name" to "aemu\n",
             // (netd of 15 also looks for the mark the network BPF loader leaves when it is done)
             "fs/bpf/netd_shared/mainline_done" to ""),
-        ownVndkDir = "vendor/lib64/aemu-vndk", manifestFragmentsAside = true, trebleLinkerConfig = true, propAreaSize = 512 * 1024, cgroup2Root = true, partitionsAtRoot = true, bpfMapNotes = true, linkerConfigTool = "apex/com.android.runtime/bin/linkerconfig", mediaProfilesFallback = true, manifestFragmentsKept = listOf("health", "aemu-"), oneFingerprint = true, vendorHeapProps = true, ownVendorUnderGsi = true, odmManifestFragmentsAside = true, lazyAidlServices = true, ramBudget = true, gpuBridge64 = true, syncLog = true, cgroupRcDepth = true, apexStandIn = true, webView64 = true, ownLibDirs = mapOf("vendor#bin#hw#android.hardware.audio.service" to "vendor/lib64/aemu-audio"), bootHardwareProp = true,
+        ownVndkDir = "vendor/lib64/aemu-vndk", manifestFragmentsAside = true, trebleLinkerConfig = true, propAreaSize = 512 * 1024, cgroup2Root = true, partitionsAtRoot = true, bpfMapNotes = true, linkerConfigTool = "apex/com.android.runtime/bin/linkerconfig", mediaProfilesFallback = true, manifestFragmentsKept = listOf("health", "aemu-"), oneFingerprint = true, vendorHeapProps = true, ownVendorUnderGsi = true, odmManifestFragmentsAside = true, lazyAidlServices = true, ramBudget = true, gpuBridge64 = true, syncLog = true, cgroupRcDepth = true, apexStandIn = true, webView64 = true, ownLibDirs = mapOf("vendor#bin#hw#android.hardware.audio.service" to "vendor/lib64/aemu-audio:vendor/lib64/aemu-vndk"), bootHardwareProp = true,
         firmwareOwn = listOf("vendor#bin#hw#android.hardware.media.omx@1.0-service", "vendor#etc#init#android.hardware.media.omx@1.0-service.rc",
             "vendor#lib#libavservices_minijail_vendor.so", "vendor#lib#libmediacodecservice.so", "vendor#lib#libminijail_vendor.so",
             // (the empty libhidltransport and libhwbinder of 10+, which the engine's HALs of 9 still name: a vendor side
@@ -475,7 +540,7 @@ enum class Kernel64(
         firmwareAside = listOf("vendor#lib64#hw#android.hardware.keymaster@3.0-impl-qti.so", "vendor#lib64#hw#android.hardware.gatekeeper@1.0-impl-qti.so")),
     // Android 16: a copy of the kernel of 15 (its own from here on)
     A16("36", 36..36, volumeAtUserStart = true, derivedIdentity = true, oneIncludePolicy = true, webViewSingleProcess = true, registeredNetwork = true, treble = true, eglDir = "vendor/lib64/egl", gles = "2",
-        absentFeatures = listOf("consumerir", "fingerprint", "nfc", "nfc.hce", "nfc.hcef", "bluetooth", "bluetooth_le"), trafficAccounting = true, noQemuPipe = true, binderVold = true,
+        absentFeatures = listOf("consumerir", "nfc", "nfc.hce", "nfc.hcef", "bluetooth", "bluetooth_le"), trafficAccounting = true, noQemuPipe = true, binderVold = true,
         // (12 has no VNDK 27 any more: the 8.1 vendor side links against the oldest one there is)
         props = mapOf("ro.treble.enabled" to "false", "bpf.progs_loaded" to "1", "ro.product.first_api_level" to "27", "debug.stagefright.c2inputsurface" to "1",
             "ro.apex.updatable" to "false", "dalvik.vm.jdwp-provider" to "none", "ro.property_service.version" to "2",
@@ -487,6 +552,11 @@ enum class Kernel64(
             "debug.renderengine.backend" to "gles",
             // (15 has the Skia one only; the drawings it makes at start to fill its shader cache crash SwiftShader)
             "service.sf.prime_shader_cache" to "0",
+            // 16: HintManagerService (system_server) does Integer.parseInt(ro.vendor.api_level) with no default; on a device init
+            // derives it from the vendor build.prop, and this image has none ("NumberFormatException: For input string: \"\"",
+            // "Failed to create service HintManagerService", system_server dies, zygote is killed). As on 15 and 17, the engine's
+            // vendor side is the one of 8.1.
+            "ro.vendor.api_level" to "27",
             // (a generic image asks init to copy its second slot's preopt files and waits 100 s for an answer)
             "ro.cp_system_other_odex" to "0",
             // (netd of 15 waits for init to report that the network BPF loader has finished)
@@ -506,7 +576,7 @@ enum class Kernel64(
         sysFiles = mapOf("android_lcd/lcd_name" to "aemu\n",
             // (netd of 15 also looks for the mark the network BPF loader leaves when it is done)
             "fs/bpf/netd_shared/mainline_done" to ""),
-        ownVndkDir = "vendor/lib64/aemu-vndk", manifestFragmentsAside = true, trebleLinkerConfig = true, propAreaSize = 512 * 1024, cgroup2Root = true, partitionsAtRoot = true, bpfMapNotes = true, linkerConfigTool = "apex/com.android.runtime/bin/linkerconfig", mediaProfilesFallback = true, manifestFragmentsKept = listOf("health", "aemu-"), oneFingerprint = true, vendorHeapProps = true, ownVendorUnderGsi = true, odmManifestFragmentsAside = true, lazyAidlServices = true, ramBudget = true, syncLog = true, cgroupRcDepth = true, standInServices = mapOf("android.hardware.power.IPower/default" to "system/lib64/libpowermanager.so#android.hardware.power-V"), gpuBridge64 = true, cgroupUidParents = listOf("system", "apps"), apexStandIn = true, webView64 = true, ownLibDirs = mapOf("vendor#bin#hw#android.hardware.audio.service" to "vendor/lib64/aemu-audio"), bootHardwareProp = true,
+        ownVndkDir = "vendor/lib64/aemu-vndk", manifestFragmentsAside = true, trebleLinkerConfig = true, propAreaSize = 512 * 1024, cgroup2Root = true, partitionsAtRoot = true, bpfMapNotes = true, linkerConfigTool = "apex/com.android.runtime/bin/linkerconfig", mediaProfilesFallback = true, manifestFragmentsKept = listOf("health", "aemu-"), oneFingerprint = true, vendorHeapProps = true, ownVendorUnderGsi = true, odmManifestFragmentsAside = true, lazyAidlServices = true, ramBudget = true, syncLog = true, cgroupRcDepth = true, standInServices = mapOf("android.hardware.power.IPower/default" to "system/lib64/libpowermanager.so#android.hardware.power-V"), aconfigStorage = true, gpuBridge64 = true, cgroupUidParents = listOf("system", "apps"), apexStandIn = true, webView64 = true, ownLibDirs = mapOf("vendor#bin#hw#android.hardware.audio.service" to "vendor/lib64/aemu-audio:vendor/lib64/aemu-vndk"), bootHardwareProp = true,
         firmwareOwn = listOf("vendor#bin#hw#android.hardware.media.omx@1.0-service", "vendor#etc#init#android.hardware.media.omx@1.0-service.rc",
             "vendor#lib#libavservices_minijail_vendor.so", "vendor#lib#libmediacodecservice.so", "vendor#lib#libminijail_vendor.so",
             // (the empty libhidltransport and libhwbinder of 10+, which the engine's HALs of 9 still name: a vendor side
@@ -515,7 +585,7 @@ enum class Kernel64(
         firmwareAside = listOf("vendor#lib64#hw#android.hardware.keymaster@3.0-impl-qti.so", "vendor#lib64#hw#android.hardware.gatekeeper@1.0-impl-qti.so")),
     // Android 17: a copy of the kernel of 16 (its own from here on)
     A17("37", 37..37, volumeAtUserStart = true, derivedIdentity = true, oneIncludePolicy = true, webViewSingleProcess = true, registeredNetwork = true, treble = true, eglDir = "vendor/lib64/egl", gles = "2",
-        absentFeatures = listOf("consumerir", "fingerprint", "nfc", "nfc.hce", "nfc.hcef", "bluetooth", "bluetooth_le"), trafficAccounting = true, noQemuPipe = true, binderVold = true,
+        absentFeatures = listOf("consumerir", "nfc", "nfc.hce", "nfc.hcef", "bluetooth", "bluetooth_le"), trafficAccounting = true, noQemuPipe = true, binderVold = true,
         // (12 has no VNDK 27 any more: the 8.1 vendor side links against the oldest one there is)
         // (17: HintManagerService parses ro.vendor.api_level without a default; init derives it on a device, and the
         // engine's vendor side is the one of 8.1)
@@ -524,9 +594,13 @@ enum class Kernel64(
             "persist.zygote.app_data_isolation" to "false",
             // (a vendor's firmware: as on 11)
             "pm.dexopt.first-boot" to "extract", "pm.dexopt.boot" to "extract", "ro.hardware.egl" to "swiftshader", "ro.frp.pst" to "",
-            // SurfaceFlinger of 12 composes with Skia by default, which draws nothing over SwiftShader: the GLES
-            // composer of the releases before is still in it
-            "debug.renderengine.backend" to "gles",
+            // Modified for AEmulator Plus (2026-10-31): 17 has no "gles" backend any more (the value is ignored) and takes
+            // Graphite over Vulkan by default. That one loads the board's Adreno Vulkan driver, which asks the mapper for
+            // Qualcomm's own metadata ("Failed to get Metadata - IS_CACHED", "GetGrallocHandleFormat ... failed! (error 7)")
+            // that the engine's gralloc does not have; the AHardwareBuffer then maps to VkFormat 0 and SurfaceFlinger aborts
+            // ("Failed to create a valid texture", Skia "cannot render to (VkFormat: 0)"). Skia over GL goes through EGL,
+            // the engine's bridge or SwiftShader, as hwui already does (debug.hwui.renderer=skiagl on this engine)
+            "debug.renderengine.backend" to "skiaglthreaded",
             // (15 has the Skia one only; the drawings it makes at start to fill its shader cache crash SwiftShader)
             "service.sf.prime_shader_cache" to "0",
             // (a generic image asks init to copy its second slot's preopt files and waits 100 s for an answer)
@@ -548,7 +622,7 @@ enum class Kernel64(
         sysFiles = mapOf("android_lcd/lcd_name" to "aemu\n",
             // (netd of 15 also looks for the mark the network BPF loader leaves when it is done)
             "fs/bpf/netd_shared/mainline_done" to ""),
-        ownVndkDir = "vendor/lib64/aemu-vndk", manifestFragmentsAside = true, trebleLinkerConfig = true, propAreaSize = 512 * 1024, cgroup2Root = true, partitionsAtRoot = true, bpfMapNotes = true, linkerConfigTool = "apex/com.android.runtime/bin/linkerconfig", mediaProfilesFallback = true, manifestFragmentsKept = listOf("health", "aemu-"), oneFingerprint = true, vendorHeapProps = true, ownVendorUnderGsi = true, odmManifestFragmentsAside = true, lazyAidlServices = true, ramBudget = true, syncLog = true, cgroupRcDepth = true, standInServices = mapOf("android.hardware.power.IPower/default" to "system/lib64/libpowermanager.so#android.hardware.power-V"), aconfigStorage = true, kernelPolicyUnread = true, gpuBridge64 = true, cgroupUidParents = listOf("system", "apps"), apexStandIn = true, webView64 = true, ownLibDirs = mapOf("vendor#bin#hw#android.hardware.audio.service" to "vendor/lib64/aemu-audio"), bootHardwareProp = true,
+        ownVndkDir = "vendor/lib64/aemu-vndk", manifestFragmentsAside = true, trebleLinkerConfig = true, propAreaSize = 512 * 1024, cgroup2Root = true, partitionsAtRoot = true, bpfMapNotes = true, linkerConfigTool = "apex/com.android.runtime/bin/linkerconfig", mediaProfilesFallback = true, manifestFragmentsKept = listOf("health", "aemu-"), oneFingerprint = true, vendorHeapProps = true, ownVendorUnderGsi = true, odmManifestFragmentsAside = true, lazyAidlServices = true, ramBudget = true, syncLog = true, cgroupRcDepth = true, standInServices = mapOf("android.hardware.power.IPower/default" to "system/lib64/libpowermanager.so#android.hardware.power-V"), aconfigStorage = true, kernelPolicyUnread = true, gpuBridge64 = true, cgroupUidParents = listOf("system", "apps"), apexStandIn = true, webView64 = true, ownLibDirs = mapOf("vendor#bin#hw#android.hardware.audio.service" to "vendor/lib64/aemu-audio:vendor/lib64/aemu-vndk"), bootHardwareProp = true,
         firmwareOwn = listOf("vendor#bin#hw#android.hardware.media.omx@1.0-service", "vendor#etc#init#android.hardware.media.omx@1.0-service.rc",
             "vendor#lib#libavservices_minijail_vendor.so", "vendor#lib#libmediacodecservice.so", "vendor#lib#libminijail_vendor.so",
             // (the empty libhidltransport and libhwbinder of 10+, which the engine's HALs of 9 still name: a vendor side
@@ -559,6 +633,13 @@ enum class Kernel64(
     val runner: String get() = "libaemu64_$tag.so"
     val binderd: String get() = "libbinderd64_$tag.so"
     /** the engine's libEGL implementation, under the image root */
+    /**
+     * Added for AEmulator Plus (2026-11-02): where the 32-bit side of this release keeps its EGL drivers (the engine puts the
+     * 32-bit SwiftShader of a 32-bit-only firmware next to the 64-bit one: /vendor/lib/egl on a Treble release) and where the
+     * 32-bit libEGL looks for the "emulation" driver. The GPU bridge of a 32-bit-only firmware stands in these.
+     */
+    val eglDir32: String get() = eglDir.replace("/lib64/", "/lib/")
+    val emulationDir32: String get() = (emulationDir ?: eglDir).replace("/lib64/", "/lib/")
     val eglLib: String get() = "$eglDir/libEGL_swiftshader.so"
     /** every guest file some kernel ships, under its asset name */
     fun isOwnSuffix(name: String) = name.endsWith("_swiftshader.so") || name.endsWith("_$eglName.so") || name == "libGLES_aemu.so" ||

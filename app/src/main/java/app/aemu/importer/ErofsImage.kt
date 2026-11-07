@@ -18,8 +18,8 @@ import java.nio.ByteOrder
  *                    packed in the compact one). A HEAD index starts an extent at its cluster offset and names the
  *                    block its compressed data is in; the extent ends where the next one starts. The last extent may
  *                    be stored after the indexes (tail packing) or in the packed inode (fragments).
- * Compressed data is LZ4 (what Android's build uses), DEFLATE or LZMA (MicroLZMA); with the zero padding feature it
- * is right aligned in its blocks. Directories are blocks of 12-byte entries with the names behind them.
+ * Compressed data is LZ4 (what Android's build uses); with the zero padding feature it is right aligned in its
+ * blocks. Directories are blocks of 12-byte entries with the names behind them.
  */
 class ErofsImage(private val src: RandomSource) : TreeSource {
     private val blkBits: Int
@@ -304,19 +304,7 @@ class ErofsImage(private val src: RandomSource) : TreeSource {
             } finally { inf.end() }
             return out
         }
-        if (a == 1) {   // LZMA as MicroLZMA (right aligned too): the range coder's first byte, always 0, holds ~props
-            while (from < raw.size && raw[from].toInt() == 0) from++
-            if (from >= raw.size) throw IOException("EROFS: empty LZMA extent")
-            val props = (raw[from].toInt() xor 0xff).toByte()
-            val stream = java.io.SequenceInputStream(ByteArrayInputStream(byteArrayOf(0)), ByteArrayInputStream(raw, from + 1, raw.size - from - 1))
-            // (every match points back into this extent's own output: a dictionary of its size holds them all)
-            org.tukaani.xz.LZMAInputStream(stream, out.size.toLong(), props, maxOf(out.size, 4096)).use { z ->
-                var o = 0
-                while (o < out.size) { val n = z.read(out, o, out.size - o); if (n < 0) throw IOException("EROFS: LZMA data ends early"); o += n }
-            }
-            return out
-        }
-        if (a != 0) throw IOException("EROFS: compression ${if (a == 3) "Zstandard" else a.toString()} is not read yet (LZ4, LZ4HC, LZMA and DEFLATE are)")
+        if (a != 0) throw IOException("EROFS: compression ${if (a == 1) "LZMA" else if (a == 3) "Zstandard" else a.toString()} is not read yet (LZ4, LZ4HC and DEFLATE are)")
         if (zeroPadding) while (from < raw.size && raw[from].toInt() == 0) from++
         lz4(raw, from, out)
         return out

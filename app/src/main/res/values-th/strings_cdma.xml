@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="vs_cdma">โมเด็ม CDMA</string>
+    <string name="vs_cdma_sub">จำลองโมเด็ม CDMA: การลงทะเบียน 1xRTT / EV-DO, MEID, การสมัครใช้ CDMA และข้อความ CDMA มีผลในการบูตแบบเต็มครั้งถัดไป</string>
+    <string name="vs_cdma_fw_yes">เฟิร์มแวร์นี้เป็น LTE on CDMA (telephony.lteOnCdmaDevice=1): เปิดเป็นค่าเริ่มต้น</string>
+    <string name="vs_cdma_fw_no">เฟิร์มแวร์นี้ไม่ใช่ LTE on CDMA: ปิดเป็นค่าเริ่มต้น</string>
+</resources>

@@ -59,7 +59,7 @@
   $$('[data-cfg]').forEach(e => { e.textContent = e.dataset.cfg === 'version' ? C.version : C.links[e.dataset.cfg]; });
 
   /* ---------- Бегущая строка из конфига ---------- */
-  const names = ['HTC Sense', 'TouchWiz', 'MIUI', 'HyperOS', 'AOSP'];
+  const names = ['HTC Sense', 'Samsung TouchWiz', 'MIUI', 'AOSP', 'HTC Desire HD', 'HTC One M7', 'Galaxy S II', 'Galaxy S III', 'Nexus 4', 'Galaxy Nexus', 'Redmi 1S'];
   $('#marquee').innerHTML = names.map(n => `<span>${esc(n)}</span><i>✦</i>`).join('');
 
   /* ---------- Тема ---------- */

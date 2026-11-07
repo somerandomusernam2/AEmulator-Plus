@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="vs_cdma">CDMA-mótald</string>
+    <string name="vs_cdma_sub">Hermir eftir CDMA-mótaldi: 1xRTT / EV-DO skráningu, MEID, CDMA-áskrift og CDMA-textaskilaboðum. Tekur gildi við næstu fullu ræsingu.</string>
+    <string name="vs_cdma_fw_yes">Þessi fastbúnaður er LTE á CDMA (telephony.lteOnCdmaDevice=1): kveikt sjálfgefið.</string>
+    <string name="vs_cdma_fw_no">Þessi fastbúnaður er ekki LTE á CDMA: slökkt sjálfgefið.</string>
+</resources>

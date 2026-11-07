@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="m_wea">Amaran kecemasan palsu</string>
+    <string name="m_wea_type">Jenis amaran</string>
+    <string name="m_wea_sent">Amaran kecemasan dihantar</string>
+    <string name="m_wea_failed">Tidak dihantar: telefoni telefon tidak berjalan</string>
+    <string name="wea_presidential">Amaran presiden</string>
+    <string name="wea_extreme">Ancaman melampau</string>
+    <string name="wea_severe">Ancaman teruk</string>
+    <string name="wea_amber">Amaran AMBER</string>
+    <string name="wea_test">Ujian bulanan wajib</string>
+    <string name="wea_body_presidential">Amaran presiden: Ini ialah ujian sistem amaran kecemasan. Tiada tindakan diperlukan.</string>
+    <string name="wea_body_extreme">Amaran melampau: Amaran puting beliung di kawasan anda. Dapatkan perlindungan sekarang. Ini ialah ujian.</string>
+    <string name="wea_body_severe">Amaran teruk: Amaran ribut petir di kawasan anda sehingga 6 petang. Ini ialah ujian.</string>
+    <string name="wea_body_amber">Amaran AMBER: Kanak-kanak hilang, sedan biru. Hubungi 911 jika ternampak. Ini ialah ujian.</string>
+    <string name="wea_body_test">Ini ialah ujian sistem Wireless Emergency Alert. Tiada tindakan diperlukan.</string>
+</resources>

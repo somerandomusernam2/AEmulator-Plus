@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="m_wea">Falskt nödlarm</string>
+    <string name="m_wea_type">Larmtyp</string>
+    <string name="m_wea_sent">Nödlarm skickat</string>
+    <string name="m_wea_failed">Inte skickat: telefonens telefoni körs inte</string>
+    <string name="wea_presidential">Presidentlarm</string>
+    <string name="wea_extreme">Extremt hot</string>
+    <string name="wea_severe">Allvarligt hot</string>
+    <string name="wea_amber">AMBER-larm</string>
+    <string name="wea_test">Obligatoriskt månadstest</string>
+    <string name="wea_body_presidential">Presidentlarm: Detta är ett test av nödlarmssystemet. Ingen åtgärd behövs.</string>
+    <string name="wea_body_extreme">Extremt larm: Tornadovarning i ditt område. Sök skydd nu. Detta är ett test.</string>
+    <string name="wea_body_severe">Allvarligt larm: Åskvädersvarning i ditt område till kl. 18. Detta är ett test.</string>
+    <string name="wea_body_amber">AMBER-larm: Försvunnet barn, blå sedan. Ring 911 om den ses. Detta är ett test.</string>
+    <string name="wea_body_test">Detta är ett test av systemet Wireless Emergency Alert. Ingen åtgärd behövs.</string>
+</resources>

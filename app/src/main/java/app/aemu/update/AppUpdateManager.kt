@@ -1,11 +1,15 @@
 package app.aemu.update
 
+import app.aemu.core.LocalizedIOException
+import app.aemu.core.LocalizedIllegalArgumentException
+import app.aemu.R
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.os.Build
 import android.provider.Settings
 import androidx.core.content.FileProvider
+import app.aemu.BuildConfig
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.json.JSONArray
@@ -35,9 +39,11 @@ sealed interface UpdateState {
     data class Error(val message: String) : UpdateState
 }
 
+/** Modified for AEmulator Sunset on 2026-09-30: use the fork's releases.
+ * Modified for AEmulator Plus on 2026-10-04: use the Plus releases. GPL-3.0; see NOTICE.md. */
 object AppUpdateManager {
-    private const val RELEASES_API = "https://api.github.com/repos/uxazu/AEmulator/releases"
-    private const val GITHUB_REPO_URL = "https://github.com/uxazu/AEmulator"
+    private const val RELEASES_API = "https://api.github.com/repos/somerandomusernam2/AEmulator-Plus/releases"
+    private const val GITHUB_REPO_URL = "https://github.com/somerandomusernam2/AEmulator-Plus"
 
     /**
      * Запрос к GitHub API для получения информации о последнем релизе с APK-файлом.
@@ -49,7 +55,7 @@ object AppUpdateManager {
             conn.connectTimeout = 15000
             conn.readTimeout = 15000
             conn.setRequestProperty("Accept", "application/vnd.github+json")
-            conn.setRequestProperty("User-Agent", "AEmulator-App")
+            conn.setRequestProperty("User-Agent", "AEmulator-Plus-App")
 
             if (conn.responseCode != HttpURLConnection.HTTP_OK) {
                 throw Exception("HTTP ${conn.responseCode}: ${conn.responseMessage}")
@@ -72,7 +78,7 @@ object AppUpdateManager {
                 for (j in 0 until assets.length()) {
                     val asset = assets.getJSONObject(j)
                     val assetName = asset.optString("name", "")
-                    if (assetName.endsWith(".apk", ignoreCase = true)) {
+                    if (UpdateAssetPolicy.matches(assetName, BuildConfig.APPLICATION_ID)) {
                         val downloadUrl = asset.getString("browser_download_url")
                         val sizeBytes = asset.optLong("size", 0L)
                         return@runCatching ReleaseInfo(
@@ -127,13 +133,15 @@ object AppUpdateManager {
         release: ReleaseInfo,
         onProgress: (Float, Long, Long) -> Unit
     ): File = withContext(Dispatchers.IO) {
+        if (!UpdateAssetPolicy.matches(release.fileName, context.packageName))
+            throw LocalizedIllegalArgumentException("Update APK does not match this application variant", R.string.update_err_wrong_variant)
         val updatesDir = File(context.getExternalFilesDir(null) ?: context.cacheDir, "updates")
         if (!updatesDir.exists()) updatesDir.mkdirs()
 
         // Очищаем старые apk перед новой загрузкой
         updatesDir.listFiles()?.forEach { if (it.extension.equals("apk", ignoreCase = true)) it.delete() }
 
-        val targetFile = File(updatesDir, "aemulator-${release.versionName}.apk")
+        val targetFile = File(updatesDir, "aemulator-plus-${release.versionName}.apk")
 
         var currentUrl = release.downloadUrl
         var conn: HttpURLConnection
@@ -144,7 +152,7 @@ object AppUpdateManager {
             conn.connectTimeout = 15000
             conn.readTimeout = 30000
             conn.instanceFollowRedirects = true
-            conn.setRequestProperty("User-Agent", "AEmulator-App")
+            conn.setRequestProperty("User-Agent", "AEmulator-Plus-App")
 
             val code = conn.responseCode
             if (code in listOf(HttpURLConnection.HTTP_MOVED_PERM, HttpURLConnection.HTTP_MOVED_TEMP, 307, 308)) {
@@ -180,6 +188,11 @@ object AppUpdateManager {
             }
         }
 
+        conn.disconnect()
+        if (context.packageManager.getPackageArchiveInfo(targetFile.absolutePath, 0)?.packageName != context.packageName) {
+            targetFile.delete()
+            throw LocalizedIOException("Downloaded APK has the wrong application package", R.string.update_err_wrong_package)
+        }
         targetFile
     }
 
@@ -188,6 +201,7 @@ object AppUpdateManager {
      */
     fun installApk(context: Context, file: File): Boolean {
         if (!file.exists()) return false
+        if (context.packageManager.getPackageArchiveInfo(file.absolutePath, 0)?.packageName != context.packageName) return false
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             if (!context.packageManager.canRequestPackageInstalls()) {

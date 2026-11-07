@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="vs_cdma">CDMA մոդեմ</string>
+    <string name="vs_cdma_sub">Էմուլյացնում է CDMA մոդեմ՝ 1xRTT / EV-DO գրանցում, MEID, CDMA բաժանորդագրություն և CDMA տեքստային հաղորդագրություններ։ Կիրառվում է հաջորդ լրիվ բեռնման ժամանակ։</string>
+    <string name="vs_cdma_fw_yes">Այս որոնվածքը LTE on CDMA է (telephony.lteOnCdmaDevice=1). լռելյայն միացված է։</string>
+    <string name="vs_cdma_fw_no">Այս որոնվածքը LTE on CDMA չէ. լռելյայն անջատված է։</string>
+</resources>

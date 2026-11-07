@@ -1,0 +1,33 @@
+<resources>
+    <string name="vs_hide_menu">Peida menüünupp</string>
+    <string name="vs_hide_menu_sub">Peida nupp „…“. Telefoni tagasinupp või tagasižest avab emulaatori menüü, selle asemel et saata Androidile „Tagasi“. Külalise navigeerimisnupud juhivad Androidi endiselt.</string>
+    <string name="vs_vibration">Külalise vibratsioon</string>
+    <string name="vs_vibration_sub">Edastab külalise vana vibratsiooni telefonile. Rakendub järgmisel käivitusel; iga impulss on piiratud 60 sekundiga.</string>
+    <string name="nav_buttons">Navigeerimisnupud</string>
+    <string name="nav_order">Nuppude järjekord (vasakult paremale)</string>
+    <string name="nav_earlier">Varem</string>
+    <string name="nav_later">Hiljem</string>
+    <string name="nav_reset">Lähtesta nupud</string>
+    <string name="nav_search">Otsing</string>
+    <string name="nav_power">Toide</string>
+    <string name="nav_go_to_recovery">Mine taasterežiimi</string>
+    <string name="nav_volume_down">Helitugevus alla</string>
+    <string name="nav_volume_up">Helitugevus üles</string>
+    <string name="nav_up">D-pad üles</string>
+    <string name="nav_down">D-pad alla</string>
+    <string name="nav_left">D-pad vasakule</string>
+    <string name="nav_right">D-pad paremale</string>
+    <string name="nav_center">D-pad keskele</string>
+    <string name="nav_trackball">Hiirekuul</string>
+    <string name="nav_trackball_sub">Libistage ringi navigeerimisriba kohal, et kerida; puudutage, et valida.</string>
+    <string name="nav_dpad_mode">Nooleklahvide režiim</string>
+    <string name="nav_dpad_sub">Väljas: külalise rakendustele päris suhtelised hiirekuuli sündmused. Sees: selle asemel D-padi klahvivajutused. Mõlemat ei saadeta.</string>
+    <string name="nav_sensitivity">Tundlikkus: %1$d dp sammu kohta (vähem – kiirem)</string>
+    <string name="nav_trackball_waiting">Külalise hiirekuuliga ühendust veel pole</string>
+    <string name="nav_trackball_recovery">Taasterežiim: kasutage nooleklahvide režiimi</string>
+    <string name="vs_bluetooth">Hosti Bluetooth (katseline)</string>
+    <string name="vs_bluetooth_sub">Lubab külalisel telefoni kaudu skannida Bluetooth-seadmeid, vaadata seotud seadmete loendit ja nendega suhelda: klassikaline jadaport (RFCOMM) ja Bluetooth LE (GATT). Vajab Bluetoothi luba ja virtuaalmasina täielikku taaskäivitamist. See ei ole raw HCI: külaline näeb telefoni adapterit silla kaudu, seega kõrvaklapid (helikasutusprofiilid) pole toetatud.</string>
+    <string name="vs_sf_tombstone">SurfaceFlingeri krahhi tombstone (silumine)</string>
+    <string name="vs_sf_tombstone_sub">Kui SurfaceFlinger jookseb kokku, kirjutab püsivara logisse tavalise tombstone’i (koos kokkujooksnud funktsiooniga) lühikese aruande asemel. Kasutage veateate saatmisel. Rakendub virtuaalmasina järgmisel täielikul käivitusel.</string>
+    <string name="bluetooth_permission_denied">Bluetoothi luba keelati: külaline käivitub ilma hosti Bluetoothita.</string>
+</resources>

@@ -66,11 +66,12 @@ static void flush_line(void) {
 /* ---- карта памяти ---- */
 
 #define MAXMAP 1024
-static char g_maps[256 * 1024];
+static char g_map_paths[256 * 1024];
+static int g_paths_used, g_map_limit;
 static u32 g_ms[MAXMAP], g_me[MAXMAP], g_mo[MAXMAP];
 static const char *g_mp[MAXMAP];
 static int g_nmaps;
-static u32 g_sp, g_stack_end;   /* граница отображения, где лежит sp (любые права) */
+static u32 g_sp, g_stack_end;   /* end of the readable mapping containing sp */
 
 static u32 hexnum(const char **pp) {
     const char *p = *pp; u32 v = 0;
@@ -84,45 +85,81 @@ static u32 hexnum(const char **pp) {
     *pp = p; return v;
 }
 
-/* the map line holding sp, or the nearest lines around it (a stack that is gone, or a guard page) */
+/* the map line holding sp, or the nearest lines around it (a stack that is gone, or a guard page).
+ * Lines are streamed, so the ones kept are copied into static buffers. */
+static char g_sp_line[320], g_below_line[320], g_above_line[320];
 static const char *g_sp_map, *g_below, *g_above;
-static u32 g_below_e, g_above_s;
-static void load_maps(void) {
-    g_nmaps = 0; g_sp_map = g_below = g_above = 0; g_below_e = 0; g_above_s = 0;
-    long fd = cr_sys3(SYS_open, (long)"/proc/self/maps", 0, 0);
+static u32 g_sp_e, g_below_e, g_above_s, g_above_e;
+static int g_above_r;
+static void copy_line(char *dst, const char *src) {
+    int i = 0;
+    for (; src[i] && i < 319; i++) dst[i] = src[i];
+    dst[i] = 0;
+}
+
+static void parse_map_line(const char *line) {
+    const char *q = line;
+    u32 s = hexnum(&q); if (*q != '-') return; q++;
+    u32 e = hexnum(&q); if (*q != ' ') return; q++;
+    if (!q[0] || !q[1] || !q[2] || !q[3] || q[4] != ' ') return;
+    int exec = q[2] == 'x';
+    int readable = q[0] == 'r';
+    if (g_sp >= s && g_sp < e) {
+        g_sp_e = e; copy_line(g_sp_line, line); g_sp_map = g_sp_line;
+        if (readable) g_stack_end = e;
+    }
+    if (e <= g_sp && e > g_below_e) { g_below_e = e; copy_line(g_below_line, line); g_below = g_below_line; }
+    if (s > g_sp && (!g_above || s < g_above_s)) {
+        g_above_s = s; g_above_e = e; g_above_r = readable; copy_line(g_above_line, line); g_above = g_above_line;
+    }
+    q += 5;
+    u32 off = hexnum(&q);
+    // Skip device and inode; paths may contain spaces.
+    for (int field = 0; field < 2; field++) {
+        while (*q == ' ') q++;
+        while (*q && *q != ' ') q++;
+    }
+    while (*q == ' ') q++;
+    if (!exec) return;
+    int len = 0;
+    while (q[len]) len++;
+    if (g_nmaps >= MAXMAP || len + 1 > (int)sizeof(g_map_paths) - g_paths_used) {
+        g_map_limit = 1;
+        return;
+    }
+    char *path = g_map_paths + g_paths_used;
+    for (int i = 0; i <= len; i++) path[i] = q[i];
+    g_paths_used += len + 1;
+    g_ms[g_nmaps] = s; g_me[g_nmaps] = e; g_mo[g_nmaps] = off; g_mp[g_nmaps] = path;
+    g_nmaps++;
+}
+
+static void load_maps_from(const char *path) {
+    g_nmaps = g_paths_used = g_map_limit = 0;
+    g_sp_map = g_below = g_above = 0; g_sp_e = g_below_e = g_above_s = g_above_e = 0; g_above_r = 0;
+    long fd = cr_sys3(SYS_open, (long)path, 0, 0);
     if (fd < 0) return;
-    long total = 0;
+    // system_server can have more than 256 KiB of maps. Stream every line so
+    // a thread's stack near EOF is not lost, even when the exec table fills.
+    static char chunk[8192], line[2048];
+    int used = 0, long_line = 0;
     for (;;) {
-        long n = cr_sys3(SYS_read, fd, (long)(g_maps + total), (long)(sizeof(g_maps) - 1 - total));
+        long n = cr_sys3(SYS_read, fd, (long)chunk, sizeof(chunk));
         if (n <= 0) break;
-        total += n;
-        if (total >= (long)sizeof(g_maps) - 1) break;
+        for (long i = 0; i < n; i++) {
+            if (chunk[i] == '\n') {
+                if (!long_line) { line[used] = 0; parse_map_line(line); }
+                else g_map_limit = 1;
+                used = long_line = 0;
+            } else if (used < (int)sizeof(line) - 1) line[used++] = chunk[i];
+            else long_line = 1;
+        }
     }
     cr_sys3(SYS_close, fd, 0, 0);
-    g_maps[total] = 0;
-    char *p = g_maps;
-    while (*p && g_nmaps < MAXMAP) {
-        char *line = p;
-        while (*p && *p != '\n') p++;
-        if (*p) *p++ = 0;
-        const char *q = line;
-        u32 s = hexnum(&q); if (*q != '-') continue; q++;
-        u32 e = hexnum(&q); if (*q != ' ') continue; q++;
-        int exec = q[2] == 'x';
-        if (g_sp >= s && g_sp < e) { g_stack_end = e; g_sp_map = line; }
-        if (e <= g_sp && e > g_below_e) { g_below_e = e; g_below = line; }
-        if (s > g_sp && (!g_above || s < g_above_s)) { g_above_s = s; g_above = line; }
-        q += 5;
-        u32 off = hexnum(&q);
-        /* путь — после пятого поля */
-        int field = 3;
-        while (*q && field < 6) { while (*q == ' ') q++; if (field == 5) break; while (*q && *q != ' ') q++; field++; }
-        while (*q == ' ') q++;
-        if (!exec) continue;
-        g_ms[g_nmaps] = s; g_me[g_nmaps] = e; g_mo[g_nmaps] = off; g_mp[g_nmaps] = q;
-        g_nmaps++;
-    }
+    if (used && !long_line) { line[used] = 0; parse_map_line(line); }
 }
+
+static void load_maps(void) { load_maps_from("/proc/self/maps"); }
 
 static int find_map(u32 a) {
     for (int i = 0; i < g_nmaps; i++) if (a >= g_ms[i] && a < g_me[i]) return i;
@@ -160,6 +197,14 @@ static void dump_current(const char *title, u32 addr, u32 *regs) {
     load_maps();
     put("*** "); put(title); put(" pid "); putdec((u32)cr_sys3(SYS_getpid, 0, 0, 0));
     put(" tid "); putdec((u32)cr_sys3(SYS_gettid, 0, 0, 0)); put(" addr "); puthex(addr); flush_line();
+    char thread_name[16] = { 0 };
+    if (cr_sys3(172 /* prctl */, 16 /* PR_GET_NAME */, (long)thread_name, 0) == 0) {
+        thread_name[15] = 0;
+        put("thread "); put(thread_name); flush_line();
+    }
+    put("maps exec "); putdec((u32)g_nmaps);
+    if (g_map_limit) put(" (symbol table limited)");
+    put(" stack end "); puthex(g_stack_end); flush_line();
     put("pc "); puthex(regs[15]); put(" "); put_sym(regs[15]); flush_line();
     put("lr "); puthex(regs[14]); put(" "); put_sym(regs[14]); flush_line();
     for (int r = 0; r < 13; r += 4) {
@@ -179,12 +224,10 @@ static void dump_current(const char *title, u32 addr, u32 *regs) {
     u32 *sp = (u32 *)regs[13];
     u32 words = g_stack_end > regs[13] ? (g_stack_end - regs[13]) / 4 : 0;
     /* sp on a guard page (the stack ran out): walk the stack itself, from its lowest address */
-    if (g_sp_map && g_above && g_stack_end == g_above_s) {
-        const char *q = g_above;
-        hexnum(&q); q++;
-        u32 e = hexnum(&q);
-        sp = (u32 *)g_above_s; words = (e - g_above_s) / 4;
+    if (!words && g_sp_map && g_above && g_above_r && g_sp_e == g_above_s) {
+        sp = (u32 *)g_above_s; words = (g_above_e - g_above_s) / 4;
     }
+    if (!words) { put("stack scan unavailable: no readable mapping for sp"); flush_line(); }
     if (words > 4096) words = 4096;
     int shown = 0;
     for (u32 i = 0; i < words && shown < 48; i++) {

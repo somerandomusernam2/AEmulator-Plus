@@ -7,6 +7,14 @@ plugins {
     id("org.jetbrains.kotlin.plugin.compose")
 }
 
+// Sunset modification, 2026-10-02: ship the actual license and dated notices.
+val legalAssetsDir = layout.buildDirectory.dir("generated/legalAssets")
+val copyLegalNotices = tasks.register<Copy>("copyLegalNotices") {
+    from(rootProject.file("LICENSE"), rootProject.file("NOTICE.md"),
+        rootProject.file("docs/build-source.md"), rootProject.file("docs/license-audit.md"))
+    into(legalAssetsDir.map { it.dir("legal") })
+}
+
 // подпись релиза: keystore.properties в корне (в git не попадает, см. .gitignore);
 // без него релиз собирается неподписанным
 val signProps = Properties().apply {
@@ -27,7 +35,8 @@ val packEngines = tasks.register("packEngines") {
         o.deleteRecursively()
         File(o, "blobs").mkdirs()
         val idx = StringBuilder()
-        engineSrc.walkTopDown().filter { it.isFile }.sortedBy { it.invariantSeparatorsPath }.forEach { f ->
+        // dot files (.gitkeep in the still empty engines/*-x86 directories) are placeholders, not engine files
+        engineSrc.walkTopDown().filter { it.isFile && !it.name.startsWith(".") }.sortedBy { it.invariantSeparatorsPath }.forEach { f ->
             val sha = MessageDigest.getInstance("SHA-1").digest(f.readBytes()).joinToString("") { "%02x".format(it) }
             val b = File(o, "blobs/$sha")
             if (!b.exists()) f.copyTo(b)
@@ -44,30 +53,14 @@ android {
     compileSdk = 36
 
     defaultConfig {
+        applicationId = "app.aemu.plus" // Modified for AEmulator Plus, 2026-10-04: single variant, no clone
         minSdk = 26
         // 28: гостевые бинарники запускаются из каталога данных приложения (W^X для targetSdk>=29)
         //noinspection ExpiredTargetSdkVersion
         targetSdk = 28
-        versionCode = 3
-        versionName = "0.0.0.3"
+        versionCode = 34
+        versionName = "0.0.0.3.9" // <AEmulator base>.<Plus release>
         ndk { abiFilters += listOf("arm64-v8a") }
-    }
-
-    flavorDimensions += "distribution"
-    productFlavors {
-        create("standard") {
-            dimension = "distribution"
-            applicationId = "app.aemu"
-        }
-        create("clone") {
-            dimension = "distribution"
-            applicationId = "app.aemu.clone"
-        }
-        // a copy of this release that installs next to app.aemu (a package name part cannot start with a digit)
-        create("v0003") {
-            dimension = "distribution"
-            applicationId = "app.aemu.v0003"
-        }
     }
 
     signingConfigs {
@@ -91,7 +84,8 @@ android {
         }
     }
 
-    sourceSets["main"].assets.setSrcDirs(listOf(engineOut))
+    // skinAssets/skins: the device skin themes bundled with the app (see VmThemes.skins)
+    sourceSets["main"].assets.setSrcDirs(listOf(engineOut, legalAssetsDir, file("src/main/skinAssets")))
 
     packaging {
         // исполняемые файлы движка лежат как lib*.so и должны распаковываться на диск
@@ -131,27 +125,23 @@ dependencies {
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.10.2")
     implementation("org.tukaani:xz:1.10")
     implementation("org.apache.commons:commons-compress:1.28.0")
+    implementation("com.github.junrar:junrar:8.1.1")
     implementation("org.brotli:dec:0.1.2")
-    implementation("com.github.junrar:junrar:7.5.5")
-    // zstd (HyperOS fastboot super.zst, payload.bin ZSTD operations): the AAR carries the arm64 library, BSD-2
+    implementation("net.lingala.zip4j:zip4j:2.11.6")
     implementation("com.github.luben:zstd-jni:1.5.7-4@aar")
+    implementation("org.anarres.lzo:lzo-commons:1.0.6")
     debugImplementation("androidx.compose.ui:ui-tooling")
     testImplementation("junit:junit:4.13.2")
-    // the same zstd-jni as a jar with the desktop libraries, for the JVM unit tests
-    testImplementation("com.github.luben:zstd-jni:1.5.7-4")
 }
 
-// sh: ./gradlew :app:copyReleaseApks -> release-apks/<version>/app.aemu.apk and app.aemu.0003.apk
+tasks.named("preBuild") { dependsOn(copyLegalNotices) }
+
 tasks.register<Copy>("copyReleaseApks") {
-    dependsOn("assembleStandardRelease", "assembleV0003Release")
+    dependsOn("assembleRelease")
     val v = android.defaultConfig.versionName
-    from(layout.buildDirectory.dir("outputs/apk/standard/release")) {
+    from(layout.buildDirectory.dir("outputs/apk/release")) {
         include("*.apk")
-        rename { "app.aemu.apk" }
-    }
-    from(layout.buildDirectory.dir("outputs/apk/v0003/release")) {
-        include("*.apk")
-        rename { "app.aemu.0003.apk" }
+        rename { "AEmulator-Plus-app.aemu.plus.apk" }
     }
     into(rootProject.layout.projectDirectory.dir("release-apks/$v"))
 }

@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="vs_cdma">CDMA-modem</string>
+    <string name="vs_cdma_sub">Emuleert een CDMA-modem: 1xRTT-/EV-DO-registratie, MEID, CDMA-abonnement en CDMA-tekstberichten. Geldt bij de volgende volledige start.</string>
+    <string name="vs_cdma_fw_yes">Deze firmware is LTE on CDMA (telephony.lteOnCdmaDevice=1): standaard aan.</string>
+    <string name="vs_cdma_fw_no">Deze firmware is geen LTE on CDMA: standaard uit.</string>
+</resources>

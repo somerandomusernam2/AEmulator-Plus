@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="m_wea">Фальшывае экстранае апавяшчэнне</string>
+    <string name="m_wea_type">Тып апавяшчэння</string>
+    <string name="m_wea_sent">Экстранае апавяшчэнне адпраўлена</string>
+    <string name="m_wea_failed">Не адпраўлена: тэлефонія тэлефона не працуе</string>
+    <string name="wea_presidential">Прэзідэнцкае апавяшчэнне</string>
+    <string name="wea_extreme">Надзвычайная пагроза</string>
+    <string name="wea_severe">Сур’ёзная пагроза</string>
+    <string name="wea_amber">Апавяшчэнне AMBER</string>
+    <string name="wea_test">Абавязковая штомесячная праверка</string>
+    <string name="wea_body_presidential">Прэзідэнцкае апавяшчэнне: гэта праверка сістэмы экстранага апавяшчэння. Ніякіх дзеянняў не патрабуецца.</string>
+    <string name="wea_body_extreme">Надзвычайнае апавяшчэнне: у вашым раёне папярэджанне пра тарнада. Неадкладна схавайцеся ў сховішчы. Гэта праверка.</string>
+    <string name="wea_body_severe">Сур’ёзнае апавяшчэнне: у вашым раёне папярэджанне пра навальніцу да 18:00. Гэта праверка.</string>
+    <string name="wea_body_amber">Апавяшчэнне AMBER: прапаў дзіця, сіні седан. Пры заўважанні тэлефануйце 911. Гэта праверка.</string>
+    <string name="wea_body_test">Гэта праверка сістэмы бесправаднога экстранага апавяшчэння. Ніякіх дзеянняў не патрабуецца.</string>
+</resources>

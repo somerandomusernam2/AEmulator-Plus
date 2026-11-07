@@ -1,0 +1,33 @@
+<resources>
+    <string name="vs_hide_menu">Скриј го копчето за мени</string>
+    <string name="vs_hide_menu_sub">Го крие копчето …. Копчето Назад на телефонот или гестот за назад го отвора менито на емулаторот наместо да испрати Назад до Android. Навигациските копчиња на гостинот и понатаму го контролираат Android.</string>
+    <string name="vs_vibration">Вибрација на гостинот</string>
+    <string name="vs_vibration_sub">Проследи ја старата вибрација на гостинот до телефонот. Се применува при следното стартување; секој импулс е ограничен на 60 секунди.</string>
+    <string name="nav_buttons">Навигациски копчиња</string>
+    <string name="nav_order">Редослед на копчињата (од лево кон десно)</string>
+    <string name="nav_earlier">Порано</string>
+    <string name="nav_later">Подоцна</string>
+    <string name="nav_reset">Ресетирај ги копчињата</string>
+    <string name="nav_search">Пребарај</string>
+    <string name="nav_power">Напојување</string>
+    <string name="nav_go_to_recovery">Оди во recovery</string>
+    <string name="nav_volume_down">Намали јачина</string>
+    <string name="nav_volume_up">Зголеми јачина</string>
+    <string name="nav_up">D-pad нагоре</string>
+    <string name="nav_down">D-pad надолу</string>
+    <string name="nav_left">D-pad налево</string>
+    <string name="nav_right">D-pad надесно</string>
+    <string name="nav_center">D-pad центар</string>
+    <string name="nav_trackball">Trackball</string>
+    <string name="nav_trackball_sub">Повлечете по кругот над навигациската лента за да се тркала; допрете за избор.</string>
+    <string name="nav_dpad_mode">Режим на стрелки</string>
+    <string name="nav_dpad_sub">Исклучено: вистински релативни настани на trackball за апликациите на гостинот. Вклучено: наместо тоа притискања на тастери од D-pad. Не испраќа и двете.</string>
+    <string name="nav_sensitivity">Чувствителност: %1$d dp по чекор (пониско е побрзо)</string>
+    <string name="nav_trackball_waiting">Сè уште нема врска со trackball на гостинот</string>
+    <string name="nav_trackball_recovery">Recovery: користете режим на стрелки</string>
+    <string name="vs_bluetooth">Bluetooth на домаќинот (експериментално)</string>
+    <string name="vs_bluetooth_sub">Дозволува гостинот да скенира, да прикажува спарени уреди и да комуницира со Bluetooth уреди преку телефонот: класична сериска врска (RFCOMM) и Bluetooth LE (GATT). Бара дозвола за Bluetooth и целосно рестартирање на виртуелната машина. Не е суров HCI: гостинот го гледа адаптерот на телефонот преку мост, па слушалките (аудио профили) не се поддржани.</string>
+    <string name="bluetooth_permission_denied">Дозволата за Bluetooth е одбиена: гостинот ќе стартува без Bluetooth на домаќинот.</string>
+    <string name="vs_sf_tombstone">Tombstone при пад на SurfaceFlinger (дебагирање)</string>
+    <string name="vs_sf_tombstone_sub">Ако SurfaceFlinger падне, фирмверот запишува обичен tombstone во дневникот (со функцијата што падна) наместо краток извештај. Користете при праќање извештај за грешка. Важи при следното целосно стартување на ВМ.</string>
+</resources>

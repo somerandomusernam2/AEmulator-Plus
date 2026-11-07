@@ -8,6 +8,11 @@ import java.io.InputStream
  * them, 473 MB stored uncompressed, 110 MB of it different. The build (app/build.gradle.kts, packEngines) keeps each
  * content once, compressed, under assets/blobs/<sha1>, and writes assets/engines.idx: "path<TAB>sha1<TAB>size" per
  * file. Paths here are the old ones ("engines/kk/libGLES.so").
+ *
+ * A layer directory (engines/n64-<api>, -own, -gsi, n64-gl) may be split by architecture: next to its plain files it
+ * can have "arm32/" and "arm64/" subdirectories with files named the same way ("a#b#c" for a/b/c). Files with
+ * different names are all installed; where both carry the same name (the same path in the guest) the guest's
+ * architecture decides, see [layerFiles].
  */
 object EngineAssets {
     private class Entry(val blob: String, val size: Long)
@@ -41,7 +46,62 @@ object EngineAssets {
         return dirs?.get(dir.trimEnd('/'))?.toTypedArray() ?: emptyArray()
     }
 
+    const val ARM32 = "arm32"
+    const val ARM64 = "arm64"
+
+    /**
+     * File name to asset path for one layer directory, resolved for a guest of the given architecture. Later wins:
+     * the other architecture's subdirectory, then the plain files of the directory, then the guest's own subdirectory.
+     * The guest's own architecture therefore always wins (arm32/ over arm64/ on a 32-bit guest, arm64/ over arm32/ on a
+     * 64-bit one), and the plain files, which are the 64-bit programs of a layer with no arm64/ directory, are not
+     * covered by the other architecture's files of the same name (modified for AEmulator Plus, 2026-11-01: the arm32
+     * allocator and keymaster services of engines/n64-30 were laid over the plain 64-bit ones on a 64-bit tree and
+     * could not link).
+     */
+    fun layerFiles(ctx: Context, dir: String, guest64: Boolean): Map<String, String> {
+        load(ctx)
+        val d = dir.trimEnd('/')
+        val own = if (guest64) ARM64 else ARM32
+        val other = if (guest64) ARM32 else ARM64
+        val out = LinkedHashMap<String, String>()
+        for (sub in listOf("$d/$other", d, "$d/$own")) for (n in dirs?.get(sub).orEmpty()) out[n] = "$sub/$n"
+        return out
+    }
+
+    /** every file name a layer directory ships, whatever the architecture */
+    fun layerNames(ctx: Context, dir: String): Set<String> {
+        load(ctx)
+        val d = dir.trimEnd('/')
+        return listOf(d, "$d/$ARM32", "$d/$ARM64").flatMap { dirs?.get(it).orEmpty() }.toSet()
+    }
+
+    /** the asset path of one file of a layer directory: [prefer]'s subdirectory first, then the other one, then the plain files; null if none */
+    fun layerAsset(ctx: Context, dir: String, name: String, prefer: String): String? {
+        val d = dir.trimEnd('/')
+        val other = if (prefer == ARM64) ARM32 else ARM64
+        return listOf("$d/$prefer/$name", "$d/$other/$name", "$d/$name").firstOrNull { exists(ctx, it) }
+    }
+
     fun exists(ctx: Context, path: String): Boolean = load(ctx).containsKey(path)
+
+    /**
+     * Guest-side helper files per guest architecture. The directories above hold ARM builds. For an x86 guest the same
+     * file lives in a sibling directory with the architecture's suffix (engines/kk -> engines/kk-x86, engines/common ->
+     * engines/common-x86). Where the x86 build does not exist (yet) the answer is a path that is not in the index, so
+     * [size] is -1 and [exists] false for it and the installers skip the file; a machine-independent file (a dex jar,
+     * a text file) falls back to the plain path because it runs the same everywhere.
+     */
+    fun forArch(ctx: Context, path: String, arch: GuestArch): String {
+        if (arch == GuestArch.ARM) return path
+        val m = Regex("^engines/(common|kk|gb)/(.+)$").find(path) ?: return path
+        val alt = "engines/${m.groupValues[1]}${arch.assetSuffix}/${m.groupValues[2]}"
+        if (exists(ctx, alt)) return alt
+        return if (isMachineIndependent(path) && exists(ctx, path)) path else "engines/.missing-${arch.id}/${m.groupValues[2]}"
+    }
+
+    /** Dex jars and text/property files carry no machine code. */
+    fun isMachineIndependent(path: String): Boolean =
+        path.endsWith(".jar") || path.endsWith(".props") || path.endsWith(".xml") || path.endsWith(".txt")
 
     /** size in bytes, -1 when there is no such file */
     fun size(ctx: Context, path: String): Long = load(ctx)[path]?.size ?: -1L

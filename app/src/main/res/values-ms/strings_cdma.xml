@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="vs_cdma">Modem CDMA</string>
+    <string name="vs_cdma_sub">Meniru modem CDMA: pendaftaran 1xRTT / EV-DO, MEID, langganan CDMA dan mesej teks CDMA. Berkuat kuasa pada but penuh seterusnya.</string>
+    <string name="vs_cdma_fw_yes">Perisian tegar ini ialah LTE on CDMA (telephony.lteOnCdmaDevice=1): dihidupkan secara lalai.</string>
+    <string name="vs_cdma_fw_no">Perisian tegar ini bukan LTE on CDMA: dimatikan secara lalai.</string>
+</resources>

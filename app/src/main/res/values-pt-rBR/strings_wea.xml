@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="m_wea">Alerta de emergência falso</string>
+    <string name="m_wea_type">Tipo de alerta</string>
+    <string name="m_wea_sent">Alerta de emergência enviado</string>
+    <string name="m_wea_failed">Não enviado: a telefonia do telefone não está em execução</string>
+    <string name="wea_presidential">Alerta presidencial</string>
+    <string name="wea_extreme">Ameaça extrema</string>
+    <string name="wea_severe">Ameaça grave</string>
+    <string name="wea_amber">Alerta AMBER</string>
+    <string name="wea_test">Teste mensal obrigatório</string>
+    <string name="wea_body_presidential">Alerta presidencial: Este é um teste do sistema de alerta de emergência. Nenhuma ação é necessária.</string>
+    <string name="wea_body_extreme">Alerta extremo: Aviso de tornado na sua região. Procure abrigo agora. Este é um teste.</string>
+    <string name="wea_body_severe">Alerta grave: Aviso de tempestade na sua região até as 18h. Este é um teste.</string>
+    <string name="wea_body_amber">Alerta AMBER: Criança desaparecida, sedã azul. Ligue para 911 se avistar. Este é um teste.</string>
+    <string name="wea_body_test">Este é um teste do sistema Wireless Emergency Alert. Nenhuma ação é necessária.</string>
+</resources>

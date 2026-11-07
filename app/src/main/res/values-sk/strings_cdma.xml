@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="vs_cdma">Modem CDMA</string>
+    <string name="vs_cdma_sub">Emuluje modem CDMA: registráciu 1xRTT / EV-DO, MEID, predplatné CDMA a textové správy CDMA. Použije sa pri ďalšom úplnom spustení.</string>
+    <string name="vs_cdma_fw_yes">Tento firmvér je LTE on CDMA (telephony.lteOnCdmaDevice=1): predvolene zapnuté.</string>
+    <string name="vs_cdma_fw_no">Tento firmvér nie je LTE on CDMA: predvolene vypnuté.</string>
+</resources>

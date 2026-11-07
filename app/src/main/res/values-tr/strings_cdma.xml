@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="vs_cdma">CDMA modemi</string>
+    <string name="vs_cdma_sub">Bir CDMA modemi öykünür: 1xRTT / EV-DO kaydı, MEID, CDMA aboneliği ve CDMA kısa mesajları. Bir sonraki tam açılışta geçerli olur.</string>
+    <string name="vs_cdma_fw_yes">Bu ürün yazılımı LTE on CDMA\'dır (telephony.lteOnCdmaDevice=1): varsayılan olarak açık.</string>
+    <string name="vs_cdma_fw_no">Bu ürün yazılımı LTE on CDMA değildir: varsayılan olarak kapalı.</string>
+</resources>

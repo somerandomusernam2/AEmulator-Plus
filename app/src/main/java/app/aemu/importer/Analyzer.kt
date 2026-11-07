@@ -1,7 +1,13 @@
+/* Modified for AEmulator Plus, 2026-10-23: pre-1.0 firmware (LegacyFirmware): old init.rc, sparse build.prop, /sdcard.
+ * GPL-3.0; see LICENSE and NOTICE.md. */
 package app.aemu.importer
 
+import app.aemu.core.GuestService
+import app.aemu.core.LegacyFirmware
+import app.aemu.core.ImportWarnings
 import android.content.Context
 import app.aemu.core.Engine
+import app.aemu.core.GuestArch
 import app.aemu.core.GuestImage
 import app.aemu.core.InitPlan
 import app.aemu.core.PropArea
@@ -19,17 +25,19 @@ import java.nio.ByteOrder
 class Analyzer(private val ctx: Context, private val paths: VmPaths, private val ramdisk: List<BootImage.CpioEntry>?) {
     private val root = paths.root
 
-    fun analyze(id: String, sourceName: String): GuestImage {
+    fun analyze(id: String, sourceName: String, persistBuildProp: Boolean = true): GuestImage {
         val buildFile = File(root, "system/build.prop")
         val noBuildProp = !buildFile.isFile
-        if (noBuildProp) buildFile.writeText(synthBuildProp())
-        val build = PropArea.parseProps(buildFile.readText(Charsets.UTF_8))
+        val buildText = if (noBuildProp) synthBuildProp().also { if (persistBuildProp) buildFile.writeText(it) }
+            else buildFile.readText(Charsets.UTF_8)
+        // (a pre-1.0 build.prop has no version and no product properties: LegacyFirmware fills them, other trees pass unchanged)
+        val build = LegacyFirmware.completeBuildProps(PropArea.parseProps(buildText), root)
         // (8.0+ system-as-root and system-only images keep the ramdisk's default.prop as /system/etc/prop.default)
-        val deflt = listOf("default.prop", "system/etc/prop.default").map { File(root, it) }.firstOrNull { it.isFile }
+        val deflt = listOf("default.prop", "etc/default.prop", "system/etc/prop.default").map { File(root, it) }.firstOrNull { it.isFile }
             ?.let { PropArea.parseProps(it.readText()) } ?: LinkedHashMap()
         val all = LinkedHashMap<String, String>().apply { putAll(deflt); build.forEach { (k, v) -> if (!(k.startsWith("ro.") && containsKey(k))) put(k, v) } }
 
-        val api = all["ro.build.version.sdk"]?.toIntOrNull() ?: guessApi(all["ro.build.version.release"])
+        val api = effectiveApi(all["ro.build.version.sdk"]?.toIntOrNull(), all["ro.build.version.codename"], all["ro.build.version.release"])
         val release = all["ro.build.version.release"] ?: "?"
         // who made it: a generic system image (10+, "missi" of Xiaomi) leaves the brand, the model and the skin's
         // version to the product, vendor and odm partitions. Only for the name shown; the rest reads what init reads.
@@ -47,22 +55,39 @@ class Analyzer(private val ctx: Context, private val paths: VmPaths, private val
         val brand = (product("brand") ?: product("manufacturer") ?: "").replaceFirstChar { it.uppercase() }
         val model = product("model") ?: product("device") ?: "Android"
         for (what in listOf("brand", "manufacturer")) product(what)?.let { ident.putIfAbsent("ro.product.$what", it) }
-        val skin = skin(ident)
+        // form factor first (Glass/Wear/TV), then the skin; both read the merged identity props
+        val skin = formFactorSkin(ident, api) ?: skin(ident)
         val abi = all["ro.product.cpu.abi"] ?: "armeabi-v7a"
+        // the instruction set comes from the firmware's own ELF files (e_machine), ro.product.cpu.abi is the fallback
+        val arch = GuestArch.detect(root, abi)
 
         // init.rc и его import’ы лежат в корне рамдиска
-        val rcFiles = (root.listFiles()?.filter { it.isFile && it.name.endsWith(".rc") }?.sortedBy { if (it.name == "init.rc") 0 else 1 } ?: emptyList()) +
+        // pre-1.0: /etc/init.rc in the old block syntax (env { } startup { } service { }); the Android runtime is one program
+        val legacyRcFile = File(root, "etc/init.rc").takeIf { f ->
+            f.isFile && !File(root, "init.rc").isFile && runCatching { LegacyFirmware.isLegacyInitRc(f.readText()) }.getOrDefault(false)
+        }
+        val legacyRc = legacyRcFile?.let { f -> runCatching { LegacyFirmware.parseInitRc(f.readText()) }.getOrNull() }
+        val legacy = legacyRc != null || LegacyFirmware.isLegacyLayout(root)
+        val rcFiles = if (legacyRcFile != null) listOf(legacyRcFile) else (root.listFiles()?.filter { it.isFile && it.name.endsWith(".rc") }?.sortedBy { if (it.name == "init.rc") 0 else 1 } ?: emptyList()) +
             InitPlan.hwRcFiles(root, all) +
             (File(root, "system/etc/init").listFiles()?.filter { it.name.endsWith(".rc") } ?: emptyList())
-        val rc = InitPlan.parse(rcFiles, all)
+        val rc = if (legacyRc != null) InitPlan.Rc(
+            services = legacyRc.services.associate { it.name to InitPlan.RcService(it.name, it.argv, disabled = !it.autostart) },
+            exports = legacyRc.exports, dirs = emptyList(),
+        ) else InitPlan.parse(rcFiles, all)
         // деревья из стендов HTC несут готовые dhd.bootclasspath / dhd.exports / dhd.dirs
         val dhdExports = File(root, "dhd.exports").takeIf { it.isFile }?.readLines()?.mapNotNull { l ->
             val i = l.indexOf('='); if (i > 0) l.substring(0, i).trim() to l.substring(i + 1).trim() else null
         }?.toMap() ?: emptyMap()
         val dhdBcp = File(root, "dhd.bootclasspath").takeIf { it.isFile }?.readText()?.trim()?.takeIf { it.isNotEmpty() }
         val dhdDirs = File(root, "dhd.dirs").takeIf { it.isFile }?.readLines()?.map { it.trim() }?.filter { it.startsWith("/") } ?: emptyList()
-        val bcp = rc.exports["BOOTCLASSPATH"]?.takeIf { it.isNotBlank() } ?: dhdBcp ?: dhdExports["BOOTCLASSPATH"]
-            ?: bootclasspathFromOdex() ?: bootclasspathGuess(api)
+        val bcpFromRc = rc.exports["BOOTCLASSPATH"]?.takeIf { it.isNotBlank() }
+        // an odexed ROM is only loadable if BOOTCLASSPATH has exactly the jars (in the order) its odex files were built against;
+        // if the init script disagrees (low-power/fota variants), trust the odex dependency chain
+        val odexBcp = bootclasspathFromOdex()
+        val bcpRcOk = bcpFromRc == null || odexBcp == null || odexBcp.split(':').all { it in bcpFromRc.split(':') }
+        val bcp = (if (bcpRcOk) bcpFromRc else odexBcp) ?: dhdBcp ?: dhdExports["BOOTCLASSPATH"]
+            ?: odexBcp ?: bootclasspathGuess(api)
         val exports = LinkedHashMap<String, String>(dhdExports).apply { putAll(rc.exports); remove("BOOTCLASSPATH") }
         val dirs = (rc.dirs + dhdDirs).filter { it.startsWith("/data") || it.startsWith("/cache") || it.startsWith("/mnt") || it.startsWith("/storage") }.distinct()
         if (api >= 17 && !exports.containsKey("EMULATED_STORAGE_TARGET") && exports["EXTERNAL_STORAGE"]?.startsWith("/storage/emulated") != false) {
@@ -70,22 +95,26 @@ class Analyzer(private val ctx: Context, private val paths: VmPaths, private val
             exports["EMULATED_STORAGE_SOURCE"] = "/mnt/shell/emulated"
             exports["EMULATED_STORAGE_TARGET"] = "/storage/emulated"
         }
-        val plan = InitPlan.plan(rc, api, root)
+        val plan = if (legacy) LegacyFirmware.plan(legacyRc, root)
+            else InitPlan.plan(rc, api, root)
         val vols = StorageList.read(root)
         val voldVols = vols.filter { !it.emulated }.map { it.mountPoint }
-        val sdcard = vols.firstOrNull { it.primary && !it.emulated }?.mountPoint ?: exports["EXTERNAL_STORAGE"]?.takeIf { it.startsWith("/") }
+        val sdcard = if (legacy) "/sdcard" // (the card of the 2007 builds is mounted by init at /sdcard; later releases say /mnt/sdcard)
+            else vols.firstOrNull { it.primary && !it.emulated }?.mountPoint ?: exports["EXTERNAL_STORAGE"]?.takeIf { it.startsWith("/") }
             ?: when { api <= 13 -> "/mnt/sdcard"; api <= 16 -> "/storage/sdcard0"; else -> "/storage/emulated/legacy" }
 
         val warnings = ArrayList<String>()
-        if (noBuildProp) warnings += "No system/build.prop: Android version was inferred from the system tree."
-        if (rcFiles.isEmpty() && dhdBcp == null) warnings += "No boot.img in firmware: boot plan and BOOTCLASSPATH were guessed."
-        if (abi.startsWith("arm64") && api != 23) warnings += "64-bit firmware: the native arm64 engine is tuned for Android 6.0; other versions are experimental."
-        if (abi.startsWith("x86") || abi.startsWith("mips")) warnings += "Firmware is not ARM ($abi) and will not run."
-        if (api >= 21) warnings += "Android ${release}: support is experimental (ART, SELinux)."
+        if (noBuildProp) warnings += ImportWarnings.NO_BUILD_PROP
+        if (rcFiles.isEmpty() && dhdBcp == null && !legacy) warnings += ImportWarnings.NO_BOOT_IMG
+        // x86-32 runs (libqemu_i386.so); x86-64, MIPS and anything else the translators cannot run still gets the warning
+        if (GuestArch.isUnsupported(root, abi)) warnings += ImportWarnings.notArm(abi)
+        if (api >= 21) warnings += ImportWarnings.experimental(release)
 
         val density = all["ro.sf.lcd_density"]?.toIntOrNull() ?: 240
         val engine = Engine.forApi(api)
-        val settings = when {
+        val baseSettings = when {
+            // the 2007 framework was built for 320x480 at 160 dpi and has no other layouts
+            legacy -> VmSettings(width = 320, height = 480, density = 160, fbHz = 60, touchHz = 60)
             engine == Engine.GB || api < 14 -> VmSettings(width = 480, height = 800, density = 240, fbHz = 60, touchHz = 60)
             // 540×960 — лучший баланс скорости и чёткости под эмуляцией; поменять можно в настройках
             density <= 160 -> VmSettings(width = 480, height = 800, density = 240)
@@ -99,12 +128,20 @@ class Analyzer(private val ctx: Context, private val paths: VmPaths, private val
             else -> VmSettings(width = 540, height = 960, density = 240)
         }
 
+        // kernel version of the firmware: read from the boot.img the importer stored (kernel banner -> /proc/version, uname -r)
+        val bannerSettings = runCatching { File(paths.dir, "boot.img").takeIf { it.isFile }?.readBytes() }.getOrNull()
+            ?.let { BootImage.withKernelBanner(baseSettings, it) } ?: baseSettings
+        // guest taskbar/navigation bar: yes after import for Android desktop builds, no for everything else (the person can change it)
+        val settings = bannerSettings.copy(guestNavBar = skin == "Desktop")
+
         writePropsTemplate(deflt, build, api, engine, rc.setprops)
 
         return GuestImage(
             id = id,
-            name = (if (model.startsWith(brand, true)) model else "$brand $model").trim().ifBlank { "Android $release" } +
-                if (skin != "AOSP" && !model.contains(skin, true)) " · $skin" else "",
+            // (a pre-1.0 build has no product of its own: "HTC Pre-1.0 build 20645" was only the guesses of LegacyFirmware)
+            name = if (legacy) LegacyFirmware.DISPLAY_NAME else
+                (if (model.startsWith(brand, true)) model else "$brand $model").trim().ifBlank { "Android $release" } +
+                    if (skin != "AOSP" && !model.contains(skin, true)) " · $skin" else "",
             release = release,
             api = api,
             brand = brand,
@@ -112,6 +149,7 @@ class Analyzer(private val ctx: Context, private val paths: VmPaths, private val
             skin = skin,
             engine = engine,
             abi = abi,
+            arch = arch,
             bootclasspath = bcp,
             exports = exports,
             dirs = dirs,
@@ -124,19 +162,45 @@ class Analyzer(private val ctx: Context, private val paths: VmPaths, private val
             runtime = if (api >= 21) "art" else "dalvik",
             warnings = warnings,
             profileVersion = VERSION,
+            buildId = (all["ro.build.id"] ?: "").trim(),
         )
     }
 
     companion object {
-        const val VERSION = 14
+        const val VERSION = 19   // 19: "Desktop" tag from ro.product.system.device=desktop; 18: ICS developer builds (sdk 13, codename IceCreamSandwich) are API 14; 17: guest architecture (GuestArch) detected from the ELF files
 
-        private val LMK_DEFAULTS = listOf(
+        /**
+         * Form-factor tag from ro.build.characteristics: if the line contains "tv" it is Google TV below API 18 and
+         * Android TV from API 18 on; if it contains "watch" it is Wear. A line with both is AOSP. A fingerprint containing
+         * "oogle/glass" (any case) is Glass OS and wins over the above. Null for
+         * phones/tablets, which fall through to [skin].
+         */
+        internal fun formFactorSkin(p: Map<String, String>, api: Int): String? {
+            // "oogle/glass" skips the first letter: the fingerprint may say Google or google
+            if (p["ro.build.fingerprint"]?.contains("oogle/glass", ignoreCase = true) == true) return "Glass OS"
+            // Modified for AEmulator Plus (2026-10-31): Android desktop builds (Dell/Google "Googlebook" and the like) say so in
+            // ro.product.system.device. Not perfect: a beta build may carry another device name. The taskbar setting is set to yes at import (see VmSettings.guestNavBar).
+            if (p["ro.product.system.device"]?.trim()?.equals("desktop", ignoreCase = true) == true) return "Desktop"
+            val line = (p["ro.build.characteristics"] ?: return null).lowercase()
+            val tv = "tv" in line
+            val watch = "watch" in line
+            return when {
+                tv && watch -> "AOSP"
+                watch -> "Wear"
+                tv -> if (api < 18) "Google TV" else "Android TV"
+                else -> null
+            }
+        }
+
+        internal val LMK_DEFAULTS = listOf(
             "ro.FOREGROUND_APP_ADJ" to "0", "ro.VISIBLE_APP_ADJ" to "1", "ro.PERCEPTIBLE_APP_ADJ" to "2",
             "ro.HEAVY_WEIGHT_APP_ADJ" to "3", "ro.SECONDARY_SERVER_ADJ" to "4", "ro.BACKUP_APP_ADJ" to "5",
             "ro.HOME_APP_ADJ" to "6", "ro.HIDDEN_APP_MIN_ADJ" to "7", "ro.EMPTY_APP_ADJ" to "15",
             "ro.FOREGROUND_APP_MEM" to "2048", "ro.VISIBLE_APP_MEM" to "3072", "ro.PERCEPTIBLE_APP_MEM" to "4096",
             "ro.HEAVY_WEIGHT_APP_MEM" to "4096", "ro.SECONDARY_SERVER_MEM" to "6144", "ro.BACKUP_APP_MEM" to "6144",
             "ro.HOME_APP_MEM" to "6144", "ro.HIDDEN_APP_MEM" to "7168", "ro.EMPTY_APP_MEM" to "8192",
+            // Eclair/Froyo ActivityManagerService also reads these; an empty value ends in NumberFormatException in system_server
+            "ro.CONTENT_PROVIDER_ADJ" to "14", "ro.CONTENT_PROVIDER_MEM" to "7680",
         )
         private val NET_DEFAULTS = listOf(
             "net.tcp.buffersize.default" to "4096,87380,110208,4096,16384,110208",
@@ -150,14 +214,59 @@ class Analyzer(private val ctx: Context, private val paths: VmPaths, private val
             "net.change" to "net.dns1",
         )
 
+        /**
+         * API level the firmware really behaves as. Developer-preview builds (e.g. Wear 2.0 "NVD36F") still report the
+         * previous release's `ro.build.version.sdk` (23) and put the next one in `codename` ("N", release "N"), yet ship
+         * that release's framework, libEGL and init. Treating them as the old API skips every 7.0+ fix (the
+         * libGLES_emulation driver name, user_de dirs, direct zygote...), so SurfaceFlinger aborts without an EGL driver.
+         */
+        fun effectiveApi(sdk: Int?, codename: String?, release: String?): Int {
+            val code = codename?.trim()?.uppercase().orEmpty()
+            // ICS pre-release trees (e.g. "Android Full on Stingray" IRK22) still say sdk=13 (Honeycomb) with codename
+            // "IceCreamSandwich", but ship the ICS AudioFlinger/audio_hw_device layout and init
+            val rel = release?.trim()?.uppercase().orEmpty()
+            val preview = when {
+                code == "N" -> 24
+                code == "NMR1" -> 25
+                // preview builds that still carry the previous release's sdk number (SDK emulator "Tiramisu" says sdk 32)
+                code == "TIRAMISU" -> 33
+                code == "UPSIDEDOWNCAKE" -> 34
+                code == "VANILLAICECREAM" -> 35
+                code == "ICECREAMSANDWICH" || rel == "ICECREAMSANDWICH" -> 14
+                else -> null
+            }
+            if (sdk == null) return preview ?: guessApi(release)
+            return if (preview != null && sdk < preview) preview else sdk
+        }
+
+        fun guessApi(rel: String?): Int = when {
+            rel == null -> 19
+            rel.startsWith("0.") -> 1   // pre-1.0 builds (0.9)
+            rel.startsWith("1.0") -> 1; rel.startsWith("1.1") -> 2; rel.startsWith("1.5") -> 3; rel.startsWith("1.6") -> 4
+            rel.startsWith("2.0") -> 5; rel.startsWith("2.1") -> 7; rel.startsWith("2.2") -> 8; rel.startsWith("2.3") -> 10
+            rel.startsWith("3.0") -> 11; rel.startsWith("3.1") -> 12; rel.startsWith("3.2") -> 13
+            rel.startsWith("4.0") -> 15; rel.startsWith("4.1") -> 16; rel.startsWith("4.2") -> 17; rel.startsWith("4.3") -> 18
+            rel.startsWith("4.4") -> 19; rel.startsWith("5.0") -> 21; rel.startsWith("5.1") -> 22
+            rel.startsWith("6") -> 23; rel.startsWith("7.0") || rel == "N" -> 24; rel.startsWith("7") -> 25
+            rel.startsWith("8.0") -> 26; rel.startsWith("8.1") -> 27; rel.startsWith("8") -> 26
+            rel.startsWith("9") -> 28; rel.startsWith("10") -> 29; rel.startsWith("11") -> 30
+            rel.startsWith("12") -> 31; rel.startsWith("13") -> 33; rel.startsWith("14") -> 34
+            rel.startsWith("15") -> 35; rel.startsWith("16") -> 36; rel.startsWith("17") -> 37
+            else -> 19
+        }
+
         /** Пересчитывает профиль образа новым анализатором, сохраняя настройки пользователя. */
         fun refresh(ctx: Context, img: GuestImage): GuestImage {
             if (img.profileVersion >= VERSION) return img
             val paths = VmPaths(ctx, img.id)
             val fresh = runCatching { Analyzer(ctx, paths, null).analyze(img.id, img.sourceName) }.getOrNull() ?: return img
             val out = fresh.copy(
-                name = img.name, settings = img.settings, createdAt = img.createdAt, sizeBytes = img.sizeBytes,
+                name = img.name,
+                // an image imported before the "Desktop" tag existed gets the taskbar once, when it is re-recognised as desktop
+                settings = if (fresh.skin == "Desktop" && !img.skin.equals("Desktop", true)) img.settings.copy(guestNavBar = true) else img.settings,
+                createdAt = img.createdAt, sizeBytes = img.sizeBytes,
                 lastBootMs = img.lastBootMs, bootCount = img.bootCount,
+                oneTimeNote = img.oneTimeNote,
             )
             app.aemu.core.ImageStore.save(ctx, out)
             return out
@@ -168,6 +277,7 @@ class Analyzer(private val ctx: Context, private val paths: VmPaths, private val
     private fun synthBuildProp(): String {
         fun has(path: String) = File(root, path).exists()
         val (api, rel) = when {
+            has("system/javalib") -> LegacyFirmware.PRE_RELEASE_API to LegacyFirmware.PRE_RELEASE_RELEASE
             has("system/apex") || has("apex") -> 29 to "10"
             has("system/bin/hwservicemanager") || has("system/etc/vintf") -> 26 to "8.0"
             has("system/framework/arm64") || has("system/lib64") -> if (has("system/etc/init")) 24 to "7.0" else 23 to "6.0"
@@ -182,32 +292,20 @@ class Analyzer(private val ctx: Context, private val paths: VmPaths, private val
             "ro.product.model=Android\nro.product.brand=generic\nro.product.cpu.abi=armeabi-v7a\n"
     }
 
-    private fun guessApi(rel: String?): Int = when {
-        rel == null -> 19
-        rel.startsWith("1.0") -> 1; rel.startsWith("1.1") -> 2; rel.startsWith("1.5") -> 3; rel.startsWith("1.6") -> 4
-        rel.startsWith("2.0") -> 5; rel.startsWith("2.1") -> 7; rel.startsWith("2.2") -> 8; rel.startsWith("2.3") -> 10
-        rel.startsWith("3.0") -> 11; rel.startsWith("3.1") -> 12; rel.startsWith("3.2") -> 13
-        rel.startsWith("4.0") -> 15; rel.startsWith("4.1") -> 16; rel.startsWith("4.2") -> 17; rel.startsWith("4.3") -> 18
-        rel.startsWith("4.4") -> 19; rel.startsWith("5.0") -> 21; rel.startsWith("5.1") -> 22
-        rel.startsWith("6") -> 23; rel.startsWith("7.0") -> 24; rel.startsWith("7") -> 25
-        rel.startsWith("8.0") -> 26; rel.startsWith("8.1") -> 27; rel.startsWith("8") -> 26
-        rel.startsWith("9") -> 28; rel.startsWith("10") -> 29; rel.startsWith("11") -> 30
-        rel.startsWith("12") -> 31; rel.startsWith("13") -> 33; rel.startsWith("14") -> 34
-        rel.startsWith("15") -> 35; rel.startsWith("16") -> 36; rel.startsWith("17") -> 37
-        else -> 19
-    }
-
+    /** Only skins proven by properties or files; the device brand alone says nothing (it may be an AOSP/custom ROM). */
     private fun skin(p: Map<String, String>): String {
         val man = (p["ro.product.manufacturer"] ?: p["ro.product.brand"] ?: "").lowercase()
         fun has(path: String) = File(root, path).exists()
-        val brand = (p["ro.product.brand"] ?: "").lowercase()
+        // A brand name alone proves nothing (a custom ROM keeps the donor's ro.product.brand), so a vendor skin that
+        // is guessed from the maker needs a sign in the build fingerprint: its brand segment ("Infinix/X657/...").
+        val fpBrand = (p["ro.build.fingerprint"] ?: "").substringBefore('/').lowercase()
         val api = p["ro.build.version.sdk"]?.toIntOrNull() ?: guessApi(p["ro.build.version.release"])
         return when {
             // HyperOS keeps the ro.miui.* props of MIUI, so it is checked first
             p.containsKey("ro.mi.os.version.name") || p.containsKey("ro.mi.os.version.code") -> "HyperOS " + (p["ro.mi.os.version.name"] ?: "")
             // Infinix: 4.x plain AOSP, 5.x XUI, 6.0+ XOS; Tecno: 4.x–5.x AOSP, 6.0+ HiOS
-            man.contains("infinix") || brand.contains("infinix") -> when { api >= 23 -> "XOS"; api >= 21 -> "XUI"; else -> "AOSP" }
-            man.contains("tecno") || brand.contains("tecno") -> if (api >= 23) "HiOS" else "AOSP"
+            fpBrand.contains("infinix") -> when { api >= 23 -> "XOS"; api >= 21 -> "XUI"; else -> "AOSP" }
+            fpBrand.contains("tecno") -> if (api >= 23) "HiOS" else "AOSP"
             // ro.build.version.oneui is a number: 60100 = One UI 6.1
             p.containsKey("ro.build.version.oneui") || p.containsKey("ro.build.version.sep") ->
                 "One UI " + (p["ro.build.version.oneui"]?.toIntOrNull()?.let { "${it / 10000}.${it / 100 % 100}" } ?: "")
@@ -223,14 +321,8 @@ class Analyzer(private val ctx: Context, private val paths: VmPaths, private val
             p.containsKey("ro.build.version.emui") -> "EMUI"
             p.containsKey("ro.build.version.opporom") -> "ColorOS"
             (p["ro.product.brand"] ?: "").lowercase() == "google" || p["ro.build.tags"]?.contains("release-keys") == true && man.contains("samsung") && !has("system/framework/twframework.jar") && !has("system/app/TwLauncher.apk") && !has("system/app/SecLauncher2.apk") -> "AOSP"
-            has("system/framework/twframework.jar") || has("system/app/TwLauncher.apk") || has("system/app/TwLauncher") || has("system/app/SecLauncher2.apk") || man.contains("samsung") -> "TouchWiz"
-            man.contains("htc") || has("system/framework/com.htc.framework.jar") || has("system/framework/HTCExtension.jar") -> "HTC Sense"
-            man.contains("motorola") -> "MOTOBLUR"
-            man.contains("lge") || man.contains("lg") -> "LG Optimus UI"
-            man.contains("sony") || man.contains("semc") -> "Xperia UI"
-            man.contains("asus") -> "ZenUI"
-            man.contains("huawei") -> "EMUI"
-            man.contains("lenovo") -> "Vibe UI"
+            has("system/framework/twframework.jar") || has("system/app/TwLauncher.apk") || has("system/app/TwLauncher") || has("system/app/SecLauncher2.apk") -> "TouchWiz"
+            has("system/framework/com.htc.framework.jar") || has("system/framework/HTCExtension.jar") -> "HTC Sense"
             else -> "AOSP"
         }.trim()
     }

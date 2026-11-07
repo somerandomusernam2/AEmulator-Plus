@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="m_wea">جعلی ہنگامی الرٹ</string>
+    <string name="m_wea_type">الرٹ کی قسم</string>
+    <string name="m_wea_sent">ہنگامی الرٹ بھیج دیا گیا</string>
+    <string name="m_wea_failed">نہیں بھیجا گیا: فون کی ٹیلی فونی نہیں چل رہی</string>
+    <string name="wea_presidential">صدارتی الرٹ</string>
+    <string name="wea_extreme">شدید خطرہ</string>
+    <string name="wea_severe">سنگین خطرہ</string>
+    <string name="wea_amber">AMBER الرٹ</string>
+    <string name="wea_test">ضروری ماہانہ ٹیسٹ</string>
+    <string name="wea_body_presidential">صدارتی الرٹ: یہ ہنگامی الرٹ سسٹم کا ٹیسٹ ہے۔ کسی کارروائی کی ضرورت نہیں۔</string>
+    <string name="wea_body_extreme">شدید الرٹ: آپ کے علاقے میں طوفانِ بادوباراں (ٹورنیڈو) کی وارننگ۔ ابھی پناہ لیں۔ یہ ایک ٹیسٹ ہے۔</string>
+    <string name="wea_body_severe">سنگین الرٹ: آپ کے علاقے میں شام 6 بجے تک گرج چمک کی وارننگ۔ یہ ایک ٹیسٹ ہے۔</string>
+    <string name="wea_body_amber">AMBER الرٹ: لاپتہ بچہ، نیلی سیڈان۔ نظر آئے تو 911 پر کال کریں۔ یہ ایک ٹیسٹ ہے۔</string>
+    <string name="wea_body_test">یہ Wireless Emergency Alert سسٹم کا ٹیسٹ ہے۔ کسی کارروائی کی ضرورت نہیں۔</string>
+</resources>

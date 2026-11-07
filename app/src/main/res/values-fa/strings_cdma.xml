@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="vs_cdma">مودم CDMA</string>
+    <string name="vs_cdma_sub">یک مودم CDMA را شبیه‌سازی می‌کند: ثبت 1xRTT / EV-DO، MEID، اشتراک CDMA و پیامک‌های CDMA. در بوت کامل بعدی اعمال می‌شود.</string>
+    <string name="vs_cdma_fw_yes">این سفت‌افزار LTE on CDMA است (telephony.lteOnCdmaDevice=1): به‌طور پیش‌فرض روشن.</string>
+    <string name="vs_cdma_fw_no">این سفت‌افزار LTE on CDMA نیست: به‌طور پیش‌فرض خاموش.</string>
+</resources>

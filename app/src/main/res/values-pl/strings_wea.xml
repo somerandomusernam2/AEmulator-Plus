@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="m_wea">Fałszywy alert alarmowy</string>
+    <string name="m_wea_type">Typ alertu</string>
+    <string name="m_wea_sent">Wysłano alert alarmowy</string>
+    <string name="m_wea_failed">Nie wysłano: telefonia telefonu nie działa</string>
+    <string name="wea_presidential">Alert prezydencki</string>
+    <string name="wea_extreme">Ekstremalne zagrożenie</string>
+    <string name="wea_severe">Poważne zagrożenie</string>
+    <string name="wea_amber">Alert AMBER</string>
+    <string name="wea_test">Obowiązkowy test miesięczny</string>
+    <string name="wea_body_presidential">Alert prezydencki: To jest test systemu alarmowego. Nie jest wymagane żadne działanie.</string>
+    <string name="wea_body_extreme">Alert ekstremalny: Ostrzeżenie o tornadzie w Twojej okolicy. Natychmiast szukaj schronienia. To jest test.</string>
+    <string name="wea_body_severe">Alert poważny: Ostrzeżenie o burzy w Twojej okolicy do godz. 18:00. To jest test.</string>
+    <string name="wea_body_amber">Alert AMBER: Zaginione dziecko, niebieski sedan. Jeśli go zobaczysz, zadzwoń pod 911. To jest test.</string>
+    <string name="wea_body_test">To jest test systemu Wireless Emergency Alert. Nie jest wymagane żadne działanie.</string>
+</resources>

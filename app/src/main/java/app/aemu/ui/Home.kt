@@ -1,3 +1,5 @@
+/* Modified for AEmulator Plus, 2026-11-04: thermal sensor entry moved from the library card menu to the runtime menu (VmActivity). */
+/* Modified for AEmulator Plus, 2026-11-01: folders (move-to-folder menu item, new-folder action). GPL-3.0; see LICENSE and NOTICE.md. */
 package app.aemu.ui
 
 import android.text.format.Formatter
@@ -28,7 +30,9 @@ import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.ContentCopy
 import androidx.compose.material.icons.rounded.Delete
 import androidx.compose.material.icons.rounded.Edit
+import androidx.compose.material.icons.rounded.CreateNewFolder
 import androidx.compose.material.icons.rounded.FileOpen
+import androidx.compose.material.icons.rounded.FolderOpen
 import androidx.compose.material.icons.rounded.Inventory2
 import androidx.compose.material.icons.rounded.MoreVert
 import androidx.compose.material.icons.rounded.PlayArrow
@@ -82,8 +86,14 @@ import app.aemu.core.GuestImage
  * glance (artwork of the card, not UI chrome — the chrome around it stays on theme tokens).
  */
 private fun skinColors(img: GuestImage): List<Color> {
+    val skin = img.skin.lowercase()
     val s = (img.skin + " " + img.brand).lowercase()
     return when {
+        // form factors first: their tag comes from the build characteristics, not from the maker
+        skin == "wear" || skin.startsWith("wear ") -> listOf(Color(0xFFFFCA28), Color(0xFFC77800))      // Wear: gold
+        skin.endsWith(" tv") -> listOf(Color(0xFFD65DB1), Color(0xFF6A1B6E))                              // Android TV / Google TV: fuchsia
+        skin.startsWith("glass") -> listOf(Color(0xFF90A4AE), Color(0xFF37474F))                          // Glass OS: silver
+        skin == "desktop" -> listOf(Color(0xFF00ACC1), Color(0xFF1A237E))                                 // Desktop: cyan into indigo
         "miui" in s || "hyperos" in s -> listOf(Color(0xFFFF8A3D), Color(0xFFE2462E))
         "touchwiz" in s || "one ui" in s || "samsung" in s -> listOf(Color(0xFF3D7BFF), Color(0xFF1B2F9E))
         "sense" in s || "htc" in s -> listOf(Color(0xFF7BC74D), Color(0xFF2E7D32))
@@ -91,6 +101,10 @@ private fun skinColors(img: GuestImage): List<Color> {
         "coloros" in s || "realme" in s || "oppo" in s -> listOf(Color(0xFF2FD6A7), Color(0xFF0E7C68))
         "xos" in s || "xui" in s || "hios" in s || "infinix" in s || "tecno" in s -> listOf(Color(0xFF39C8F0), Color(0xFF1765B5))
         "motoblur" in s || "motorola" in s -> listOf(Color(0xFF5C6BC0), Color(0xFF263238))
+        "emui" in s || "huawei" in s || "honor" in s -> listOf(Color(0xFFFF5252), Color(0xFF9B0F1B))      // EMUI: red
+        "funtouch" in s || "originos" in s || "vivo" in s -> listOf(Color(0xFF536DFE), Color(0xFF1A237E)) // vivo: indigo
+        "flyme" in s || "meizu" in s -> listOf(Color(0xFF4FC3F7), Color(0xFF01579B))                      // Flyme: sky blue
+        "cyanogen" in s || "lineage" in s -> listOf(Color(0xFF9CCC65), Color(0xFF33691E))                 // CyanogenMod / LineageOS: lime
         "lg" in s -> listOf(Color(0xFFE5486B), Color(0xFF8E1F3E))
         else -> listOf(Color(0xFF34C08E), Color(0xFF0B6E66))   // AOSP and the rest: Android green-teal
     }
@@ -108,6 +122,7 @@ fun MachineCard(
     onNewMachine: () -> Unit,
     onReset: () -> Unit,
     onDelete: () -> Unit,
+    onMoveToFolder: (() -> Unit)? = null,
 ) {
     val ctx = LocalContext.current
     val press = remember { MutableInteractionSource() }
@@ -137,6 +152,8 @@ fun MachineCard(
                         onClick = { menu = false; onRename() })
                     DropdownMenuItem(text = { Text(stringResource(R.string.new_machine)) }, leadingIcon = { Icon(Icons.Rounded.ContentCopy, null) },
                         onClick = { menu = false; onNewMachine() })
+                    if (onMoveToFolder != null) DropdownMenuItem(text = { Text(stringResource(R.string.folder_move)) }, leadingIcon = { Icon(Icons.Rounded.FolderOpen, null) },
+                        onClick = { menu = false; onMoveToFolder() })
                     HorizontalDivider()
                     DropdownMenuItem(text = { Text(stringResource(R.string.reset_data)) }, leadingIcon = { Icon(Icons.Rounded.RestartAlt, null) },
                         onClick = { menu = false; onReset() })
@@ -172,9 +189,9 @@ fun MachineCard(
     }
 }
 
-/** "+": an M3 Expressive FAB menu — import a firmware file, or open the firmware library. */
+/** "+": an M3 Expressive FAB menu — import a firmware file, open the firmware library, or make a folder. */
 @Composable
-fun HomeFab(expanded: Boolean, onToggle: (Boolean) -> Unit, onImport: () -> Unit, onLibrary: () -> Unit) {
+fun HomeFab(expanded: Boolean, onToggle: (Boolean) -> Unit, onImport: () -> Unit, onLibrary: () -> Unit, onNewFolder: () -> Unit) {
     FloatingActionButtonMenu(
         expanded = expanded,
         button = {
@@ -188,6 +205,8 @@ fun HomeFab(expanded: Boolean, onToggle: (Boolean) -> Unit, onImport: () -> Unit
             text = { Text(stringResource(R.string.add_import)) })
         FloatingActionButtonMenuItem(onClick = { onToggle(false); onLibrary() }, icon = { Icon(Icons.Rounded.Inventory2, null) },
             text = { Text(stringResource(R.string.lib_title)) })
+        FloatingActionButtonMenuItem(onClick = { onToggle(false); onNewFolder() }, icon = { Icon(Icons.Rounded.CreateNewFolder, null) },
+            text = { Text(stringResource(R.string.folder_new)) })
     }
 }
 

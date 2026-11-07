@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="m_wea">Foláireamh éigeandála bréige</string>
+    <string name="m_wea_type">Cineál foláirimh</string>
+    <string name="m_wea_sent">Seoladh foláireamh éigeandála</string>
+    <string name="m_wea_failed">Níor seoladh: níl teileafónaíocht an ghutháin ag rith</string>
+    <string name="wea_presidential">Foláireamh uachtaránachta</string>
+    <string name="wea_extreme">Bagairt thromchúiseach</string>
+    <string name="wea_severe">Bagairt dhian</string>
+    <string name="wea_amber">Foláireamh AMBER</string>
+    <string name="wea_test">Tástáil mhíosúil riachtanach</string>
+    <string name="wea_body_presidential">Foláireamh uachtaránachta: Is tástáil ar an gcóras foláirimh éigeandála é seo. Ní gá aon ghníomh a dhéanamh.</string>
+    <string name="wea_body_extreme">Foláireamh tromchúiseach: Rabhadh tornádó i do cheantar. Téigh faoi fhoscadh anois. Is tástáil é seo.</string>
+    <string name="wea_body_severe">Foláireamh dian: Rabhadh toirneach i do cheantar go dtí 6 PM. Is tástáil é seo.</string>
+    <string name="wea_body_amber">Foláireamh AMBER: Leanbh ar iarraidh, sedan gorm. Glaoigh ar 112 má chítear é. Is tástáil é seo.</string>
+    <string name="wea_body_test">Is tástáil ar an gcóras Foláirimh Éigeandála Gan Sreang é seo. Ní gá aon ghníomh a dhéanamh.</string>
+</resources>

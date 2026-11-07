@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="vs_cdma">CDMA модем</string>
+    <string name="vs_cdma_sub">Емулира CDMA модем: 1xRTT / EV-DO регистрацију, MEID, CDMA претплату и CDMA текстуалне поруке. Примењује се при следећем потпуном покретању.</string>
+    <string name="vs_cdma_fw_yes">Овај фирмвер је LTE on CDMA (telephony.lteOnCdmaDevice=1): подразумевано укључено.</string>
+    <string name="vs_cdma_fw_no">Овај фирмвер није LTE on CDMA: подразумевано искључено.</string>
+</resources>

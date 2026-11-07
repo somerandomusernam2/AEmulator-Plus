@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="m_wea">Viltots ārkārtas brīdinājums</string>
+    <string name="m_wea_type">Brīdinājuma veids</string>
+    <string name="m_wea_sent">Ārkārtas brīdinājums nosūtīts</string>
+    <string name="m_wea_failed">Nenosūtīts: tālruņa telefonija nedarbojas</string>
+    <string name="wea_presidential">Prezidenta brīdinājums</string>
+    <string name="wea_extreme">Ārkārtas draudi</string>
+    <string name="wea_severe">Nopietni draudi</string>
+    <string name="wea_amber">AMBER brīdinājums</string>
+    <string name="wea_test">Obligātais ikmēneša tests</string>
+    <string name="wea_body_presidential">Prezidenta brīdinājums: šis ir ārkārtas brīdinājumu sistēmas tests. Nekādas darbības nav nepieciešamas.</string>
+    <string name="wea_body_extreme">Ārkārtas brīdinājums: jūsu apvidū izsludināts brīdinājums par tornado. Nekavējoties dodieties patvertnē. Šis ir tests.</string>
+    <string name="wea_body_severe">Nopietns brīdinājums: jūsu apvidū līdz plkst. 18:00 izsludināts brīdinājums par pērkona negaisu. Šis ir tests.</string>
+    <string name="wea_body_amber">AMBER brīdinājums: pazudis bērns, zils sedans. Ja redzat, zvaniet 911. Šis ir tests.</string>
+    <string name="wea_body_test">Šis ir bezvadu ārkārtas brīdinājumu sistēmas tests. Nekādas darbības nav nepieciešamas.</string>
+</resources>

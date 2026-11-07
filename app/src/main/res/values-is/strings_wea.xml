@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="m_wea">Gervi-neyðarviðvörun</string>
+    <string name="m_wea_type">Tegund viðvörunar</string>
+    <string name="m_wea_sent">Neyðarviðvörun send</string>
+    <string name="m_wea_failed">Ekki send: símkerfi símans er ekki í gangi</string>
+    <string name="wea_presidential">Forsetaviðvörun</string>
+    <string name="wea_extreme">Alvarleg ógn</string>
+    <string name="wea_severe">Mikil ógn</string>
+    <string name="wea_amber">AMBER-viðvörun</string>
+    <string name="wea_test">Skyldubundin mánaðarleg prófun</string>
+    <string name="wea_body_presidential">Forsetaviðvörun: Þetta er prófun á neyðarviðvörunarkerfinu. Engin aðgerð er nauðsynleg.</string>
+    <string name="wea_body_extreme">Alvarleg viðvörun: Skýstrókaviðvörun á þínu svæði. Leitaðu skjóls strax. Þetta er prófun.</string>
+    <string name="wea_body_severe">Mikil viðvörun: Þrumuveðursviðvörun á þínu svæði til kl. 18. Þetta er prófun.</string>
+    <string name="wea_body_amber">AMBER-viðvörun: Barn týnt, blár fólksbíll. Hringdu í 112 ef hann sést. Þetta er prófun.</string>
+    <string name="wea_body_test">Þetta er prófun á þráðlausu neyðarviðvörunarkerfi. Engin aðgerð er nauðsynleg.</string>
+</resources>

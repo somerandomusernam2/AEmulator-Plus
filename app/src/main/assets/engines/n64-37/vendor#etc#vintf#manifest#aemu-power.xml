@@ -1,0 +1,11 @@
+<!-- AIDL power HAL, served by /vendor/bin/hw/android.hardware.power-service.aemu (native/powerhal/power_service.c). HintManagerService of
+     system_server waits for this declared service and, from interface version 6 on, calls getSupportInfo(); without it mSupportInfo stays
+     null and its constructor dies (NPE on SupportInfo.headroom). A fragment named "aemu-" is kept by the fixer, and it is the one place
+     that works whichever monolithic vendor manifest the image ends up with; do not also declare it there (VINTF refuses duplicates). -->
+<manifest version="1.0" type="device">
+    <hal format="aidl">
+        <name>android.hardware.power</name>
+        <version>6</version>
+        <fqname>IPower/default</fqname>
+    </hal>
+</manifest>

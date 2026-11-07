@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="vs_cdma">CDMA modem</string>
+    <string name="vs_cdma_sub">Ginagaya ang isang CDMA modem: 1xRTT / EV-DO registration, MEID, CDMA subscription, at mga CDMA text message. Ilalapat sa susunod na buong boot.</string>
+    <string name="vs_cdma_fw_yes">Ang firmware na ito ay LTE on CDMA (telephony.lteOnCdmaDevice=1): naka-on bilang default.</string>
+    <string name="vs_cdma_fw_no">Ang firmware na ito ay hindi LTE on CDMA: naka-off bilang default.</string>
+</resources>

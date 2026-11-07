@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="m_wea">Ψεύτικη ειδοποίηση έκτακτης ανάγκης</string>
+    <string name="m_wea_type">Τύπος ειδοποίησης</string>
+    <string name="m_wea_sent">Η ειδοποίηση έκτακτης ανάγκης στάλθηκε</string>
+    <string name="m_wea_failed">Δεν στάλθηκε: η τηλεφωνία του τηλεφώνου δεν εκτελείται</string>
+    <string name="wea_presidential">Προεδρική ειδοποίηση</string>
+    <string name="wea_extreme">Ακραία απειλή</string>
+    <string name="wea_severe">Σοβαρή απειλή</string>
+    <string name="wea_amber">Ειδοποίηση AMBER</string>
+    <string name="wea_test">Υποχρεωτική μηνιαία δοκιμή</string>
+    <string name="wea_body_presidential">Προεδρική ειδοποίηση: Πρόκειται για δοκιμή του συστήματος ειδοποίησης έκτακτης ανάγκης. Δεν απαιτείται καμία ενέργεια.</string>
+    <string name="wea_body_extreme">Ακραία ειδοποίηση: Προειδοποίηση για ανεμοστρόβιλο στην περιοχή σας. Αναζητήστε καταφύγιο τώρα. Πρόκειται για δοκιμή.</string>
+    <string name="wea_body_severe">Σοβαρή ειδοποίηση: Προειδοποίηση για καταιγίδα στην περιοχή σας έως τις 6 μ.μ. Πρόκειται για δοκιμή.</string>
+    <string name="wea_body_amber">Ειδοποίηση AMBER: Εξαφανισμένο παιδί, μπλε σεντάν. Καλέστε το 911 αν το δείτε. Πρόκειται για δοκιμή.</string>
+    <string name="wea_body_test">Πρόκειται για δοκιμή του συστήματος Wireless Emergency Alert. Δεν απαιτείται καμία ενέργεια.</string>
+</resources>

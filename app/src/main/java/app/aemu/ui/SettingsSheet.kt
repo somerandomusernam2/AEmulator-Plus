@@ -1,8 +1,15 @@
+/* Modified for AEmulator Sunset, 2026-10-03: VM export, motion and host resolution.
+ * Modified for AEmulator Super Plus, 2026-10-11: fake SIM card section, Wi-Fi signal and neighbours.
+ * Modified for AEmulator Plus, 2026-10-28: Android 14+ watchdog toggle.
+ * Modified for AEmulator Plus, 2026-11-02: Wi-Fi is offered for Android 8 - 17 (engine of the running VM, not the stored one).
+ * GPL-3.0; upstream attribution retained in NOTICE.md. */
 package app.aemu.ui
 
+import app.aemu.core.userMessage
 import app.aemu.R
 import androidx.compose.ui.res.stringResource
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -14,20 +21,29 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonGroupDefaults
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Switch
 import androidx.compose.material3.TextButton
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.material3.Text
 import androidx.compose.material3.ToggleButton
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -40,29 +56,63 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
+import app.aemu.core.CdmaMode
 import app.aemu.core.CpuInfo
 import app.aemu.core.Engine
 import app.aemu.core.GuestImage
+import app.aemu.core.GyroLock
+import app.aemu.core.NetworkType
+import app.aemu.core.RamChoice
+import kotlin.math.roundToInt
 import app.aemu.core.VmSettings
+import app.aemu.core.WifiEmu
+import app.aemu.core.VmStorageLease
+import app.aemu.core.VmDataReset
+import app.aemu.core.ImageStore
+import app.aemu.core.ResolutionPreset
+import androidx.compose.material3.AlertDialog
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.ui.platform.LocalContext
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
-private data class Res(val label: String, val w: Int, val h: Int, val dpi: Int)
+private val RESOLUTIONS = ResolutionPreset.entries
 
-private val RESOLUTIONS = listOf(
-    Res("480×800", 480, 800, 240),
-    Res("540×960", 540, 960, 240),
-    Res("720×1280", 720, 1280, 320),
-)
+// Modified for AEmulator Plus (2026-11-04): automatic, the presets, host / max, then "custom" (a box for an MB amount).
+// RAM_CUSTOM only marks the last slider position; it is never stored.
+private const val RAM_CUSTOM = -2
+private val RAM_STEPS = listOf(RamChoice.AUTO) + RamChoice.PRESETS_MB + RamChoice.HOST + RAM_CUSTOM
 
-private val RAM_STEPS = listOf(0, 256, 512, 768, 1024, 1536, 2048, 3072, 4096)
+private fun ramText(mb: Int): String =
+    if (mb < 1024) "$mb MB"
+    else if (mb % 1024 == 0) "${mb / 1024} GB"
+    else String.format(java.util.Locale.ROOT, "%.1f GB", mb / 1024.0) + " (" + mb + " MB)"
 
 @Composable
-fun SettingsSheet(img: GuestImage, onDismiss: () -> Unit, onSave: (VmSettings) -> Unit) {
+fun SettingsSheet(img: GuestImage, onDismiss: () -> Unit, onSave: (VmSettings, String) -> Unit) {
     var s by remember { mutableStateOf(img.settings) }
+    var name by remember { mutableStateOf(img.name) }
+    val ctx = LocalContext.current
+    // follows the settings being edited: with 32-bit translation off, a 32-bit 8.0+ firmware runs on the universal engine
+    val wifiOffered = WifiEmu.offered(img.copy(settings = s))
+    // CDMA modem: automatic from the firmware's telephony.lteOnCdmaDevice unless the user chose
+    val fwLteOnCdma = remember(img.id) { CdmaMode.supported(img.api) && CdmaMode.firmwareLteOnCdma(app.aemu.core.VmPaths(ctx, img.id)) }
+    val cdmaOn = CdmaMode.supported(img.api) && (s.cdma ?: fwLteOnCdma)
+    val scope = rememberCoroutineScope()
+    var resetConfirm by remember { mutableStateOf(false) }
+    var resetting by remember { mutableStateOf(false) }
+    var resetMessage by remember { mutableStateOf<String?>(null) }
     val state = rememberModalBottomSheetState(skipPartiallyExpanded = true)
-    ModalBottomSheet(onDismissRequest = onDismiss, sheetState = state) {
+    ModalBottomSheet(onDismissRequest = { if (!resetting) onDismiss() }, sheetState = state) {
         Column(Modifier.verticalScroll(rememberScrollState()).padding(horizontal = 20.dp).navigationBarsPadding()) {
             Text(stringResource(R.string.settings), style = MaterialTheme.typography.headlineSmall)
             Text(img.name, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Spacer(Modifier.height(16.dp))
+
+            // rename the machine; a blank name keeps the current one (see LibraryModel.updateSettings)
+            OutlinedTextField(value = name, onValueChange = { name = it }, singleLine = true,
+                label = { Text(stringResource(R.string.name)) }, modifier = Modifier.fillMaxWidth())
             Spacer(Modifier.height(16.dp))
 
             Text(stringResource(R.string.vs_screen), style = MaterialTheme.typography.titleMedium)
@@ -70,28 +120,37 @@ fun SettingsSheet(img: GuestImage, onDismiss: () -> Unit, onSave: (VmSettings) -
             if (s.legacyEngine && img.api < 14) {
                 Text(stringResource(R.string.vs_fixed_2x), style = MaterialTheme.typography.bodyMedium)
             } else {
-                Row(horizontalArrangement = Arrangement.spacedBy(ButtonGroupDefaults.ConnectedSpaceBetween), modifier = Modifier.fillMaxWidth()) {
-                    RESOLUTIONS.forEachIndexed { i, r ->
-                        ToggleButton(
-                            checked = s.width == r.w && s.height == r.h,
-                            onCheckedChange = { s = s.copy(width = r.w, height = r.h, density = r.dpi) },
-                            shapes = when (i) {
-                                0 -> ButtonGroupDefaults.connectedLeadingButtonShapes()
-                                RESOLUTIONS.lastIndex -> ButtonGroupDefaults.connectedTrailingButtonShapes()
-                                else -> ButtonGroupDefaults.connectedMiddleButtonShapes()
-                            },
-                            modifier = Modifier.weight(1f).semantics { role = Role.RadioButton },
-                        ) { Text(r.label) }
+                val firmwareDensity = remember(img.id) { ResolutionPreset.buildPropDensity(app.aemu.core.VmPaths(ctx, img.id).root) }
+                var presetMenu by remember { mutableStateOf(false) }
+                val current = RESOLUTIONS.firstOrNull { it.selected(s) }
+                val hostLabel = stringResource(R.string.vs_resolution_host)
+                val customLabel = stringResource(R.string.vs_resolution_custom)
+                fun name(r: ResolutionPreset) = if (r.isHost) hostLabel else r.label
+                Box(Modifier.fillMaxWidth()) {
+                    OutlinedButton(onClick = { presetMenu = true }, modifier = Modifier.fillMaxWidth()) {
+                        Text(current?.let(::name) ?: customLabel, modifier = Modifier.weight(1f), maxLines = 1)
+                        Text("▾")
+                    }
+                    DropdownMenu(expanded = presetMenu, onDismissRequest = { presetMenu = false }, modifier = Modifier.heightIn(max = 360.dp)) {
+                        RESOLUTIONS.forEach { r ->
+                            DropdownMenuItem(
+                                text = { Text(name(r), fontWeight = if (r == current) FontWeight.Bold else null) },
+                                onClick = { s = r.apply(s, firmwareDensity); presetMenu = false },
+                            )
+                        }
                     }
                 }
                 Spacer(Modifier.height(8.dp))
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
-                    NumField(stringResource(R.string.vs_width), s.width, Modifier.weight(1f)) { s = s.copy(width = it.coerceIn(240, 2160) and 0x7ffffffe) }
-                    NumField(stringResource(R.string.vs_height), s.height, Modifier.weight(1f)) { s = s.copy(height = it.coerceIn(320, 3840) and 0x7ffffffe) }
-                    NumField(stringResource(R.string.vs_dpi), s.density, Modifier.weight(1f)) { s = s.copy(density = it.coerceIn(96, 640)) }
+                    NumField(stringResource(R.string.vs_width), s.width, Modifier.weight(1f)) { s = s.copy(width = it.coerceAtLeast(2) and 0x7ffffffe, hostResolution = false) }
+                    NumField(stringResource(R.string.vs_height), s.height, Modifier.weight(1f)) { s = s.copy(height = it.coerceAtLeast(2) and 0x7ffffffe, hostResolution = false) }
+                    NumField(stringResource(R.string.vs_dpi), s.density, Modifier.weight(1f)) { s = s.copy(density = it.coerceIn(96, 640), hostResolution = false) }
                 }
                 Text(stringResource(R.string.vs_screen_hint), style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 6.dp))
+                if (s.hostResolution) Text(stringResource(R.string.vs_host_resolution_sub),
+                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(top = 6.dp))
             }
             Spacer(Modifier.height(16.dp))
 
@@ -101,26 +160,87 @@ fun SettingsSheet(img: GuestImage, onDismiss: () -> Unit, onSave: (VmSettings) -
             Toggle(stringResource(R.string.vs_jit), stringResource(R.string.vs_jit_sub), s.jit) { s = s.copy(jit = it) }
             if (img.api >= 21) Toggle(stringResource(R.string.vs_fulldex), stringResource(R.string.vs_fulldex_sub), s.fullDexopt) { s = s.copy(fullDexopt = it) }
             if (img.api < 14) Toggle(stringResource(R.string.vs_legacy), stringResource(R.string.vs_legacy_sub), s.legacyEngine) { s = s.copy(legacyEngine = it) }
+            if (img.api >= 26 && img.abi.startsWith("armeabi")) Toggle(
+                "Translate on the native engine",
+                "32-bit firmware of Android 8+ (Wear OS 9, ...): run it on the arm64 engine through qemu-arm. The universal engine cannot start it (binder protocol 8). With the GPU option on, apps' OpenGL ES drawing goes to the phone's GPU (8.0+). Takes effect on the next start.",
+                s.translate32
+            ) { s = s.copy(translate32 = it) }
             val has32 = CpuInfo.hasAArch32
             Toggle(
                 stringResource(R.string.vs_native32),
                 if (has32) stringResource(R.string.vs_native32_sub) else stringResource(R.string.vs_native32_unsupported),
                 s.native32 && has32
             ) { if (has32) s = s.copy(native32 = it) }
-            val ramIdx = RAM_STEPS.indexOf(s.ramMb).coerceAtLeast(0)
+            Toggle(stringResource(R.string.vs_thermal), stringResource(R.string.vs_thermal_sub), s.thermalPassthrough) { s = s.copy(thermalPassthrough = it) }
+            // the custom box stays open while it is edited, even when the typed amount equals one of the presets
+            var ramCustom by remember { mutableStateOf(s.ramMb > 0 && s.ramMb !in RamChoice.PRESETS_MB) }
+            var ramBox by remember { mutableStateOf(if (s.ramMb > 0 && s.ramMb !in RamChoice.PRESETS_MB) s.ramMb.toString() else "") }
+            val hostMb = remember { RamChoice.hostMb() }
+            val ramIdx = if (ramCustom) RAM_STEPS.lastIndex else RAM_STEPS.indexOf(s.ramMb).coerceAtLeast(0)
             ListItem(
                 headlineContent = { Text(stringResource(R.string.vs_ram)) },
                 supportingContent = {
                     Column {
-                        Text(if (s.ramMb == 0) stringResource(R.string.vs_ram_auto) else "${s.ramMb} MB")
-                        Slider(value = ramIdx.toFloat(), onValueChange = { s = s.copy(ramMb = RAM_STEPS[it.toInt()]) },
-                            valueRange = 0f..RAM_STEPS.lastIndex.toFloat(), steps = RAM_STEPS.size - 2)
+                        Text(when {
+                            ramCustom -> stringResource(R.string.vs_ram_custom)
+                            s.ramMb == RamChoice.AUTO -> stringResource(R.string.vs_ram_auto)
+                            s.ramMb == RamChoice.HOST -> stringResource(R.string.vs_ram_host) + " (" + ramText(hostMb) + ")"
+                            else -> ramText(s.ramMb)
+                        })
+                        Slider(value = ramIdx.toFloat(), onValueChange = {
+                            val step = RAM_STEPS[it.roundToInt().coerceIn(0, RAM_STEPS.lastIndex)]
+                            if (step == RAM_CUSTOM) {
+                                if (!ramCustom) {
+                                    // start from what is selected now
+                                    val seed = when { s.ramMb > 0 -> s.ramMb; s.ramMb == RamChoice.HOST -> hostMb; else -> 2048 }
+                                    ramCustom = true; ramBox = seed.toString(); s = s.copy(ramMb = seed)
+                                }
+                            } else { ramCustom = false; s = s.copy(ramMb = step) }
+                        }, valueRange = 0f..RAM_STEPS.lastIndex.toFloat(), steps = RAM_STEPS.size - 2)
+                        if (ramCustom) OutlinedTextField(
+                            value = ramBox,
+                            onValueChange = { v ->
+                                val digits = v.filter { c -> c.isDigit() }.take(6)
+                                ramBox = digits
+                                // an amount that is too small is shown as an error and the last valid one is kept
+                                digits.toIntOrNull()?.takeIf { n -> n >= RamChoice.CUSTOM_MIN_MB }?.let { n -> s = s.copy(ramMb = n) }
+                            },
+                            label = { Text(stringResource(R.string.vs_ram_custom_hint)) },
+                            suffix = { Text("MB") },
+                            singleLine = true,
+                            isError = (ramBox.toIntOrNull() ?: 0) < RamChoice.CUSTOM_MIN_MB,
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                            modifier = Modifier.fillMaxWidth(),
+                        )
                     }
                 },
                 colors = ListItemDefaults.colors(containerColor = Color.Transparent),
             )
             Toggle(stringResource(R.string.vs_lowram), stringResource(R.string.vs_lowram_sub), s.lowRam) { s = s.copy(lowRam = it) }
             Toggle(stringResource(R.string.vs_proxy), stringResource(R.string.vs_proxy_sub), s.netProxy) { s = s.copy(netProxy = it) }
+            Toggle(stringResource(R.string.vs_vibration), stringResource(R.string.vs_vibration_sub), s.vibration) { s = s.copy(vibration = it) }
+            Toggle(stringResource(R.string.vs_host_battery), stringResource(R.string.vs_host_battery_sub), s.hostBattery) { s = s.copy(hostBattery = it) }
+            if (img.api in 9..25) Toggle(stringResource(R.string.vs_no_sensors), stringResource(R.string.vs_no_sensors_sub), img.sensorsOff(s)) { s = s.copy(disableSensors = it) }
+            if (img.api in 9..25 && !img.sensorsOff(s)) Toggle(stringResource(R.string.vs_motion), stringResource(R.string.vs_motion_sub), s.motionSensors) { s = s.copy(motionSensors = it) }
+            if (img.api in 9..25 && !img.sensorsOff(s) && s.motionSensors) GyroLockPicker(s.gyroLock) { s = s.copy(gyroLock = it) }
+            if (img.api >= 16) Toggle(stringResource(R.string.vs_skip_setup), stringResource(R.string.vs_skip_setup_sub), s.skipSetupWizard) { s = s.copy(skipSetupWizard = it) }
+            if (img.api in 9..25) Toggle(stringResource(R.string.vs_disable_google), stringResource(R.string.vs_disable_google_sub), s.disableGoogleApps) { s = s.copy(disableGoogleApps = it) }
+            if (img.api in 9..25) {
+                Toggle(stringResource(R.string.vs_bluetooth), stringResource(R.string.vs_bluetooth_sub), s.bluetooth) { s = s.copy(bluetooth = it) }
+            }
+            if (img.api >= 26) Toggle(stringResource(R.string.vs_sf_tombstone), stringResource(R.string.vs_sf_tombstone_sub), s.sfTombstone) { s = s.copy(sfTombstone = it) }
+            if (img.api >= 34) Toggle(stringResource(R.string.vs_art_boot_image), stringResource(R.string.vs_art_boot_image_sub), s.useArtBootImage) { s = s.copy(useArtBootImage = it) }
+            if (img.api >= 34) Toggle(stringResource(R.string.vs_no_watchdog), stringResource(R.string.vs_no_watchdog_sub), s.disableWatchdog) { s = s.copy(disableWatchdog = it) }
+            if (wifiOffered) {
+                Toggle(stringResource(R.string.vs_wifi), stringResource(R.string.vs_wifi_sub), s.wifi) { s = s.copy(wifi = it) }
+                if (s.wifi) WifiFields(s) { s = it }
+            }
+            if (img.api in 14..25) {
+                Toggle(stringResource(R.string.vs_camera), stringResource(R.string.vs_camera_sub), s.camera) { s = s.copy(camera = it) }
+            }
+            if (img.api in 14..25) {
+                Toggle(stringResource(R.string.vs_microphone), stringResource(R.string.vs_microphone_sub), s.microphone) { s = s.copy(microphone = it) }
+            }
 
             Spacer(Modifier.height(8.dp))
             Text(stringResource(R.string.vs_radio_title), style = MaterialTheme.typography.titleMedium)
@@ -131,53 +251,133 @@ fun SettingsSheet(img: GuestImage, onDismiss: () -> Unit, onSave: (VmSettings) -
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), modifier = Modifier.weight(1f))
                 TextButton(onClick = { s = s.copy(imei = VmSettings.randomImei()) }) { Text(stringResource(R.string.vs_random)) }
             }
+            if (s.radio && CdmaMode.supported(img.api)) CdmaToggle(s, fwLteOnCdma) { s = it }
+            if (s.radio) NetworkTypePicker(s.networkType, img.api, cdmaOn, cdmaOn && fwLteOnCdma) { s = s.copy(networkType = it) }
+            if (s.radio) SimSection(img, s) { s = it }
+
+            Spacer(Modifier.height(8.dp))
+            Text(stringResource(R.string.vs_device_id), style = MaterialTheme.typography.titleMedium)
+            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().padding(top = 4.dp)) {
+                OutlinedTextField(value = s.serial, onValueChange = { v -> s = s.copy(serial = VmSettings.cleanSerial(v)) },
+                    label = { Text(stringResource(R.string.vs_serial)) }, placeholder = { Text(VmSettings.DEFAULT_SERIAL) },
+                    supportingText = { Text(stringResource(R.string.vs_serial_sub)) }, singleLine = true,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Ascii), modifier = Modifier.weight(1f))
+                TextButton(onClick = { s = s.copy(serial = VmSettings.randomSerial()) }) { Text(stringResource(R.string.vs_random)) }
+            }
+            OutlinedTextField(value = s.kernel, onValueChange = { v -> s = s.copy(kernel = VmSettings.cleanKernel(v)) },
+                label = { Text(stringResource(R.string.vs_kernel)) }, placeholder = { Text(VmSettings.DEFAULT_KERNEL) },
+                supportingText = { Text(stringResource(R.string.vs_kernel_sub)) }, singleLine = true,
+                modifier = Modifier.fillMaxWidth().padding(top = 4.dp))
+            Text(stringResource(R.string.vs_kernel_build), style = MaterialTheme.typography.titleSmall, modifier = Modifier.padding(top = 8.dp))
+            Text(stringResource(R.string.vs_kernel_build_sub), style = MaterialTheme.typography.bodySmall)
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth().padding(top = 4.dp)) {
+                OutlinedTextField(value = s.kernelBranch, onValueChange = { v -> s = s.copy(kernelBranch = VmSettings.cleanToken(v, VmSettings.TOKEN_MAX)) },
+                    label = { Text(stringResource(R.string.vs_kernel_branch), maxLines = 1) }, placeholder = { Text("master") }, singleLine = true,
+                    modifier = Modifier.weight(1f))
+                OutlinedTextField(value = s.kernelCommit, onValueChange = { v -> s = s.copy(kernelCommit = VmSettings.cleanToken(v, 40)) },
+                    label = { Text(stringResource(R.string.vs_kernel_commit), maxLines = 1) }, placeholder = { Text("1a2b3c4d") }, singleLine = true,
+                    modifier = Modifier.weight(1f))
+            }
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth().padding(top = 4.dp)) {
+                OutlinedTextField(value = s.kernelUser, onValueChange = { v -> s = s.copy(kernelUser = VmSettings.cleanToken(v, VmSettings.TOKEN_MAX)) },
+                    label = { Text(stringResource(R.string.vs_kernel_user), maxLines = 1) }, placeholder = { Text("aemu") }, singleLine = true,
+                    modifier = Modifier.weight(1f))
+                OutlinedTextField(value = s.kernelHost, onValueChange = { v -> s = s.copy(kernelHost = VmSettings.cleanToken(v, 64)) },
+                    label = { Text(stringResource(R.string.vs_kernel_host), maxLines = 1) }, placeholder = { Text("aemu") }, singleLine = true,
+                    modifier = Modifier.weight(1f))
+            }
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth().padding(top = 4.dp)) {
+                OutlinedTextField(value = s.kernelBuild, onValueChange = { v -> s = s.copy(kernelBuild = v.filter { it in '0'..'9' }.take(6)) },
+                    label = { Text(stringResource(R.string.vs_kernel_number), maxLines = 1) }, placeholder = { Text("1") }, singleLine = true,
+                    modifier = Modifier.weight(1f))
+                OutlinedTextField(value = s.kernelFlags, onValueChange = { v -> s = s.copy(kernelFlags = VmSettings.cleanText(v, 40)) },
+                    label = { Text(stringResource(R.string.vs_kernel_flags), maxLines = 1) }, placeholder = { Text("SMP PREEMPT") }, singleLine = true,
+                    modifier = Modifier.weight(1f))
+            }
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth().padding(top = 4.dp)) {
+                OutlinedTextField(value = s.kernelCompiler, onValueChange = { v -> s = s.copy(kernelCompiler = VmSettings.cleanCompiler(v)) },
+                    label = { Text(stringResource(R.string.vs_kernel_compiler), maxLines = 1) }, placeholder = { Text("gcc version 4.6") }, singleLine = true,
+                    modifier = Modifier.weight(1f))
+                OutlinedTextField(value = s.kernelDate, onValueChange = { v -> s = s.copy(kernelDate = VmSettings.cleanText(v, 40)) },
+                    label = { Text(stringResource(R.string.vs_kernel_date), maxLines = 1) }, placeholder = { Text("Thu Jan 1 00:00:00 UTC 2026") }, singleLine = true,
+                    modifier = Modifier.weight(1f))
+            }
+            Text(stringResource(R.string.vs_kernel_preview) + " " + VmSettings.procVersion(s).trim(), style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(top = 4.dp))
+            OutlinedTextField(value = s.baseband, onValueChange = { v -> s = s.copy(baseband = VmSettings.cleanBaseband(v)) },
+                label = { Text(stringResource(R.string.vs_baseband)) }, placeholder = { Text(VmSettings.DEFAULT_BASEBAND) },
+                supportingText = { Text(stringResource(R.string.vs_baseband_sub)) }, singleLine = true,
+                modifier = Modifier.fillMaxWidth().padding(top = 4.dp))
 
             Spacer(Modifier.height(8.dp))
             Text(stringResource(R.string.vs_advanced), style = MaterialTheme.typography.titleMedium)
             OutlinedTextField(value = s.qemuArgs, onValueChange = { s = s.copy(qemuArgs = it) },
                 label = { Text(stringResource(R.string.vs_qemu_args)) }, supportingText = { Text(stringResource(R.string.vs_qemu_args_sub)) },
                 modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp))
+            OutlinedTextField(value = s.straceServices, onValueChange = { s = s.copy(straceServices = it) },
+                label = { Text(stringResource(R.string.vs_strace)) }, placeholder = { Text("mediaserver,zygote") },
+                supportingText = { Text(stringResource(R.string.vs_strace_sub)) }, singleLine = true,
+                modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp))
+            HardwarePicker(s.hardware) { s = s.copy(hardware = it) }
 
             Spacer(Modifier.height(8.dp))
             RecoverySection(img)
+            OemImportSection(img, resetting) { resetting = it }
+            CscImportSection(img, resetting) { resetting = it }
+
+            Spacer(Modifier.height(8.dp))
+            OtaSection(img, resetting) { resetting = it }
 
             Spacer(Modifier.height(8.dp))
             Text(stringResource(R.string.vs_controls), style = MaterialTheme.typography.titleMedium)
             Toggle(stringResource(R.string.vs_nav), stringResource(R.string.vs_nav_sub), s.showNavBar) { s = s.copy(showNavBar = it) }
-            if (s.showNavBar) NavBarSetup(s) { s = it }
+            Toggle(stringResource(R.string.vs_guest_nav), stringResource(R.string.vs_guest_nav_sub), s.guestNavBar) { s = s.copy(guestNavBar = it) }
+            Toggle(stringResource(R.string.vs_hide_menu), stringResource(R.string.vs_hide_menu_sub), s.hideMenuButton) { s = s.copy(hideMenuButton = it) }
+            NavigationSettings(s) { s = it }
             Toggle(stringResource(R.string.vs_awake), stringResource(R.string.vs_awake_sub), s.keepScreenOn) { s = s.copy(keepScreenOn = it) }
             Toggle(stringResource(R.string.as_led), stringResource(R.string.as_led_sub), s.showLed) { s = s.copy(showLed = it) }
             Toggle(stringResource(R.string.vs_single), stringResource(R.string.vs_single_sub), s.mtMode == 4) { s = s.copy(mtMode = if (it) 4 else 0) }
 
             Spacer(Modifier.height(16.dp))
-            Button(onClick = { onSave(s) }, modifier = Modifier.fillMaxWidth().height(52.dp)) { Text(stringResource(R.string.save)) }
+            VmExportSection(img, s, resetting) { resetting = it }
+            VmImportSection(img, resetting, { resetting = it }) { s = it }
+            TextButton(enabled = !resetting, onClick = { resetConfirm = true }, modifier = Modifier.fillMaxWidth()) {
+                Text(stringResource(R.string.vm_reset_data), color = MaterialTheme.colorScheme.error)
+            }
+            resetMessage?.let { Text(it, style = MaterialTheme.typography.bodySmall) }
+            // fields that are not shown cannot hold Save back
+            val wifiOk = !(s.wifi && wifiOffered) || (WifiEmu.cleanSsid(s.wifiSsid).isNotEmpty() && WifiEmu.passwordValid(s.wifiPassword))
+            Button(enabled = !resetting && wifiOk, onClick = { onSave(s, name) }, modifier = Modifier.fillMaxWidth().height(52.dp)) { Text(stringResource(R.string.save)) }
             Spacer(Modifier.height(16.dp))
         }
     }
+    if (resetConfirm) AlertDialog(
+        onDismissRequest = { resetConfirm = false },
+        title = { Text(stringResource(R.string.vm_reset_data)) },
+        text = { Text(stringResource(R.string.vm_reset_warning)) },
+        dismissButton = { TextButton(onClick = { resetConfirm = false }) { Text(stringResource(R.string.cancel)) } },
+        confirmButton = { TextButton(onClick = {
+            resetConfirm = false
+            resetting = true
+            scope.launch {
+                val result = withContext(Dispatchers.IO) {
+                    runCatching {
+                        VmStorageLease(ctx.filesDir).use { lease ->
+                            lease.acquire()
+                            app.aemu.core.GuestStorageWriters.requireIdle(ctx)
+                            VmDataReset.reset(ImageStore.imagesDir(ctx), img.id) { file ->
+                                val stat = android.system.Os.lstat(file.path)
+                                String.format(java.util.Locale.ROOT, "%016x %016x", stat.st_dev, stat.st_ino)
+                            }
+                        }
+                    }
+                }
+                resetting = false
+                resetMessage = if (result.isSuccess) ctx.getString(R.string.vm_reset_done)
+                    else ctx.getString(R.string.vm_reset_failed)
+            }
+        }) { Text(stringResource(R.string.vm_reset_data)) } },
+    )
 }
-
-/** Which buttons the bar has (tap to add or remove; added ones go to the end) and how big it is. */
-@OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
-@Composable
-internal fun NavBarSetup(s: VmSettings, set: (VmSettings) -> Unit) {
-    val keys = s.navKeys.split(',').filter { it in VmSettings.NAV_ALL }
-    androidx.compose.foundation.layout.FlowRow(Modifier.fillMaxWidth().padding(horizontal = 16.dp),
-        horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        for (k in keys + VmSettings.NAV_ALL.filter { it !in keys }) {
-            val on = k in keys
-            androidx.compose.material3.FilterChip(selected = on, label = { Text(navKeyLabel(k)) },
-                onClick = { set(s.copy(navKeys = (if (on) keys - k else keys + k).joinToString(","))) })
-        }
-    }
-    Toggle(stringResource(R.string.vs_nav_compact), stringResource(R.string.vs_nav_compact_sub), s.navSize == 0) { set(s.copy(navSize = if (it) 0 else 1)) }
-}
-
-@Composable
-internal fun navKeyLabel(k: String) = stringResource(when (k) {
-    "back" -> R.string.back; "home" -> R.string.home; "recents" -> R.string.recents; "menu" -> R.string.menu
-    "search" -> R.string.nav_search; "volup" -> R.string.vol_up; "voldown" -> R.string.vol_down
-    "power" -> R.string.power; else -> R.string.nav_dpad
-})
 
 @Composable
 internal fun Toggle(title: String, sub: String, on: Boolean, set: (Boolean) -> Unit) {
@@ -190,11 +390,122 @@ internal fun Toggle(title: String, sub: String, on: Boolean, set: (Boolean) -> U
     )
 }
 
+/** Name and optional password of the emulated Wi-Fi network (blank password = open network). */
+@Composable
+private fun WifiFields(s: VmSettings, set: (VmSettings) -> Unit) {
+    var show by remember { mutableStateOf(false) }
+    OutlinedTextField(value = s.wifiSsid, onValueChange = { set(s.copy(wifiSsid = WifiEmu.cleanSsid(it))) },
+        label = { Text(stringResource(R.string.vs_wifi_ssid)) }, singleLine = true,
+        isError = s.wifiSsid.isEmpty(),
+        supportingText = { Text(stringResource(if (s.wifiSsid.isEmpty()) R.string.vs_wifi_ssid_error else R.string.vs_wifi_ssid_sub)) },
+        modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp))
+    OutlinedTextField(value = s.wifiPassword, onValueChange = { set(s.copy(wifiPassword = WifiEmu.cleanPassword(it))) },
+        label = { Text(stringResource(R.string.vs_wifi_password)) }, singleLine = true,
+        isError = !WifiEmu.passwordValid(s.wifiPassword),
+        supportingText = { Text(stringResource(if (WifiEmu.passwordValid(s.wifiPassword)) R.string.vs_wifi_password_sub else R.string.vs_wifi_password_error)) },
+        visualTransformation = if (show) VisualTransformation.None else PasswordVisualTransformation(),
+        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+        trailingIcon = { TextButton(onClick = { show = !show }) { Text(stringResource(if (show) R.string.vs_wifi_hide else R.string.vs_wifi_show)) } },
+        modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp))
+    var open by remember { mutableStateOf(false) }
+    fun bars(n: Int) = "▂▄▆█".take(n) + "·".repeat(WifiEmu.MAX_BARS - n)
+    ListItem(
+        headlineContent = { Text(stringResource(R.string.vs_wifi_signal)) },
+        supportingContent = { Text(stringResource(R.string.vs_wifi_signal_sub)) },
+        trailingContent = {
+            Box {
+                TextButton(onClick = { open = true }) { Text(bars(s.wifiSignal)) }
+                DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
+                    for (n in WifiEmu.MAX_BARS downTo 1) DropdownMenuItem(text = { Text(bars(n)) }, onClick = { open = false; set(s.copy(wifiSignal = n)) })
+                }
+            }
+        },
+        colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+        modifier = Modifier.fillMaxWidth(),
+    )
+    Toggle(stringResource(R.string.vs_wifi_neighbors), stringResource(R.string.vs_wifi_neighbors_sub), s.wifiNeighbors) { set(s.copy(wifiNeighbors = it)) }
+}
+
+/** Disabled / 0° / 180° / no-gyroscope list for the host motion sensors. */
+@Composable
+private fun GyroLockPicker(mode: Int, set: (Int) -> Unit) {
+    var open by remember { mutableStateOf(false) }
+    val labels = listOf(R.string.vs_gyro_disabled, R.string.vs_gyro_0, R.string.vs_gyro_180, R.string.vs_gyro_none)
+        .map { stringResource(it) }
+    val current = GyroLock.sanitize(mode)
+    ListItem(
+        headlineContent = { Text(stringResource(R.string.vs_gyro_lock)) },
+        supportingContent = { Text(stringResource(R.string.vs_gyro_lock_sub)) },
+        trailingContent = {
+            Box {
+                TextButton(onClick = { open = true }) { Text(labels[current]) }
+                DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
+                    labels.forEachIndexed { i, label ->
+                        DropdownMenuItem(text = { Text(label) }, onClick = { open = false; set(i) })
+                    }
+                }
+            }
+        },
+        colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+        modifier = Modifier.fillMaxWidth(),
+    )
+}
+
+/** Radio technology the fake modem reports (2G ... LTE); only the values the firmware's API level knows are offered. */
+@Composable
+private fun NetworkTypePicker(tech: Int, api: Int, cdma: Boolean, lteOnCdma: Boolean, set: (Int) -> Unit) {
+    var open by remember { mutableStateOf(false) }
+    ListItem(
+        headlineContent = { Text(stringResource(R.string.vs_network)) },
+        supportingContent = { Text(stringResource(R.string.vs_network_sub)) },
+        trailingContent = {
+            Box {
+                TextButton(onClick = { open = true }) { Text(NetworkType.label(NetworkType.sanitize(tech, api, cdma, lteOnCdma))) }
+                DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
+                    NetworkType.available(api, cdma, lteOnCdma).forEach { e ->
+                        DropdownMenuItem(text = { Text(e.label) }, onClick = { open = false; set(e.tech) })
+                    }
+                }
+            }
+        },
+        colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+        modifier = Modifier.fillMaxWidth(),
+    )
+}
+
+/** ro.hardware given to the guest: free text plus a menu of common values; blank = the firmware's own. */
+@Composable
+private fun HardwarePicker(value: String, set: (String) -> Unit) {
+    var open by remember { mutableStateOf(false) }
+    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
+        OutlinedTextField(value = value, onValueChange = { set(VmSettings.cleanHardware(it)) },
+            label = { Text(stringResource(R.string.vs_hardware)) }, placeholder = { Text(stringResource(R.string.vs_hardware_default)) },
+            supportingText = { Text(stringResource(R.string.vs_hardware_sub)) }, singleLine = true,
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Ascii), modifier = Modifier.weight(1f))
+        Box {
+            TextButton(onClick = { open = true }) { Text(stringResource(R.string.vs_hardware_pick)) }
+            DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
+                DropdownMenuItem(text = { Text(stringResource(R.string.vs_hardware_default)) }, onClick = { open = false; set("") })
+                VmSettings.HARDWARE_PRESETS.forEach { hw ->
+                    DropdownMenuItem(text = { Text(hw) }, onClick = { open = false; set(hw) })
+                }
+            }
+        }
+    }
+}
+
 @Composable
 private fun NumField(label: String, value: Int, modifier: Modifier, set: (Int) -> Unit) {
-    var text by remember(value) { mutableStateOf(value.toString()) }
+    // The setter rounds/clamps (width and height are forced even, dpi is clamped), so the value that comes back
+    // can differ from what was typed: 5 -> 4, 9 -> 8, or a lone "1" -> 2. While the field has focus the typed text
+    // must stay as typed; it is only replaced by the stored value once focus leaves (or the value changes elsewhere,
+    // e.g. a preset is picked).
+    var text by remember { mutableStateOf(value.toString()) }
+    var focused by remember { mutableStateOf(false) }
+    LaunchedEffect(value, focused) { if (!focused) text = value.toString() }
     OutlinedTextField(value = text, onValueChange = { v -> text = v.filter(Char::isDigit).take(4); text.toIntOrNull()?.let(set) },
-        label = { Text(label) }, singleLine = true, modifier = modifier,
+        label = { Text(label) }, singleLine = true,
+        modifier = modifier.onFocusChanged { focused = it.isFocused },
         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number))
 }
 
@@ -203,7 +514,7 @@ private fun NumField(label: String, value: Int, modifier: Modifier, set: (Int) -
 private fun RecoverySection(img: GuestImage) {
     val ctx = androidx.compose.ui.platform.LocalContext.current
     val paths = remember(img.id) { app.aemu.core.VmPaths(ctx, img.id) }
-    var status by remember { mutableStateOf(recoveryStatus(paths)) }
+    var status by remember { mutableStateOf(recoveryStatus(ctx, paths)) }
     var busy by remember { mutableStateOf(false) }
     val failed = stringResource(R.string.vs_recovery_failed)
     val pick = androidx.activity.compose.rememberLauncherForActivityResult(
@@ -217,7 +528,7 @@ private fun RecoverySection(img: GuestImage) {
             }.getOrDefault(false)
             android.os.Handler(android.os.Looper.getMainLooper()).post {
                 busy = false
-                status = recoveryStatus(paths)
+                status = recoveryStatus(ctx, paths)
                 if (!ok) android.widget.Toast.makeText(ctx, failed, android.widget.Toast.LENGTH_LONG).show()
             }
         }.start()
@@ -233,7 +544,74 @@ private fun RecoverySection(img: GuestImage) {
     )
 }
 
-private fun recoveryStatus(paths: app.aemu.core.VmPaths): String? {
+
+/** Delta (incremental) OTA zips applied on top of this VM's system image. */
+@Composable
+private fun OtaSection(img: GuestImage, busy: Boolean, setBusy: (Boolean) -> Unit) {
+    val ctx = LocalContext.current
+    val scope = rememberCoroutineScope()
+    var prepared by remember { mutableStateOf<app.aemu.core.DeltaOta.Prepared?>(null) }
+    var message by remember { mutableStateOf<String?>(null) }
+    var picking by remember { mutableStateOf(false) }
+    androidx.compose.runtime.DisposableEffect(Unit) { onDispose { prepared?.close() } }
+    val pick = androidx.activity.compose.rememberLauncherForActivityResult(
+        androidx.activity.result.contract.ActivityResultContracts.OpenDocument()) { uri ->
+        picking = false
+        if (uri == null) return@rememberLauncherForActivityResult
+        setBusy(true)
+        message = ctx.getString(R.string.vs_ota_checking)
+        scope.launch {
+            val result = withContext(Dispatchers.IO) { runCatching { app.aemu.core.DeltaOta.prepare(ctx, img.id, uri) } }
+            setBusy(false)
+            result.onSuccess { prepared?.close(); prepared = it; message = null }
+                .onFailure { message = ctx.getString(R.string.vs_ota_failed, it.userMessage(ctx)) }
+        }
+    }
+    Text(stringResource(R.string.vs_ota), style = MaterialTheme.typography.titleMedium)
+    ListItem(
+        headlineContent = { Text(stringResource(R.string.vs_ota_install)) },
+        supportingContent = { Text(message ?: stringResource(R.string.vs_ota_sub)) },
+        trailingContent = {
+            TextButton(enabled = !busy && !picking, onClick = { picking = true; pick.launch(arrayOf("*/*")) }) {
+                Text(stringResource(R.string.vs_ota_button))
+            }
+        },
+        colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+    )
+    prepared?.let { p ->
+        AlertDialog(
+            onDismissRequest = { p.close(); prepared = null },
+            title = { Text(stringResource(R.string.vs_ota_confirm_title)) },
+            text = {
+                val base = stringResource(R.string.vs_ota_confirm, p.fromBuild, p.toBuild)
+                Text(if (p.partial) base + "\n\n" + stringResource(R.string.vs_ota_partial) else base)
+            },
+            dismissButton = { TextButton(onClick = { p.close(); prepared = null }) { Text(stringResource(R.string.cancel)) } },
+            confirmButton = { TextButton(onClick = {
+                prepared = null
+                setBusy(true)
+                message = ctx.getString(R.string.vs_ota_working, "")
+                scope.launch {
+                    val result = withContext(Dispatchers.IO) {
+                        runCatching {
+                            p.use { app.aemu.core.DeltaOta.install(ctx, img.id, it) { stage ->
+                                message = ctx.getString(R.string.vs_ota_working, stage.text(ctx))
+                            } }
+                        }
+                    }
+                    setBusy(false)
+                    message = result.fold(
+                        { ctx.getString(R.string.vs_ota_done, it.toBuild, it.patched, it.added, it.removed) +
+                            it.notes.joinToString("") { n -> "\n" + n.text(ctx) } },
+                        { ctx.getString(R.string.vs_ota_failed, it.userMessage(ctx)) },
+                    )
+                }
+            }) { Text(stringResource(R.string.vs_ota_confirm_ok)) } },
+        )
+    }
+}
+
+private fun recoveryStatus(ctx: android.content.Context, paths: app.aemu.core.VmPaths): String? {
     if (!app.aemu.core.RecoveryImage.installed(paths)) return null
     val dir = app.aemu.core.RecoveryImage.dir(paths)
     val prop = runCatching { java.io.File(dir, "default.prop").readText() }.getOrDefault("")
@@ -243,6 +621,6 @@ private fun recoveryStatus(paths: app.aemu.core.VmPaths): String? {
         java.io.File(dir, "twres").isDirectory -> "TWRP"
         java.io.File(dir, "sbin/orangefox.sh").exists() || prop.contains("orangefox", true) -> "OrangeFox"
         prop.contains("cwm", true) || java.io.File(dir, "res/images/icon_clockwork.png").exists() -> "ClockworkMod"
-        else -> "Stock recovery"
+        else -> ctx.getString(R.string.vs_recovery_stock)
     }
 }

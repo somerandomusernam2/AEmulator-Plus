@@ -1,3 +1,4 @@
+/* Ported from AEmulator 0.0.0.3 (GPL-3.0; see LICENSE); frame source adapted to this fork's grabFrame. */
 package app.aemu.core
 
 import android.graphics.Bitmap
@@ -12,19 +13,19 @@ import java.io.File
 /**
  * Records the guest's screen into an MP4 file (H.264, video only).
  *
- * Frames come from [frame] as a bitmap of the guest's resolution, [FPS] times a second, and are drawn onto the
+ * Frames come from [frame] as ARGB pixels of the guest's resolution ([srcW]x[srcH]), [FPS] times a second, and are drawn onto the
  * encoder's input surface; the encoder's output goes straight into the file. The guest's sound is not recorded yet.
  */
 class ScreenRecorder(
     private val out: File,
-    width: Int,
-    height: Int,
-    private val frame: (Bitmap) -> Boolean,
+    private val srcW: Int,
+    private val srcH: Int,
+    private val frame: (IntArray) -> Boolean,
     private val log: (String) -> Unit,
 ) {
     // H.264 wants even sizes
-    private val w = width and 1.inv()
-    private val h = height and 1.inv()
+    private val w = srcW and 1.inv()
+    private val h = srcH and 1.inv()
     @Volatile private var live = false
     private var worker: Thread? = null
 
@@ -61,7 +62,8 @@ class ScreenRecorder(
     }
 
     private fun run(codec: MediaCodec, surface: Surface, muxer: MediaMuxer) {
-        val bmp = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888)
+        val px = IntArray(srcW * srcH)
+        val bmp = Bitmap.createBitmap(srcW, srcH, Bitmap.Config.ARGB_8888)
         val dst = Rect(0, 0, w, h)
         val info = MediaCodec.BufferInfo()
         var track = -1
@@ -89,7 +91,8 @@ class ScreenRecorder(
             val step = 1_000_000_000L / FPS
             var next = System.nanoTime()
             while (live) {
-                if (frame(bmp)) {
+                if (frame(px)) {
+                    bmp.setPixels(px, 0, srcW, 0, 0, srcW, srcH)
                     val c = surface.lockHardwareCanvas()
                     try { c.drawBitmap(bmp, null, dst, null) } finally { surface.unlockCanvasAndPost(c) }
                     frames++

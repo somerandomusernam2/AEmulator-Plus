@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="m_wea">Saxta təcili xəbərdarlıq</string>
+    <string name="m_wea_type">Xəbərdarlıq növü</string>
+    <string name="m_wea_sent">Təcili xəbərdarlıq göndərildi</string>
+    <string name="m_wea_failed">Göndərilmədi: telefonun telefoniyası işləmir</string>
+    <string name="wea_presidential">Prezident xəbərdarlığı</string>
+    <string name="wea_extreme">Ekstremal təhlükə</string>
+    <string name="wea_severe">Ciddi təhlükə</string>
+    <string name="wea_amber">AMBER xəbərdarlığı</string>
+    <string name="wea_test">Məcburi aylıq sınaq</string>
+    <string name="wea_body_presidential">Prezident xəbərdarlığı: Bu, təcili xəbərdarlıq sisteminin sınağıdır. Heç bir tədbir tələb olunmur.</string>
+    <string name="wea_body_extreme">Ekstremal xəbərdarlıq: Ərazinizdə tornado xəbərdarlığı. Dərhal sığınacaq axtarın. Bu, sınaqdır.</string>
+    <string name="wea_body_severe">Ciddi xəbərdarlıq: Ərazinizdə saat 18:00-dək ildırım-leysan xəbərdarlığı. Bu, sınaqdır.</string>
+    <string name="wea_body_amber">AMBER xəbərdarlığı: Uşaq itib, mavi sedan. Görsəniz 112-yə zəng edin. Bu, sınaqdır.</string>
+    <string name="wea_body_test">Bu, Simsiz Təcili Xəbərdarlıq sisteminin sınağıdır. Heç bir tədbir tələb olunmur.</string>
+</resources>
