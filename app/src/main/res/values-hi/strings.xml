@@ -146,7 +146,12 @@
     <string name="vs_recovery_failed">यह रिकवरी इमेज नहीं है</string>
     <string name="m_adb">नेटवर्क पर ADB</string>
     <string name="m_adb_enable">चालू करें</string>
-    <string name="m_adb_hint">इस Wi-Fi नेटवर्क पर कोई भी फ़र्मवेयर का root शेल पा सकता है। सार्वजनिक नेटवर्क पर बंद रखें।</string>
+    <string name="m_adb_hint">हर कंप्यूटर को पहली बार कनेक्ट होने पर इस स्क्रीन पर अनुमति देनी होगी। ज़रूरत न हो तो ADB बंद रखें।</string>
+    <string name="m_adb_auth_title">ADB कनेक्शन की अनुमति दें?</string>
+    <string name="m_adb_auth_text">%1$s कनेक्ट होना चाहता है।\n\nकंप्यूटर की RSA कुंजी का फ़िंगरप्रिंट:\n%2$s</string>
+    <string name="m_adb_auth_always">इस कंप्यूटर को हमेशा अनुमति दें</string>
+    <string name="m_adb_deny">अस्वीकार करें</string>
+    <string name="m_adb_revoke">अनुमति वाले कंप्यूटर भूल जाएँ</string>
     <string name="add_import">फ़र्मवेयर फ़ाइल आयात करें</string>
     <string name="add_import_sub">ZIP, TAR/MD5, IMG — कोई भी स्टॉक या कस्टम ROM</string>
     <string name="add_container">नया कंटेनर</string>

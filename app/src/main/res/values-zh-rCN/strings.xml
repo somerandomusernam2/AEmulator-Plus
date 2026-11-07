@@ -146,7 +146,12 @@
     <string name="vs_recovery_failed">不是 recovery 镜像</string>
     <string name="m_adb">网络 ADB</string>
     <string name="m_adb_enable">启用</string>
-    <string name="m_adb_hint">同一 Wi-Fi 网络中的任何人都能获得固件的 root shell。在公共网络上请关闭。</string>
+    <string name="m_adb_hint">每台计算机首次连接时都需要在此界面允许。不使用时请关闭 ADB。</string>
+    <string name="m_adb_auth_title">允许 ADB 连接吗？</string>
+    <string name="m_adb_auth_text">%1$s 请求连接。\n\n这台计算机的 RSA 密钥指纹：\n%2$s</string>
+    <string name="m_adb_auth_always">始终允许这台计算机</string>
+    <string name="m_adb_deny">拒绝</string>
+    <string name="m_adb_revoke">忘记已允许的计算机</string>
     <string name="add_import">导入固件文件</string>
     <string name="add_import_sub">ZIP、TAR/MD5、IMG — 任意官方或第三方 ROM</string>
     <string name="add_container">新建容器</string>
