@@ -109,6 +109,9 @@ android {
         }
     }
     buildFeatures { compose = true; buildConfig = true }
+    // Modified for AEmulator Aster (2026-11-07): BootImageLzmaDictTest packs a kernel with a 64 MiB LZMA dictionary,
+    // which needs more than the default heap of the test JVM
+    testOptions { unitTests.all { it.maxHeapSize = "2g" } }
     lint { abortOnError = false; checkReleaseBuilds = false }
 }
 
@@ -135,6 +138,9 @@ dependencies {
     testImplementation("junit:junit:4.13.2")
     // Modified for AEmulator Aster (2026-11-07): zstd-jni as a jar with the desktop libraries, for the JVM unit tests (the AAR has arm64 only)
     testImplementation("com.github.luben:zstd-jni:1.5.7-4")
+    // Modified for AEmulator Aster (2026-11-07): the real org.json for the JVM unit tests; the android.jar stubs throw
+    // "not mocked" and the settings round-trip tests of AEmulator Plus need it
+    testImplementation("org.json:json:20240303")
 }
 
 tasks.named("preBuild") { dependsOn(copyLegalNotices) }

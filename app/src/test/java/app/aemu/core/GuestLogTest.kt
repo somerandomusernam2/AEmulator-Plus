@@ -38,7 +38,10 @@ class GuestLogTest {
         File(logs, "main").writeBytes("junk\u0005Tag\u0000valid message\u0000\u0007Abort\u0000unfinished".toByteArray())
         val out = StringWriter()
         GuestLog.writeExport(root, run, out)
-        assertTrue(out.toString().contains("W Tag: valid message\n"))
-        assertFalse(out.toString().contains("unfinished"))
+        // Modified for AEmulator Aster (2026-11-07): only the parsed records; the raw tail added in AEmulator Plus (2026-10-30)
+        // shows every printable run on purpose
+        val parsed = out.toString().substringBefore("=== raw tail")
+        assertTrue(parsed.contains("W Tag: valid message\n"))
+        assertFalse(parsed.contains("unfinished"))
     }
 }

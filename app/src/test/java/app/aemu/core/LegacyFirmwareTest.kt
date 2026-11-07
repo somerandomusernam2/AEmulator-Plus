@@ -192,7 +192,8 @@ class LegacyFirmwareTest {
         legacySystem(root)
         File(root, "android").mkdirs()
         Files.createSymbolicLink(File(root, "android/x").toPath(), java.nio.file.Paths.get("nowhere"))
-        assertTrue(LegacyFirmware.ensureLayout(root).isEmpty())
+        // Modified for AEmulator Aster (2026-11-07): legacySystem() has javalib and no framework, so that link is made
+        assertEquals(listOf("system/framework -> javalib"), LegacyFirmware.ensureLayout(root))
         assertFalse(Files.isSymbolicLink(File(root, "android").toPath()))
     }
 
