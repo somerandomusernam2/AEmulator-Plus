@@ -212,6 +212,7 @@
     <string name="m_shell_ctrlc">Ctrl+C</string>
     <string name="m_adb_enable">Iespējot</string>
     <string name="m_adb_hint">Ikviens šajā Wi-Fi tīklā iegūst aparātprogrammatūras root čaulu. Publiskos tīklos izslēdziet.</string>
+    <string name="m_adb_open_hint">Ikviens šajā Wi-Fi tīklā iegūst aparātprogrammatūras root čaulu. Publiskos tīklos izslēdziet.</string>
     <string name="add_import">Importēt aparātprogrammatūras failu</string>
     <string name="add_import_sub">ZIP, TAR/MD5, IMG, TWRP un CWM dublējumi</string>
     <string name="add_container">Jauns konteiners</string>

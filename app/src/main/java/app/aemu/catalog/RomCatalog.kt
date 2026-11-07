@@ -8,7 +8,9 @@ data class CatalogSection(val name: String, val comment: String, val source: Str
 data class RomCatalog(val motd: String, val sections: List<CatalogSection>, val warningLines: List<Int>)
 
 object CatalogUrls {
-    const val DEFAULT = "https://dumpster.ralsei.tech/drel/AESSRomCatalog/rom.list"
+    // Modified for AEmulator Aster (2026-11-07): no catalog server by default; the list is loaded only from an address the user enters
+    // (Plus defaulted to https://dumpster.ralsei.tech/drel/AESSRomCatalog/rom.list, a third party's server)
+    const val DEFAULT = ""
     fun valid(value: String): String? = runCatching {
         val s = value.trim()
         require(s.length in 1..8192)

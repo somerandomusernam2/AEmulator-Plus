@@ -212,6 +212,7 @@
     <string name="m_shell_ctrlc">Ctrl+C</string>
     <string name="m_adb_enable">Aktivér</string>
     <string name="m_adb_hint">Alle på dette Wi-Fi-netværk får en root-shell til firmwaren. Slå det fra på offentlige netværk.</string>
+    <string name="m_adb_open_hint">Alle på dette Wi-Fi-netværk får en root-shell til firmwaren. Slå det fra på offentlige netværk.</string>
     <string name="add_import">Importér en firmwarefil</string>
     <string name="add_import_sub">ZIP, TAR/MD5, IMG, TWRP- og CWM-backups</string>
     <string name="add_container">Ny container</string>

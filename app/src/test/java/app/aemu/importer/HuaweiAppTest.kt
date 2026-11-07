@@ -18,7 +18,7 @@ class HuaweiAppTest {
     private fun le(v: Long, n: Int) = ByteArray(n) { (v shr (8 * it)).toByte() }
 
     /** one packet exactly as found in dload/UPDATE.APP */
-    private fun packet(id: Int, payload: ByteArray, blockSize: Int = 4096, corrupt: Boolean = false): ByteArray {
+    private fun packet(id: Int, payload: ByteArray, blockSize: Int = 4096, corrupt: Boolean = false, name: String = "INPUT"): ByteArray {
         val blocks = (payload.size + blockSize - 1) / blockSize
         val o = ByteArrayOutputStream()
         o.write(byteArrayOf(0x55, 0xAA.toByte(), 0x5A, 0xA5.toByte()))
@@ -26,7 +26,7 @@ class HuaweiAppTest {
         o.write("HW7x27A".toByteArray()); o.write(0xff)
         o.write(byteArrayOf(0, 0, 0, id.toByte()))
         o.write(le(payload.size.toLong(), 4))
-        for (s in listOf("2012.03.21", "18.43.40", "INPUT", "")) { o.write(s.toByteArray()); o.write(ByteArray(16 - s.length)) }
+        for (s in listOf("2012.03.21", "18.43.40", name, "")) { o.write(s.toByteArray()); o.write(ByteArray(16 - s.length)) }
         o.write(le(0x1234, 2)); o.write(le(blockSize.toLong(), 2)); o.write(ByteArray(2))
         for (b in 0 until blocks) {
             val len = minOf(blockSize, payload.size - b * blockSize)
@@ -41,6 +41,13 @@ class HuaweiAppTest {
     private fun file(vararg packets: ByteArray) = ByteArrayOutputStream().also { o ->
         o.write(ByteArray(0x5C)); packets.forEach { o.write(it) }
     }.toByteArray()
+
+    /** Modified for AEmulator Aster (2026-11-07): an EMUI package names its images in the field the old ones fill with "INPUT" */
+    @Test fun emuiImageNames() {
+        val src = MemSource(file(packet(0xf8, ByteArray(4096), name = "SYSTEM"), packet(0xf9, ByteArray(100), name = "VENDOR"),
+            packet(0xfa, ByteArray(8), name = "RECOVERY_RAMDISK"), packet(0, ByteArray(8))))
+        assertEquals(listOf("SYSTEM", "VENDOR", "RECOVERY_RAMDISK", "INPUT"), HuaweiApp.packets(src).map { it.name })
+    }
 
     @Test fun crcMatchesX25CheckValue() {
         val d = "123456789".toByteArray()

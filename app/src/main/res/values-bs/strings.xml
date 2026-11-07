@@ -201,6 +201,7 @@
     <string name="m_shell_ctrlc">Ctrl+C</string>
     <string name="m_adb_enable">Omogući</string>
     <string name="m_adb_hint">Svako na ovoj Wi-Fi mreži dobiva root shell firmvera. Isključite na javnim mrežama.</string>
+    <string name="m_adb_open_hint">Svako na ovoj Wi-Fi mreži dobiva root shell firmvera. Isključite na javnim mrežama.</string>
     <string name="add_import">Uvezi datoteku firmvera</string>
     <string name="add_import_sub">ZIP, TAR/MD5, IMG, TWRP i CWM rezervne kopije</string>
     <string name="add_container">Novi kontejner</string>

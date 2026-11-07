@@ -202,6 +202,7 @@
     <string name="m_shell_ctrlc">Ctrl+C</string>
     <string name="m_adb_enable">Ενεργοποίηση</string>
     <string name="m_adb_hint">Οποιοσδήποτε σε αυτό το δίκτυο Wi-Fi αποκτά root shell του firmware. Απενεργοποιήστε το σε δημόσια δίκτυα.</string>
+    <string name="m_adb_open_hint">Οποιοσδήποτε σε αυτό το δίκτυο Wi-Fi αποκτά root shell του firmware. Απενεργοποιήστε το σε δημόσια δίκτυα.</string>
     <string name="add_import">Εισαγωγή αρχείου firmware</string>
     <string name="add_import_sub">ZIP, TAR/MD5, IMG, αντίγραφα ασφαλείας TWRP και CWM</string>
     <string name="add_container">Νέο κοντέινερ</string>

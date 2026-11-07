@@ -1,8 +1,8 @@
 <div align="center">
 
-<img src="../../docs/assets/logo.png" width="128" alt="AEmulator Plus logo"/>
+<img src="../../docs/assets/logo.png" width="128" alt="AEmulator Aster logo"/>
 
-# AEmulator Plus
+# AEmulator Aster
 
 **Klasyczne firmware Androida — HTC Sense, TouchWiz, MIUI, AOSP — na nowoczesnym telefonie. Bez roota, bez PC.**
 
@@ -12,7 +12,7 @@
 
 ---
 
-AEmulator Plus uruchamia prawdziwy system Android 2.3–7.x prosto z pliku firmware: ZIP do recovery, archiwum Odin lub obraz fabryczny Google. Stary kod ARM tłumaczy zmodyfikowane QEMU, binder jądra jest emulowany, grafika korzysta z GPU telefonu, a dźwięk z systemu audio Androida — wszystko w zwykłej aplikacji.
+AEmulator Aster uruchamia prawdziwy system Android 2.3–7.x prosto z pliku firmware: ZIP do recovery, archiwum Odin lub obraz fabryczny Google. Stary kod ARM tłumaczy zmodyfikowane QEMU, binder jądra jest emulowany, grafika korzysta z GPU telefonu, a dźwięk z systemu audio Androida — wszystko w zwykłej aplikacji.
 
 ## ✨ Funkcje
 
@@ -25,8 +25,8 @@ AEmulator Plus uruchamia prawdziwy system Android 2.3–7.x prosto z pliku firmw
 
 ## 🚀 Szybki start
 
-1. Pobierz APK z [Releases](https://github.com/somerandomusernam2/AEmulator-Plus/releases) i zainstaluj.
-2. Otwórz AEmulator Plus → **Dodaj firmware** i wybierz plik. Import trwa kilka minut.
+1. Pobierz APK z [Releases](https://github.com/yuchenlin4827-hitch/AEmulator-Aster/releases) i zainstaluj.
+2. Otwórz AEmulator Aster → **Dodaj firmware** i wybierz plik. Import trwa kilka minut.
 3. Naciśnij **Uruchom**. Pierwszy start trwa dłużej: system optymalizuje aplikacje.
 4. Menu ⋮ — głośność, przycisk zasilania i dziennik; ⚙️ — ustawienia i język.
 
@@ -45,23 +45,24 @@ Każdy proces gościa działa pod zmodyfikowanym QEMU w trybie użytkownika. Dem
 Przetestowana wersja release aplikacji używa JDK 21 i Android SDK 36. Zobacz [instrukcję budowania i kodu źródłowego](../build-source.md) wraz ze szczegółami natywnego toolchainu i podpisywania. **Odziedziczone gotowe pliki binarne silnika nie mają jeszcze zweryfikowanego, pełnego pochodzenia kodu źródłowego i buildu**; zobacz [audyt](../license-audit.md).
 
 ```bash
-git clone https://github.com/somerandomusernam2/AEmulator-Plus.git
-cd AEmulator-Plus
+git clone https://github.com/yuchenlin4827-hitch/AEmulator-Aster.git
+cd AEmulator-Aster
 ./gradlew copyReleaseApks
 ```
 
 ## 🙏 Podziękowania
 
-AEmulator Plus wyrósł z emulatorów HTC Desire HD i HTC One M7 [pierwotnego autora](https://t.me/istratiit_ech) — bez jego silnika tego projektu by nie było.
+AEmulator Aster wyrósł z emulatorów HTC Desire HD i HTC One M7 [pierwotnego autora](https://t.me/istratiit_ech) — bez jego silnika tego projektu by nie było.
 
-To zmodyfikowany fork [drel4/AEmulator-Sunset](https://github.com/drel4/AEmulator-Sunset), który sam jest zmodyfikowanym forkiem [uxazu/AEmulator](https://github.com/uxazu/AEmulator).
+AEmulator Aster to zmodyfikowany fork [AEmulator Plus](https://github.com/somerandomusernam2/AEmulator-Plus), opartego na [drel4/AEmulator-Sunset](https://github.com/drel4/AEmulator-Sunset) i [uxazu/AEmulator](https://github.com/uxazu/AEmulator).
 
 ## 🔗 Linki
 
-- Mój fork: [somerandomusernam2/AEmulator-Plus](https://github.com/somerandomusernam2/AEmulator-Plus)
+- Mój fork: [yuchenlin4827-hitch/AEmulator-Aster](https://github.com/yuchenlin4827-hitch/AEmulator-Aster)
+- AEmulator Plus: [somerandomusernam2/AEmulator-Plus](https://github.com/somerandomusernam2/AEmulator-Plus)
 - Upstream: [drel4/AEmulator-Sunset](https://github.com/drel4/AEmulator-Sunset)
 - Oryginał: [uxazu/AEmulator](https://github.com/uxazu/AEmulator)
-- Autor: [somerandomusername2](https://github.com/somerandomusernam2)
+- Autor: [yuchenlin4827-hitch](https://github.com/yuchenlin4827-hitch)
 - Pierwotny autor: [t.me/istratiit_ech](https://t.me/istratiit_ech)
 
 ## 📄 Licencja

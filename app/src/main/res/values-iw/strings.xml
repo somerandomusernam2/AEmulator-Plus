@@ -201,6 +201,7 @@
     <string name="m_shell_ctrlc">Ctrl+C</string>
     <string name="m_adb_enable">הפעל</string>
     <string name="m_adb_hint">כל מי שנמצא ברשת ה-Wi-Fi הזו מקבל מעטפת root של הקושחה. כבה ברשתות ציבוריות.</string>
+    <string name="m_adb_open_hint">כל מי שנמצא ברשת ה-Wi-Fi הזו מקבל מעטפת root של הקושחה. כבה ברשתות ציבוריות.</string>
     <string name="add_import">ייבא קובץ קושחה</string>
     <string name="add_import_sub">ZIP,‏ TAR/MD5,‏ IMG, גיבויי TWRP ו-CWM</string>
     <string name="add_container">מכל חדש</string>

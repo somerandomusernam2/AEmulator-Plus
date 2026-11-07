@@ -53,13 +53,14 @@ android {
     compileSdk = 36
 
     defaultConfig {
-        applicationId = "app.aemu.plus" // Modified for AEmulator Plus, 2026-10-04: single variant, no clone
+        // AEmulator Aster: the package of AEmulator (app.aemu), so an installed AEmulator 0.0.0.3 updates in place; single variant
+        applicationId = "app.aemu"
         minSdk = 26
         // 28: гостевые бинарники запускаются из каталога данных приложения (W^X для targetSdk>=29)
         //noinspection ExpiredTargetSdkVersion
         targetSdk = 28
-        versionCode = 34
-        versionName = "0.0.0.3.9" // <AEmulator base>.<Plus release>
+        versionCode = 35
+        versionName = "0.0.0.3.9-aster" // <AEmulator base>.<Plus release>-aster
         ndk { abiFilters += listOf("arm64-v8a") }
     }
 
@@ -108,6 +109,9 @@ android {
         }
     }
     buildFeatures { compose = true; buildConfig = true }
+    // Modified for AEmulator Aster (2026-11-07): BootImageLzmaDictTest packs a kernel with a 64 MiB LZMA dictionary,
+    // which needs more than the default heap of the test JVM
+    testOptions { unitTests.all { it.maxHeapSize = "2g" } }
     lint { abortOnError = false; checkReleaseBuilds = false }
 }
 
@@ -132,6 +136,11 @@ dependencies {
     implementation("org.anarres.lzo:lzo-commons:1.0.6")
     debugImplementation("androidx.compose.ui:ui-tooling")
     testImplementation("junit:junit:4.13.2")
+    // Modified for AEmulator Aster (2026-11-07): zstd-jni as a jar with the desktop libraries, for the JVM unit tests (the AAR has arm64 only)
+    testImplementation("com.github.luben:zstd-jni:1.5.7-4")
+    // Modified for AEmulator Aster (2026-11-07): the real org.json for the JVM unit tests; the android.jar stubs throw
+    // "not mocked" and the settings round-trip tests of AEmulator Plus need it
+    testImplementation("org.json:json:20240303")
 }
 
 tasks.named("preBuild") { dependsOn(copyLegalNotices) }
@@ -141,7 +150,7 @@ tasks.register<Copy>("copyReleaseApks") {
     val v = android.defaultConfig.versionName
     from(layout.buildDirectory.dir("outputs/apk/release")) {
         include("*.apk")
-        rename { "AEmulator-Plus-app.aemu.plus.apk" }
+        rename { "AEmulator-Aster-$v-app.aemu.apk" }
     }
     into(rootProject.layout.projectDirectory.dir("release-apks/$v"))
 }

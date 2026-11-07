@@ -1,8 +1,8 @@
 <div align="center">
 
-<img src="../../docs/assets/logo.png" width="128" alt="AEmulator Plus logo"/>
+<img src="../../docs/assets/logo.png" width="128" alt="AEmulator Aster logo"/>
 
-# AEmulator Plus
+# AEmulator Aster
 
 **在现代手机上运行经典 Android 固件——HTC Sense、TouchWiz、MIUI、AOSP。无需 root，无需电脑。**
 
@@ -12,7 +12,7 @@
 
 ---
 
-AEmulator Plus 直接从固件文件启动真实的 Android 2.3–7.x 系统：Recovery 卡刷包、Odin 包或 Google 出厂镜像。旧的 ARM 代码由改进的 QEMU 转译，内核 binder 被模拟，图形使用手机 GPU 绘制，声音经由 Android 音频系统播放——一切都在一个普通应用里完成。
+AEmulator Aster 直接从固件文件启动真实的 Android 2.3–7.x 系统：Recovery 卡刷包、Odin 包或 Google 出厂镜像。旧的 ARM 代码由改进的 QEMU 转译，内核 binder 被模拟，图形使用手机 GPU 绘制，声音经由 Android 音频系统播放——一切都在一个普通应用里完成。
 
 ## ✨ 功能
 
@@ -25,8 +25,8 @@ AEmulator Plus 直接从固件文件启动真实的 Android 2.3–7.x 系统：R
 
 ## 🚀 快速开始
 
-1. 从 [Releases](https://github.com/somerandomusernam2/AEmulator-Plus/releases) 下载并安装 APK。
-2. 打开 AEmulator Plus →**添加固件**并选择文件。导入需要几分钟。
+1. 从 [Releases](https://github.com/yuchenlin4827-hitch/AEmulator-Aster/releases) 下载并安装 APK。
+2. 打开 AEmulator Aster →**添加固件**并选择文件。导入需要几分钟。
 3. 点击**启动**。首次启动较慢：系统正在优化应用。
 4. ⋮ 菜单可调音量、电源键和日志；⚙️ 打开设置与语言。
 
@@ -45,23 +45,24 @@ AEmulator Plus 直接从固件文件启动真实的 Android 2.3–7.x 系统：R
 经测试的应用发布版本使用 JDK 21 和 Android SDK 36。请参阅[构建/源码说明](../build-source.md)，其中包含原生工具链和签名的详细信息。**继承而来的引擎预编译二进制文件尚未验证其完整的源码与构建来源**；参见[审计文档](../license-audit.md)。
 
 ```bash
-git clone https://github.com/somerandomusernam2/AEmulator-Plus.git
-cd AEmulator-Plus
+git clone https://github.com/yuchenlin4827-hitch/AEmulator-Aster.git
+cd AEmulator-Aster
 ./gradlew copyReleaseApks
 ```
 
 ## 🙏 致谢
 
-AEmulator Plus 源自[原作者](https://t.me/istratiit_ech)的 HTC Desire HD 与 HTC One M7 模拟器——没有他的引擎就没有本项目。
+AEmulator Aster 源自[原作者](https://t.me/istratiit_ech)的 HTC Desire HD 与 HTC One M7 模拟器——没有他的引擎就没有本项目。
 
-这是 [drel4/AEmulator-Sunset](https://github.com/drel4/AEmulator-Sunset) 的修改版分支，而后者又是 [uxazu/AEmulator](https://github.com/uxazu/AEmulator) 的修改版分支。
+AEmulator Aster 是 [AEmulator Plus](https://github.com/somerandomusernam2/AEmulator-Plus) 的修改版分支，而后者基于 [drel4/AEmulator-Sunset](https://github.com/drel4/AEmulator-Sunset) 和 [uxazu/AEmulator](https://github.com/uxazu/AEmulator)。
 
 ## 🔗 链接
 
-- 我的分支: [somerandomusernam2/AEmulator-Plus](https://github.com/somerandomusernam2/AEmulator-Plus)
+- 我的分支: [yuchenlin4827-hitch/AEmulator-Aster](https://github.com/yuchenlin4827-hitch/AEmulator-Aster)
+- AEmulator Plus: [somerandomusernam2/AEmulator-Plus](https://github.com/somerandomusernam2/AEmulator-Plus)
 - 上游: [drel4/AEmulator-Sunset](https://github.com/drel4/AEmulator-Sunset)
 - 原始项目: [uxazu/AEmulator](https://github.com/uxazu/AEmulator)
-- 作者: [somerandomusername2](https://github.com/somerandomusernam2)
+- 作者: [yuchenlin4827-hitch](https://github.com/yuchenlin4827-hitch)
 - 原作者: [t.me/istratiit_ech](https://t.me/istratiit_ech)
 
 ## 📄 许可证

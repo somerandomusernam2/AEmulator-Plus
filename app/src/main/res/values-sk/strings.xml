@@ -212,6 +212,7 @@
     <string name="m_shell_ctrlc">Ctrl+C</string>
     <string name="m_adb_enable">Povoliť</string>
     <string name="m_adb_hint">Ktokoľvek v tejto sieti Wi-Fi získa root shell firmvéru. Vo verejných sieťach ho vypnite.</string>
+    <string name="m_adb_open_hint">Ktokoľvek v tejto sieti Wi-Fi získa root shell firmvéru. Vo verejných sieťach ho vypnite.</string>
     <string name="add_import">Importovať súbor firmvéru</string>
     <string name="add_import_sub">ZIP, TAR/MD5, IMG, zálohy TWRP a CWM</string>
     <string name="add_container">Nový kontajner</string>

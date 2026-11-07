@@ -202,6 +202,7 @@
     <string name="m_shell_ctrlc">Ctrl+C</string>
     <string name="m_adb_enable">ဖွင့်ရန်</string>
     <string name="m_adb_hint">ဤ Wi-Fi ကွန်ရက်ရှိ မည်သူမဆို ဖမ်းဝဲ၏ root shell ကို ရရှိမည်။ အများသုံးကွန်ရက်များတွင် ပိတ်ထားပါ။</string>
+    <string name="m_adb_open_hint">ဤ Wi-Fi ကွန်ရက်ရှိ မည်သူမဆို ဖမ်းဝဲ၏ root shell ကို ရရှိမည်။ အများသုံးကွန်ရက်များတွင် ပိတ်ထားပါ။</string>
     <string name="add_import">ဖမ်းဝဲဖိုင် တင်သွင်းရန်</string>
     <string name="add_import_sub">ZIP၊ TAR/MD5၊ IMG၊ TWRP နှင့် CWM အရန်ဖိုင်များ</string>
     <string name="add_container">ကွန်တိန်နာအသစ်</string>

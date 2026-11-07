@@ -1461,10 +1461,11 @@ public final class FirmwareToolset {
         static void applyOperation(RandomAccessFile r,long base,long bs,RandomAccessFile out,Operation o,Consumer<String>log)throws Exception{
             long totalDst=0; for(Extent e:o.dst) totalDst=Math.addExact(totalDst,e.num*bs);
             if(o.type==6||o.type==7){for(Extent e:o.dst){out.seek(e.start*bs);writeZeros(out,e.num*bs);}return;}
-            if(o.type!=0&&o.type!=1&&o.type!=8)throw new IOException("payload operation "+o.type+" requires source/delta support");
+            // Modified for AEmulator Aster (2026-11-07): ZSTD (14), the zstd REPLACE of newer full packages, besides REPLACE, REPLACE_BZ, REPLACE_XZ
+            if(o.type!=0&&o.type!=1&&o.type!=8&&o.type!=14)throw new IOException("payload operation "+o.type+" requires source/delta support");
             InputStream in;
             if(o.type==0){r.seek(base+o.dataOffset);in=new InputStream(){long rem=o.dataLength;public int read(){return -1;}public int read(byte[]b,int off,int len)throws IOException{if(rem<=0)return -1;int k=(int)Math.min(rem,len);r.readFully(b,off,k);rem-=k;return k;}};}
-            else {if(o.dataLength>Integer.MAX_VALUE)throw new IOException("compressed payload op too large");r.seek(base+o.dataOffset);byte[]enc=new byte[(int)o.dataLength];r.readFully(enc);in=o.type==1?new BZip2CompressorInputStream(new ByteArrayInputStream(enc)):new XZCompressorInputStream(new ByteArrayInputStream(enc));}
+            else {if(o.dataLength>Integer.MAX_VALUE)throw new IOException("compressed payload op too large");r.seek(base+o.dataOffset);byte[]enc=new byte[(int)o.dataLength];r.readFully(enc);in=o.type==1?new BZip2CompressorInputStream(new ByteArrayInputStream(enc)):o.type==14?new com.github.luben.zstd.ZstdInputStream(new ByteArrayInputStream(enc)):new XZCompressorInputStream(new ByteArrayInputStream(enc));}
             try(in){byte[]buf=new byte[1<<20];for(Extent e:o.dst){long rem=e.num*bs;out.seek(e.start*bs);while(rem>0){int k=(int)Math.min(rem,buf.length);int got=readUpTo(in,buf,k);if(got<k)Arrays.fill(buf,got,k,(byte)0);out.write(buf,0,k);rem-=k;}}}
         }
         static long readBe64(RandomAccessFile r)throws IOException{return ((long)readBe32(r)<<32)|(readBe32(r)&0xffffffffL);}

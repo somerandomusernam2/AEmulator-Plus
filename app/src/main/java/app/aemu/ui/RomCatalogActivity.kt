@@ -56,6 +56,8 @@ private fun CatalogScreen(onBack: () -> Unit) {
     val section = catalog?.sections?.getOrNull(selectedSection)
     BackHandler(enabled = selectedSection >= 0) { selectedSection = -1 }
     LaunchedEffect(source, revision) {
+        // (no address yet: nothing is fetched, the address dialog asks for one)
+        if (source.isBlank()) { loading = false; error = null; catalog = null; draft = source; edit = true; return@LaunchedEffect }
         loading = true
         error = null
         try {
@@ -147,7 +149,7 @@ private fun CatalogScreen(onBack: () -> Unit) {
             OutlinedTextField(draft, { draft = it }, modifier = Modifier.fillMaxWidth(), singleLine = true,
                 label = { Text(stringResource(R.string.catalog_url)) }, isError = CatalogUrls.valid(draft) == null,
                 supportingText = { Text(stringResource(R.string.catalog_url_hint)) })
-            TextButton(onClick = { draft = CatalogUrls.DEFAULT }) { Text(stringResource(R.string.catalog_reset_source)) }
+            if (CatalogUrls.DEFAULT.isNotEmpty()) TextButton(onClick = { draft = CatalogUrls.DEFAULT }) { Text(stringResource(R.string.catalog_reset_source)) }
         } }, confirmButton = {
             TextButton(enabled = CatalogUrls.valid(draft) != null, onClick = {
                 val next = CatalogUrls.valid(draft) ?: return@TextButton

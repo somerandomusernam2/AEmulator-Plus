@@ -10,7 +10,30 @@ from texts import T  # noqa
 from texts_plus import P  # noqa
 
 RTL = {"ar", "fa"}
-BRAND = "AEmulator Plus"
+BRAND = "AEmulator Aster"  # Modified for AEmulator Aster (2026-11-07)
+
+# Modified for AEmulator Aster (2026-11-07): the line about the fork's lineage (Aster, built on Plus)
+ASTER_LINE = {
+    'en': 'AEmulator Aster is a modified fork of [AEmulator Plus]({plus}), which builds on [drel4/AEmulator-Sunset]({sunset}) and [uxazu/AEmulator]({upstream}).',
+    'ru': 'AEmulator Aster — модифицированный форк [AEmulator Plus]({plus}), который основан на [drel4/AEmulator-Sunset]({sunset}) и [uxazu/AEmulator]({upstream}).',
+    'uk': 'AEmulator Aster — модифікований форк [AEmulator Plus]({plus}), що базується на [drel4/AEmulator-Sunset]({sunset}) і [uxazu/AEmulator]({upstream}).',
+    'de': 'AEmulator Aster ist ein modifizierter Fork von [AEmulator Plus]({plus}), das auf [drel4/AEmulator-Sunset]({sunset}) und [uxazu/AEmulator]({upstream}) aufbaut.',
+    'fr': 'AEmulator Aster est un fork modifié d’[AEmulator Plus]({plus}), lui-même basé sur [drel4/AEmulator-Sunset]({sunset}) et [uxazu/AEmulator]({upstream}).',
+    'es': 'AEmulator Aster es un fork modificado de [AEmulator Plus]({plus}), que a su vez se basa en [drel4/AEmulator-Sunset]({sunset}) y [uxazu/AEmulator]({upstream}).',
+    'pt-BR': 'AEmulator Aster é um fork modificado do [AEmulator Plus]({plus}), que por sua vez se baseia em [drel4/AEmulator-Sunset]({sunset}) e [uxazu/AEmulator]({upstream}).',
+    'it': 'AEmulator Aster è un fork modificato di [AEmulator Plus]({plus}), a sua volta basato su [drel4/AEmulator-Sunset]({sunset}) e [uxazu/AEmulator]({upstream}).',
+    'pl': 'AEmulator Aster to zmodyfikowany fork [AEmulator Plus]({plus}), opartego na [drel4/AEmulator-Sunset]({sunset}) i [uxazu/AEmulator]({upstream}).',
+    'tr': 'AEmulator Aster, [drel4/AEmulator-Sunset]({sunset}) ve [uxazu/AEmulator]({upstream}) üzerine kurulu [AEmulator Plus]({plus}) projesinin değiştirilmiş bir çatalıdır.',
+    'ar': 'AEmulator Aster نسخة معدّلة (fork) من [AEmulator Plus]({plus})، المبني بدوره على [drel4/AEmulator-Sunset]({sunset}) و[uxazu/AEmulator]({upstream}).',
+    'fa': 'AEmulator Aster یک فورک تغییریافته از [AEmulator Plus]({plus}) است که خود بر پایهٔ [drel4/AEmulator-Sunset]({sunset}) و [uxazu/AEmulator]({upstream}) ساخته شده است.',
+    'hi': 'AEmulator Aster, [AEmulator Plus]({plus}) का संशोधित फ़ोर्क है, जो स्वयं [drel4/AEmulator-Sunset]({sunset}) और [uxazu/AEmulator]({upstream}) पर आधारित है।',
+    'id': 'AEmulator Aster adalah fork termodifikasi dari [AEmulator Plus]({plus}), yang dibangun di atas [drel4/AEmulator-Sunset]({sunset}) dan [uxazu/AEmulator]({upstream}).',
+    'vi': 'AEmulator Aster là bản fork đã chỉnh sửa của [AEmulator Plus]({plus}), vốn dựa trên [drel4/AEmulator-Sunset]({sunset}) và [uxazu/AEmulator]({upstream}).',
+    'zh-CN': 'AEmulator Aster 是 [AEmulator Plus]({plus}) 的修改版分支，而后者基于 [drel4/AEmulator-Sunset]({sunset}) 和 [uxazu/AEmulator]({upstream})。',
+    'ja': 'AEmulator Aster は [AEmulator Plus]({plus}) の改変フォークで、Plus は [drel4/AEmulator-Sunset]({sunset}) と [uxazu/AEmulator]({upstream}) を基にしています。',
+    'ko': 'AEmulator Aster는 [AEmulator Plus]({plus})의 수정 포크이며, Plus는 [drel4/AEmulator-Sunset]({sunset})와 [uxazu/AEmulator]({upstream})를 기반으로 합니다.',
+}
+
 
 
 def path_of(code, from_code):
@@ -30,7 +53,7 @@ def render(code):
         build="docs/build-source.md" if code == "en" else "../build-source.md",
         audit="docs/license-audit.md" if code == "en" else "../license-audit.md",
         notice=f"{up}NOTICE.md",
-        sunset=SUNSET, upstream=UPSTREAM)
+        sunset=SUNSET, upstream=UPSTREAM, plus=PLUS)
     L = []
     if code in RTL:
         L.append('<div dir="rtl">\n')
@@ -59,12 +82,13 @@ def render(code):
     L.append(t["how_text"] + "\n")
     L.append(f"## 🛠️ {t['build_title']}\n")
     L.append(t["build_text"].format(**rel) + "\n")
-    L.append("```bash\ngit clone https://github.com/somerandomusernam2/AEmulator-Plus.git\ncd AEmulator-Plus\n./gradlew copyReleaseApks\n```\n")
+    L.append("```bash\ngit clone https://github.com/yuchenlin4827-hitch/AEmulator-Aster.git\ncd AEmulator-Aster\n./gradlew copyReleaseApks\n```\n")
     L.append(f"## 🙏 {t['credits_title']}\n")
     L.append(t["credits_text"].format(orig=ORIGINAL) + "\n")
-    L.append(t["fork_line"].format(**rel) + "\n")
+    L.append(ASTER_LINE[code].format(**rel) + "\n")
     L.append(f"## 🔗 {t['links_title']}\n")
-    L.append(f"- {t['l_fork']}: [somerandomusernam2/AEmulator-Plus]({REPO})")
+    L.append(f"- {t['l_fork']}: [yuchenlin4827-hitch/AEmulator-Aster]({REPO})")
+    L.append(f"- AEmulator Plus: [somerandomusernam2/AEmulator-Plus]({PLUS})")
     L.append(f"- {t['l_upstream']}: [drel4/AEmulator-Sunset]({SUNSET})")
     L.append(f"- {t['l_original']}: [uxazu/AEmulator]({UPSTREAM})")
     L.append(f"- {t['l_author']}: [{AUTHOR_NAME}]({AUTHOR})")

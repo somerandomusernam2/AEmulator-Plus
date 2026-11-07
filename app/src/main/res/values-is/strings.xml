@@ -212,6 +212,7 @@
     <string name="m_shell_ctrlc">Ctrl+C</string>
     <string name="m_adb_enable">Virkja</string>
     <string name="m_adb_hint">Hver sem er á þessu Wi-Fi neti fær rótarskel fastbúnaðarins. Slökktu á þessu á opinberum netum.</string>
+    <string name="m_adb_open_hint">Hver sem er á þessu Wi-Fi neti fær rótarskel fastbúnaðarins. Slökktu á þessu á opinberum netum.</string>
     <string name="add_import">Flytja inn fastbúnaðarskrá</string>
     <string name="add_import_sub">ZIP, TAR/MD5, IMG, TWRP- og CWM-afrit</string>
     <string name="add_container">Nýtt ílát</string>

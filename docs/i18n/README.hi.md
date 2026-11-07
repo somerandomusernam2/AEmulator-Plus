@@ -1,8 +1,8 @@
 <div align="center">
 
-<img src="../../docs/assets/logo.png" width="128" alt="AEmulator Plus logo"/>
+<img src="../../docs/assets/logo.png" width="128" alt="AEmulator Aster logo"/>
 
-# AEmulator Plus
+# AEmulator Aster
 
 **पुराने Android फ़र्मवेयर — HTC Sense, TouchWiz, MIUI, AOSP — आधुनिक फ़ोन पर। बिना root, बिना PC।**
 
@@ -12,7 +12,7 @@
 
 ---
 
-AEmulator Plus सीधे फ़र्मवेयर फ़ाइल से असली Android 2.3–7.x सिस्टम बूट करता है: रिकवरी ZIP, Odin आर्काइव या Google फ़ैक्टरी इमेज। पुराना ARM कोड संशोधित QEMU से चलता है, कर्नेल का binder एमुलेट होता है, ग्राफ़िक्स फ़ोन के GPU से और आवाज़ Android के ऑडियो सिस्टम से चलती है — सब कुछ एक सामान्य ऐप के भीतर।
+AEmulator Aster सीधे फ़र्मवेयर फ़ाइल से असली Android 2.3–7.x सिस्टम बूट करता है: रिकवरी ZIP, Odin आर्काइव या Google फ़ैक्टरी इमेज। पुराना ARM कोड संशोधित QEMU से चलता है, कर्नेल का binder एमुलेट होता है, ग्राफ़िक्स फ़ोन के GPU से और आवाज़ Android के ऑडियो सिस्टम से चलती है — सब कुछ एक सामान्य ऐप के भीतर।
 
 ## ✨ विशेषताएँ
 
@@ -25,8 +25,8 @@ AEmulator Plus सीधे फ़र्मवेयर फ़ाइल से �
 
 ## 🚀 जल्दी शुरुआत
 
-1. [Releases](https://github.com/somerandomusernam2/AEmulator-Plus/releases) से APK डाउनलोड करके इंस्टॉल करें।
-2. AEmulator Plus खोलें → **फ़र्मवेयर जोड़ें** और फ़ाइल चुनें। आयात में कुछ मिनट लगते हैं।
+1. [Releases](https://github.com/yuchenlin4827-hitch/AEmulator-Aster/releases) से APK डाउनलोड करके इंस्टॉल करें।
+2. AEmulator Aster खोलें → **फ़र्मवेयर जोड़ें** और फ़ाइल चुनें। आयात में कुछ मिनट लगते हैं।
 3. **चलाएँ** दबाएँ। पहला बूट धीमा होता है: सिस्टम ऐप्स ऑप्टिमाइज़ करता है।
 4. ⋮ मेनू में वॉल्यूम, पावर बटन और लॉग; ⚙️ से सेटिंग्स और भाषा।
 
@@ -45,23 +45,24 @@ AEmulator Plus सीधे फ़र्मवेयर फ़ाइल से �
 ऐप का परीक्षित रिलीज़ बिल्ड JDK 21 और Android SDK 36 का उपयोग करता है। नेटिव टूलचेन और साइनिंग के विवरण के साथ [बिल्ड/सोर्स निर्देश](../build-source.md) देखें। **विरासत में मिले इंजन प्रीबिल्ट बाइनरी के सोर्स और बिल्ड की पूरी उत्पत्ति अभी सत्यापित नहीं है**; [ऑडिट](../license-audit.md) देखें।
 
 ```bash
-git clone https://github.com/somerandomusernam2/AEmulator-Plus.git
-cd AEmulator-Plus
+git clone https://github.com/yuchenlin4827-hitch/AEmulator-Aster.git
+cd AEmulator-Aster
 ./gradlew copyReleaseApks
 ```
 
 ## 🙏 आभार
 
-AEmulator Plus [मूल लेखक](https://t.me/istratiit_ech) के HTC Desire HD और HTC One M7 एमुलेटर से विकसित हुआ — उनके इंजन के बिना यह प्रोजेक्ट नहीं होता।
+AEmulator Aster [मूल लेखक](https://t.me/istratiit_ech) के HTC Desire HD और HTC One M7 एमुलेटर से विकसित हुआ — उनके इंजन के बिना यह प्रोजेक्ट नहीं होता।
 
-यह [drel4/AEmulator-Sunset](https://github.com/drel4/AEmulator-Sunset) का संशोधित फ़ोर्क है, जो स्वयं [uxazu/AEmulator](https://github.com/uxazu/AEmulator) का संशोधित फ़ोर्क है।
+AEmulator Aster, [AEmulator Plus](https://github.com/somerandomusernam2/AEmulator-Plus) का संशोधित फ़ोर्क है, जो स्वयं [drel4/AEmulator-Sunset](https://github.com/drel4/AEmulator-Sunset) और [uxazu/AEmulator](https://github.com/uxazu/AEmulator) पर आधारित है।
 
 ## 🔗 लिंक
 
-- मेरा फ़ोर्क: [somerandomusernam2/AEmulator-Plus](https://github.com/somerandomusernam2/AEmulator-Plus)
+- मेरा फ़ोर्क: [yuchenlin4827-hitch/AEmulator-Aster](https://github.com/yuchenlin4827-hitch/AEmulator-Aster)
+- AEmulator Plus: [somerandomusernam2/AEmulator-Plus](https://github.com/somerandomusernam2/AEmulator-Plus)
 - अपस्ट्रीम: [drel4/AEmulator-Sunset](https://github.com/drel4/AEmulator-Sunset)
 - मूल: [uxazu/AEmulator](https://github.com/uxazu/AEmulator)
-- लेखक: [somerandomusername2](https://github.com/somerandomusernam2)
+- लेखक: [yuchenlin4827-hitch](https://github.com/yuchenlin4827-hitch)
 - मूल लेखक: [t.me/istratiit_ech](https://t.me/istratiit_ech)
 
 ## 📄 लाइसेंस

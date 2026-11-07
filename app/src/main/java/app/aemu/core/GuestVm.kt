@@ -30,6 +30,9 @@ private const val PURE32_GPU_MODE = "3"
  * (MIUI installd dies in the LBE security hook on start). */
 private val ALWAYS_RESTART = setOf("mediaserver", "installd", "netd", "keystore")
 
+/** Added for AEmulator Plus (2026-11-07): 4.4 engine (32-bit firmware): vendor daemons that only spin without their hardware. */
+private val KK_SKIP = setOf("loc_launcher")
+
 /** Native arm64 engine: vendor daemons that only poll hardware the phone does not have (modem, DSP, TrustZone). */
 private val N64_SKIP = setOf("audiod", "ATFWD-daemon", "imsqmidaemon", "loc_launcher", "cnd", "dpmd", "cnss-daemon",
     "tftp_server", "qcom-system-daemon", "hvdcp_opti", "pm-service", "mtd", "mlipayd", "vsimd", "fdpp", "perfd", "ipacm",
@@ -897,8 +900,11 @@ class GuestVm(val ctx: Context, val img: GuestImage, val lowPowerBoot: Boolean =
                 overrides["dalvik.vm.dex2oat-flags"] = overrides["dalvik.vm.dex2oat-flags"] + " --runtime-arg -Xnorelocate"
                 // Samsung 5.x/6.0 installd hands the whole property to dex2oat as one argument, which then fails to parse
                 // ("-j" value '4 --runtime-arg -Xnorelocate'): split it in a dex2oat wrapper. Other devices are untouched.
-                if (isSamsungImage && img.api in 21..23 && Dex2oatArgSplit.install(paths.root))
-                    log("dex2oat: wrapper splits the combined dex2oat-flags argument (Samsung installd)")
+                // Modified for AEmulator Plus (2026-11-07): AOSP's own installd of 5.0/5.1 does the same (argv[i++] = dex2oat_flags;
+                // the split came with 6.0), so every 5.x firmware gets the wrapper: on a Xiaomi Mi 2 MIUI 9 (5.0.2) the dexopt of
+                // every app failed ("Failed to parse -j argument '4 --runtime-arg -Xnorelocate' as an integer", status 0x0100).
+                if ((img.api in 21..22 || isSamsungImage && img.api == 23) && Dex2oatArgSplit.install(paths.root))
+                    log("dex2oat: wrapper splits the combined dex2oat-flags argument (installd of 5.x / Samsung 6.0 passes it as one)")
             }
         }
         // Modified for AEmulator Plus (2026-10-29): 14+ firmware whose boot.oat was built for the userfaultfd collector (oat
@@ -1560,7 +1566,11 @@ class GuestVm(val ctx: Context, val img: GuestImage, val lowPowerBoot: Boolean =
                 waitFor("GL bridge socket", 10_000) { paths.glSock.exists() }
             }
             Engine.KK -> {
-                if (surface == null) waitFor("screen surface", 10_000) { surface != null }
+                // Modified for AEmulator Plus (2026-11-07): only the in-app bridge (below 5.0, not on Mali) draws on the screen's
+                // surface; elsewhere the view is not shown at all and the wait ran out on every boot ("timed out waiting for:
+                // screen surface", 10 s)
+                val mali = HostInfo.gpu().contains("mali")
+                if (surface == null && img.api < 21 && !mali) waitFor("screen surface", 10_000) { surface != null }
                 val sf = surface
                 HostNative.relaxFdsanSafe()
                 // 5.0+: hwui's GL stream has crashed the in-app bridge (SIGSEGV in serve_one_raw took the whole app down);
@@ -1570,7 +1580,6 @@ class GuestVm(val ctx: Context, val img: GuestImage, val lowPowerBoot: Boolean =
                 // for system_server, driver refused 0x502). Sense 3's Rosie launcher and the lockscreen are ES2 and stay invisible
                 // (only the ES1 wallpaper shows). The standalone *_mali server keeps ES2 contexts out of that group, so Mali uses it
                 // for old images too.
-                val mali = HostInfo.gpu().contains("mali")
                 if (img.api < 21 && !mali && sf != null && GlBridge.start(sf, paths.glSock.absolutePath, paths.log("glbridge").absolutePath, w, h, false)) {
                     log("★ GPU bridge running in-app: frames render straight to the surface")
                     waitFor("GL bridge socket", 5_000) { paths.glSock.exists() }
@@ -1744,6 +1753,10 @@ class GuestVm(val ctx: Context, val img: GuestImage, val lowPowerBoot: Boolean =
             return
         }
         if (engine == Engine.N64 && ((svc.name == "zygote_secondary" && !n64Has32) || svc.argv.first().substringAfterLast('/') in N64_SKIP)) return
+        // Modified for AEmulator Plus (2026-11-07): Qualcomm's location launcher on the 4.4 engine too. Its daemons (xtwifi-client…)
+        // find no modem and exit, and its wait loop then spins on EINTR ("Parent woken up! Interrupted system call": 227,000
+        // lines in six minutes of a Mi 2 MIUI 9 boot, 15 MB of log and a translator core busy during the boot)
+        if (engine == Engine.KK && svc.argv.first().substringAfterLast('/') in KK_SKIP) { log("· ${svc.name}: skipped (no hardware for it)"); return }
         if (engine == Engine.N64 && !paths.nativeBin("libqemu_arm.so").canExecute() && !runsNatively(File(paths.root, svc.argv.first().removePrefix("/")))) {
             log("· ${svc.name}: 32-bit program, skipped by the native arm64 engine")
             return
@@ -1835,6 +1848,8 @@ class GuestVm(val ctx: Context, val img: GuestImage, val lowPowerBoot: Boolean =
             }
             val code = runCatching { p.waitFor() }.getOrDefault(-1)
             if (!stopping) log("· $name exited, code $code")
+            // Modified for AEmulator Aster (2026-11-07): why, in the host log people send (not for the ones stopped here: 137, 143)
+            if (!stopping && code != 0 && code != 137 && code != 143) runCatching { crashContext(name, log) }
             if (!stopping && code != 0) learnBinderProtocol(name, log)
             if (!stopping && code != 0 && !QemuFallback.enabled(paths) &&
                 runCatching { QemuFallback.isLinkFailure(QemuFallback.lastRun(log.readText(), name)) }.getOrDefault(false))
@@ -1842,6 +1857,30 @@ class GuestVm(val ctx: Context, val img: GuestImage, val lowPowerBoot: Boolean =
             // a restarted service is already running again under this name
             synchronized(procs) { if (procs[name].let { it == null || it === p }) props.put("init.svc.$name", "stopped") }
         }, "log-$name").apply { isDaemon = true; start() }
+    }
+
+    /**
+     * Added for AEmulator Aster (2026-11-07). Why a service ended, in the host log: what it printed in this run - the native
+     * runner's "fatal signal" report (its first lines: signal, program, pc / lr and their mappings), else its last lines
+     * (the translator's "uncaught target signal", the linker's "CANNOT LINK EXECUTABLE", an abort message) - and the guest's
+     * fatal records that name it. Both stay in the app's own files otherwise, where a user cannot reach them.
+     */
+    private fun crashContext(name: String, file: File) {
+        val text = java.io.RandomAccessFile(file, "r").use { r ->
+            val n = minOf(r.length(), 64L * 1024).toInt()
+            r.seek(r.length() - n)
+            String(ByteArray(n).also { r.readFully(it) }, Charsets.UTF_8)
+        }
+        val run = text.substringAfterLast("=== $name ", "").substringAfter('\n', "")
+        val lines = run.lines().map { it.trim() }.filter { it.isNotEmpty() }
+        val fatal = lines.indexOfFirst { it.contains("fatal signal") || it.contains("uncaught target signal") }
+        val own = if (fatal >= 0) lines.subList(fatal, minOf(lines.size, fatal + 4)) else lines.takeLast(6)
+        val guest = GuestLog.tail(paths.root, 256 * 1024).filter { r ->
+            (r.prio == 'F' || r.msg.contains("Fatal signal") || r.tag == "DEBUG") && (r.msg.contains(name) || r.tag == name) ||
+                r.tag == name && r.prio == 'E'
+        }.takeLast(4).map { "${it.prio}/${it.tag}: ${it.msg.trim()}" }
+        for (l in own) log("  │ ${l.take(220)}")
+        for (l in guest) log("  │ guest ${l.take(220)}")
     }
 
     @Volatile private var socketDirObserver: android.os.FileObserver? = null
@@ -2695,6 +2734,15 @@ class GuestVm(val ctx: Context, val img: GuestImage, val lowPowerBoot: Boolean =
                             restartZygote()
                             continue
                         }
+                        // Modified for AEmulator Aster (2026-11-07): a restart asked for here (surfaceflinger restarted during the boot,
+                        // the setup wizard) comes first: before the first boot it is not a failure
+                        if (plannedRestart && name == "zygote") {
+                            plannedRestart = false
+                            killZygoteChildren()
+                            TreeFixer(ctx, paths, img, ::log).noScreenSleep()
+                            restartZygote()
+                            continue
+                        }
                         if (state != State.FAILED && bootDoneAt == 0L && !(everBooted && zygoteRestarts < 6)) {
                             failure = if (name != "zygote") Msg("$name exited (code $code)" + if (code == 137) " — killed: the phone ran out of memory, or system_server died and took zygote with it (see the guest log)" else "")
                                 else if (code == 137) Msg("zygote exited (code $code) — SIGKILL (cause not established)", R.string.vmfail_zygote_exited_sigkill, code)
@@ -2794,6 +2842,28 @@ class GuestVm(val ctx: Context, val img: GuestImage, val lowPowerBoot: Boolean =
                         if (restartForFirmwareSurfaceFlinger.compareAndSet(false, true)) {
                             log("✖ surfaceflinger: restarting the VM now so the whole tree is set up for the firmware's own SurfaceFlinger")
                             onPower?.invoke(true, "")
+                        }
+                        continue
+                    }
+                    // Modified for AEmulator Aster (2026-11-07): before the first boot too - init restarts surfaceflinger (and zygote,
+                    // "onrestart restart zygote") at any time, and here the boot stayed on a black screen until it was killed
+                    // (Xiaomi Mi 2 MIUI 9: system_server waited for SurfaceFlinger, zygote ended with 137). Two tries; a compositor
+                    // that dies a third time will not come up, and the boot stops saying so.
+                    if (name == "surfaceflinger" && svc != null && bootDoneAt == 0L && !everBooted) {
+                        synchronized(procs) { procs.remove(name) }
+                        if (n >= 2) {
+                            failure = Msg("surfaceflinger keeps crashing before the system is up (code $code, ${n + 1} times)" +
+                                if (settings.gpu) " — try with GPU acceleration off in this firmware's settings" else "")
+                            log("✖ $failure"); setState(State.FAILED)
+                            continue
+                        }
+                        restarts[name] = n + 1
+                        log("✖ surfaceflinger crashed during boot (code $code), restarting it (${n + 1}/2)")
+                        runCatching { startService(svc) }
+                        // and zygote, if it runs already: its system_server holds the dead compositor
+                        synchronized(procs) { procs["zygote"] }?.let { z ->
+                            plannedRestart = true
+                            pidOf(z)?.let { runCatching { AProcess.sendSignal(it, 9) } }
                         }
                         continue
                     }
@@ -3368,10 +3438,9 @@ class GuestVm(val ctx: Context, val img: GuestImage, val lowPowerBoot: Boolean =
         }
     }
 
-    private fun gmtZone(): String {
-        val h = java.util.TimeZone.getDefault().getOffset(System.currentTimeMillis()) / 3_600_000
-        return if (h == 0) "Etc/GMT" else "Etc/GMT" + (if (h > 0) "-$h" else "+${-h}")
-    }
+    /** Modified for AEmulator Aster (2026-11-07): whole hours as Etc/GMT as before; +5:30 and the like by a named zone the
+     *  firmware's own tz database agrees on (GuestZone), where Etc/GMT left the guest's clock 15 to 45 minutes off */
+    private fun gmtZone(): String = GuestZone.pick(paths.root)
 
     private fun isLinkTo(f: File, target: String) = runCatching { android.system.Os.readlink(f.absolutePath) == target }.getOrDefault(false)
 

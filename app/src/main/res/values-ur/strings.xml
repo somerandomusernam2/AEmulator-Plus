@@ -202,6 +202,7 @@
     <string name="m_shell_ctrlc">Ctrl+C</string>
     <string name="m_adb_enable">فعال کریں</string>
     <string name="m_adb_hint">اس Wi-Fi نیٹ ورک پر موجود کوئی بھی شخص فرم ویئر کا روٹ شیل حاصل کر سکتا ہے۔ عوامی نیٹ ورکس پر اسے بند رکھیں۔</string>
+    <string name="m_adb_open_hint">اس Wi-Fi نیٹ ورک پر موجود کوئی بھی شخص فرم ویئر کا روٹ شیل حاصل کر سکتا ہے۔ عوامی نیٹ ورکس پر اسے بند رکھیں۔</string>
     <string name="add_import">فرم ویئر فائل امپورٹ کریں</string>
     <string name="add_import_sub">ZIP، TAR/MD5، IMG، TWRP اور CWM بیک اپس</string>
     <string name="add_container">نیا کنٹینر</string>

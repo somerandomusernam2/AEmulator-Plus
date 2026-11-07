@@ -64,8 +64,9 @@ class VmUiPolicyTest {
         }
         val classpath = listOf(LiveVmStatus::class.java, LiveVmLeaseProbe::class.java, kotlin.Unit::class.java)
             .map { File(it.protectionDomain.codeSource.location.toURI()).path }.distinct().joinToString(File.pathSeparator)
+        // Modified for AEmulator Aster (2026-11-07): without JAVA_TOOL_OPTIONS, whose "Picked up ..." banner would come first
         val child = ProcessBuilder(javaBin.path, "-cp", classpath, LiveVmLeaseProbe::class.java.name, directory.path)
-            .redirectErrorStream(true).start()
+            .also { it.environment().remove("JAVA_TOOL_OPTIONS") }.redirectErrorStream(true).start()
         try {
             assertEquals("ready", child.inputStream.bufferedReader().readLine())
             val reader = LiveVmStatus(directory)

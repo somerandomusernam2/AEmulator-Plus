@@ -24,6 +24,10 @@ import java.nio.ByteOrder
  *
  * Payloads are raw partition images: NAND YAFFS2 dumps (2048+64 pages) on the Gingerbread-era devices, boot/recovery
  * "ANDROID!" images, the modem ELF, bootloader pieces and small partition descriptors.
+ *
+ * Modified for AEmulator Aster (2026-11-07): EMUI packages (Android 4.4-10, also inside update.zip) put the image's name in the
+ * field at +0x3C instead of "INPUT" - SYSTEM, SUPER, VENDOR, ODM, PRODUCT, CUST, PRELOAD, VERSION, BOOT, RAMDISK, RECOVERY_RAMDISK,
+ * KERNEL... - and their ids are not the old ones: [Packet.name] carries it.
  */
 internal object HuaweiApp {
     private const val FIRST = 0x5CL
@@ -36,6 +40,8 @@ internal object HuaweiApp {
     class Packet(
         val id: Int, val offset: Long, val dataOffset: Long, val size: Long, val blockSize: Int,
         val hardware: String, val date: String,
+        /** the image's name at +0x3C: "INPUT" in the old packages, the partition in EMUI's ("SYSTEM", "VENDOR"...) */
+        val name: String = "",
     ) {
         val blocks: Int get() = if (blockSize > 0) ((size + blockSize - 1) / blockSize).toInt() else 0
         override fun toString() = "id 0x%02x, %d bytes".format(id, size)
@@ -63,7 +69,7 @@ internal object HuaweiApp {
             if (hl != FIXED + 2 * blocks) throw IOException("Huawei update: corrupt packet header at 0x${pos.toString(16)}")
             val data = pos + hl
             if (data + size > src.size) throw IOException("Huawei update: truncated file (packet at 0x${pos.toString(16)} needs ${data + size} bytes)")
-            out.add(Packet(id, pos, data, size, bs, cstr(b, 0x0C, 8), cstr(b, 0x1C, 16)))
+            out.add(Packet(id, pos, data, size, bs, cstr(b, 0x0C, 8), cstr(b, 0x1C, 16), cstr(b, 0x3C, 16).trim().uppercase()))
             pos = (data + size + 3) and 3L.inv()
         }
         return out

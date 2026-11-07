@@ -147,7 +147,14 @@
     <string name="vs_recovery_failed">To nie jest obraz recovery</string>
     <string name="m_adb">ADB przez sieć</string>
     <string name="m_adb_enable">Włącz</string>
-    <string name="m_adb_hint">Każdy w tej sieci Wi-Fi dostaje powłokę root oprogramowania. Wyłącz w sieciach publicznych.</string>
+    <string name="m_adb_hint">Każdy komputer trzeba zatwierdzić na tym ekranie przy pierwszym połączeniu. Wyłączaj ADB, gdy go nie używasz.</string>
+    <string name="m_adb_require">Pytaj przed połączeniem nowego komputera</string>
+    <string name="m_adb_open_hint">Każdy w tej sieci Wi-Fi dostaje powłokę root oprogramowania. Wyłącz w sieciach publicznych.</string>
+    <string name="m_adb_auth_title">Zezwolić na połączenie ADB?</string>
+    <string name="m_adb_auth_text">%1$s chce się połączyć.\n\nOdcisk klucza RSA komputera:\n%2$s</string>
+    <string name="m_adb_auth_always">Zawsze zezwalaj temu komputerowi</string>
+    <string name="m_adb_deny">Odmów</string>
+    <string name="m_adb_revoke">Zapomnij dozwolone komputery</string>
     <string name="add_import">Importuj plik firmware</string>
     <string name="add_import_sub">ZIP, TAR/MD5, IMG — dowolny ROM stock lub custom</string>
     <string name="add_container">Nowy kontener</string>

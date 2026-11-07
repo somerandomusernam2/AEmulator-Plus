@@ -147,7 +147,14 @@
     <string name="vs_recovery_failed">Bu bir recovery imajı değil</string>
     <string name="m_adb">Ağ üzerinden ADB</string>
     <string name="m_adb_enable">Etkinleştir</string>
-    <string name="m_adb_hint">Bu Wi-Fi ağındaki herkes yazılımın root kabuğuna erişir. Herkese açık ağlarda kapatın.</string>
+    <string name="m_adb_hint">Her bilgisayara ilk bağlandığında bu ekranda izin verilmelidir. Kullanmadığınızda ADB’yi kapatın.</string>
+    <string name="m_adb_require">Yeni bir bilgisayar bağlanmadan önce sor</string>
+    <string name="m_adb_open_hint">Bu Wi-Fi ağındaki herkes yazılımın root kabuğuna erişir. Herkese açık ağlarda kapatın.</string>
+    <string name="m_adb_auth_title">ADB bağlantısına izin verilsin mi?</string>
+    <string name="m_adb_auth_text">%1$s bağlanmak istiyor.\n\nBilgisayarın RSA anahtarı parmak izi:\n%2$s</string>
+    <string name="m_adb_auth_always">Bu bilgisayardan her zaman izin ver</string>
+    <string name="m_adb_deny">Reddet</string>
+    <string name="m_adb_revoke">İzin verilen bilgisayarları unut</string>
     <string name="add_import">Yazılım dosyası içe aktar</string>
     <string name="add_import_sub">ZIP, TAR/MD5, IMG — her stok veya özel ROM</string>
     <string name="add_container">Yeni kapsayıcı</string>

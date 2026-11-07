@@ -1,8 +1,8 @@
 <div align="center">
 
-<img src="../../docs/assets/logo.png" width="128" alt="AEmulator Plus logo"/>
+<img src="../../docs/assets/logo.png" width="128" alt="AEmulator Aster logo"/>
 
-# AEmulator Plus
+# AEmulator Aster
 
 **懐かしの Android ファームウェア — HTC Sense、TouchWiz、MIUI、AOSP — を最新スマホで。root も PC も不要。**
 
@@ -12,7 +12,7 @@
 
 ---
 
-AEmulator Plus はファームウェアファイルから本物の Android 2.3〜7.x を直接起動します：リカバリー ZIP、Odin アーカイブ、Google ファクトリーイメージ。古い ARM コードは改良版 QEMU で変換し、カーネルの binder をエミュレートし、描画はスマホの GPU、音声は Android のオーディオを使います。すべて普通のアプリの中で動きます。
+AEmulator Aster はファームウェアファイルから本物の Android 2.3〜7.x を直接起動します：リカバリー ZIP、Odin アーカイブ、Google ファクトリーイメージ。古い ARM コードは改良版 QEMU で変換し、カーネルの binder をエミュレートし、描画はスマホの GPU、音声は Android のオーディオを使います。すべて普通のアプリの中で動きます。
 
 ## ✨ 特長
 
@@ -25,8 +25,8 @@ AEmulator Plus はファームウェアファイルから本物の Android 2.3�
 
 ## 🚀 クイックスタート
 
-1. [Releases](https://github.com/somerandomusernam2/AEmulator-Plus/releases) から APK をダウンロードしてインストール。
-2. AEmulator Plus を開き →**ファームウェアを追加**でファイルを選択。インポートには数分かかります。
+1. [Releases](https://github.com/yuchenlin4827-hitch/AEmulator-Aster/releases) から APK をダウンロードしてインストール。
+2. AEmulator Aster を開き →**ファームウェアを追加**でファイルを選択。インポートには数分かかります。
 3. **起動**をタップ。初回はアプリ最適化のため時間がかかります。
 4. ⋮ メニューで音量・電源ボタン・ログ、⚙️ で設定と言語。
 
@@ -45,23 +45,24 @@ AEmulator Plus はファームウェアファイルから本物の Android 2.3�
 動作確認済みのアプリのリリースビルドは JDK 21 と Android SDK 36 を使用します。ネイティブツールチェーンや署名の詳細は[ビルド／ソース手順](../build-source.md)をご覧ください。**継承したエンジンのビルド済みバイナリについては、ソースコードとビルドの出自がまだ完全には検証されていません**。[監査ドキュメント](../license-audit.md)を参照してください。
 
 ```bash
-git clone https://github.com/somerandomusernam2/AEmulator-Plus.git
-cd AEmulator-Plus
+git clone https://github.com/yuchenlin4827-hitch/AEmulator-Aster.git
+cd AEmulator-Aster
 ./gradlew copyReleaseApks
 ```
 
 ## 🙏 クレジット
 
-AEmulator Plus は[オリジナル作者](https://t.me/istratiit_ech)の HTC Desire HD・HTC One M7 エミュレーターから生まれました。そのエンジンなしにこのプロジェクトはありません。
+AEmulator Aster は[オリジナル作者](https://t.me/istratiit_ech)の HTC Desire HD・HTC One M7 エミュレーターから生まれました。そのエンジンなしにこのプロジェクトはありません。
 
-これは [drel4/AEmulator-Sunset](https://github.com/drel4/AEmulator-Sunset) の改変フォークであり、そのリポジトリ自体も [uxazu/AEmulator](https://github.com/uxazu/AEmulator) の改変フォークです。
+AEmulator Aster は [AEmulator Plus](https://github.com/somerandomusernam2/AEmulator-Plus) の改変フォークで、Plus は [drel4/AEmulator-Sunset](https://github.com/drel4/AEmulator-Sunset) と [uxazu/AEmulator](https://github.com/uxazu/AEmulator) を基にしています。
 
 ## 🔗 リンク
 
-- 私のフォーク: [somerandomusernam2/AEmulator-Plus](https://github.com/somerandomusernam2/AEmulator-Plus)
+- 私のフォーク: [yuchenlin4827-hitch/AEmulator-Aster](https://github.com/yuchenlin4827-hitch/AEmulator-Aster)
+- AEmulator Plus: [somerandomusernam2/AEmulator-Plus](https://github.com/somerandomusernam2/AEmulator-Plus)
 - アップストリーム: [drel4/AEmulator-Sunset](https://github.com/drel4/AEmulator-Sunset)
 - オリジナル: [uxazu/AEmulator](https://github.com/uxazu/AEmulator)
-- 作者: [somerandomusername2](https://github.com/somerandomusernam2)
+- 作者: [yuchenlin4827-hitch](https://github.com/yuchenlin4827-hitch)
 - オリジナル作者: [t.me/istratiit_ech](https://t.me/istratiit_ech)
 
 ## 📄 ライセンス

@@ -12,5 +12,5 @@ dependencyResolutionManagement {
         mavenCentral()
     }
 }
-rootProject.name = "AEmulator-Plus"
+rootProject.name = "AEmulator-Aster"
 include(":app")

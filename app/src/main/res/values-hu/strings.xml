@@ -202,6 +202,7 @@
     <string name="m_shell_ctrlc">Ctrl+C</string>
     <string name="m_adb_enable">Engedélyezés</string>
     <string name="m_adb_hint">Bárki ezen a Wi-Fi hálózaton root shellt kap a firmware-hez. Nyilvános hálózaton kapcsolja ki.</string>
+    <string name="m_adb_open_hint">Bárki ezen a Wi-Fi hálózaton root shellt kap a firmware-hez. Nyilvános hálózaton kapcsolja ki.</string>
     <string name="add_import">Firmware fájl importálása</string>
     <string name="add_import_sub">ZIP, TAR/MD5, IMG, TWRP és CWM biztonsági mentések</string>
     <string name="add_container">Új konténer</string>

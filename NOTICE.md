@@ -1,3 +1,23 @@
+# AEmulator Aster modification notice
+
+**AEmulator Aster** ([yuchenlin4827-hitch/AEmulator-Aster](https://github.com/yuchenlin4827-hitch/AEmulator-Aster)) is a
+modified fork of [AEmulator Plus](https://github.com/somerandomusernam2/AEmulator-Plus), whose notice follows below
+unchanged. It remains licensed under the GNU General Public License, version 3; see [LICENSE](LICENSE).
+
+**Modification statement:** on 2026-11-07 AEmulator Plus `0.0.0.3.9` was merged into this repository with its full Git
+history (its authors, its "Modified for AEmulator Plus" notices and the notices of Sunset and AEmulator are kept). The
+merge commit's tree is Plus's own; Aster's changes, made by yuchenlin4827-hitch with Claude (Anthropic's assistant), are
+the commits after it and the two commits for Plus right before it, and the files changed for Aster carry a dated
+"Modified for AEmulator Aster" notice. No authorship of Plus's, Sunset's or AEmulator's work is claimed.
+
+Aster's own changes on Plus, from 2026-11-07:
+
+- package `app.aemu` (an installed AEmulator 0.0.0.3 updates in place), version `0.0.0.3.9-aster`, update check on
+  Aster's own releases, no ROM catalog server by default (the list is loaded only from an address the user enters);
+- the fixes and additions listed in this repository's Git history from 2026-11-07 on.
+
+---
+
 # AEmulator Plus modification notice
 
 **AEmulator Plus** is a modified fork of

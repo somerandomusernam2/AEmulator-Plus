@@ -201,6 +201,7 @@
     <string name="m_shell_ctrlc">Ctrl+C</string>
     <string name="m_adb_enable">Povolit</string>
     <string name="m_adb_hint">Kdokoli v této síti Wi-Fi získá root shell firmwaru. Ve veřejných sítích ho vypněte.</string>
+    <string name="m_adb_open_hint">Kdokoli v této síti Wi-Fi získá root shell firmwaru. Ve veřejných sítích ho vypněte.</string>
     <string name="add_import">Importovat soubor firmwaru</string>
     <string name="add_import_sub">ZIP, TAR/MD5, IMG, zálohy TWRP a CWM</string>
     <string name="add_container">Nový kontejner</string>

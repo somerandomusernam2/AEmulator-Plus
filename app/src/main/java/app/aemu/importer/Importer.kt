@@ -228,6 +228,10 @@ class Importer(
                 takeRecovery(streamOf(src), recoveryLabel(name, h))
             role == FirmwareToolset.Role.RECOVERY && src.size < 64_000_000 && isLz4Frame(h) ->
                 takeRecovery(streamOf(src), recoveryLabel(name, h))
+            // Modified for AEmulator Aster (2026-11-07): a super image on its own, sparse or not (a fastboot package's images/super.img,
+            // super.zst once unpacked): its logical partitions, as from a GPT disk. Before, a sparse one went to the filesystem readers
+            // and failed as "unrecognized filesystem".
+            isSuperImage(src) -> importSuper(if (SparseSource.probe(src)) SparseSource(listOf(src)) else src)
             SparseSource.probe(src) -> importImage(SparseSource(listOf(src)), "system")
             Ext4Reader.probe(src) -> importImage(src, "system")
             MotoImage.probe(src) -> importImage(src, "system")
@@ -239,6 +243,7 @@ class Importer(
                 FirmwareContainers.Compression.GZIP -> importCompressed(GZIPInputStream(streamOf(src), 1 shl 16), name, depth)
                 FirmwareContainers.Compression.XZ -> importCompressed(XZInputStream(streamOf(src)), name, depth)
                 FirmwareContainers.Compression.BZIP2 -> importCompressed(BZip2CompressorInputStream(streamOf(src)), name, depth)
+                FirmwareContainers.Compression.ZSTD -> importCompressed(zstd(streamOf(src)), name, depth)
             }
             isTar(h) || name.endsWith(".tar", true) || name.endsWith(".md5", true) || name.endsWith(".win", true) ->
                 importTarStream(streamOf(src), name, depth, src)
@@ -257,6 +262,10 @@ class Importer(
             // system.img / factoryfs / factoryfs.img / factoryfs.rfs: a system partition whatever the filesystem
             isSystemImageName(name.replace('\\', '/').substringAfterLast('/'), bare) ->
                 importImage(if (SparseSource.probe(src)) SparseSource(listOf(src)) else src, "system")
+            // Modified for AEmulator Aster (2026-11-07): OPPO / realme / OnePlus .ozip is encrypted: nothing in it can be read without
+            // the vendor's keys and tools, so it is said plainly instead of "unknown format"
+            h.size >= 12 && String(h, 0, 12, Charsets.ISO_8859_1) == "OPPOENCRYPT!" ->
+                throw IOException("\"${name.replace('\\', '/').substringAfterLast('/')}\" is an encrypted OPPO / realme / OnePlus package (.ozip): decrypt it first (to a zip or the images) and import that")
             else -> importViaToolset(src, name, depth)
         }
     }
@@ -335,10 +344,21 @@ class Importer(
      * stream straight into the TAR reader broke .tar.gz/.tgz ("Corrupted TAR archive"), and a plain .gz
      * of a non-tar image never worked. A seekable file goes through the same path as an uncompressed tar.
      */
+    /** Modified for AEmulator Aster (2026-11-07): a zstd stream (zstd-jni, already a dependency) */
+    private fun zstd(s: InputStream): InputStream =
+        BufferedInputStream(org.apache.commons.compress.compressors.zstandard.ZstdCompressorInputStream(s), 1 shl 20)
+
+    /** Modified for AEmulator Aster (2026-11-07): liblp metadata 4 KiB into [src] (or into its unpacked view, when sparse) */
+    private fun isSuperImage(src: RandomSource): Boolean = runCatching {
+        val v = if (SparseSource.probe(src)) SparseSource(listOf(src)) else src
+        if (v.size < (1L shl 20)) return@runCatching false
+        LpMetadata.probe(ByteBuffer.allocate(LP_PROBE).also { v.read(0, it) }.array())
+    }.getOrDefault(false)
+
     private fun importCompressed(decoded: InputStream, name: String, depth: Int) {
         val base = name.substringAfterLast('/').substringAfterLast('\\')
         val inner = base.replace(Regex("(?i)\\.(tgz|tbz2?|txz)$"), ".tar")
-            .replace(Regex("(?i)\\.(gz|xz|bz2|lz4)$"), "").ifEmpty { "payload" }
+            .replace(Regex("(?i)\\.(gz|xz|bz2|lz4|zst)$"), "").ifEmpty { "payload" }
         val f = decoded.use { spill(it, inner) }
         try {
             if (f.length() < 2) throw LocalizedIOException("compressed file is empty: $name", R.string.imp_compressed_file_is_empty, name)
@@ -481,7 +501,8 @@ class Importer(
             val rel = link.trimStart('/')
             if (!rel.startsWith("oem/")) continue
             val f = File(root, rel)
-            if (!f.canonicalPath.startsWith(File(root, "oem").canonicalPath)) continue
+            // (Modified for AEmulator Aster, 2026-11-07: with the separator - "oem2/..." is not inside "oem")
+            if (!f.canonicalPath.startsWith(File(root, "oem").canonicalPath + File.separator)) continue
             f.parentFile?.mkdirs()
             runCatching {
                 if (f.exists() || isLink(f)) { if (f.isDirectory && !isLink(f)) return@runCatching; f.delete() }
@@ -649,7 +670,14 @@ class Importer(
         for (p in packets) {
             if (cancelled) throw IOException("cancelled")
             if (p.size < 4096 || p.size > 64_000_000) continue
-            if (String(head(p, 8), Charsets.ISO_8859_1) != "ANDROID!") continue
+            if (String(head(p, 8), Charsets.ISO_8859_1) != "ANDROID!") {
+                // Modified for AEmulator Aster (2026-11-07): EMUI 8/9 keep the root (init.rc...) in a RAMDISK image of its own,
+                // which can be a bare compressed cpio
+                if (p.name == "RAMDISK" || p.name == "BOOT") runCatching { BootImage.decompress(readAllFrom(slice(p)))?.let { BootImage.cpio(it) } }
+                    .getOrNull()?.takeIf { it.isNotEmpty() && LegacyFirmware.hasInitScript(it.map { e -> e.name }) }
+                    ?.let { takeBareRamdisk(it, "$label ${p.name}") }
+                continue
+            }
             val data = readAllFrom(slice(p))
             val tag = "$label id 0x%02x".format(p.id)
             if (hasRecoveryBinary(data)) takeRecovery(data.inputStream(), "recovery ($tag)") else takeBoot(data)
@@ -663,7 +691,15 @@ class Importer(
             val s = slice(p)
             SparseSource.probe(s) || Ext4Reader.probe(s) || Yaffs2Reader.probe(s) || UbiFsReader.probe(s) || ErofsReader.probe(s)
         }
-        val systemPacket = fsParts.firstOrNull { it.id == HuaweiApp.ID_SYSTEM }
+        // Modified for AEmulator Aster (2026-11-07): an EMUI package names its images; a SUPER image (dynamic partitions) is the system too
+        val superPacket = if (gotSystem) null else packets.firstOrNull { it.name == "SUPER" && it.size >= (4L shl 20) }
+        if (superPacket != null && fsParts.none { it.name == "SYSTEM" }) {
+            val s = slice(superPacket)
+            runCatching { importSuper(if (SparseSource.probe(s)) SparseSource(listOf(s)) else s) }
+                .onFailure { log("huawei $label: SUPER image not read: ${it.message}") }
+        }
+        val systemPacket = fsParts.firstOrNull { it.name == "SYSTEM" }
+            ?: fsParts.firstOrNull { it.id == HuaweiApp.ID_SYSTEM && (it.name.isEmpty() || it.name == "INPUT") }
             ?: fsParts.firstOrNull { looksLikeSystem(slice(it)) }
         if (systemPacket == null || gotSystem) {
             val what = if (gotSystem) "system already imported" else "no system partition"
@@ -676,15 +712,28 @@ class Importer(
         if (bad > 0) log("huawei $label: $bad block(s) of the system image fail their CRC, the download may be damaged")
         val s = slice(systemPacket)
         importImage(if (SparseSource.probe(s)) SparseSource(listOf(s)) else s, "system")
-        for (p in fsParts) if (p !== systemPacket) log("huawei $label: skipped partition id 0x%02x (%d KB)".format(p.id, p.size shr 10))
+        // Modified for AEmulator Aster (2026-11-07): the other named partitions of an EMUI package where they belong (Treble's vendor side,
+        // Huawei's own cust / preload / version at the root)
+        val mounts = mapOf("VENDOR" to "vendor", "ODM" to "odm", "PRODUCT" to "system/product", "SYSTEM_EXT" to "system/system_ext",
+            "CUST" to "cust", "PRELOAD" to "preload", "VERSION" to "version")
+        for (p in fsParts) {
+            if (p === systemPacket) continue
+            val mount = mounts[p.name]
+            if (mount == null) { log("huawei $label: skipped partition id 0x%02x %s(%d KB)".format(p.id, if (p.name.isEmpty()) "" else p.name + " ", p.size shr 10)); continue }
+            val ps = slice(p)
+            runCatching { importImage(if (SparseSource.probe(ps)) SparseSource(listOf(ps)) else ps, mount) }
+                .onSuccess { log("huawei $label: ${p.name} -> /$mount") }
+                .onFailure { log("huawei $label: ${p.name} not read: ${it.message}") }
+        }
     }
 
     private fun looksLikeSystem(src: RandomSource): Boolean = runCatching {
         var found = false
         val s = if (SparseSource.probe(src)) SparseSource(listOf(src)) else MotoImage.unwrap(src)
+        // (Modified for AEmulator Aster, 2026-11-07: "system/build.prop" too, the system-as-root layout of EMUI 9+)
         if (UbiFsReader.probe(s)) UbiFsReader(s).walk { path, _ -> if (path == "build.prop" || path == "framework") found = true }
         else if (Yaffs2Reader.probe(s)) Yaffs2Reader(s).walk { path, _ -> if (path == "build.prop" || path == "framework" || path == "javalib") found = true }
-        else if (Ext4Reader.probe(s)) Ext4Reader(s).walk { path, _ -> if (path == "build.prop" || path == "framework") found = true }
+        else if (Ext4Reader.probe(s)) Ext4Reader(s).walk { path, _ -> if (path == "build.prop" || path == "framework" || path == "system/build.prop") found = true }
         else if (ErofsReader.probe(s)) ErofsReader(s).let { fs ->
             found = fs.lookup("build.prop") != null || fs.lookup("framework") != null || fs.lookup("system/build.prop") != null
         }
@@ -866,6 +915,8 @@ class Importer(
                 // Acer packages are recognised by their table, not by the (generic) .bin / .nb0 extension
                 (base.endsWith(".nb0", true) || base.endsWith(".bin", true)) && e.size > AcerBin.MIN_SIZE &&
                     AcerBin.probe(zipEntryHead(zip, e, 1100)) -> importZipAcerBin(zip, e, base)
+                // Modified for AEmulator Aster (2026-11-07): an image compressed with zstd (super.zst, system.img.zst): unpacked and recognised again
+                base.endsWith(".zst", true) && e.size > (1L shl 20) -> zip.getInputStream(e).use { importCompressed(zstd(it), base, depth) }
                 // payload.bin of an A/B OTA: the spilled copy is unpacked in place (it is already a private temp file)
                 base.equals("payload.bin", true) && e.size > 0 -> importToolsetFile(spillEntry(zip, e), base, depth + 1)
                 recognizedFirmwareTool(base) -> {
@@ -1741,6 +1792,8 @@ class Importer(
             // дерево rootfs целиком (system/, data/, dev/, …)
             if (fullRoot == null && ((n == "system" && !e.isFile) || n.startsWith("system/") || n.startsWith("init.rc") || n.startsWith("default.prop"))) fullRoot = true
             when {
+                // Modified for AEmulator Aster (2026-11-07): a HyperOS fastboot package (.tgz) has images/super.zst: unpacked and recognised again
+                base.endsWith(".zst", true) && e.isFile && e.size > (1L shl 20) && !inSystemDump(n) -> importCompressed(zstd(tar.nonClosing()), base, depth)
                 isSonyName(base) && e.isFile && e.size > 0 -> importSonyFile(spill(tar.nonClosing(), base), depth)
                 base.equals("system.yaffs2.img", true) && e.isFile -> {
                     val t = spill(tar.nonClosing(), base)

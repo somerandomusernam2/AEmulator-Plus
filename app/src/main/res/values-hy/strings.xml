@@ -212,6 +212,7 @@
     <string name="m_shell_ctrlc">Ctrl+C</string>
     <string name="m_adb_enable">Միացնել</string>
     <string name="m_adb_hint">Այս Wi-Fi ցանցի յուրաքանչյուր օգտատեր ստանում է որոնվածքի root shell։ Հանրային ցանցերում անջատեք։</string>
+    <string name="m_adb_open_hint">Այս Wi-Fi ցանցի յուրաքանչյուր օգտատեր ստանում է որոնվածքի root shell։ Հանրային ցանցերում անջատեք։</string>
     <string name="add_import">Ներմուծել որոնվածքի ֆայլ</string>
     <string name="add_import_sub">ZIP, TAR/MD5, IMG, TWRP և CWM պահուստային պատճեններ</string>
     <string name="add_container">Նոր կոնտեյներ</string>

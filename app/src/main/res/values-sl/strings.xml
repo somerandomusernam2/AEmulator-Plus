@@ -212,6 +212,7 @@
     <string name="m_shell_ctrlc">Ctrl+C</string>
     <string name="m_adb_enable">Omogoči</string>
     <string name="m_adb_hint">Vsakdo v tem omrežju Wi-Fi dobi korensko lupino vdelane programske opreme. V javnih omrežjih jo izklopite.</string>
+    <string name="m_adb_open_hint">Vsakdo v tem omrežju Wi-Fi dobi korensko lupino vdelane programske opreme. V javnih omrežjih jo izklopite.</string>
     <string name="add_import">Uvozi datoteko vdelane programske opreme</string>
     <string name="add_import_sub">ZIP, TAR/MD5, IMG, varnostne kopije TWRP in CWM</string>
     <string name="add_container">Nov vsebnik</string>

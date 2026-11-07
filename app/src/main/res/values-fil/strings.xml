@@ -202,6 +202,7 @@
     <string name="m_shell_ctrlc">Ctrl+C</string>
     <string name="m_adb_enable">I-enable</string>
     <string name="m_adb_hint">Ang sinumang nasa Wi-Fi network na ito ay makakakuha ng root shell ng firmware. I-off ito sa mga pampublikong network.</string>
+    <string name="m_adb_open_hint">Ang sinumang nasa Wi-Fi network na ito ay makakakuha ng root shell ng firmware. I-off ito sa mga pampublikong network.</string>
     <string name="add_import">I-import ang firmware file</string>
     <string name="add_import_sub">ZIP, TAR/MD5, IMG, mga backup ng TWRP at CWM</string>
     <string name="add_container">Bagong container</string>

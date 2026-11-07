@@ -212,6 +212,7 @@
     <string name="m_shell_ctrlc">Ctrl+C</string>
     <string name="m_adb_enable">Luba</string>
     <string name="m_adb_hint">Igaüks sellel Wi-Fi võrgul saab püsivara root-kesta. Avalikes võrkudes lülitage välja.</string>
+    <string name="m_adb_open_hint">Igaüks sellel Wi-Fi võrgul saab püsivara root-kesta. Avalikes võrkudes lülitage välja.</string>
     <string name="add_import">Impordi püsivara fail</string>
     <string name="add_import_sub">ZIP, TAR/MD5, IMG, TWRP ja CWM varukoopiad</string>
     <string name="add_container">Uus konteiner</string>

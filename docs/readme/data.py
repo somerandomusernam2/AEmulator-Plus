@@ -11,7 +11,9 @@ _L = _cfg["links"]
 REPO, SITE, CHANNEL, AUTHOR, ORIGINAL = _L["repo"], _L["site"], _L["channel"], _L["author"], _L["original"]
 UPSTREAM = "https://github.com/uxazu/AEmulator"
 SUNSET = "https://github.com/drel4/AEmulator-Sunset"
-AUTHOR_NAME = "somerandomusername2"  # GitHub display name; the URL slug is somerandomusernam2
+AUTHOR_NAME = "yuchenlin4827-hitch"
+# Modified for AEmulator Aster (2026-11-07): the fork it is built on
+PLUS = "https://github.com/somerandomusernam2/AEmulator-Plus"
 
 LANGS = [  # код, самоназвание, флаг
     ("en", "English", "🇬🇧"), ("ru", "Русский", "🇷🇺"), ("uk", "Українська", "🇺🇦"), ("de", "Deutsch", "🇩🇪"),

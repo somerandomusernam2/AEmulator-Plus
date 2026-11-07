@@ -4,11 +4,13 @@ package app.aemu.importer
 
 /** Compression signatures take precedence over misleading download suffixes (e.g. .tgz.tar). */
 internal object FirmwareContainers {
-    enum class Compression { GZIP, XZ, BZIP2 }
+    // Modified for AEmulator Aster (2026-11-07): ZSTD (HyperOS fastboot packages: images/super.zst)
+    enum class Compression { GZIP, XZ, BZIP2, ZSTD }
     fun compression(h: ByteArray): Compression? = when {
         h.size >= 2 && h[0] == 0x1f.toByte() && h[1] == 0x8b.toByte() -> Compression.GZIP
         h.size >= 6 && h.copyOfRange(0, 6).contentEquals(byteArrayOf(0xfd.toByte(), 0x37, 0x7a, 0x58, 0x5a, 0)) -> Compression.XZ
         h.size >= 3 && h[0] == 'B'.code.toByte() && h[1] == 'Z'.code.toByte() && h[2] == 'h'.code.toByte() -> Compression.BZIP2
+        h.size >= 4 && h[0] == 0x28.toByte() && h[1] == 0xb5.toByte() && h[2] == 0x2f.toByte() && h[3] == 0xfd.toByte() -> Compression.ZSTD
         else -> null
     }
     fun destination(root: java.io.File, relative: String): java.io.File {

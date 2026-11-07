@@ -202,6 +202,7 @@
     <string name="m_shell_ctrlc">Ctrl+C</string>
     <string name="m_adb_enable">Dayakan</string>
     <string name="m_adb_hint">Sesiapa sahaja pada rangkaian Wi-Fi ini mendapat shell root perisian tegar. Matikan pada rangkaian awam.</string>
+    <string name="m_adb_open_hint">Sesiapa sahaja pada rangkaian Wi-Fi ini mendapat shell root perisian tegar. Matikan pada rangkaian awam.</string>
     <string name="add_import">Import fail perisian tegar</string>
     <string name="add_import_sub">ZIP, TAR/MD5, IMG, sandaran TWRP &amp; CWM</string>
     <string name="add_container">Kontena baharu</string>

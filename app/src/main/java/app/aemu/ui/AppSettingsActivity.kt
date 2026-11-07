@@ -92,8 +92,10 @@ import app.aemu.R
 /** Modified for AEmulator Sunset on 2026-09-30: fork links and attribution.
  * Modified for AEmulator Plus on 2026-10-04: Plus links; Sunset and original credited as upstream. */
 object Links {
-    const val GITHUB = "https://github.com/somerandomusernam2/AEmulator-Plus"
-    const val AUTHOR = "https://github.com/somerandomusernam2"
+    // Modified for AEmulator Aster (2026-11-07): its own repository; AEmulator Plus, which it is built on, credited below
+    const val GITHUB = "https://github.com/yuchenlin4827-hitch/AEmulator-Aster"
+    const val AUTHOR = "https://github.com/yuchenlin4827-hitch"
+    const val PLUS = "https://github.com/somerandomusernam2/AEmulator-Plus"
     const val SUNSET = "https://github.com/drel4/AEmulator-Sunset"
     const val UPSTREAM = "https://github.com/uxazu/AEmulator"
     const val ORIGINAL = "https://t.me/istratiit_ech"
@@ -309,9 +311,10 @@ private fun AppSettings(onBack: () -> Unit, onRestyle: () -> Unit) {
 
             item {
                 Section(stringResource(R.string.as_links)) {
-                    Row_(Icons.Rounded.Person, stringResource(R.string.as_author), "somerandomusername2") { open(Links.AUTHOR) }
+                    Row_(Icons.Rounded.Person, stringResource(R.string.as_author), "yuchenlin4827-hitch") { open(Links.AUTHOR) }
                     Row_(Icons.Rounded.History, stringResource(R.string.as_orig), "t.me/istratiit_ech") { open(Links.ORIGINAL) }
-                    Row_(Icons.Rounded.Code, stringResource(R.string.as_github), "github.com/somerandomusernam2/AEmulator-Plus") { open(Links.GITHUB) }
+                    Row_(Icons.Rounded.Code, stringResource(R.string.as_github), "github.com/yuchenlin4827-hitch/AEmulator-Aster") { open(Links.GITHUB) }
+                    Row_(Icons.Rounded.History, stringResource(R.string.as_upstream_row, "AEmulator Plus"), "github.com/somerandomusernam2/AEmulator-Plus") { open(Links.PLUS) }
                     Row_(Icons.Rounded.History, stringResource(R.string.as_upstream_row, "AEmulator Sunset"), "github.com/drel4/AEmulator-Sunset") { open(Links.SUNSET) }
                     Row_(Icons.Rounded.History, stringResource(R.string.as_original_row, "AEmulator"), "github.com/uxazu/AEmulator") { open(Links.UPSTREAM) }
                     Row_(Icons.Rounded.Code, stringResource(R.string.as_license_notices), "GPL-3.0") { legalDialog = true }

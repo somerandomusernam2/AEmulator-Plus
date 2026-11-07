@@ -147,7 +147,14 @@
     <string name="vs_recovery_failed">Bukan image recovery</string>
     <string name="m_adb">ADB lewat jaringan</string>
     <string name="m_adb_enable">Aktifkan</string>
-    <string name="m_adb_hint">Siapa pun di jaringan Wi-Fi ini mendapat shell root firmware. Matikan di jaringan publik.</string>
+    <string name="m_adb_hint">Setiap komputer harus diizinkan di layar ini saat pertama kali terhubung. Matikan ADB jika tidak digunakan.</string>
+    <string name="m_adb_require">Tanya sebelum komputer baru terhubung</string>
+    <string name="m_adb_open_hint">Siapa pun di jaringan Wi-Fi ini mendapat shell root firmware. Matikan di jaringan publik.</string>
+    <string name="m_adb_auth_title">Izinkan koneksi ADB?</string>
+    <string name="m_adb_auth_text">%1$s ingin terhubung.\n\nSidik jari kunci RSA komputer:\n%2$s</string>
+    <string name="m_adb_auth_always">Selalu izinkan dari komputer ini</string>
+    <string name="m_adb_deny">Tolak</string>
+    <string name="m_adb_revoke">Lupakan komputer yang diizinkan</string>
     <string name="add_import">Impor file firmware</string>
     <string name="add_import_sub">ZIP, TAR/MD5, IMG — ROM stok atau kustom apa pun</string>
     <string name="add_container">Kontainer baru</string>

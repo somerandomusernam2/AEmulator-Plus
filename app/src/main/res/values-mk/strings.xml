@@ -212,6 +212,7 @@
     <string name="m_shell_ctrlc">Ctrl+C</string>
     <string name="m_adb_enable">Овозможи</string>
     <string name="m_adb_hint">Секој на оваа Wi-Fi мрежа добива root shell на фирмверот. Исклучете го на јавни мрежи.</string>
+    <string name="m_adb_open_hint">Секој на оваа Wi-Fi мрежа добива root shell на фирмверот. Исклучете го на јавни мрежи.</string>
     <string name="add_import">Увези датотека со фирмвер</string>
     <string name="add_import_sub">ZIP, TAR/MD5, IMG, резервни копии на TWRP и CWM</string>
     <string name="add_container">Нов контејнер</string>

@@ -177,7 +177,14 @@
     <string name="vs_ota_failed">OTA не установлено: %1$s</string>
     <string name="m_adb">ADB по сети</string>
     <string name="m_adb_enable">Включить</string>
-    <string name="m_adb_hint">Любой в этой Wi-Fi-сети получит root-доступ к прошивке. Выключайте в общественных сетях.</string>
+    <string name="m_adb_hint">Каждый компьютер нужно разрешить на этом экране при первом подключении. Выключайте ADB, когда он не нужен.</string>
+    <string name="m_adb_require">Спрашивать перед подключением нового компьютера</string>
+    <string name="m_adb_open_hint">Любой в этой Wi-Fi-сети получит root-доступ к прошивке. Выключайте в общественных сетях.</string>
+    <string name="m_adb_auth_title">Разрешить подключение ADB?</string>
+    <string name="m_adb_auth_text">%1$s хочет подключиться.\n\nОтпечаток RSA-ключа компьютера:\n%2$s</string>
+    <string name="m_adb_auth_always">Всегда разрешать этому компьютеру</string>
+    <string name="m_adb_deny">Запретить</string>
+    <string name="m_adb_revoke">Забыть разрешённые компьютеры</string>
     <string name="add_import">Импорт файла прошивки</string>
     <string name="add_import_sub">ZIP, TAR/MD5, IMG, бэкапы TWRP и CWM</string>
     <string name="add_container">Новый контейнер</string>

@@ -212,6 +212,7 @@
     <string name="m_shell_ctrlc">Ctrl+C</string>
     <string name="m_adb_enable">Įjungti</string>
     <string name="m_adb_hint">Bet kas šiame „Wi-Fi“ tinkle gauna programinės įrangos root komandų eilutę. Viešuosiuose tinkluose išjunkite.</string>
+    <string name="m_adb_open_hint">Bet kas šiame „Wi-Fi“ tinkle gauna programinės įrangos root komandų eilutę. Viešuosiuose tinkluose išjunkite.</string>
     <string name="add_import">Importuoti programinės įrangos failą</string>
     <string name="add_import_sub">ZIP, TAR/MD5, IMG, TWRP ir CWM atsarginės kopijos</string>
     <string name="add_container">Naujas konteineris</string>

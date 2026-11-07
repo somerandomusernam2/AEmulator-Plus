@@ -81,7 +81,8 @@ object RecoveryImage {
             val n = e.name.trimStart('/')
             if (n.isEmpty() || n == ".") continue
             val f = File(out, n)
-            if (!f.canonicalPath.startsWith(base)) continue
+            // (Modified for AEmulator Aster, 2026-11-07: with the separator - a sibling named like the directory is not inside it)
+            if (f.canonicalPath != base && !f.canonicalPath.startsWith(base + File.separator)) continue
             when (e.mode and 0xF000) {
                 0x4000 -> f.mkdirs()
                 0xA000 -> { f.parentFile?.mkdirs(); runCatching { Os.symlink(String(e.data), f.path) } }

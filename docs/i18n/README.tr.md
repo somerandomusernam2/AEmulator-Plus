@@ -1,8 +1,8 @@
 <div align="center">
 
-<img src="../../docs/assets/logo.png" width="128" alt="AEmulator Plus logo"/>
+<img src="../../docs/assets/logo.png" width="128" alt="AEmulator Aster logo"/>
 
-# AEmulator Plus
+# AEmulator Aster
 
 **Klasik Android yazılımları — HTC Sense, TouchWiz, MIUI, AOSP — modern bir telefonda. Root ve PC gerekmez.**
 
@@ -12,7 +12,7 @@
 
 ---
 
-AEmulator Plus gerçek bir Android 2.3–7.x sistemini doğrudan yazılım dosyasından başlatır: recovery ZIP, Odin arşivi veya Google fabrika imajı. Eski ARM kodu değiştirilmiş QEMU ile çevrilir, çekirdeğin binder’ı taklit edilir, grafikler telefonun GPU’sunu, ses Android’in ses altyapısını kullanır — hepsi sıradan bir uygulamanın içinde.
+AEmulator Aster gerçek bir Android 2.3–7.x sistemini doğrudan yazılım dosyasından başlatır: recovery ZIP, Odin arşivi veya Google fabrika imajı. Eski ARM kodu değiştirilmiş QEMU ile çevrilir, çekirdeğin binder’ı taklit edilir, grafikler telefonun GPU’sunu, ses Android’in ses altyapısını kullanır — hepsi sıradan bir uygulamanın içinde.
 
 ## ✨ Özellikler
 
@@ -25,8 +25,8 @@ AEmulator Plus gerçek bir Android 2.3–7.x sistemini doğrudan yazılım dosya
 
 ## 🚀 Hızlı başlangıç
 
-1. APK’yı [Releases](https://github.com/somerandomusernam2/AEmulator-Plus/releases) sayfasından indirip kurun.
-2. AEmulator Plus’ı açın → **Yazılım ekle** ve dosyayı seçin. İçe aktarma birkaç dakika sürer.
+1. APK’yı [Releases](https://github.com/yuchenlin4827-hitch/AEmulator-Aster/releases) sayfasından indirip kurun.
+2. AEmulator Aster’ı açın → **Yazılım ekle** ve dosyayı seçin. İçe aktarma birkaç dakika sürer.
 3. **Başlat**’a basın. İlk açılış daha uzundur: sistem uygulamaları optimize eder.
 4. ⋮ menüsü: ses, güç düğmesi ve günlük; ⚙️ ayarları ve dili açar.
 
@@ -45,23 +45,24 @@ Her misafir süreç değiştirilmiş kullanıcı kipi QEMU altında çalışır.
 Uygulamanın test edilen sürüm derlemesi JDK 21 ve Android SDK 36 kullanır. Yerel araç zinciri ve imzalama ayrıntıları dahil [derleme/kaynak kodu yönergelerine](../build-source.md) bakın. **Devralınan motor ikili dosyalarının kaynak kodu ve derleme kökeni henüz tam olarak doğrulanmamıştır**; bkz. [denetim](../license-audit.md).
 
 ```bash
-git clone https://github.com/somerandomusernam2/AEmulator-Plus.git
-cd AEmulator-Plus
+git clone https://github.com/yuchenlin4827-hitch/AEmulator-Aster.git
+cd AEmulator-Aster
 ./gradlew copyReleaseApks
 ```
 
 ## 🙏 Teşekkürler
 
-AEmulator Plus, [ilk geliştiricinin](https://t.me/istratiit_ech) HTC Desire HD ve HTC One M7 emülatörlerinden doğdu — onun motoru olmadan bu proje olmazdı.
+AEmulator Aster, [ilk geliştiricinin](https://t.me/istratiit_ech) HTC Desire HD ve HTC One M7 emülatörlerinden doğdu — onun motoru olmadan bu proje olmazdı.
 
-Bu, kendisi de [uxazu/AEmulator](https://github.com/uxazu/AEmulator) deposunun değiştirilmiş bir çatalı olan [drel4/AEmulator-Sunset](https://github.com/drel4/AEmulator-Sunset) deposunun değiştirilmiş bir çatalıdır.
+AEmulator Aster, [drel4/AEmulator-Sunset](https://github.com/drel4/AEmulator-Sunset) ve [uxazu/AEmulator](https://github.com/uxazu/AEmulator) üzerine kurulu [AEmulator Plus](https://github.com/somerandomusernam2/AEmulator-Plus) projesinin değiştirilmiş bir çatalıdır.
 
 ## 🔗 Bağlantılar
 
-- Çatalım: [somerandomusernam2/AEmulator-Plus](https://github.com/somerandomusernam2/AEmulator-Plus)
+- Çatalım: [yuchenlin4827-hitch/AEmulator-Aster](https://github.com/yuchenlin4827-hitch/AEmulator-Aster)
+- AEmulator Plus: [somerandomusernam2/AEmulator-Plus](https://github.com/somerandomusernam2/AEmulator-Plus)
 - Üst proje: [drel4/AEmulator-Sunset](https://github.com/drel4/AEmulator-Sunset)
 - Orijinal: [uxazu/AEmulator](https://github.com/uxazu/AEmulator)
-- Geliştirici: [somerandomusername2](https://github.com/somerandomusernam2)
+- Geliştirici: [yuchenlin4827-hitch](https://github.com/yuchenlin4827-hitch)
 - İlk geliştirici: [t.me/istratiit_ech](https://t.me/istratiit_ech)
 
 ## 📄 Lisans
