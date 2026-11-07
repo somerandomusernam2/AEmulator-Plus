@@ -262,6 +262,10 @@ class Importer(
             // system.img / factoryfs / factoryfs.img / factoryfs.rfs: a system partition whatever the filesystem
             isSystemImageName(name.replace('\\', '/').substringAfterLast('/'), bare) ->
                 importImage(if (SparseSource.probe(src)) SparseSource(listOf(src)) else src, "system")
+            // Modified for AEmulator Aster (2026-11-07): OPPO / realme / OnePlus .ozip is encrypted: nothing in it can be read without
+            // the vendor's keys and tools, so it is said plainly instead of "unknown format"
+            h.size >= 12 && String(h, 0, 12, Charsets.ISO_8859_1) == "OPPOENCRYPT!" ->
+                throw IOException("\"${name.replace('\\', '/').substringAfterLast('/')}\" is an encrypted OPPO / realme / OnePlus package (.ozip): decrypt it first (to a zip or the images) and import that")
             else -> importViaToolset(src, name, depth)
         }
     }

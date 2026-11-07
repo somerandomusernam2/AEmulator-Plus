@@ -8,7 +8,8 @@ import java.io.File
  * Same folder as "AEmulator" (the shared storage is case-insensitive), next to the systems' memory cards.
  */
 object FirmwareFolder {
-    private val EXT = Regex("""(?i).*\.(zip|7z|rar|tar|md5|tgz|gz|xz|bz2|tbz2?|lz4|br|img|win|ext4|pac|ftf|sin|bin|iso|yaffs2|rfs|simg|ozip|ofp|kdz)$""")
+    // (Modified for AEmulator Aster, 2026-11-07: .app - Huawei UPDATE.APP - and .zst)
+    private val EXT = Regex("""(?i).*\.(zip|7z|rar|tar|md5|tgz|gz|xz|bz2|tbz2?|lz4|br|img|win|ext4|pac|ftf|sin|bin|iso|yaffs2|rfs|simg|ozip|ofp|kdz|app|zst)$""")
 
     val dir: File get() = File(Environment.getExternalStorageDirectory(), "aemulator/firmware")
 
