@@ -481,7 +481,8 @@ class Importer(
             val rel = link.trimStart('/')
             if (!rel.startsWith("oem/")) continue
             val f = File(root, rel)
-            if (!f.canonicalPath.startsWith(File(root, "oem").canonicalPath)) continue
+            // (Modified for AEmulator Aster, 2026-11-07: with the separator - "oem2/..." is not inside "oem")
+            if (!f.canonicalPath.startsWith(File(root, "oem").canonicalPath + File.separator)) continue
             f.parentFile?.mkdirs()
             runCatching {
                 if (f.exists() || isLink(f)) { if (f.isDirectory && !isLink(f)) return@runCatching; f.delete() }
@@ -649,7 +650,14 @@ class Importer(
         for (p in packets) {
             if (cancelled) throw IOException("cancelled")
             if (p.size < 4096 || p.size > 64_000_000) continue
-            if (String(head(p, 8), Charsets.ISO_8859_1) != "ANDROID!") continue
+            if (String(head(p, 8), Charsets.ISO_8859_1) != "ANDROID!") {
+                // Modified for AEmulator Aster (2026-11-07): EMUI 8/9 keep the root (init.rc...) in a RAMDISK image of its own,
+                // which can be a bare compressed cpio
+                if (p.name == "RAMDISK" || p.name == "BOOT") runCatching { BootImage.decompress(readAllFrom(slice(p)))?.let { BootImage.cpio(it) } }
+                    .getOrNull()?.takeIf { it.isNotEmpty() && LegacyFirmware.hasInitScript(it.map { e -> e.name }) }
+                    ?.let { takeBareRamdisk(it, "$label ${p.name}") }
+                continue
+            }
             val data = readAllFrom(slice(p))
             val tag = "$label id 0x%02x".format(p.id)
             if (hasRecoveryBinary(data)) takeRecovery(data.inputStream(), "recovery ($tag)") else takeBoot(data)
@@ -663,7 +671,15 @@ class Importer(
             val s = slice(p)
             SparseSource.probe(s) || Ext4Reader.probe(s) || Yaffs2Reader.probe(s) || UbiFsReader.probe(s) || ErofsReader.probe(s)
         }
-        val systemPacket = fsParts.firstOrNull { it.id == HuaweiApp.ID_SYSTEM }
+        // Modified for AEmulator Aster (2026-11-07): an EMUI package names its images; a SUPER image (dynamic partitions) is the system too
+        val superPacket = if (gotSystem) null else packets.firstOrNull { it.name == "SUPER" && it.size >= (4L shl 20) }
+        if (superPacket != null && fsParts.none { it.name == "SYSTEM" }) {
+            val s = slice(superPacket)
+            runCatching { importSuper(if (SparseSource.probe(s)) SparseSource(listOf(s)) else s) }
+                .onFailure { log("huawei $label: SUPER image not read: ${it.message}") }
+        }
+        val systemPacket = fsParts.firstOrNull { it.name == "SYSTEM" }
+            ?: fsParts.firstOrNull { it.id == HuaweiApp.ID_SYSTEM && (it.name.isEmpty() || it.name == "INPUT") }
             ?: fsParts.firstOrNull { looksLikeSystem(slice(it)) }
         if (systemPacket == null || gotSystem) {
             val what = if (gotSystem) "system already imported" else "no system partition"
@@ -676,15 +692,28 @@ class Importer(
         if (bad > 0) log("huawei $label: $bad block(s) of the system image fail their CRC, the download may be damaged")
         val s = slice(systemPacket)
         importImage(if (SparseSource.probe(s)) SparseSource(listOf(s)) else s, "system")
-        for (p in fsParts) if (p !== systemPacket) log("huawei $label: skipped partition id 0x%02x (%d KB)".format(p.id, p.size shr 10))
+        // Modified for AEmulator Aster (2026-11-07): the other named partitions of an EMUI package where they belong (Treble's vendor side,
+        // Huawei's own cust / preload / version at the root)
+        val mounts = mapOf("VENDOR" to "vendor", "ODM" to "odm", "PRODUCT" to "system/product", "SYSTEM_EXT" to "system/system_ext",
+            "CUST" to "cust", "PRELOAD" to "preload", "VERSION" to "version")
+        for (p in fsParts) {
+            if (p === systemPacket) continue
+            val mount = mounts[p.name]
+            if (mount == null) { log("huawei $label: skipped partition id 0x%02x %s(%d KB)".format(p.id, if (p.name.isEmpty()) "" else p.name + " ", p.size shr 10)); continue }
+            val ps = slice(p)
+            runCatching { importImage(if (SparseSource.probe(ps)) SparseSource(listOf(ps)) else ps, mount) }
+                .onSuccess { log("huawei $label: ${p.name} -> /$mount") }
+                .onFailure { log("huawei $label: ${p.name} not read: ${it.message}") }
+        }
     }
 
     private fun looksLikeSystem(src: RandomSource): Boolean = runCatching {
         var found = false
         val s = if (SparseSource.probe(src)) SparseSource(listOf(src)) else MotoImage.unwrap(src)
+        // (Modified for AEmulator Aster, 2026-11-07: "system/build.prop" too, the system-as-root layout of EMUI 9+)
         if (UbiFsReader.probe(s)) UbiFsReader(s).walk { path, _ -> if (path == "build.prop" || path == "framework") found = true }
         else if (Yaffs2Reader.probe(s)) Yaffs2Reader(s).walk { path, _ -> if (path == "build.prop" || path == "framework" || path == "javalib") found = true }
-        else if (Ext4Reader.probe(s)) Ext4Reader(s).walk { path, _ -> if (path == "build.prop" || path == "framework") found = true }
+        else if (Ext4Reader.probe(s)) Ext4Reader(s).walk { path, _ -> if (path == "build.prop" || path == "framework" || path == "system/build.prop") found = true }
         else if (ErofsReader.probe(s)) ErofsReader(s).let { fs ->
             found = fs.lookup("build.prop") != null || fs.lookup("framework") != null || fs.lookup("system/build.prop") != null
         }
