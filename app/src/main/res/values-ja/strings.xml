@@ -146,7 +146,12 @@
     <string name="vs_recovery_failed">リカバリーイメージではありません</string>
     <string name="m_adb">ネットワーク経由のADB</string>
     <string name="m_adb_enable">有効にする</string>
-    <string name="m_adb_hint">このWi-Fiネットワーク上の誰でもファームウェアのrootシェルを使えます。公共ネットワークではオフにしてください。</string>
+    <string name="m_adb_hint">各コンピュータは初回接続時にこの画面で許可する必要があります。使わないときは ADB をオフにしてください。</string>
+    <string name="m_adb_auth_title">ADB 接続を許可しますか？</string>
+    <string name="m_adb_auth_text">%1$s が接続を求めています。\n\nこのコンピュータの RSA キーのフィンガープリント:\n%2$s</string>
+    <string name="m_adb_auth_always">このコンピュータからの接続を常に許可する</string>
+    <string name="m_adb_deny">拒否</string>
+    <string name="m_adb_revoke">許可したコンピュータを削除</string>
     <string name="add_import">ファームウェアファイルを読み込む</string>
     <string name="add_import_sub">ZIP・TAR/MD5・IMG — 純正・カスタムROM対応</string>
     <string name="add_container">新しいコンテナ</string>

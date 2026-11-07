@@ -158,6 +158,12 @@ class VmActivity : ComponentActivity() {
     private var guestTopPx by mutableStateOf(0)
     private val logLines = mutableStateListOf<String>()
 
+    /** a computer waiting to be allowed on network ADB (AdbServer.confirm) */
+    private class AdbAsk(val key: app.aemu.core.AdbAuth.Key, val from: String,
+                         val answer: java.util.concurrent.CompletableFuture<app.aemu.core.AdbServer.Answer>)
+    private var adbAsk by mutableStateOf<AdbAsk?>(null)
+    private var adbConfirm: ((app.aemu.core.AdbAuth.Key, String) -> app.aemu.core.AdbServer.Answer)? = null
+
     @SuppressLint("ClickableViewAccessibility")
     override fun attachBaseContext(base: Context) = super.attachBaseContext(app.aemu.AppPrefs.wrap(base))
 
@@ -249,6 +255,16 @@ class VmActivity : ComponentActivity() {
         vm.onState { st -> runOnUiThread { state = st } }
         vm.mic.onPermissionNeeded = { runOnUiThread { askMic.launch(android.Manifest.permission.RECORD_AUDIO) } }
         vm.camera.onPermissionNeeded = { runOnUiThread { askCamera.launch(android.Manifest.permission.CAMERA) } }
+        // network ADB: a computer that was not allowed before waits here for the person at the phone (2 minutes at most)
+        val confirm: (app.aemu.core.AdbAuth.Key, String) -> app.aemu.core.AdbServer.Answer = { key, from ->
+            val f = java.util.concurrent.CompletableFuture<app.aemu.core.AdbServer.Answer>()
+            runOnUiThread { adbAsk = AdbAsk(key, from, f) }
+            val a = runCatching { f.get(120, java.util.concurrent.TimeUnit.SECONDS) }.getOrDefault(app.aemu.core.AdbServer.Answer.DENY)
+            runOnUiThread { if (adbAsk?.answer === f) adbAsk = null }
+            a
+        }
+        adbConfirm = confirm
+        vm.adb.confirm = confirm
         led = vm.lights.current
         vm.lights.onChange { l -> runOnUiThread { led = l } }
         vm.onLog { line -> runOnUiThread { logLines.add(line); if (logLines.size > 400) logLines.removeRange(0, logLines.size - 400) } }
@@ -338,6 +354,8 @@ class VmActivity : ComponentActivity() {
     }
 
     override fun onDestroy() {
+        if (::vm.isInitialized && vm.adb.confirm === adbConfirm) vm.adb.confirm = null
+        adbAsk?.answer?.complete(app.aemu.core.AdbServer.Answer.DENY); adbAsk = null
         vnc?.stop(); vnc = null
         recorder?.let { r -> thread { r.stop() } }; recorder = null
         if (::guest.isInitialized) guest.stop()
@@ -579,9 +597,34 @@ class VmActivity : ComponentActivity() {
                                 fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace)
                     }
                     Text(stringResource(R.string.m_adb_hint), style = MaterialTheme.typography.bodySmall)
+                    var allowed by remember { mutableStateOf(vm.adb.auth.count()) }
+                    if (allowed > 0) OutlinedButton(onClick = { vm.adb.auth.revokeAll(); allowed = 0 }) {
+                        Text(stringResource(R.string.m_adb_revoke))
+                    }
                 }
             },
             confirmButton = { Button(onClick = onDone) { Text(stringResource(R.string.close)) } })
+    }
+
+    /** "Allow ADB connection?" for a computer seen for the first time, as a real phone asks it */
+    @Composable
+    private fun AdbAuthDialog(ask: AdbAsk) {
+        var always by remember(ask) { mutableStateOf(true) }
+        fun answer(a: app.aemu.core.AdbServer.Answer) { ask.answer.complete(a); adbAsk = null }
+        AlertDialog(onDismissRequest = {},
+            title = { Text(stringResource(R.string.m_adb_auth_title)) },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(stringResource(R.string.m_adb_auth_text, ask.from, ask.key.fingerprint))
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        androidx.compose.material3.Checkbox(always, { always = it })
+                        Text(stringResource(R.string.m_adb_auth_always))
+                    }
+                }
+            },
+            confirmButton = { Button(onClick = { answer(if (always) app.aemu.core.AdbServer.Answer.ALWAYS else app.aemu.core.AdbServer.Answer.ONCE) }) {
+                Text(stringResource(R.string.allow)) } },
+            dismissButton = { OutlinedButton(onClick = { answer(app.aemu.core.AdbServer.Answer.DENY) }) { Text(stringResource(R.string.m_adb_deny)) } })
     }
 
     @Composable
@@ -799,6 +842,7 @@ class VmActivity : ComponentActivity() {
                 Dlg.DEVICE -> DeviceDialog { dialog = Dlg.NONE }
                 Dlg.NONE -> {}
             }
+            adbAsk?.let { AdbAuthDialog(it) }
 
             // панель кнопок Android
             if (vm.settings.showNavBar && !showLog && !showTerm) {

@@ -399,7 +399,8 @@ class GuestVm(val ctx: Context, val img: GuestImage) {
         overrides["net.dns1"] = "8.8.8.8"
         overrides["net.dns2"] = "1.1.1.1"
         // в прошивках старая база часовых поясов — передаём текущее смещение, а не название зоны
-        overrides["persist.sys.timezone"] = gmtZone()
+        // (whole hours only as Etc/GMT; +5:30 and the like by a zone the firmware's own database agrees on, GuestZone)
+        overrides["persist.sys.timezone"] = GuestZone.pick(paths.root)
         // what init reads after /system/build.prop: the default properties of a system-only image (8.0+) and the
         // vendor's own files (on a Treble image the vendor side is the engine's). Only what the image does not say.
         val later = LinkedHashMap<String, String>()
@@ -950,8 +951,10 @@ class GuestVm(val ctx: Context, val img: GuestImage) {
         TreeFixer(ctx, paths, img, ::log).noScreenSleep()
         disableBrokenComponents()
         if (img.api >= 24) runCatching { enableHome() }.onFailure { log("home screen check failed: $it") }
-        val img2 =img.copy(lastBootMs = bootDoneAt - bootAt, bootCount = img.bootCount + 1)
-        ImageStore.save(ctx, img2)
+        // from the stored image, not from [img]: that is the copy read at start, and saving it would undo a rename or
+        // settings changed while the system ran (and count every boot of this run as the same one)
+        val took = bootDoneAt - bootAt
+        ImageStore.update(ctx, img.id) { it.copy(lastBootMs = took, bootCount = it.bootCount + 1) }
     }
 
     /**
@@ -1324,11 +1327,6 @@ class GuestVm(val ctx: Context, val img: GuestImage) {
             later.putIfAbsent("ro.build.fingerprint", p("ro.product.brand") + "/" + p("ro.product.name") + "/" + p("ro.product.device") + ":" +
                 p("ro.build.version.release") + "/" + p("ro.build.id") + "/" + p("ro.build.version.incremental") + ":" + p("ro.build.type") + "/" + p("ro.build.tags"))
         }
-    }
-
-    private fun gmtZone(): String {
-        val h = java.util.TimeZone.getDefault().getOffset(System.currentTimeMillis()) / 3_600_000
-        return if (h == 0) "Etc/GMT" else "Etc/GMT" + (if (h > 0) "-$h" else "+${-h}")
     }
 
     private fun isLinkTo(f: File, target: String) = runCatching { android.system.Os.readlink(f.absolutePath) == target }.getOrDefault(false)

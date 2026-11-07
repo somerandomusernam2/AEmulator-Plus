@@ -43,6 +43,8 @@ class Importer(
 ) {
     private lateinit var paths: VmPaths
     private lateinit var root: File
+    /** [root] resolved once: every file of the image is checked against it */
+    private val rootCanon: String by lazy { root.canonicalPath }
     private val tmp = File(ctx.cacheDir, "import").apply { mkdirs() }
     private var ramdisk: List<BootImage.CpioEntry>? = null
     private var recovery: ByteArray? = null
@@ -490,7 +492,7 @@ class Importer(
             if (cancelled) throw IOException("cancelled")
             val rel = "$mount/$path"
             val f = File(root, rel)
-            if (!f.canonicalPath.startsWith(root.canonicalPath)) return@walk
+            if (!inside(f, rootCanon)) return@walk
             when {
                 isDir -> f.mkdirs()
                 link != null -> symlinks.add(link to "/$rel")
@@ -631,7 +633,7 @@ class Importer(
 
     private fun writeFile(rel: String, i: InputStream, mode: Int?) {
         val f = File(root, rel)
-        if (!f.canonicalPath.startsWith(root.canonicalPath)) return // защита от ../ в архиве
+        if (!inside(f, rootCanon)) return // защита от ../ в архиве
         f.parentFile?.mkdirs()
         if (runCatching { android.system.OsConstants.S_ISLNK(Os.lstat(f.path).st_mode) }.getOrDefault(false)) f.delete()
         f.outputStream().buffered(1 shl 20).use { o -> bytes += i.copyTo(o, 1 shl 16) }
@@ -690,7 +692,7 @@ class Importer(
         for ((target, link) in symlinks) {
             val rel = link.trimStart('/')
             val f = File(root, rel)
-            if (!f.canonicalPath.startsWith(root.canonicalPath)) continue
+            if (!inside(f, rootCanon)) continue
             f.parentFile?.mkdirs()
             val t = relTarget(link, target)
             runCatching {
@@ -777,4 +779,13 @@ class Importer(
             "umount", "uptime", "vmstat", "watchprops", "wipe", "chroot", "sh",
         ).filter { it != "sh" }
     }
+}
+
+/**
+ * Whether [f] resolves to [baseCanon] (a canonical path) or to something under it. A bare prefix test let an archive
+ * entry like "../root2/x" through: its canonical path starts with the root's own.
+ */
+internal fun inside(f: File, baseCanon: String): Boolean {
+    val c = f.canonicalPath
+    return c == baseCanon || c.startsWith(baseCanon.trimEnd(File.separatorChar) + File.separatorChar)
 }

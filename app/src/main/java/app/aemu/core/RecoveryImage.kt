@@ -36,7 +36,7 @@ object RecoveryImage {
             val n = e.name.trimStart('/')
             if (n.isEmpty() || n == ".") continue
             val f = File(out, n)
-            if (!f.canonicalPath.startsWith(base)) continue
+            if (!app.aemu.importer.inside(f, base)) continue
             when (e.mode and 0xF000) {
                 0x4000 -> f.mkdirs()
                 0xA000 -> { f.parentFile?.mkdirs(); runCatching { Os.symlink(String(e.data), f.path) } }

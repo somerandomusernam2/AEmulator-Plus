@@ -146,7 +146,12 @@
     <string name="vs_recovery_failed">ليست صورة استرداد</string>
     <string name="m_adb">ADB عبر الشبكة</string>
     <string name="m_adb_enable">تفعيل</string>
-    <string name="m_adb_hint">أي شخص على شبكة Wi-Fi هذه يحصل على صلاحيات root للنظام. أوقفه في الشبكات العامة.</string>
+    <string name="m_adb_hint">يجب السماح لكل كمبيوتر من هذه الشاشة عند اتصاله أول مرة. أوقف ADB عندما لا تستخدمه.</string>
+    <string name="m_adb_auth_title">السماح باتصال ADB؟</string>
+    <string name="m_adb_auth_text">يريد %1$s الاتصال.\n\nبصمة مفتاح RSA للكمبيوتر:\n%2$s</string>
+    <string name="m_adb_auth_always">السماح دائمًا من هذا الكمبيوتر</string>
+    <string name="m_adb_deny">رفض</string>
+    <string name="m_adb_revoke">نسيان أجهزة الكمبيوتر المسموح بها</string>
     <string name="add_import">استيراد ملف نظام</string>
     <string name="add_import_sub">ZIP وTAR/MD5 وIMG — أي روم رسمي أو معدل</string>
     <string name="add_container">حاوية جديدة</string>

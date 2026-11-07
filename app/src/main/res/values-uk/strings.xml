@@ -146,7 +146,12 @@
     <string name="vs_recovery_failed">Це не образ recovery</string>
     <string name="m_adb">ADB через мережу</string>
     <string name="m_adb_enable">Увімкнути</string>
-    <string name="m_adb_hint">Будь-хто в цій Wi-Fi-мережі отримає root-доступ до прошивки. Вимикайте в публічних мережах.</string>
+    <string name="m_adb_hint">Кожен комп’ютер треба дозволити на цьому екрані під час першого підключення. Вимикайте ADB, коли він не потрібен.</string>
+    <string name="m_adb_auth_title">Дозволити підключення ADB?</string>
+    <string name="m_adb_auth_text">%1$s хоче підключитися.\n\nВідбиток RSA-ключа комп’ютера:\n%2$s</string>
+    <string name="m_adb_auth_always">Завжди дозволяти цьому комп’ютеру</string>
+    <string name="m_adb_deny">Заборонити</string>
+    <string name="m_adb_revoke">Забути дозволені комп’ютери</string>
     <string name="add_import">Імпорт файлу прошивки</string>
     <string name="add_import_sub">ZIP, TAR/MD5, IMG — будь-яка стокова чи кастомна</string>
     <string name="add_container">Новий контейнер</string>
