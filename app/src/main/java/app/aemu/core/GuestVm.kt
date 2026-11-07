@@ -1848,6 +1848,8 @@ class GuestVm(val ctx: Context, val img: GuestImage, val lowPowerBoot: Boolean =
             }
             val code = runCatching { p.waitFor() }.getOrDefault(-1)
             if (!stopping) log("· $name exited, code $code")
+            // Modified for AEmulator Aster (2026-11-07): why, in the host log people send (not for the ones stopped here: 137, 143)
+            if (!stopping && code != 0 && code != 137 && code != 143) runCatching { crashContext(name, log) }
             if (!stopping && code != 0) learnBinderProtocol(name, log)
             if (!stopping && code != 0 && !QemuFallback.enabled(paths) &&
                 runCatching { QemuFallback.isLinkFailure(QemuFallback.lastRun(log.readText(), name)) }.getOrDefault(false))
@@ -1855,6 +1857,30 @@ class GuestVm(val ctx: Context, val img: GuestImage, val lowPowerBoot: Boolean =
             // a restarted service is already running again under this name
             synchronized(procs) { if (procs[name].let { it == null || it === p }) props.put("init.svc.$name", "stopped") }
         }, "log-$name").apply { isDaemon = true; start() }
+    }
+
+    /**
+     * Added for AEmulator Aster (2026-11-07). Why a service ended, in the host log: what it printed in this run - the native
+     * runner's "fatal signal" report (its first lines: signal, program, pc / lr and their mappings), else its last lines
+     * (the translator's "uncaught target signal", the linker's "CANNOT LINK EXECUTABLE", an abort message) - and the guest's
+     * fatal records that name it. Both stay in the app's own files otherwise, where a user cannot reach them.
+     */
+    private fun crashContext(name: String, file: File) {
+        val text = java.io.RandomAccessFile(file, "r").use { r ->
+            val n = minOf(r.length(), 64L * 1024).toInt()
+            r.seek(r.length() - n)
+            String(ByteArray(n).also { r.readFully(it) }, Charsets.UTF_8)
+        }
+        val run = text.substringAfterLast("=== $name ", "").substringAfter('\n', "")
+        val lines = run.lines().map { it.trim() }.filter { it.isNotEmpty() }
+        val fatal = lines.indexOfFirst { it.contains("fatal signal") || it.contains("uncaught target signal") }
+        val own = if (fatal >= 0) lines.subList(fatal, minOf(lines.size, fatal + 4)) else lines.takeLast(6)
+        val guest = GuestLog.tail(paths.root, 256 * 1024).filter { r ->
+            (r.prio == 'F' || r.msg.contains("Fatal signal") || r.tag == "DEBUG") && (r.msg.contains(name) || r.tag == name) ||
+                r.tag == name && r.prio == 'E'
+        }.takeLast(4).map { "${it.prio}/${it.tag}: ${it.msg.trim()}" }
+        for (l in own) log("  │ ${l.take(220)}")
+        for (l in guest) log("  │ guest ${l.take(220)}")
     }
 
     @Volatile private var socketDirObserver: android.os.FileObserver? = null
@@ -2708,6 +2734,15 @@ class GuestVm(val ctx: Context, val img: GuestImage, val lowPowerBoot: Boolean =
                             restartZygote()
                             continue
                         }
+                        // Modified for AEmulator Aster (2026-11-07): a restart asked for here (surfaceflinger restarted during the boot,
+                        // the setup wizard) comes first: before the first boot it is not a failure
+                        if (plannedRestart && name == "zygote") {
+                            plannedRestart = false
+                            killZygoteChildren()
+                            TreeFixer(ctx, paths, img, ::log).noScreenSleep()
+                            restartZygote()
+                            continue
+                        }
                         if (state != State.FAILED && bootDoneAt == 0L && !(everBooted && zygoteRestarts < 6)) {
                             failure = if (name != "zygote") Msg("$name exited (code $code)" + if (code == 137) " — killed: the phone ran out of memory, or system_server died and took zygote with it (see the guest log)" else "")
                                 else if (code == 137) Msg("zygote exited (code $code) — SIGKILL (cause not established)", R.string.vmfail_zygote_exited_sigkill, code)
@@ -2807,6 +2842,28 @@ class GuestVm(val ctx: Context, val img: GuestImage, val lowPowerBoot: Boolean =
                         if (restartForFirmwareSurfaceFlinger.compareAndSet(false, true)) {
                             log("✖ surfaceflinger: restarting the VM now so the whole tree is set up for the firmware's own SurfaceFlinger")
                             onPower?.invoke(true, "")
+                        }
+                        continue
+                    }
+                    // Modified for AEmulator Aster (2026-11-07): before the first boot too - init restarts surfaceflinger (and zygote,
+                    // "onrestart restart zygote") at any time, and here the boot stayed on a black screen until it was killed
+                    // (Xiaomi Mi 2 MIUI 9: system_server waited for SurfaceFlinger, zygote ended with 137). Two tries; a compositor
+                    // that dies a third time will not come up, and the boot stops saying so.
+                    if (name == "surfaceflinger" && svc != null && bootDoneAt == 0L && !everBooted) {
+                        synchronized(procs) { procs.remove(name) }
+                        if (n >= 2) {
+                            failure = Msg("surfaceflinger keeps crashing before the system is up (code $code, ${n + 1} times)" +
+                                if (settings.gpu) " — try with GPU acceleration off in this firmware's settings" else "")
+                            log("✖ $failure"); setState(State.FAILED)
+                            continue
+                        }
+                        restarts[name] = n + 1
+                        log("✖ surfaceflinger crashed during boot (code $code), restarting it (${n + 1}/2)")
+                        runCatching { startService(svc) }
+                        // and zygote, if it runs already: its system_server holds the dead compositor
+                        synchronized(procs) { procs["zygote"] }?.let { z ->
+                            plannedRestart = true
+                            pidOf(z)?.let { runCatching { AProcess.sendSignal(it, 9) } }
                         }
                         continue
                     }
