@@ -1,8 +1,8 @@
 <div align="center">
 
-<img src="../../docs/assets/logo.png" width="128" alt="AEmulator Plus logo"/>
+<img src="../../docs/assets/logo.png" width="128" alt="AEmulator Aster logo"/>
 
-# AEmulator Plus
+# AEmulator Aster
 
 **Firmware Android klasik — HTC Sense, TouchWiz, MIUI, AOSP — di ponsel modern. Tanpa root, tanpa PC.**
 
@@ -12,7 +12,7 @@
 
 ---
 
-AEmulator Plus mem-boot sistem Android 2.3–7.x asli langsung dari file firmware: ZIP recovery, arsip Odin, atau factory image Google. Kode ARM lama diterjemahkan oleh QEMU yang dimodifikasi, binder kernel diemulasikan, grafis memakai GPU ponsel, dan suara lewat sistem audio Android — semuanya di dalam aplikasi biasa.
+AEmulator Aster mem-boot sistem Android 2.3–7.x asli langsung dari file firmware: ZIP recovery, arsip Odin, atau factory image Google. Kode ARM lama diterjemahkan oleh QEMU yang dimodifikasi, binder kernel diemulasikan, grafis memakai GPU ponsel, dan suara lewat sistem audio Android — semuanya di dalam aplikasi biasa.
 
 ## ✨ Fitur
 
@@ -25,8 +25,8 @@ AEmulator Plus mem-boot sistem Android 2.3–7.x asli langsung dari file firmwar
 
 ## 🚀 Mulai cepat
 
-1. Unduh APK dari [Releases](https://github.com/somerandomusernam2/AEmulator-Plus/releases) lalu pasang.
-2. Buka AEmulator Plus → **Tambah firmware** lalu pilih file. Impor butuh beberapa menit.
+1. Unduh APK dari [Releases](https://github.com/yuchenlin4827-hitch/AEmulator-Aster/releases) lalu pasang.
+2. Buka AEmulator Aster → **Tambah firmware** lalu pilih file. Impor butuh beberapa menit.
 3. Tekan **Mulai**. Boot pertama lebih lambat: sistem mengoptimalkan aplikasi.
 4. Menu ⋮ untuk volume, tombol daya, dan log; ⚙️ membuka setelan dan bahasa.
 
@@ -45,23 +45,24 @@ Setiap proses tamu berjalan di QEMU mode pengguna yang dimodifikasi. Daemon bind
 Build rilis aplikasi yang diuji memakai JDK 21 dan Android SDK 36. Lihat [petunjuk build/sumber](../build-source.md), termasuk detail toolchain native dan penandatanganan. **Binari mesin bawaan warisan belum memiliki asal-usul kode sumber/build yang terverifikasi lengkap**; lihat [audit](../license-audit.md).
 
 ```bash
-git clone https://github.com/somerandomusernam2/AEmulator-Plus.git
-cd AEmulator-Plus
+git clone https://github.com/yuchenlin4827-hitch/AEmulator-Aster.git
+cd AEmulator-Aster
 ./gradlew copyReleaseApks
 ```
 
 ## 🙏 Kredit
 
-AEmulator Plus tumbuh dari emulator HTC Desire HD dan HTC One M7 karya [pembuat asli](https://t.me/istratiit_ech) — tanpa mesinnya proyek ini tidak akan ada.
+AEmulator Aster tumbuh dari emulator HTC Desire HD dan HTC One M7 karya [pembuat asli](https://t.me/istratiit_ech) — tanpa mesinnya proyek ini tidak akan ada.
 
-Ini adalah fork yang dimodifikasi dari [drel4/AEmulator-Sunset](https://github.com/drel4/AEmulator-Sunset), yang sendiri merupakan fork yang dimodifikasi dari [uxazu/AEmulator](https://github.com/uxazu/AEmulator).
+AEmulator Aster adalah fork termodifikasi dari [AEmulator Plus](https://github.com/somerandomusernam2/AEmulator-Plus), yang dibangun di atas [drel4/AEmulator-Sunset](https://github.com/drel4/AEmulator-Sunset) dan [uxazu/AEmulator](https://github.com/uxazu/AEmulator).
 
 ## 🔗 Tautan
 
-- Fork saya: [somerandomusernam2/AEmulator-Plus](https://github.com/somerandomusernam2/AEmulator-Plus)
+- Fork saya: [yuchenlin4827-hitch/AEmulator-Aster](https://github.com/yuchenlin4827-hitch/AEmulator-Aster)
+- AEmulator Plus: [somerandomusernam2/AEmulator-Plus](https://github.com/somerandomusernam2/AEmulator-Plus)
 - Upstream: [drel4/AEmulator-Sunset](https://github.com/drel4/AEmulator-Sunset)
 - Asli: [uxazu/AEmulator](https://github.com/uxazu/AEmulator)
-- Pembuat: [somerandomusername2](https://github.com/somerandomusernam2)
+- Pembuat: [yuchenlin4827-hitch](https://github.com/yuchenlin4827-hitch)
 - Pembuat asli: [t.me/istratiit_ech](https://t.me/istratiit_ech)
 
 ## 📄 Lisensi

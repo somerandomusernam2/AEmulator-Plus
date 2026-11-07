@@ -1,8 +1,8 @@
 <div align="center">
 
-<img src="../../docs/assets/logo.png" width="128" alt="AEmulator Plus logo"/>
+<img src="../../docs/assets/logo.png" width="128" alt="AEmulator Aster logo"/>
 
-# AEmulator Plus
+# AEmulator Aster
 
 **클래식 Android 펌웨어 — HTC Sense, TouchWiz, MIUI, AOSP — 를 최신 휴대폰에서. 루팅도 PC도 필요 없습니다.**
 
@@ -12,7 +12,7 @@
 
 ---
 
-AEmulator Plus는 펌웨어 파일에서 진짜 Android 2.3–7.x 시스템을 바로 부팅합니다: 리커버리 ZIP, Odin 아카이브, Google 팩토리 이미지. 오래된 ARM 코드는 수정된 QEMU가 변환하고, 커널 binder를 에뮬레이션하며, 그래픽은 휴대폰 GPU로, 소리는 Android 오디오로 처리합니다. 모두 평범한 앱 안에서 동작합니다.
+AEmulator Aster는 펌웨어 파일에서 진짜 Android 2.3–7.x 시스템을 바로 부팅합니다: 리커버리 ZIP, Odin 아카이브, Google 팩토리 이미지. 오래된 ARM 코드는 수정된 QEMU가 변환하고, 커널 binder를 에뮬레이션하며, 그래픽은 휴대폰 GPU로, 소리는 Android 오디오로 처리합니다. 모두 평범한 앱 안에서 동작합니다.
 
 ## ✨ 기능
 
@@ -25,8 +25,8 @@ AEmulator Plus는 펌웨어 파일에서 진짜 Android 2.3–7.x 시스템을 �
 
 ## 🚀 빠른 시작
 
-1. [Releases](https://github.com/somerandomusernam2/AEmulator-Plus/releases)에서 APK를 받아 설치합니다.
-2. AEmulator Plus → **펌웨어 추가**에서 파일을 고릅니다. 가져오기는 몇 분 걸립니다.
+1. [Releases](https://github.com/yuchenlin4827-hitch/AEmulator-Aster/releases)에서 APK를 받아 설치합니다.
+2. AEmulator Aster → **펌웨어 추가**에서 파일을 고릅니다. 가져오기는 몇 분 걸립니다.
 3. **시작**을 누릅니다. 첫 부팅은 앱 최적화로 더 오래 걸립니다.
 4. ⋮ 메뉴에서 볼륨·전원 버튼·로그, ⚙️에서 설정과 언어.
 
@@ -45,23 +45,24 @@ AEmulator Plus는 펌웨어 파일에서 진짜 Android 2.3–7.x 시스템을 �
 테스트된 앱 릴리스 빌드는 JDK 21과 Android SDK 36을 사용합니다. 네이티브 툴체인과 서명에 관한 자세한 내용은 [빌드/소스 안내](../build-source.md)를 참고하세요. **상속받은 엔진 프리빌트 바이너리는 소스와 빌드 출처가 아직 완전히 검증되지 않았습니다**. [감사 문서](../license-audit.md)를 참고하세요.
 
 ```bash
-git clone https://github.com/somerandomusernam2/AEmulator-Plus.git
-cd AEmulator-Plus
+git clone https://github.com/yuchenlin4827-hitch/AEmulator-Aster.git
+cd AEmulator-Aster
 ./gradlew copyReleaseApks
 ```
 
 ## 🙏 감사의 말
 
-AEmulator Plus는 [원작자](https://t.me/istratiit_ech)의 HTC Desire HD·HTC One M7 에뮬레이터에서 시작되었습니다. 그의 엔진이 없었다면 이 프로젝트도 없었습니다.
+AEmulator Aster는 [원작자](https://t.me/istratiit_ech)의 HTC Desire HD·HTC One M7 에뮬레이터에서 시작되었습니다. 그의 엔진이 없었다면 이 프로젝트도 없었습니다.
 
-이 프로젝트는 [drel4/AEmulator-Sunset](https://github.com/drel4/AEmulator-Sunset)의 수정된 포크이며, 해당 프로젝트 역시 [uxazu/AEmulator](https://github.com/uxazu/AEmulator)의 수정된 포크입니다.
+AEmulator Aster는 [AEmulator Plus](https://github.com/somerandomusernam2/AEmulator-Plus)의 수정 포크이며, Plus는 [drel4/AEmulator-Sunset](https://github.com/drel4/AEmulator-Sunset)와 [uxazu/AEmulator](https://github.com/uxazu/AEmulator)를 기반으로 합니다.
 
 ## 🔗 링크
 
-- 내 포크: [somerandomusernam2/AEmulator-Plus](https://github.com/somerandomusernam2/AEmulator-Plus)
+- 내 포크: [yuchenlin4827-hitch/AEmulator-Aster](https://github.com/yuchenlin4827-hitch/AEmulator-Aster)
+- AEmulator Plus: [somerandomusernam2/AEmulator-Plus](https://github.com/somerandomusernam2/AEmulator-Plus)
 - 업스트림: [drel4/AEmulator-Sunset](https://github.com/drel4/AEmulator-Sunset)
 - 원본: [uxazu/AEmulator](https://github.com/uxazu/AEmulator)
-- 제작자: [somerandomusername2](https://github.com/somerandomusernam2)
+- 제작자: [yuchenlin4827-hitch](https://github.com/yuchenlin4827-hitch)
 - 원작자: [t.me/istratiit_ech](https://t.me/istratiit_ech)
 
 ## 📄 라이선스

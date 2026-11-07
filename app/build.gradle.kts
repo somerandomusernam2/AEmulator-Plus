@@ -53,13 +53,14 @@ android {
     compileSdk = 36
 
     defaultConfig {
-        applicationId = "app.aemu.plus" // Modified for AEmulator Plus, 2026-10-04: single variant, no clone
+        // AEmulator Aster: the package of AEmulator (app.aemu), so an installed AEmulator 0.0.0.3 updates in place; single variant
+        applicationId = "app.aemu"
         minSdk = 26
         // 28: гостевые бинарники запускаются из каталога данных приложения (W^X для targetSdk>=29)
         //noinspection ExpiredTargetSdkVersion
         targetSdk = 28
-        versionCode = 34
-        versionName = "0.0.0.3.9" // <AEmulator base>.<Plus release>
+        versionCode = 35
+        versionName = "0.0.0.3.9-aster" // <AEmulator base>.<Plus release>-aster
         ndk { abiFilters += listOf("arm64-v8a") }
     }
 
@@ -141,7 +142,7 @@ tasks.register<Copy>("copyReleaseApks") {
     val v = android.defaultConfig.versionName
     from(layout.buildDirectory.dir("outputs/apk/release")) {
         include("*.apk")
-        rename { "AEmulator-Plus-app.aemu.plus.apk" }
+        rename { "AEmulator-Aster-$v-app.aemu.apk" }
     }
     into(rootProject.layout.projectDirectory.dir("release-apks/$v"))
 }

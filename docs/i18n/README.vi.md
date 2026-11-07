@@ -1,8 +1,8 @@
 <div align="center">
 
-<img src="../../docs/assets/logo.png" width="128" alt="AEmulator Plus logo"/>
+<img src="../../docs/assets/logo.png" width="128" alt="AEmulator Aster logo"/>
 
-# AEmulator Plus
+# AEmulator Aster
 
 **Firmware Android cổ điển — HTC Sense, TouchWiz, MIUI, AOSP — trên điện thoại hiện đại. Không root, không cần PC.**
 
@@ -12,7 +12,7 @@
 
 ---
 
-AEmulator Plus khởi động một hệ thống Android 2.3–7.x thật trực tiếp từ tệp firmware: ZIP recovery, gói Odin hoặc factory image của Google. Mã ARM cũ được dịch bằng QEMU đã chỉnh sửa, binder của nhân được giả lập, đồ họa dùng GPU điện thoại và âm thanh đi qua hệ thống âm thanh Android — tất cả trong một ứng dụng bình thường.
+AEmulator Aster khởi động một hệ thống Android 2.3–7.x thật trực tiếp từ tệp firmware: ZIP recovery, gói Odin hoặc factory image của Google. Mã ARM cũ được dịch bằng QEMU đã chỉnh sửa, binder của nhân được giả lập, đồ họa dùng GPU điện thoại và âm thanh đi qua hệ thống âm thanh Android — tất cả trong một ứng dụng bình thường.
 
 ## ✨ Tính năng
 
@@ -25,8 +25,8 @@ AEmulator Plus khởi động một hệ thống Android 2.3–7.x thật trực
 
 ## 🚀 Bắt đầu nhanh
 
-1. Tải APK từ [Releases](https://github.com/somerandomusernam2/AEmulator-Plus/releases) và cài đặt.
-2. Mở AEmulator Plus → **Thêm firmware** và chọn tệp. Việc nhập mất vài phút.
+1. Tải APK từ [Releases](https://github.com/yuchenlin4827-hitch/AEmulator-Aster/releases) và cài đặt.
+2. Mở AEmulator Aster → **Thêm firmware** và chọn tệp. Việc nhập mất vài phút.
 3. Nhấn **Chạy**. Lần khởi động đầu chậm hơn: hệ thống tối ưu ứng dụng.
 4. Menu ⋮ để chỉnh âm lượng, nút nguồn và nhật ký; ⚙️ mở cài đặt và ngôn ngữ.
 
@@ -45,23 +45,24 @@ Mỗi tiến trình khách chạy dưới QEMU chế độ người dùng đã c
 Bản dựng phát hành đã kiểm thử của ứng dụng dùng JDK 21 và Android SDK 36. Xem [hướng dẫn dựng/mã nguồn](../build-source.md), gồm chi tiết về toolchain native và ký ứng dụng. **Các tệp nhị phân dựng sẵn của engine được kế thừa vẫn chưa có nguồn gốc mã nguồn/bản dựng đầy đủ được xác minh**; xem [bản kiểm toán](../license-audit.md).
 
 ```bash
-git clone https://github.com/somerandomusernam2/AEmulator-Plus.git
-cd AEmulator-Plus
+git clone https://github.com/yuchenlin4827-hitch/AEmulator-Aster.git
+cd AEmulator-Aster
 ./gradlew copyReleaseApks
 ```
 
 ## 🙏 Ghi công
 
-AEmulator Plus phát triển từ trình giả lập HTC Desire HD và HTC One M7 của [tác giả gốc](https://t.me/istratiit_ech) — không có engine của anh ấy thì không có dự án này.
+AEmulator Aster phát triển từ trình giả lập HTC Desire HD và HTC One M7 của [tác giả gốc](https://t.me/istratiit_ech) — không có engine của anh ấy thì không có dự án này.
 
-Đây là bản fork đã chỉnh sửa của [drel4/AEmulator-Sunset](https://github.com/drel4/AEmulator-Sunset), vốn cũng là bản fork đã chỉnh sửa của [uxazu/AEmulator](https://github.com/uxazu/AEmulator).
+AEmulator Aster là bản fork đã chỉnh sửa của [AEmulator Plus](https://github.com/somerandomusernam2/AEmulator-Plus), vốn dựa trên [drel4/AEmulator-Sunset](https://github.com/drel4/AEmulator-Sunset) và [uxazu/AEmulator](https://github.com/uxazu/AEmulator).
 
 ## 🔗 Liên kết
 
-- Fork của tôi: [somerandomusernam2/AEmulator-Plus](https://github.com/somerandomusernam2/AEmulator-Plus)
+- Fork của tôi: [yuchenlin4827-hitch/AEmulator-Aster](https://github.com/yuchenlin4827-hitch/AEmulator-Aster)
+- AEmulator Plus: [somerandomusernam2/AEmulator-Plus](https://github.com/somerandomusernam2/AEmulator-Plus)
 - Upstream: [drel4/AEmulator-Sunset](https://github.com/drel4/AEmulator-Sunset)
 - Bản gốc: [uxazu/AEmulator](https://github.com/uxazu/AEmulator)
-- Tác giả: [somerandomusername2](https://github.com/somerandomusernam2)
+- Tác giả: [yuchenlin4827-hitch](https://github.com/yuchenlin4827-hitch)
 - Tác giả gốc: [t.me/istratiit_ech](https://t.me/istratiit_ech)
 
 ## 📄 Giấy phép

@@ -2,9 +2,9 @@
 
 <div align="center">
 
-<img src="../../docs/assets/logo.png" width="128" alt="AEmulator Plus logo"/>
+<img src="../../docs/assets/logo.png" width="128" alt="AEmulator Aster logo"/>
 
-# AEmulator Plus
+# AEmulator Aster
 
 **فرم‌ویرهای کلاسیک اندروید — HTC Sense، TouchWiz، MIUI، AOSP — روی گوشی مدرن. بدون روت و بدون رایانه.**
 
@@ -14,7 +14,7 @@
 
 ---
 
-AEmulator Plus یک سیستم واقعی اندروید 2.3 تا 7.x را مستقیم از فایل فرم‌ویر بوت می‌کند: ZIP ریکاوری، آرشیو Odin یا ایمیج کارخانهٔ گوگل. کد قدیمی ARM با QEMU اصلاح‌شده ترجمه می‌شود، binder هسته شبیه‌سازی می‌شود، گرافیک با GPU گوشی و صدا با سامانهٔ صوتی اندروید پخش می‌شود — همه درون یک برنامهٔ معمولی.
+AEmulator Aster یک سیستم واقعی اندروید 2.3 تا 7.x را مستقیم از فایل فرم‌ویر بوت می‌کند: ZIP ریکاوری، آرشیو Odin یا ایمیج کارخانهٔ گوگل. کد قدیمی ARM با QEMU اصلاح‌شده ترجمه می‌شود، binder هسته شبیه‌سازی می‌شود، گرافیک با GPU گوشی و صدا با سامانهٔ صوتی اندروید پخش می‌شود — همه درون یک برنامهٔ معمولی.
 
 ## ✨ ویژگی‌ها
 
@@ -27,8 +27,8 @@ AEmulator Plus یک سیستم واقعی اندروید 2.3 تا 7.x را مس�
 
 ## 🚀 شروع سریع
 
-1. فایل APK را از [Releases](https://github.com/somerandomusernam2/AEmulator-Plus/releases) دانلود و نصب کنید.
-2. AEmulator Plus را باز کنید ← **افزودن فرم‌ویر** و فایل را انتخاب کنید. درون‌ریزی چند دقیقه طول می‌کشد.
+1. فایل APK را از [Releases](https://github.com/yuchenlin4827-hitch/AEmulator-Aster/releases) دانلود و نصب کنید.
+2. AEmulator Aster را باز کنید ← **افزودن فرم‌ویر** و فایل را انتخاب کنید. درون‌ریزی چند دقیقه طول می‌کشد.
 3. **اجرا** را بزنید. بوت اول کندتر است: سیستم برنامه‌ها را بهینه می‌کند.
 4. منوی ⋮ برای صدا، دکمهٔ پاور و گزارش؛ دکمهٔ ⚙️ برای تنظیمات و زبان.
 
@@ -47,23 +47,24 @@ AEmulator Plus یک سیستم واقعی اندروید 2.3 تا 7.x را مس�
 ساخت انتشار آزموده‌شدهٔ برنامه از JDK 21 و Android SDK 36 استفاده می‌کند. [راهنمای ساخت و کد منبع](../build-source.md) را ببینید که جزئیات زنجیرهٔ ابزار بومی و امضا را دارد. **برای باینری‌های آمادهٔ موتورِ به‌ارث‌رسیده هنوز منشأ کامل کد منبع و ساخت راستی‌آزمایی نشده است**؛ [ممیزی](../license-audit.md) را ببینید.
 
 ```bash
-git clone https://github.com/somerandomusernam2/AEmulator-Plus.git
-cd AEmulator-Plus
+git clone https://github.com/yuchenlin4827-hitch/AEmulator-Aster.git
+cd AEmulator-Aster
 ./gradlew copyReleaseApks
 ```
 
 ## 🙏 سپاس
 
-AEmulator Plus از شبیه‌سازهای HTC Desire HD و HTC One M7 ‏[سازندهٔ نخست](https://t.me/istratiit_ech) رشد کرد — بدون موتور او این پروژه وجود نداشت.
+AEmulator Aster از شبیه‌سازهای HTC Desire HD و HTC One M7 ‏[سازندهٔ نخست](https://t.me/istratiit_ech) رشد کرد — بدون موتور او این پروژه وجود نداشت.
 
-این یک فورک تغییریافته از [drel4/AEmulator-Sunset](https://github.com/drel4/AEmulator-Sunset) است که خود فورک تغییریافته‌ای از [uxazu/AEmulator](https://github.com/uxazu/AEmulator) است.
+AEmulator Aster یک فورک تغییریافته از [AEmulator Plus](https://github.com/somerandomusernam2/AEmulator-Plus) است که خود بر پایهٔ [drel4/AEmulator-Sunset](https://github.com/drel4/AEmulator-Sunset) و [uxazu/AEmulator](https://github.com/uxazu/AEmulator) ساخته شده است.
 
 ## 🔗 پیوندها
 
-- فورک من: [somerandomusernam2/AEmulator-Plus](https://github.com/somerandomusernam2/AEmulator-Plus)
+- فورک من: [yuchenlin4827-hitch/AEmulator-Aster](https://github.com/yuchenlin4827-hitch/AEmulator-Aster)
+- AEmulator Plus: [somerandomusernam2/AEmulator-Plus](https://github.com/somerandomusernam2/AEmulator-Plus)
 - مخزن بالادستی: [drel4/AEmulator-Sunset](https://github.com/drel4/AEmulator-Sunset)
 - اصلی: [uxazu/AEmulator](https://github.com/uxazu/AEmulator)
-- سازنده: [somerandomusername2](https://github.com/somerandomusernam2)
+- سازنده: [yuchenlin4827-hitch](https://github.com/yuchenlin4827-hitch)
 - سازندهٔ نخست: [t.me/istratiit_ech](https://t.me/istratiit_ech)
 
 ## 📄 مجوز
