@@ -228,6 +228,10 @@ class Importer(
                 takeRecovery(streamOf(src), recoveryLabel(name, h))
             role == FirmwareToolset.Role.RECOVERY && src.size < 64_000_000 && isLz4Frame(h) ->
                 takeRecovery(streamOf(src), recoveryLabel(name, h))
+            // Modified for AEmulator Aster (2026-11-07): a super image on its own, sparse or not (a fastboot package's images/super.img,
+            // super.zst once unpacked): its logical partitions, as from a GPT disk. Before, a sparse one went to the filesystem readers
+            // and failed as "unrecognized filesystem".
+            isSuperImage(src) -> importSuper(if (SparseSource.probe(src)) SparseSource(listOf(src)) else src)
             SparseSource.probe(src) -> importImage(SparseSource(listOf(src)), "system")
             Ext4Reader.probe(src) -> importImage(src, "system")
             MotoImage.probe(src) -> importImage(src, "system")
@@ -239,6 +243,7 @@ class Importer(
                 FirmwareContainers.Compression.GZIP -> importCompressed(GZIPInputStream(streamOf(src), 1 shl 16), name, depth)
                 FirmwareContainers.Compression.XZ -> importCompressed(XZInputStream(streamOf(src)), name, depth)
                 FirmwareContainers.Compression.BZIP2 -> importCompressed(BZip2CompressorInputStream(streamOf(src)), name, depth)
+                FirmwareContainers.Compression.ZSTD -> importCompressed(zstd(streamOf(src)), name, depth)
             }
             isTar(h) || name.endsWith(".tar", true) || name.endsWith(".md5", true) || name.endsWith(".win", true) ->
                 importTarStream(streamOf(src), name, depth, src)
@@ -335,10 +340,21 @@ class Importer(
      * stream straight into the TAR reader broke .tar.gz/.tgz ("Corrupted TAR archive"), and a plain .gz
      * of a non-tar image never worked. A seekable file goes through the same path as an uncompressed tar.
      */
+    /** Modified for AEmulator Aster (2026-11-07): a zstd stream (zstd-jni, already a dependency) */
+    private fun zstd(s: InputStream): InputStream =
+        BufferedInputStream(org.apache.commons.compress.compressors.zstandard.ZstdCompressorInputStream(s), 1 shl 20)
+
+    /** Modified for AEmulator Aster (2026-11-07): liblp metadata 4 KiB into [src] (or into its unpacked view, when sparse) */
+    private fun isSuperImage(src: RandomSource): Boolean = runCatching {
+        val v = if (SparseSource.probe(src)) SparseSource(listOf(src)) else src
+        if (v.size < (1L shl 20)) return@runCatching false
+        LpMetadata.probe(ByteBuffer.allocate(LP_PROBE).also { v.read(0, it) }.array())
+    }.getOrDefault(false)
+
     private fun importCompressed(decoded: InputStream, name: String, depth: Int) {
         val base = name.substringAfterLast('/').substringAfterLast('\\')
         val inner = base.replace(Regex("(?i)\\.(tgz|tbz2?|txz)$"), ".tar")
-            .replace(Regex("(?i)\\.(gz|xz|bz2|lz4)$"), "").ifEmpty { "payload" }
+            .replace(Regex("(?i)\\.(gz|xz|bz2|lz4|zst)$"), "").ifEmpty { "payload" }
         val f = decoded.use { spill(it, inner) }
         try {
             if (f.length() < 2) throw LocalizedIOException("compressed file is empty: $name", R.string.imp_compressed_file_is_empty, name)
@@ -895,6 +911,8 @@ class Importer(
                 // Acer packages are recognised by their table, not by the (generic) .bin / .nb0 extension
                 (base.endsWith(".nb0", true) || base.endsWith(".bin", true)) && e.size > AcerBin.MIN_SIZE &&
                     AcerBin.probe(zipEntryHead(zip, e, 1100)) -> importZipAcerBin(zip, e, base)
+                // Modified for AEmulator Aster (2026-11-07): an image compressed with zstd (super.zst, system.img.zst): unpacked and recognised again
+                base.endsWith(".zst", true) && e.size > (1L shl 20) -> zip.getInputStream(e).use { importCompressed(zstd(it), base, depth) }
                 // payload.bin of an A/B OTA: the spilled copy is unpacked in place (it is already a private temp file)
                 base.equals("payload.bin", true) && e.size > 0 -> importToolsetFile(spillEntry(zip, e), base, depth + 1)
                 recognizedFirmwareTool(base) -> {
@@ -1770,6 +1788,8 @@ class Importer(
             // дерево rootfs целиком (system/, data/, dev/, …)
             if (fullRoot == null && ((n == "system" && !e.isFile) || n.startsWith("system/") || n.startsWith("init.rc") || n.startsWith("default.prop"))) fullRoot = true
             when {
+                // Modified for AEmulator Aster (2026-11-07): a HyperOS fastboot package (.tgz) has images/super.zst: unpacked and recognised again
+                base.endsWith(".zst", true) && e.isFile && e.size > (1L shl 20) && !inSystemDump(n) -> importCompressed(zstd(tar.nonClosing()), base, depth)
                 isSonyName(base) && e.isFile && e.size > 0 -> importSonyFile(spill(tar.nonClosing(), base), depth)
                 base.equals("system.yaffs2.img", true) && e.isFile -> {
                     val t = spill(tar.nonClosing(), base)

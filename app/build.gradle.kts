@@ -133,6 +133,8 @@ dependencies {
     implementation("org.anarres.lzo:lzo-commons:1.0.6")
     debugImplementation("androidx.compose.ui:ui-tooling")
     testImplementation("junit:junit:4.13.2")
+    // Modified for AEmulator Aster (2026-11-07): zstd-jni as a jar with the desktop libraries, for the JVM unit tests (the AAR has arm64 only)
+    testImplementation("com.github.luben:zstd-jni:1.5.7-4")
 }
 
 tasks.named("preBuild") { dependsOn(copyLegalNotices) }
