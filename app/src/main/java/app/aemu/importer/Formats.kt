@@ -614,13 +614,15 @@ object PayloadReader {
                     cb.array()
                 } else ByteArray(0)
 
-                // InstallOperation.Type of update_metadata.proto: REPLACE 0, REPLACE_BZ 1, ZERO 6, DISCARD 7, REPLACE_XZ 8.
+                // InstallOperation.Type of update_metadata.proto: REPLACE 0, REPLACE_BZ 1, ZERO 6, DISCARD 7, REPLACE_XZ 8,
+                // ZSTD 14 (a REPLACE with zstd data, in newer full packages).
                 // The rest (MOVE, SOURCE_COPY, the *DIFF kinds) patch the partition of the previous release: such a
                 // payload is an incremental update and holds no whole image.
                 val decompressed: ByteArray? = when (op.type) {
                     0 -> chunk
                     1 -> org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream(ByteArrayInputStream(chunk)).use { it.readBytes() }
                     8 -> org.tukaani.xz.XZInputStream(ByteArrayInputStream(chunk)).use { it.readBytes() }
+                    14 -> org.apache.commons.compress.compressors.zstandard.ZstdCompressorInputStream(ByteArrayInputStream(chunk)).use { it.readBytes() }
                     6, 7 -> null
                     else -> throw IOException("payload.bin is an incremental update (operation ${op.type}): a full OTA package is needed")
                 }

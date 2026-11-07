@@ -114,6 +114,7 @@ class Importer(
             }
             PacFile.probe(h) -> if (ch != null) importPac(src, ch) else throw IOException("pac without random access")
             PayloadReader.probe(h) -> importPayload(src)
+            HuaweiApp.probe(h) -> importHuaweiApp(src)
             SinImage.probe(h) || SinImage.probeOld(h) && name.endsWith(".sin", true) -> importSin(streamOf(src), name.substringAfterLast('/'))
             SparseSource.probe(src) || Ext4Reader.probe(src) || SuperImage.probe(src) || ErofsReader.probe(src) -> importImage(src, "system")
             // (the content first: forum rootfs ".tar" files are gzip-compressed)
@@ -124,9 +125,16 @@ class Importer(
             h[0] == 'B'.code.toByte() && h[1] == 'Z'.code.toByte() && h[2] == 'h'.code.toByte() -> importCompressed(BZip2CompressorInputStream(streamOf(src)), name, depth)
             h[0] == 0x04.toByte() && h[1] == 0x22.toByte() && h[2] == 0x4d.toByte() && h[3] == 0x18.toByte() ->
                 importCompressed(org.apache.commons.compress.compressors.lz4.FramedLZ4CompressorInputStream(streamOf(src)), name, depth)
+            // zstd: HyperOS fastboot packages (images/super.zst), GSIs and dumps compressed with it
+            isZstd(h) -> importCompressed(zstd(streamOf(src)), name, depth)
             String(h, 0, 8, Charsets.ISO_8859_1) == "ANDROID!" -> takeBoot(readAllFrom(src))
             // raw images without a recognisable header at 0 (YAFFS2 dumps, Samsung RFS)
             Yaffs2Image.probe(src) || FatImage.probe(src) -> importImage(src, "system")
+            // encrypted vendor packages: nothing in them can be read without the vendor's keys and tools
+            String(h, 0, 12, Charsets.ISO_8859_1) == "OPPOENCRYPT!" || name.endsWith(".ozip", true) || name.endsWith(".ofp", true) ->
+                throw IOException("\"$name\" is an encrypted OPPO / realme / OnePlus package: decrypt it first (to a zip or the images) and import that")
+            name.endsWith(".kdz", true) || name.endsWith(".dz", true) ->
+                throw IOException("\"$name\" is an LG KDZ package: extract its system image first and import that")
             else -> throw IOException("unknown file format \"$name\"")
         }
     }
@@ -143,7 +151,7 @@ class Importer(
         while (n < head.size) { val k = b.read(head, n, head.size - n); if (k < 0) break; n += k }
         b.reset()
         if (n >= 262 && isTar(head)) { importTarStream(b, name, depth); return }
-        val inner = name.replace(Regex("(?i)\\.(gz|tgz|xz|bz2|lz4)$"), "")
+        val inner = name.replace(Regex("(?i)\\.(gz|tgz|xz|bz2|lz4|zst)$"), "").let { if (it.equals("super", true)) "super.img" else it }
         val t = spill(b, inner.substringAfterLast('/'))
         try { FileChannel.open(t.toPath(), StandardOpenOption.READ).use { c -> handle(ChannelSource(c), c, inner, depth + 1) } }
         finally { t.delete() }
@@ -165,7 +173,8 @@ class Importer(
                         n.startsWith("system/") -> { a.getInputStream(fh).use { writeFile(n, it, null) }; gotSystem = true }
                         base.equals("boot.img", true) -> a.getInputStream(fh).use { takeBoot(it.readBytes()) }
                         base.equals("recovery.img", true) && fh.fullUnpackSize < 64_000_000 -> a.getInputStream(fh).use { recovery = it.readBytes() }
-                        base.matches(SYSTEM_IMAGE) || base.matches(Regex("(?i).*\\.(zip|7z|tar|md5|tgz|gz|xz|pac|ftf|sin)")) && fh.fullUnpackSize > 20_000_000 ->
+                        base.matches(SYSTEM_IMAGE) || base.equals("UPDATE.APP", true) || base.matches(ZSTD_IMAGE) ||
+                            base.matches(Regex("(?i).*\\.(zip|7z|tar|md5|tgz|gz|xz|pac|ftf|sin)")) && fh.fullUnpackSize > 20_000_000 ->
                             nested.add(a.getInputStream(fh).use { spill(it, base) } to base)
                     }
                     onProgress("Extracting: $base", -1f)
@@ -181,9 +190,43 @@ class Importer(
 
     private fun isTar(h: ByteArray) = h.size > 262 && String(h, 257, 5, Charsets.ISO_8859_1) == "ustar"
 
-    /** gzip, xz, bzip2 */
-    private fun isCompressed(h: ByteArray) = h.size > 2 && (h[0] == 0x1f.toByte() && h[1] == 0x8b.toByte() ||
-        h[0] == 0xfd.toByte() && h[1] == '7'.code.toByte() || h[0] == 'B'.code.toByte() && h[1] == 'Z'.code.toByte() && h[2] == 'h'.code.toByte())
+    /** gzip, xz, bzip2, zstd */
+    private fun isCompressed(h: ByteArray) = h.size > 3 && (h[0] == 0x1f.toByte() && h[1] == 0x8b.toByte() ||
+        h[0] == 0xfd.toByte() && h[1] == '7'.code.toByte() || h[0] == 'B'.code.toByte() && h[1] == 'Z'.code.toByte() && h[2] == 'h'.code.toByte() ||
+        isZstd(h))
+
+    private fun isZstd(h: ByteArray) = h.size > 3 && h[0] == 0x28.toByte() && h[1] == 0xb5.toByte() && h[2] == 0x2f.toByte() && h[3] == 0xfd.toByte()
+
+    private fun zstd(s: InputStream): InputStream =
+        BufferedInputStream(org.apache.commons.compress.compressors.zstandard.ZstdCompressorInputStream(s), 1 shl 20)
+
+    /**
+     * Huawei / Honor UPDATE.APP: the partition images it holds are read in place. SYSTEM (or SUPER) is the system;
+     * EMUI 8/9 keep init.rc and the rest of the root in the separate RAMDISK image; CUST, PRELOAD and VERSION are
+     * Huawei's own partitions, mounted at the root under their names.
+     */
+    private fun importHuaweiApp(src: RandomSource) {
+        val list = HuaweiApp.entries(src)
+        log("UPDATE.APP: " + list.joinToString { "${it.name} ${it.size shr 20} MB" })
+        fun part(e: HuaweiApp.Entry): RandomSource = ExtentSource(src, listOf(e.offset to e.size))
+        fun bytes(e: HuaweiApp.Entry): ByteArray = ByteBuffer.allocate(e.size.toInt()).also { src.read(e.offset, it) }.array()
+        val sys = list.firstOrNull { it.name.equals("SYSTEM", true) } ?: list.firstOrNull { it.name.equals("SUPER", true) }
+        for (e in list) {
+            if (cancelled) throw IOException("cancelled")
+            val n = e.name.uppercase()
+            onProgress("Extracting: $n", -1f)
+            when {
+                e === sys -> importImage(part(e), "system")
+                n == "VENDOR" || n == "ODM" || n == "CUST" || n == "PRELOAD" || n == "VERSION" ->
+                    runCatching { importImage(part(e), n.lowercase()) }.onFailure { log("UPDATE.APP: $n skipped: ${it.message}") }
+                n == "PRODUCT" || n == "SYSTEM_EXT" ->
+                    runCatching { importImage(part(e), "system/${n.lowercase()}") }.onFailure { log("UPDATE.APP: $n skipped: ${it.message}") }
+                (n == "BOOT" || n == "RAMDISK") && e.size < 128_000_000 -> takeBoot(bytes(e))
+                (n == "RECOVERY_RAMDISK" || n == "RECOVERY") && e.size < 64_000_000 && recovery == null -> recovery = bytes(e)
+            }
+        }
+        if (sys == null) throw IOException("UPDATE.APP without a SYSTEM image (a cust or data package?): import the full package")
+    }
 
     private fun streamOf(src: RandomSource): InputStream = object : InputStream() {
         var pos = 0L
@@ -243,6 +286,11 @@ class Importer(
                 base.matches(SYSTEM_IMAGE) ->
                     withEntrySource(zip, e) { importImage(it, "system") }
                 base.equals("payload.bin", true) -> withEntrySource(zip, e) { importPayload(it) }
+                base.equals("UPDATE.APP", true) -> withEntrySource(zip, e) { importHuaweiApp(it) }
+                base.matches(ZSTD_IMAGE) -> zip.getInputStream(e).use { s ->
+                    val t = spill(zstd(s), base.removeSuffix(".zst"))
+                    try { FileChannel.open(t.toPath(), StandardOpenOption.READ).use { c -> importImage(ChannelSource(c), "system") } } finally { t.delete() }
+                }
                 // Sony .ftf: system.sin is the system partition, kernel.sin the kernel with the ramdisk
                 base.matches(Regex("(?i)(system|kernel|boot)\\.sin")) && !(gotSystem && base.startsWith("system", true)) ->
                     zip.getInputStream(e).use { importSin(it, base) }
@@ -319,6 +367,7 @@ class Importer(
                     base.equals("recovery.img", true) && e.size < 64_000_000 -> recovery = stream.readBytes()
                     base.matches(SYSTEM_IMAGE) -> nested.add(spill(stream, base) to "system")
                     base.matches(Regex("(?i)(system|kernel|boot)\\.sin")) -> importSin(stream, base)
+                    base.equals("UPDATE.APP", true) || base.matches(ZSTD_IMAGE) -> nested.add(spill(stream, base) to "archive")
                     base.matches(Regex("(?i).*\\.(zip|tar|tar\\.md5|md5|tgz|tar\\.gz)")) && e.size > 20_000_000 &&
                         !base.startsWith("MODEM") && !base.startsWith("CP_") && !base.contains("CSC") ->
                         nested.add(spill(stream, base) to "archive")
@@ -394,8 +443,8 @@ class Importer(
             // дерево rootfs целиком (system/, data/, dev/, …)
             if (fullRoot == null && (n == "system" || n.startsWith("system/") || n.startsWith("init.rc") || n.startsWith("default.prop"))) fullRoot = true
             when {
-                (base.matches(SYSTEM_IMAGE) || base.matches(Regex("(?i)(system\\.img(\\.ext4)?|factoryfs\\.(img|rfs)|super\\.img)\\.lz4"))) && e.isFile -> {
-                    if (under != null && !base.endsWith(".lz4", true)) {
+                (base.matches(SYSTEM_IMAGE) || base.matches(Regex("(?i)(system\\.img(\\.ext4)?|factoryfs\\.(img|rfs)|super\\.img)\\.lz4")) || base.matches(ZSTD_IMAGE)) && e.isFile -> {
+                    if (under != null && !base.endsWith(".lz4", true) && !base.endsWith(".zst", true)) {
                         // an Odin tar holds the image as it is: read in place, the phone needs no second copy of it
                         importImage(ExtentSource(under, listOf(tar.bytesRead to e.size)), "system")
                     } else {
@@ -450,8 +499,11 @@ class Importer(
 
     private fun InputStream.nonClosing(): InputStream = object : java.io.FilterInputStream(this) { override fun close() {} }
 
-    private fun maybeLz4(s: InputStream, name: String): InputStream =
-        if (name.endsWith(".lz4", true)) org.apache.commons.compress.compressors.lz4.FramedLZ4CompressorInputStream(s.nonClosing()) else s.nonClosing()
+    private fun maybeLz4(s: InputStream, name: String): InputStream = when {
+        name.endsWith(".lz4", true) -> org.apache.commons.compress.compressors.lz4.FramedLZ4CompressorInputStream(s.nonClosing())
+        name.endsWith(".zst", true) -> zstd(s.nonClosing())
+        else -> s.nonClosing()
+    }
 
     private fun hardlink(n: String, target: String) {
         val src = File(root, target.removePrefix("./").trimStart('/'))
@@ -761,7 +813,9 @@ class Importer(
 
     companion object {
         /** partition images other than system inside a tar (taken after system, which SYSTEM_IMAGE catches first) */
-        private val PART_IMAGE = Regex("(?i)(vendor|product|odm|prism|optics)\\.img(\\.ext4)?(\\.lz4)?")
+        private val PART_IMAGE = Regex("(?i)(vendor|product|odm|prism|optics)\\.img(\\.ext4)?(\\.lz4|\\.zst)?")
+        /** a system or super image compressed with zstd (HyperOS fastboot: images/super.zst) */
+        private val ZSTD_IMAGE = Regex("(?i)(super|system)(\\.img)?(\\.ext4)?\\.zst")
         /** system partition images by name (ext4/sparse, Samsung RFS, YAFFS2 dumps, super.img of 10+, erofs, f2fs) */
         private val SYSTEM_IMAGE = Regex("(?i)system(_[a-z0-9]+)?(\\.ext4|\\.erofs|\\.f2fs)?\\.img(\\.ext4)?|" +
             "system_image\\.img|system\\.raw\\.img|factoryfs\\.(img|rfs)|" +

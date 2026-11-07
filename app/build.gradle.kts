@@ -133,8 +133,12 @@ dependencies {
     implementation("org.apache.commons:commons-compress:1.28.0")
     implementation("org.brotli:dec:0.1.2")
     implementation("com.github.junrar:junrar:7.5.5")
+    // zstd (HyperOS fastboot super.zst, payload.bin ZSTD operations): the AAR carries the arm64 library, BSD-2
+    implementation("com.github.luben:zstd-jni:1.5.7-4@aar")
     debugImplementation("androidx.compose.ui:ui-tooling")
     testImplementation("junit:junit:4.13.2")
+    // the same zstd-jni as a jar with the desktop libraries, for the JVM unit tests
+    testImplementation("com.github.luben:zstd-jni:1.5.7-4")
 }
 
 // sh: ./gradlew :app:copyReleaseApks -> release-apks/<version>/app.aemu.apk and app.aemu.0003.apk

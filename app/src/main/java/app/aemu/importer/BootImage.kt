@@ -20,6 +20,14 @@ object BootImage {
 
     fun ramdisk(img: ByteArray): List<CpioEntry>? {
         val bb = ByteBuffer.wrap(img).order(ByteOrder.LITTLE_ENDIAN)
+        if (img.size > 64 && String(img, 0, 8, Charsets.ISO_8859_1) == "ANDROID!" && bb.getInt(40) in 3..4) {
+            // header v3/v4 (devices launched with 11+): other field order, pages of 4096 bytes, the kernel first
+            val kernelSize = bb.getInt(8).toLong() and 0xffffffffL
+            val ramdiskSize = bb.getInt(12).toLong() and 0xffffffffL
+            val off = (1 + (kernelSize + 4095) / 4096) * 4096
+            if (ramdiskSize == 0L || off + ramdiskSize > img.size) return null
+            return cpio(decompress(img.copyOfRange(off.toInt(), (off + ramdiskSize).toInt())) ?: return null)
+        }
         if (img.size > 64 && String(img, 0, 8, Charsets.ISO_8859_1) == "ANDROID!") {
             val kernelSize = bb.getInt(8).toLong() and 0xffffffffL
             val ramdiskSize = bb.getInt(16).toLong() and 0xffffffffL
@@ -43,6 +51,10 @@ object BootImage {
                     if (entries.any { it.name == "init.rc" }) return entries
                 }
             }
+        }
+        // a ramdisk on its own, compressed or not (Huawei's RAMDISK partition, a ramdisk.img next to the kernel)
+        decompress(img)?.takeIf { it.size > 110 && String(it, 0, 5, Charsets.ISO_8859_1) == "07070" }?.let { d ->
+            runCatching { cpio(d) }.getOrNull()?.takeIf { it.isNotEmpty() }?.let { return it }
         }
         // иначе — zImage со встроенным initramfs
         return fromZImage(img)
