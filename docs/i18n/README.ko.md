@@ -57,7 +57,7 @@ Android 2.3–4.4에서는 각 게스트 프로세스가 수정된 사용자 모
 
 ## 🛠️ 소스에서 빌드
 
-JDK 17, Android SDK 36, NDK r28이 필요합니다. 게스트 라이브러리는 `native/*/build.sh`로 빌드합니다.
+JDK 17, Android SDK 36, NDK r28이 필요합니다. 게스트 라이브러리는 `native/*/build.sh`로 빌드합니다. Gradle은 `JAVA_HOME`의 JDK로 실행됩니다(Android Studio에 포함된 JDK도 됩니다: `<Android Studio>/jbr`).
 
 ```bash
 git clone https://github.com/uxazu/aemulator.git

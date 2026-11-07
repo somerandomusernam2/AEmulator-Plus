@@ -57,7 +57,7 @@ Android 2.3–4.4’te her misafir süreç değiştirilmiş kullanıcı kipi QEM
 
 ## 🛠️ Kaynaktan derleme
 
-JDK 17, Android SDK 36 ve NDK r28 gerekir. Misafir kütüphaneleri `native/*/build.sh` betikleriyle derlenir.
+JDK 17, Android SDK 36 ve NDK r28 gerekir. Misafir kütüphaneleri `native/*/build.sh` betikleriyle derlenir. Gradle, `JAVA_HOME` içindeki JDK ile çalışır (Android Studio’nun kendi JDK’sı yeterli: `<Android Studio>/jbr`).
 
 ```bash
 git clone https://github.com/uxazu/aemulator.git

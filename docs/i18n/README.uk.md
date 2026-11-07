@@ -57,7 +57,7 @@ AEmulator завантажує справжню систему Android 2.3–17 
 
 ## 🛠️ Збирання з вихідного коду
 
-Потрібні JDK 17, Android SDK 36 і NDK r28. Гостьові бібліотеки збираються скриптами `native/*/build.sh`.
+Потрібні JDK 17, Android SDK 36 і NDK r28. Гостьові бібліотеки збираються скриптами `native/*/build.sh`. Gradle запускається на JDK з `JAVA_HOME` (підійде JDK самої Android Studio: `<Android Studio>/jbr`).
 
 ```bash
 git clone https://github.com/uxazu/aemulator.git

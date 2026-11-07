@@ -57,7 +57,7 @@ Android 2.3〜4.4 では各ゲストプロセスが改良版ユーザーモー�
 
 ## 🛠️ ソースからビルド
 
-JDK 17、Android SDK 36、NDK r28 が必要です。ゲスト用ライブラリは `native/*/build.sh` でビルドします。
+JDK 17、Android SDK 36、NDK r28 が必要です。ゲスト用ライブラリは `native/*/build.sh` でビルドします。Gradle は `JAVA_HOME` の JDK で動きます（Android Studio 付属のもので可: `<Android Studio>/jbr`）。
 
 ```bash
 git clone https://github.com/uxazu/aemulator.git

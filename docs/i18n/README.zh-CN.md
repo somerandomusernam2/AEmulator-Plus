@@ -57,7 +57,7 @@ AEmulator 直接从固件文件启动真实的 Android 2.3–17 系统：Recover
 
 ## 🛠️ 从源码构建
 
-需要 JDK 17、Android SDK 36 和 NDK r28。客户机库通过 `native/*/build.sh` 构建。
+需要 JDK 17、Android SDK 36 和 NDK r28。客户机库通过 `native/*/build.sh` 构建。Gradle 使用 `JAVA_HOME` 指向的 JDK（Android Studio 自带的即可：`<Android Studio>/jbr`）。
 
 ```bash
 git clone https://github.com/uxazu/aemulator.git

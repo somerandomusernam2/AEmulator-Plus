@@ -57,7 +57,7 @@ Android 2.3–4.4 पर हर गेस्ट प्रोसेस संश�
 
 ## 🛠️ सोर्स से बनाएँ
 
-JDK 17, Android SDK 36 और NDK r28 चाहिए। गेस्ट लाइब्रेरी `native/*/build.sh` से बनती हैं।
+JDK 17, Android SDK 36 और NDK r28 चाहिए। गेस्ट लाइब्रेरी `native/*/build.sh` से बनती हैं। Gradle `JAVA_HOME` वाले JDK पर चलता है (Android Studio का अपना JDK भी चलेगा: `<Android Studio>/jbr`)।
 
 ```bash
 git clone https://github.com/uxazu/aemulator.git

@@ -57,7 +57,7 @@ On Android 2.3–4.4 each guest process runs under a patched user-mode QEMU; on 
 
 ## 🛠️ Build from source
 
-You need JDK 17, Android SDK 36 and NDK r28. Native guest parts are built with the scripts in `native/*/build.sh`.
+You need JDK 17, Android SDK 36 and NDK r28. Native guest parts are built with the scripts in `native/*/build.sh`. Gradle runs on the JDK in `JAVA_HOME` (Android Studio's own will do: `<Android Studio>/jbr`).
 
 ```bash
 git clone https://github.com/uxazu/aemulator.git

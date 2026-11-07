@@ -57,7 +57,7 @@ Trên Android 2.3–4.4 mỗi tiến trình khách chạy dưới QEMU chế đ�
 
 ## 🛠️ Biên dịch từ mã nguồn
 
-Cần JDK 17, Android SDK 36 và NDK r28. Thư viện khách được dựng bằng `native/*/build.sh`.
+Cần JDK 17, Android SDK 36 và NDK r28. Thư viện khách được dựng bằng `native/*/build.sh`. Gradle chạy bằng JDK trong `JAVA_HOME` (JDK đi kèm Android Studio cũng được: `<Android Studio>/jbr`).
 
 ```bash
 git clone https://github.com/uxazu/aemulator.git

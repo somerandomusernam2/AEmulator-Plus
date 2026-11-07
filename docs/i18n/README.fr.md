@@ -57,7 +57,7 @@ Sous Android 2.3–4.4, chaque processus invité tourne sous un QEMU en mode uti
 
 ## 🛠️ Compiler depuis les sources
 
-Il faut JDK 17, Android SDK 36 et NDK r28. Les bibliothèques invitées se compilent avec `native/*/build.sh`.
+Il faut JDK 17, Android SDK 36 et NDK r28. Les bibliothèques invitées se compilent avec `native/*/build.sh`. Gradle utilise le JDK de `JAVA_HOME` (celui d’Android Studio convient : `<Android Studio>/jbr`).
 
 ```bash
 git clone https://github.com/uxazu/aemulator.git

@@ -57,7 +57,7 @@ Na Androidzie 2.3–4.4 każdy proces gościa działa pod zmodyfikowanym QEMU w 
 
 ## 🛠️ Budowanie ze źródeł
 
-Potrzebne są JDK 17, Android SDK 36 i NDK r28. Biblioteki gościa buduje się skryptami `native/*/build.sh`.
+Potrzebne są JDK 17, Android SDK 36 i NDK r28. Biblioteki gościa buduje się skryptami `native/*/build.sh`. Gradle działa na JDK z `JAVA_HOME` (wystarczy JDK z Android Studio: `<Android Studio>/jbr`).
 
 ```bash
 git clone https://github.com/uxazu/aemulator.git

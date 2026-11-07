@@ -57,7 +57,7 @@ Di Android 2.3–4.4 setiap proses tamu berjalan di QEMU mode pengguna yang dimo
 
 ## 🛠️ Membangun dari sumber
 
-Butuh JDK 17, Android SDK 36, dan NDK r28. Pustaka tamu dibangun dengan `native/*/build.sh`.
+Butuh JDK 17, Android SDK 36, dan NDK r28. Pustaka tamu dibangun dengan `native/*/build.sh`. Gradle berjalan dengan JDK di `JAVA_HOME` (JDK bawaan Android Studio pun cukup: `<Android Studio>/jbr`).
 
 ```bash
 git clone https://github.com/uxazu/aemulator.git

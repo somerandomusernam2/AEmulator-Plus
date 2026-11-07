@@ -153,7 +153,7 @@ window.AEMU_I18N = {
     "A recent Snapdragon / Dimensity / Tensor chip is recommended"
    ],
    "build_title": "Build from source",
-   "build_text": "You need JDK 17, Android SDK 36 and NDK r28. Native guest parts are built with the scripts in <code>native/*/build.sh</code>.",
+   "build_text": "You need JDK 17, Android SDK 36 and NDK r28. Native guest parts are built with the scripts in <code>native/*/build.sh</code>. Gradle runs on the JDK in <code>JAVA_HOME</code> (Android Studio's own will do: <code>&lt;Android Studio&gt;/jbr</code>).",
    "how_title": "How it works",
    "how_text": "On Android 2.3–4.4 each guest process runs under a patched user-mode QEMU; on 5.0–17 the firmware’s own arm64 programs run natively, with one engine kernel per Android version catching their system calls. A binder daemon replaces the kernel driver, a GL bridge forwards OpenGL ES calls to the phone’s GPU, and small guest libraries (audio HAL, audio policy wrapper, LD_PRELOAD shim) adapt vendor code to the emulator. The importer reads the firmware, finds the init scripts in its boot image and builds a start plan for system services.",
    "credits_title": "Credits",
@@ -226,7 +226,7 @@ window.AEMU_I18N = {
     "Рекомендуется современный Snapdragon / Dimensity / Tensor"
    ],
    "build_title": "Сборка из исходников",
-   "build_text": "Нужны JDK 17, Android SDK 36 и NDK r28. Гостевые библиотеки собираются скриптами <code>native/*/build.sh</code>.",
+   "build_text": "Нужны JDK 17, Android SDK 36 и NDK r28. Гостевые библиотеки собираются скриптами <code>native/*/build.sh</code>. Gradle запускается на JDK из <code>JAVA_HOME</code> (подойдёт JDK самой Android Studio: <code>&lt;Android Studio&gt;/jbr</code>).",
    "how_title": "Как это устроено",
    "how_text": "На Android 2.3–4.4 каждый процесс гостя работает под доработанным QEMU в режиме пользователя; на 5.0–17 собственные arm64-программы прошивки работают напрямую, а их системные вызовы перехватывает отдельное ядро движка для каждой версии Android. Демон binder заменяет драйвер ядра, GL-мост передаёт вызовы OpenGL ES на GPU телефона, а небольшие гостевые библиотеки (звуковой HAL, обёртка audio policy, прослойка LD_PRELOAD) подгоняют код производителей под эмулятор. Импортёр читает прошивку, находит init-скрипты в boot-образе и строит план запуска системных служб.",
    "credits_title": "Благодарности",
@@ -299,7 +299,7 @@ window.AEMU_I18N = {
     "Рекомендовано сучасний Snapdragon / Dimensity / Tensor"
    ],
    "build_title": "Збирання з вихідного коду",
-   "build_text": "Потрібні JDK 17, Android SDK 36 і NDK r28. Гостьові бібліотеки збираються скриптами <code>native/*/build.sh</code>.",
+   "build_text": "Потрібні JDK 17, Android SDK 36 і NDK r28. Гостьові бібліотеки збираються скриптами <code>native/*/build.sh</code>. Gradle запускається на JDK з <code>JAVA_HOME</code> (підійде JDK самої Android Studio: <code>&lt;Android Studio&gt;/jbr</code>).",
    "how_title": "Як це влаштовано",
    "how_text": "На Android 2.3–4.4 кожен процес гостя працює під доопрацьованим QEMU в режимі користувача; на 5.0–17 власні arm64-програми прошивки працюють напряму, а їхні системні виклики перехоплює окреме ядро рушія для кожної версії Android. Демон binder замінює драйвер ядра, GL-міст передає виклики OpenGL ES на GPU телефона, а невеликі гостьові бібліотеки (звуковий HAL, обгортка audio policy, прошарок LD_PRELOAD) підлаштовують код виробників під емулятор. Імпортер читає прошивку, знаходить init-скрипти в boot-образі й будує план запуску системних служб.",
    "credits_title": "Подяки",
@@ -372,7 +372,7 @@ window.AEMU_I18N = {
     "Empfohlen: aktueller Snapdragon / Dimensity / Tensor"
    ],
    "build_title": "Aus dem Quellcode bauen",
-   "build_text": "Benötigt werden JDK 17, Android SDK 36 und NDK r28. Die Gast-Bibliotheken werden mit <code>native/*/build.sh</code> gebaut.",
+   "build_text": "Benötigt werden JDK 17, Android SDK 36 und NDK r28. Die Gast-Bibliotheken werden mit <code>native/*/build.sh</code> gebaut. Gradle läuft mit dem JDK aus <code>JAVA_HOME</code> (das von Android Studio genügt: <code>&lt;Android Studio&gt;/jbr</code>).",
    "how_title": "So funktioniert es",
    "how_text": "Unter Android 2.3–4.4 läuft jeder Gastprozess unter einem angepassten User-Mode-QEMU; unter 5.0–17 laufen die arm64-Programme der Firmware nativ, und ein eigener Engine-Kernel pro Android-Version fängt ihre Systemaufrufe ab. Ein Binder-Daemon ersetzt den Kernel-Treiber, eine GL-Brücke leitet OpenGL-ES-Aufrufe an die GPU weiter, und kleine Gast-Bibliotheken (Audio-HAL, Audio-Policy-Wrapper, LD_PRELOAD-Shim) passen Herstellercode an den Emulator an. Der Importer liest die Firmware, findet die Init-Skripte im Boot-Image und erstellt einen Startplan für die Systemdienste.",
    "credits_title": "Dank",
@@ -445,7 +445,7 @@ window.AEMU_I18N = {
     "Puce récente conseillée : Snapdragon / Dimensity / Tensor"
    ],
    "build_title": "Compiler depuis les sources",
-   "build_text": "Il faut JDK 17, Android SDK 36 et NDK r28. Les bibliothèques invitées se compilent avec <code>native/*/build.sh</code>.",
+   "build_text": "Il faut JDK 17, Android SDK 36 et NDK r28. Les bibliothèques invitées se compilent avec <code>native/*/build.sh</code>. Gradle utilise le JDK de <code>JAVA_HOME</code> (celui d’Android Studio convient : <code>&lt;Android Studio&gt;/jbr</code>).",
    "how_title": "Fonctionnement",
    "how_text": "Sous Android 2.3–4.4, chaque processus invité tourne sous un QEMU en mode utilisateur modifié ; sous 5.0–17, les programmes arm64 de la ROM tournent en natif et un noyau de moteur propre à chaque version d’Android intercepte leurs appels système. Un démon binder remplace le pilote du noyau, un pont GL transmet les appels OpenGL ES au GPU, et de petites bibliothèques invitées (HAL audio, enveloppe audio policy, shim LD_PRELOAD) adaptent le code constructeur à l’émulateur. L’importateur lit la ROM, trouve les scripts init dans l’image boot et construit le plan de démarrage des services.",
    "credits_title": "Remerciements",
@@ -518,7 +518,7 @@ window.AEMU_I18N = {
     "Se recomienda un Snapdragon / Dimensity / Tensor reciente"
    ],
    "build_title": "Compilar desde el código",
-   "build_text": "Necesitas JDK 17, Android SDK 36 y NDK r28. Las bibliotecas del invitado se compilan con <code>native/*/build.sh</code>.",
+   "build_text": "Necesitas JDK 17, Android SDK 36 y NDK r28. Las bibliotecas del invitado se compilan con <code>native/*/build.sh</code>. Gradle usa el JDK de <code>JAVA_HOME</code> (sirve el de Android Studio: <code>&lt;Android Studio&gt;/jbr</code>).",
    "how_title": "Cómo funciona",
    "how_text": "En Android 2.3–4.4 cada proceso invitado se ejecuta con un QEMU de modo usuario modificado; en 5.0–17 los programas arm64 del firmware se ejecutan de forma nativa y un núcleo del motor propio para cada versión de Android intercepta sus llamadas al sistema. Un demonio binder sustituye al controlador del kernel, un puente GL envía las llamadas OpenGL ES a la GPU y pequeñas bibliotecas invitadas (HAL de audio, envoltorio de audio policy, shim LD_PRELOAD) adaptan el código del fabricante al emulador. El importador lee el firmware, encuentra los scripts init en la imagen boot y crea el plan de arranque de los servicios.",
    "credits_title": "Créditos",
@@ -591,7 +591,7 @@ window.AEMU_I18N = {
     "Recomendado: Snapdragon / Dimensity / Tensor recente"
    ],
    "build_title": "Compilar do código-fonte",
-   "build_text": "É preciso JDK 17, Android SDK 36 e NDK r28. As bibliotecas do convidado são compiladas com <code>native/*/build.sh</code>.",
+   "build_text": "É preciso JDK 17, Android SDK 36 e NDK r28. As bibliotecas do convidado são compiladas com <code>native/*/build.sh</code>. O Gradle usa o JDK de <code>JAVA_HOME</code> (o do Android Studio serve: <code>&lt;Android Studio&gt;/jbr</code>).",
    "how_title": "Como funciona",
    "how_text": "No Android 2.3–4.4 cada processo convidado roda num QEMU de modo usuário modificado; no 5.0–17 os programas arm64 do firmware rodam nativamente e um núcleo do motor próprio para cada versão do Android intercepta as chamadas de sistema. Um daemon binder substitui o driver do kernel, uma ponte GL envia as chamadas OpenGL ES para a GPU e pequenas bibliotecas (HAL de áudio, wrapper de audio policy, shim LD_PRELOAD) adaptam o código das fabricantes ao emulador. O importador lê o firmware, acha os scripts init na imagem boot e monta o plano de início dos serviços.",
    "credits_title": "Créditos",
@@ -664,7 +664,7 @@ window.AEMU_I18N = {
     "Consigliato: Snapdragon / Dimensity / Tensor recente"
    ],
    "build_title": "Compilare dai sorgenti",
-   "build_text": "Servono JDK 17, Android SDK 36 e NDK r28. Le librerie ospiti si compilano con <code>native/*/build.sh</code>.",
+   "build_text": "Servono JDK 17, Android SDK 36 e NDK r28. Le librerie ospiti si compilano con <code>native/*/build.sh</code>. Gradle usa il JDK di <code>JAVA_HOME</code> (va bene quello di Android Studio: <code>&lt;Android Studio&gt;/jbr</code>).",
    "how_title": "Come funziona",
    "how_text": "Su Android 2.3–4.4 ogni processo ospite gira sotto un QEMU user-mode modificato; su 5.0–17 i programmi arm64 del firmware girano in modo nativo e un kernel del motore dedicato a ogni versione di Android intercetta le loro chiamate di sistema. Un demone binder sostituisce il driver del kernel, un ponte GL inoltra le chiamate OpenGL ES alla GPU e piccole librerie ospiti (HAL audio, wrapper audio policy, shim LD_PRELOAD) adattano il codice dei produttori all’emulatore. L’importatore legge il firmware, trova gli script init nell’immagine boot e crea il piano di avvio dei servizi.",
    "credits_title": "Ringraziamenti",
@@ -737,7 +737,7 @@ window.AEMU_I18N = {
     "Zalecany nowy Snapdragon / Dimensity / Tensor"
    ],
    "build_title": "Budowanie ze źródeł",
-   "build_text": "Potrzebne są JDK 17, Android SDK 36 i NDK r28. Biblioteki gościa buduje się skryptami <code>native/*/build.sh</code>.",
+   "build_text": "Potrzebne są JDK 17, Android SDK 36 i NDK r28. Biblioteki gościa buduje się skryptami <code>native/*/build.sh</code>. Gradle działa na JDK z <code>JAVA_HOME</code> (wystarczy JDK z Android Studio: <code>&lt;Android Studio&gt;/jbr</code>).",
    "how_title": "Jak to działa",
    "how_text": "Na Androidzie 2.3–4.4 każdy proces gościa działa pod zmodyfikowanym QEMU w trybie użytkownika; na 5.0–17 programy arm64 z firmware działają natywnie, a ich wywołania systemowe przechwytuje osobne jądro silnika dla każdej wersji Androida. Demon binder zastępuje sterownik jądra, mostek GL przekazuje wywołania OpenGL ES do GPU, a małe biblioteki gościa (HAL audio, nakładka audio policy, shim LD_PRELOAD) dopasowują kod producentów do emulatora. Importer czyta firmware, znajduje skrypty init w obrazie boot i tworzy plan startu usług.",
    "credits_title": "Podziękowania",
@@ -810,7 +810,7 @@ window.AEMU_I18N = {
     "Önerilen: yeni bir Snapdragon / Dimensity / Tensor"
    ],
    "build_title": "Kaynaktan derleme",
-   "build_text": "JDK 17, Android SDK 36 ve NDK r28 gerekir. Misafir kütüphaneleri <code>native/*/build.sh</code> betikleriyle derlenir.",
+   "build_text": "JDK 17, Android SDK 36 ve NDK r28 gerekir. Misafir kütüphaneleri <code>native/*/build.sh</code> betikleriyle derlenir. Gradle, <code>JAVA_HOME</code> içindeki JDK ile çalışır (Android Studio’nun kendi JDK’sı yeterli: <code>&lt;Android Studio&gt;/jbr</code>).",
    "how_title": "Nasıl çalışır",
    "how_text": "Android 2.3–4.4’te her misafir süreç değiştirilmiş kullanıcı kipi QEMU altında çalışır; 5.0–17’de yazılımın arm64 programları doğrudan çalışır ve her Android sürümü için ayrı bir motor çekirdeği sistem çağrılarını yakalar. Bir binder arka plan programı çekirdek sürücüsünün yerini alır, GL köprüsü OpenGL ES çağrılarını GPU’ya iletir, küçük misafir kütüphaneleri (ses HAL’i, audio policy sarmalayıcısı, LD_PRELOAD katmanı) üretici kodunu emülatöre uyarlar. İçe aktarıcı yazılımı okur, boot imajındaki init betiklerini bulur ve servislerin başlama planını kurar.",
    "credits_title": "Teşekkürler",
@@ -883,7 +883,7 @@ window.AEMU_I18N = {
     "يُنصح بمعالج Snapdragon / Dimensity / Tensor حديث"
    ],
    "build_title": "البناء من المصدر",
-   "build_text": "تحتاج JDK 17 وAndroid SDK 36 وNDK r28. تُبنى مكتبات الضيف عبر <code>native/*/build.sh</code>.",
+   "build_text": "تحتاج JDK 17 وAndroid SDK 36 وNDK r28. تُبنى مكتبات الضيف عبر <code>native/*/build.sh</code>. يعمل Gradle بـ JDK المحدد في <code>JAVA_HOME</code> (يكفي JDK الخاص بـ Android Studio: <code>&lt;Android Studio&gt;/jbr</code>).",
    "how_title": "كيف يعمل",
    "how_text": "في أندرويد 2.3–4.4 تعمل كل عملية ضيف تحت QEMU معدّل بوضع المستخدم؛ وفي 5.0–17 تعمل برامج arm64 الخاصة بالبرنامج الثابت مباشرة، وتلتقط نواة محرك مستقلة لكل إصدار أندرويد استدعاءات النظام. يحل خادم binder محل برنامج تشغيل النواة، وينقل جسر GL استدعاءات OpenGL ES إلى معالج الرسومات، وتكيّف مكتبات صغيرة (HAL للصوت، وغلاف audio policy، وطبقة LD_PRELOAD) شفرة الشركات مع المحاكي. يقرأ المستورد البرنامج الثابت ويجد سكربتات init في صورة boot ويبني خطة تشغيل الخدمات.",
    "credits_title": "شكر وتقدير",
@@ -956,7 +956,7 @@ window.AEMU_I18N = {
     "پیشنهاد: Snapdragon / Dimensity / Tensor جدید"
    ],
    "build_title": "ساخت از کد منبع",
-   "build_text": "به JDK 17، Android SDK 36 و NDK r28 نیاز دارید. کتابخانه‌های مهمان با <code>native/*/build.sh</code> ساخته می‌شوند.",
+   "build_text": "به JDK 17، Android SDK 36 و NDK r28 نیاز دارید. کتابخانه‌های مهمان با <code>native/*/build.sh</code> ساخته می‌شوند. Gradle با JDK تعیین‌شده در <code>JAVA_HOME</code> اجرا می‌شود (JDK خود Android Studio کافی است: <code>&lt;Android Studio&gt;/jbr</code>).",
    "how_title": "چگونه کار می‌کند",
    "how_text": "در اندروید 2.3 تا 4.4 هر فرایند مهمان زیر یک QEMU اصلاح‌شده در حالت کاربر اجرا می‌شود؛ در 5.0 تا 17 برنامه‌های arm64 خود فرم‌ویر مستقیم اجرا می‌شوند و یک هستهٔ موتور جداگانه برای هر نسخهٔ اندروید فراخوانی‌های سیستمی آن‌ها را می‌گیرد. سرویس binder جای درایور هسته را می‌گیرد، پل GL فراخوانی‌های OpenGL ES را به GPU می‌فرستد و کتابخانه‌های کوچک مهمان (HAL صوتی، پوشش audio policy، لایهٔ LD_PRELOAD) کد سازندگان را با شبیه‌ساز سازگار می‌کنند. درون‌ریز فرم‌ویر را می‌خواند، اسکریپت‌های init را در ایمیج boot پیدا می‌کند و برنامهٔ اجرای سرویس‌ها را می‌سازد.",
    "credits_title": "سپاس",
@@ -1029,7 +1029,7 @@ window.AEMU_I18N = {
     "नया Snapdragon / Dimensity / Tensor सुझाया जाता है"
    ],
    "build_title": "सोर्स से बनाएँ",
-   "build_text": "JDK 17, Android SDK 36 और NDK r28 चाहिए। गेस्ट लाइब्रेरी <code>native/*/build.sh</code> से बनती हैं।",
+   "build_text": "JDK 17, Android SDK 36 और NDK r28 चाहिए। गेस्ट लाइब्रेरी <code>native/*/build.sh</code> से बनती हैं। Gradle <code>JAVA_HOME</code> वाले JDK पर चलता है (Android Studio का अपना JDK भी चलेगा: <code>&lt;Android Studio&gt;/jbr</code>)।",
    "how_title": "यह कैसे काम करता है",
    "how_text": "Android 2.3–4.4 पर हर गेस्ट प्रोसेस संशोधित यूज़र-मोड QEMU में चलता है; 5.0–17 पर फ़र्मवेयर के अपने arm64 प्रोग्राम सीधे चलते हैं, और हर Android संस्करण के लिए अलग इंजन कर्नेल उनके सिस्टम कॉल पकड़ता है। एक binder डेमन कर्नेल ड्राइवर की जगह लेता है, GL ब्रिज OpenGL ES कॉल GPU तक भेजता है, और छोटी गेस्ट लाइब्रेरी (ऑडियो HAL, audio policy रैपर, LD_PRELOAD शिम) निर्माताओं के कोड को एमुलेटर के अनुकूल बनाती हैं। इम्पोर्टर फ़र्मवेयर पढ़ता है, boot इमेज में init स्क्रिप्ट ढूँढता है और सेवाओं की शुरुआत की योजना बनाता है।",
    "credits_title": "आभार",
@@ -1102,7 +1102,7 @@ window.AEMU_I18N = {
     "Disarankan Snapdragon / Dimensity / Tensor terbaru"
    ],
    "build_title": "Membangun dari sumber",
-   "build_text": "Butuh JDK 17, Android SDK 36, dan NDK r28. Pustaka tamu dibangun dengan <code>native/*/build.sh</code>.",
+   "build_text": "Butuh JDK 17, Android SDK 36, dan NDK r28. Pustaka tamu dibangun dengan <code>native/*/build.sh</code>. Gradle berjalan dengan JDK di <code>JAVA_HOME</code> (JDK bawaan Android Studio pun cukup: <code>&lt;Android Studio&gt;/jbr</code>).",
    "how_title": "Cara kerja",
    "how_text": "Di Android 2.3–4.4 setiap proses tamu berjalan di QEMU mode pengguna yang dimodifikasi; di 5.0–17 program arm64 milik firmware berjalan langsung, dan kernel mesin tersendiri untuk tiap versi Android menangkap panggilan sistemnya. Daemon binder menggantikan driver kernel, jembatan GL meneruskan panggilan OpenGL ES ke GPU, dan pustaka tamu kecil (HAL audio, pembungkus audio policy, shim LD_PRELOAD) menyesuaikan kode pabrikan dengan emulator. Importir membaca firmware, menemukan skrip init di image boot, dan menyusun rencana mulai layanan.",
    "credits_title": "Kredit",
@@ -1175,7 +1175,7 @@ window.AEMU_I18N = {
     "Nên dùng Snapdragon / Dimensity / Tensor đời mới"
    ],
    "build_title": "Biên dịch từ mã nguồn",
-   "build_text": "Cần JDK 17, Android SDK 36 và NDK r28. Thư viện khách được dựng bằng <code>native/*/build.sh</code>.",
+   "build_text": "Cần JDK 17, Android SDK 36 và NDK r28. Thư viện khách được dựng bằng <code>native/*/build.sh</code>. Gradle chạy bằng JDK trong <code>JAVA_HOME</code> (JDK đi kèm Android Studio cũng được: <code>&lt;Android Studio&gt;/jbr</code>).",
    "how_title": "Cách hoạt động",
    "how_text": "Trên Android 2.3–4.4 mỗi tiến trình khách chạy dưới QEMU chế độ người dùng đã chỉnh sửa; trên 5.0–17 các chương trình arm64 của firmware chạy trực tiếp, và một nhân động cơ riêng cho từng phiên bản Android bắt các lời gọi hệ thống của chúng. Một daemon binder thay cho driver nhân, cầu GL chuyển lệnh OpenGL ES tới GPU và các thư viện khách nhỏ (HAL âm thanh, lớp bọc audio policy, shim LD_PRELOAD) điều chỉnh mã của hãng cho hợp với trình giả lập. Trình nhập đọc firmware, tìm script init trong image boot và lập kế hoạch khởi động dịch vụ.",
    "credits_title": "Ghi công",
@@ -1248,7 +1248,7 @@ window.AEMU_I18N = {
     "推荐较新的骁龙 / 天玑 / Tensor 芯片"
    ],
    "build_title": "从源码构建",
-   "build_text": "需要 JDK 17、Android SDK 36 和 NDK r28。客户机库通过 <code>native/*/build.sh</code> 构建。",
+   "build_text": "需要 JDK 17、Android SDK 36 和 NDK r28。客户机库通过 <code>native/*/build.sh</code> 构建。Gradle 使用 <code>JAVA_HOME</code> 指向的 JDK（Android Studio 自带的即可：<code>&lt;Android Studio&gt;/jbr</code>）。",
    "how_title": "工作原理",
    "how_text": "在 Android 2.3–4.4 上，每个客户机进程运行在改进的用户态 QEMU 中；在 5.0–17 上，固件自带的 arm64 程序原生运行，由每个 Android 版本各自的引擎内核拦截其系统调用。binder 守护进程取代内核驱动，GL 桥把 OpenGL ES 调用转发给 GPU，小型客户机库（音频 HAL、audio policy 包装、LD_PRELOAD 垫片）让厂商代码适配模拟器。导入器读取固件，在 boot 镜像中找到 init 脚本，并生成系统服务的启动计划。",
    "credits_title": "致谢",
@@ -1321,7 +1321,7 @@ window.AEMU_I18N = {
     "最新の Snapdragon / Dimensity / Tensor を推奨"
    ],
    "build_title": "ソースからビルド",
-   "build_text": "JDK 17、Android SDK 36、NDK r28 が必要です。ゲスト用ライブラリは <code>native/*/build.sh</code> でビルドします。",
+   "build_text": "JDK 17、Android SDK 36、NDK r28 が必要です。ゲスト用ライブラリは <code>native/*/build.sh</code> でビルドします。Gradle は <code>JAVA_HOME</code> の JDK で動きます（Android Studio 付属のもので可: <code>&lt;Android Studio&gt;/jbr</code>）。",
    "how_title": "仕組み",
    "how_text": "Android 2.3〜4.4 では各ゲストプロセスが改良版ユーザーモード QEMU で動き、5.0〜17 ではファームウェア自身の arm64 プログラムがネイティブに動き、Android のバージョンごとのエンジンカーネルがシステムコールを受け持ちます。binder デーモンがカーネルドライバーの代わりを務め、GL ブリッジが OpenGL ES 呼び出しを GPU に転送し、小さなゲストライブラリ（オーディオ HAL、audio policy ラッパー、LD_PRELOAD シム）がメーカーのコードをエミュレーターに合わせます。インポーターはファームウェアを読み、boot イメージの init スクリプトからサービスの起動計画を作ります。",
    "credits_title": "クレジット",
@@ -1394,7 +1394,7 @@ window.AEMU_I18N = {
     "최신 Snapdragon / Dimensity / Tensor 권장"
    ],
    "build_title": "소스에서 빌드",
-   "build_text": "JDK 17, Android SDK 36, NDK r28이 필요합니다. 게스트 라이브러리는 <code>native/*/build.sh</code>로 빌드합니다.",
+   "build_text": "JDK 17, Android SDK 36, NDK r28이 필요합니다. 게스트 라이브러리는 <code>native/*/build.sh</code>로 빌드합니다. Gradle은 <code>JAVA_HOME</code>의 JDK로 실행됩니다(Android Studio에 포함된 JDK도 됩니다: <code>&lt;Android Studio&gt;/jbr</code>).",
    "how_title": "작동 방식",
    "how_text": "Android 2.3–4.4에서는 각 게스트 프로세스가 수정된 사용자 모드 QEMU에서 실행되고, 5.0–17에서는 펌웨어 자체의 arm64 프로그램이 네이티브로 실행되며 Android 버전마다 별도의 엔진 커널이 시스템 호출을 처리합니다. binder 데몬이 커널 드라이버를 대신하고, GL 브리지가 OpenGL ES 호출을 GPU로 전달하며, 작은 게스트 라이브러리(오디오 HAL, audio policy 래퍼, LD_PRELOAD 심)가 제조사 코드를 에뮬레이터에 맞춥니다. 가져오기 도구는 펌웨어를 읽고 boot 이미지의 init 스크립트로 서비스 시작 계획을 만듭니다.",
    "credits_title": "감사의 말",

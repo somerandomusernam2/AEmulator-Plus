@@ -59,7 +59,7 @@ AEmulator یک سیستم واقعی اندروید 2.3 تا 17 را مستقی�
 
 ## 🛠️ ساخت از کد منبع
 
-به JDK 17، Android SDK 36 و NDK r28 نیاز دارید. کتابخانه‌های مهمان با `native/*/build.sh` ساخته می‌شوند.
+به JDK 17، Android SDK 36 و NDK r28 نیاز دارید. کتابخانه‌های مهمان با `native/*/build.sh` ساخته می‌شوند. Gradle با JDK تعیین‌شده در `JAVA_HOME` اجرا می‌شود (JDK خود Android Studio کافی است: `<Android Studio>/jbr`).
 
 ```bash
 git clone https://github.com/uxazu/aemulator.git

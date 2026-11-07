@@ -57,7 +57,7 @@ Su Android 2.3–4.4 ogni processo ospite gira sotto un QEMU user-mode modificat
 
 ## 🛠️ Compilare dai sorgenti
 
-Servono JDK 17, Android SDK 36 e NDK r28. Le librerie ospiti si compilano con `native/*/build.sh`.
+Servono JDK 17, Android SDK 36 e NDK r28. Le librerie ospiti si compilano con `native/*/build.sh`. Gradle usa il JDK di `JAVA_HOME` (va bene quello di Android Studio: `<Android Studio>/jbr`).
 
 ```bash
 git clone https://github.com/uxazu/aemulator.git

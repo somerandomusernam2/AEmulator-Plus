@@ -57,7 +57,7 @@ Unter Android 2.3–4.4 läuft jeder Gastprozess unter einem angepassten User-Mo
 
 ## 🛠️ Aus dem Quellcode bauen
 
-Benötigt werden JDK 17, Android SDK 36 und NDK r28. Die Gast-Bibliotheken werden mit `native/*/build.sh` gebaut.
+Benötigt werden JDK 17, Android SDK 36 und NDK r28. Die Gast-Bibliotheken werden mit `native/*/build.sh` gebaut. Gradle läuft mit dem JDK aus `JAVA_HOME` (das von Android Studio genügt: `<Android Studio>/jbr`).
 
 ```bash
 git clone https://github.com/uxazu/aemulator.git

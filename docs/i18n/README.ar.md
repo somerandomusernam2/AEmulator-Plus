@@ -59,7 +59,7 @@
 
 ## 🛠️ البناء من المصدر
 
-تحتاج JDK 17 وAndroid SDK 36 وNDK r28. تُبنى مكتبات الضيف عبر `native/*/build.sh`.
+تحتاج JDK 17 وAndroid SDK 36 وNDK r28. تُبنى مكتبات الضيف عبر `native/*/build.sh`. يعمل Gradle بـ JDK المحدد في `JAVA_HOME` (يكفي JDK الخاص بـ Android Studio: `<Android Studio>/jbr`).
 
 ```bash
 git clone https://github.com/uxazu/aemulator.git

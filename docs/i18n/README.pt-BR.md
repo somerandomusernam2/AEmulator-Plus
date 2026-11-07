@@ -57,7 +57,7 @@ No Android 2.3–4.4 cada processo convidado roda num QEMU de modo usuário modi
 
 ## 🛠️ Compilar do código-fonte
 
-É preciso JDK 17, Android SDK 36 e NDK r28. As bibliotecas do convidado são compiladas com `native/*/build.sh`.
+É preciso JDK 17, Android SDK 36 e NDK r28. As bibliotecas do convidado são compiladas com `native/*/build.sh`. O Gradle usa o JDK de `JAVA_HOME` (o do Android Studio serve: `<Android Studio>/jbr`).
 
 ```bash
 git clone https://github.com/uxazu/aemulator.git
