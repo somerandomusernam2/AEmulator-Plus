@@ -16,7 +16,7 @@ import java.nio.ByteOrder
  */
 object GptDisk {
     /** Declaration order is the order the partitions are applied in: vendor after system, which it is read on top of. */
-    enum class Kind { BOOT, RECOVERY, OEM, SYSTEM, SUPER, VENDOR, GAPPS }
+    enum class Kind { BOOT, VENDOR_BOOT, RECOVERY, OEM, SYSTEM, SUPER, VENDOR, GAPPS }
 
     class Part(val name: String, val start: Long, val size: Long)
 
@@ -78,6 +78,7 @@ object GptDisk {
 
     fun kindOf(name: String): Kind? = when (name.lowercase()) {
         "boot", "boot_a", "bootimg" -> Kind.BOOT
+        "vendor_boot", "vendor_boot_a" -> Kind.VENDOR_BOOT // Android 11+: vendor ramdisk (kernel modules, fstab) to lay over boot's generic ramdisk
         "recovery", "recovery_a", "fotakernel" -> Kind.RECOVERY
         "oem", "oem_a" -> Kind.OEM
         "system", "system_a", "factoryfs" -> Kind.SYSTEM
@@ -87,7 +88,7 @@ object GptDisk {
         else -> null
     }
 
-    /** First partition of every kind, in the order boot, recovery, oem, system, vendor, gapps. */
+    /** First partition of every kind, in the order boot, vendor_boot, recovery, oem, system, super, vendor, gapps. */
     fun pick(parts: List<Part>): List<Pair<Kind, Part>> =
         Kind.values().mapNotNull { k -> parts.firstOrNull { kindOf(it.name) == k }?.let { k to it } }
 

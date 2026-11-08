@@ -295,7 +295,10 @@ static long bread(struct bth *t, struct bwr *w) {
     memcpy(out, t->scratch, h.br_size); out = (u32 *)((char *)out + h.br_size);
     if (h.flags & F_TXN) {
         u64 dsz = A8(h.data_size), total = dsz + h.offsets_size + h.extra_size;
-        char *buf = balloc(total ? total : 8, h.id);
+        // (a security context rides at the end of the buffer, as the kernel leaves it: a pointer into this image sits
+        // at 0x2000000000 and is cut to 32 bits, 0x678, by a 32-bit reader - hwservicemanager's strlen faulted on it)
+        int sid = h.cmd == BR_TRANSACTION && wants_sid(h.ptr);
+        char *buf = balloc((total ? total : 8) + (sid ? 16 : 0), h.id);
         if (!buf) return -ENOMEM;
         if (h.flags & F_BIG) {
             u64 got = 0;
@@ -325,9 +328,12 @@ static long bread(struct bth *t, struct bwr *w) {
             }
         }
         struct btd d = { h.ptr, h.cookie, h.code, h.tflags, h.sender_pid, h.sender_euid, h.data_size, h.offsets_size, (u64)buf, (u64)offs };
-        int sid = h.cmd == BR_TRANSACTION && wants_sid(h.ptr);
         *out++ = sid ? BR_TRANSACTION_SEC_CTX : h.cmd; memcpy(out, &d, sizeof d); out = (u32 *)((char *)out + sizeof d);
-        if (sid) { static const char ctx[] = "u:r:su:s0"; u64 c = (u64)ctx; memcpy(out, &c, 8); out += 2; }
+        if (sid) {
+            static const char ctx[] = "u:r:su:s0";
+            char *cp = buf + total; memcpy(cp, ctx, sizeof ctx);
+            u64 c = (u64)cp; memcpy(out, &c, 8); out += 2;
+        }
     } else for (int i = 0; i < nfds; i++) S1(NR_close, fds[i]);
     w->read_consumed = (u64)((char *)out - (char *)w->read_buffer);
     return 0;

@@ -2,6 +2,7 @@
  * Modified for AEmulator Plus, 2026-11-01: Android 8 - 17 (answers typed by the guest's own interface, listener based connect/save/forget). GPL-3.0; see LICENSE and NOTICE.md. */
 package app.aemu.stub;
 
+import android.content.Intent;
 import android.net.DhcpInfo;
 import android.net.wifi.WifiConfiguration;
 import android.os.Binder;
@@ -61,6 +62,9 @@ final class WifiService extends Binder {
     private Listener listener;
     private volatile LegacyWifi legacy;
     private final Messenger messenger;
+    private final Handler scanHandler;
+    private final List<Object> scanCallbacks = new ArrayList<Object>();
+    private final List<IBinder> scanCallbackBinders = new ArrayList<IBinder>();
     private final java.util.Set<String> unhandled = new java.util.HashSet<String>();
 
     WifiService(WifiConfig cfg, Looper looper) throws Exception {
@@ -75,6 +79,7 @@ final class WifiService extends Binder {
             if (!methods.containsKey(m.getName())) methods.put(m.getName(), m);
         }
         messenger = new Messenger(new ChannelHandler(looper));
+        scanHandler = new Handler(looper);
         StringBuilder all = new StringBuilder();
         for (Map.Entry<Integer, String> e : names.entrySet()) all.append(e.getKey()).append('=').append(e.getValue()).append(' ');
         Refl.log("transactions: " + all.toString().trim());
@@ -101,6 +106,10 @@ final class WifiService extends Binder {
     private void update() {
         LegacyWifi lg = legacy;
         if (lg != null) lg.changed();
+        if (android.os.Build.VERSION.SDK_INT >= 21 && scanHandler != null) {
+            scanHandler.removeCallbacks(publishTask);
+            scanHandler.postDelayed(publishTask, 600);
+        }
         boolean now = enabled && saved && !down;
         Listener l = null;
         synchronized (this) {
@@ -232,6 +241,11 @@ final class WifiService extends Binder {
                 }
             }
         }
+        if (r == null) {
+            // Android 12+: the (WifiSsid, String, String, int, int, long) constructor is gone and the long one starts
+            // (WifiSsid, String, long, ...). The plain constructor still exists; the public fields are filled in below.
+            r = Refl.newNoArg("android.net.wifi.ScanResult");
+        }
         if (r == null) return null;
         Refl.setField(r, "SSID", name);
         Refl.setField(r, "BSSID", bssid);
@@ -340,9 +354,87 @@ final class WifiService extends Binder {
         return true;
     }
 
+    /**
+     * 21+: nothing sends the Wi-Fi state broadcasts any more (the framework's own state machine does, and it has no radio
+     * here). Settings and the setup wizard follow them, so a reconnect that only moves the NetworkAgent is never "seen".
+     */
+    private final Runnable publishTask = new Runnable() {
+        @Override public void run() {
+            try {
+                boolean en, con;
+                synchronized (WifiService.this) { en = enabled; con = connected; }
+                Intent ws = new Intent("android.net.wifi.WIFI_STATE_CHANGED");
+                ws.addFlags(0x10000000);
+                ws.putExtra("wifi_state", en ? 3 : 1);
+                ws.putExtra("previous_wifi_state", en ? 3 : 1);
+                Bcast.send(ws);
+
+                Object ss = enumConst("android.net.wifi.SupplicantState", con ? "COMPLETED" : en ? "DISCONNECTED" : "INACTIVE");
+                if (ss instanceof Parcelable) {
+                    Intent si = new Intent("android.net.wifi.supplicant.STATE_CHANGE");
+                    si.addFlags(0x10000000);
+                    si.putExtra("newState", (Parcelable) ss);
+                    Bcast.send(si);
+                }
+
+                Intent ns = new Intent("android.net.wifi.STATE_CHANGE");
+                ns.addFlags(0x10000000);
+                Object ni = Refl.create("android.net.NetworkInfo", new Class<?>[] { int.class, int.class, String.class, String.class },
+                        Integer.valueOf(1), Integer.valueOf(0), "WIFI", "");
+                if (ni != null) {
+                    Refl.call(ni, "setDetailedState", enumConst("android.net.NetworkInfo$DetailedState", con ? "CONNECTED" : "DISCONNECTED"),
+                            null, con ? cfg.bssid : null);
+                    Refl.call(ni, "setIsAvailable", Boolean.valueOf(en));
+                    if (ni instanceof Parcelable) ns.putExtra("networkInfo", (Parcelable) ni);
+                }
+                if (con) {
+                    ns.putExtra("bssid", cfg.bssid);
+                    Object wi = wifiInfo();
+                    if (wi instanceof Parcelable) ns.putExtra("wifiInfo", (Parcelable) wi);
+                }
+                Bcast.send(ns);
+                Refl.log("state broadcasts: enabled=" + en + " connected=" + con);
+            } catch (Throwable t) {
+                Refl.log("state broadcasts failed: " + t);
+            }
+        }
+    };
+
+    private static Object enumConst(String cls, String name) {
+        try {
+            return Class.forName(cls).getField(name).get(null);
+        } catch (Throwable t) {
+            return null;
+        }
+    }
+
+    /** startScan() finished: tell the guest that results are ready (broadcast and, on 11+, the registered callbacks). */
+    private void scheduleScanDone() {
+        scanHandler.postDelayed(new Runnable() {
+            @Override public void run() {
+                Intent i = new Intent("android.net.wifi.SCAN_RESULTS");
+                i.putExtra("resultsUpdated", true);
+                i.addFlags(0x10000000); // FLAG_RECEIVER_FOREGROUND
+                Bcast.send(i);
+                List<Object> cbs;
+                synchronized (scanCallbacks) { cbs = new ArrayList<Object>(scanCallbacks); }
+                for (Object c : cbs) Refl.call(c, "onScanResultsAvailable");
+                Refl.log("scan done: broadcast + " + cbs.size() + " callback(s)");
+            }
+        }, 400);
+    }
+
     private synchronized void handle(String name, Parcel data, Parcel reply) {
         if (reply == null) return; // one-way call: nothing to answer
         reply.writeNoException();
+        if (name.startsWith("addOrUpdateNetwork") || name.startsWith("addNetwork") || name.equals("enableNetwork")
+                || name.equals("disableNetwork") || name.equals("removeNetwork") || name.equals("disconnect")
+                || name.equals("reconnect") || name.equals("reassociate") || name.equals("connect")
+                || name.equals("save") || name.equals("forget") || name.equals("setWifiEnabled")
+                || name.equals("startScan") || name.toLowerCase().contains("suggestion")
+                || name.toLowerCase().contains("networkrequest")) {
+            Refl.log("call: " + name);
+        }
         if (name.equals("getWifiEnabledState")) {
             reply.writeInt(enabled ? STATE_ENABLED : STATE_DISABLED);
         } else if (name.equals("getWifiApEnabledState")) {
@@ -364,6 +456,7 @@ final class WifiService extends Binder {
                 Object o = scanResult(n.ssid, n.bssid, n.caps, n.rssi, n.frequency);
                 if (o instanceof Parcelable) list.add((Parcelable) o);
             }
+            Refl.log("getScanResults: answering " + list.size() + " entries");
             writeList("getScanResults", list, reply);
         } else if (name.equals("getConfiguredNetworks") || name.equals("getPrivilegedConfiguredNetworks")) {
             List<Parcelable> list = new ArrayList<Parcelable>();
@@ -374,6 +467,7 @@ final class WifiService extends Binder {
         } else if (name.equals("addOrUpdateNetwork")) {
             WifiConfiguration c = readConfig(data);
             boolean ok = credentialsOk(c);
+            Refl.log("addOrUpdateNetwork: ssid=" + (c == null ? "null" : c.SSID) + " psk=" + (c != null && c.preSharedKey != null) + " -> " + (ok ? "accepted" : "rejected (expected " + cfg.ssid + ")"));
             int id = ok ? NET_ID : nextId++;
             addedOk.put(Integer.valueOf(id), Boolean.valueOf(ok));
             reply.writeInt(id);
@@ -432,7 +526,28 @@ final class WifiService extends Binder {
             reply.writeInt(0);
         } else if (name.equals("getCurrentNetwork")) {
             writeParcelable(reply, null); // no Network handle is exposed for the emulated link
+        } else if (name.equals("registerScanResultsCallback") || name.equals("unregisterScanResultsCallback")) {
+            // 11+: the guest's WifiManager waits for onScanResultsAvailable() after startScan()
+            IBinder b = data.readStrongBinder();
+            if (b != null) {
+                if (name.startsWith("register")) {
+                    try {
+                        Class<?> cb = Class.forName("android.net.wifi.IScanResultsCallback$Stub");
+                        Object o = cb.getMethod("asInterface", IBinder.class).invoke(null, b);
+                        synchronized (scanCallbacks) { scanCallbackBinders.add(b); scanCallbacks.add(o); }
+                        Refl.log("registerScanResultsCallback: " + scanCallbacks.size() + " listener(s)");
+                    } catch (Throwable t) {
+                        Refl.log("registerScanResultsCallback: " + t);
+                    }
+                } else {
+                    synchronized (scanCallbacks) {
+                        int i = scanCallbackBinders.indexOf(b);
+                        if (i >= 0) { scanCallbackBinders.remove(i); scanCallbacks.remove(i); }
+                    }
+                }
+            }
         } else if (name.equals("startScan")) {
+            scheduleScanDone();
             LegacyWifi lg = legacy;
             if (lg != null) lg.scanDone();
             Method sm = methods.get(name);
@@ -504,6 +619,7 @@ final class WifiService extends Binder {
                 }
             } else break;
         }
+        Refl.log(name + ": config=" + (c == null ? "null" : c.SSID) + " netId=" + netId + " listener=" + (listener != null));
         boolean ok;
         if (name.equals("forget")) {
             if (netId == NET_ID) { saved = false; update(); }
@@ -518,6 +634,7 @@ final class WifiService extends Binder {
             }
         }
         if (listener != null) {
+            Refl.log(name + ": " + (ok ? "onSuccess" : "onFailure"));
             if (ok) Refl.call(listener, "onSuccess");
             else Refl.call(listener, "onFailure", Integer.valueOf(0));
         }

@@ -30,4 +30,17 @@
     <string name="vs_sf_tombstone">SurfaceFlinger crash tombstone (debug)</string>
     <string name="vs_sf_tombstone_sub">If SurfaceFlinger crashes, let the firmware write a normal tombstone to the log (with the crashing function) instead of a short report. Use it when sending a bug report. Applies at the next full VM boot.</string>
     <string name="bluetooth_permission_denied">Bluetooth permission denied: the guest will boot without host Bluetooth.</string>
+    <string name="vi_mouse_keyboard">Input: mouse and keyboard</string>
+    <string name="vi_mouse_keyboard_sub">Registers a touchpad and a keyboard in the guest and removes its touch screen. The screen becomes a touchpad (tap to click, two fingers to scroll) and a keyboard button appears in the navigation bar. Needs the QEMU engine (not the native 64-bit one) and a full VM restart.</string>
+    <string name="vi_keypad">Input: keypad</string>
+    <string name="vi_keypad_sub">Adds a keypad button to the navigation bar: arrow keys, OK, soft keys, Call/End and 0–9 * # like a feature phone. Touch keeps working and it can be combined with mouse and keyboard.</string>
+    <string name="vi_keyboard">Keyboard</string>
+    <string name="vi_keypad_title">Keypad</string>
+    <string name="vi_close">Close</string>
+    <string name="vi_open_keyboard">Keyboard</string>
+    <string name="vi_open_keypad">Keypad</string>
+    <string name="m_resize_screen">Resize screen</string>
+    <string name="m_resize_done">Done resizing</string>
+    <string name="m_resize_reset">Reset screen size</string>
+    <string name="vi_resize_hint">Drag a corner of the screen to resize it. Open the menu and tap Done resizing when finished.</string>
 </resources>

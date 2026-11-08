@@ -35,6 +35,10 @@ data class VmSettings(
     val trackball: Boolean = false,
     val trackballDpad: Boolean = false,
     val trackballStepDp: Int = 18,
+    /** Input method "mouse and keyboard": an emulated touchpad and keyboard replace the touch screen; applies at the next full VM boot. */
+    val mouseKeyboard: Boolean = false,
+    /** Input method "keypad": a feature-phone key window; independent of touch and of [mouseKeyboard]. */
+    val keypad: Boolean = false,
     val keepScreenOn: Boolean = true,
     /** the guest phone's notification LED drawn above its screen (0.0.0.3) */
     val showLed: Boolean = true,
@@ -151,6 +155,7 @@ data class VmSettings(
         .put("navButtons", NavControls.encode(NavControls.parse(navButtons)))
         .put("trackball", trackball).put("trackballDpad", trackballDpad)
         .put("trackballStepDp", trackballStepDp.coerceIn(4, 48))
+        .put("mouseKeyboard", mouseKeyboard).put("keypad", keypad)
         .put("keepScreenOn", keepScreenOn).put("showLed", showLed).put("native32", native32).put("translate32", translate32).put("mtMode", mtMode).put("legacyEngine", legacyEngine)
         .put("vibration", vibration)
         .put("hostBattery", hostBattery)
@@ -289,6 +294,8 @@ data class VmSettings(
                 trackball = o.optBoolean("trackball", false),
                 trackballDpad = o.optBoolean("trackballDpad", false),
                 trackballStepDp = o.optInt("trackballStepDp", 18).coerceIn(4, 48),
+                mouseKeyboard = o.optBoolean("mouseKeyboard", false),
+                keypad = o.optBoolean("keypad", false),
                 keepScreenOn = o.optBoolean("keepScreenOn", d.keepScreenOn),
                 showLed = o.optBoolean("showLed", d.showLed),
                 vibration = o.optBoolean("vibration", d.vibration),
@@ -442,8 +449,11 @@ data class GuestImage(
 
     /** Движок с учётом выбора пользователя. */
     fun effective(binder64: Boolean = false): GuestImage = copy(engine = when {
-        // x86-32: only the universal engine has a translator for it (libqemu_i386.so); no native arm64 engine, no 2.x fallback
-        arch == GuestArch.X86 -> Engine.KK
+        // x86-32 up to 7.x: the universal engine has a translator for it (libqemu_kk_i386.so); no 2.x fallback
+        arch == GuestArch.X86 && api < GuestArch.X86.n64MinApi -> Engine.KK
+        // Added for AEmulator Plus (2026-11-04): x86-32 from 8.0 and x86-64 (5.0+) run on the native engine, whose runner starts
+        // libqemu_i386.so / libqemu_x86_64.so for the firmware's programs the way it starts libqemu_arm.so for a 32-bit ARM one
+        arch.foreign -> Engine.N64
         abi == "arm64-v8a" -> Engine.N64
         settings.legacyEngine && api < 14 -> Engine.GB
         // a 32-bit firmware of 8.0+, or an older one built for the 64-bit binder structs (Android Things 1.0, ...): the

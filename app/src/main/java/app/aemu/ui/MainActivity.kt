@@ -78,6 +78,8 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBarDefaults
+import app.aemu.importer.PartitionChooser
+import app.aemu.importer.PartitionPrompt
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -456,6 +458,10 @@ fun Library(model: LibraryModel) {
     settingsFor?.let { img ->
         SettingsSheet(img, onDismiss = { settingsFor = null }, onSave = { s, name -> model.updateSettings(img, s, name); settingsFor = null })
     }
+    // an archive with several images of one partition: the import waits here for the pick
+    imp.choice?.let { c ->
+        PartitionChoiceDialog(c, onPick = model::answerChoice, onCancel = { model.answerChoice(PartitionChooser.CANCEL) })
+    }
     resetFor?.let { img ->
         AlertDialog(
             onDismissRequest = { resetFor = null },
@@ -767,6 +773,34 @@ private fun EmptyState(onHelp: () -> Unit) {
         Spacer(Modifier.height(16.dp))
         TextButton(onClick = onHelp) { Text(stringResource(R.string.empty_help)) }
     }
+}
+
+/** Which of several images of one partition to import; the first option (slot "a", or no slot) is preselected. */
+@Composable
+private fun PartitionChoiceDialog(prompt: PartitionPrompt, onPick: (Int) -> Unit, onCancel: () -> Unit) {
+    var selected by remember(prompt) { mutableStateOf(0) }
+    AlertDialog(
+        // no dismissing by a tap outside or Back: the import is waiting, "Cancel import" is the way out
+        onDismissRequest = {},
+        title = { Text(stringResource(R.string.imp_choice_title, prompt.partition)) },
+        text = {
+            Column(Modifier.verticalScroll(rememberScrollState())) {
+                Text(stringResource(R.string.imp_choice_text, prompt.partition, prompt.index, prompt.total),
+                    style = MaterialTheme.typography.bodyMedium)
+                Spacer(Modifier.height(8.dp))
+                prompt.options.forEachIndexed { i, option ->
+                    Row(Modifier.fillMaxWidth().clickable(role = Role.RadioButton) { selected = i }.padding(vertical = 4.dp),
+                        verticalAlignment = Alignment.CenterVertically) {
+                        RadioButton(selected = selected == i, onClick = { selected = i })
+                        Spacer(Modifier.width(8.dp))
+                        Text(option, style = MaterialTheme.typography.bodyMedium)
+                    }
+                }
+            }
+        },
+        confirmButton = { Button(onClick = { onPick(selected) }) { Text(stringResource(R.string.imp_choice_ok)) } },
+        dismissButton = { TextButton(onClick = onCancel) { Text(stringResource(R.string.imp_choice_cancel)) } },
+    )
 }
 
 @Composable

@@ -17,6 +17,10 @@ cd "$TEST_DIR"
 qemu-arm ./fopen-smoke
 qemu-arm ./crash-maps-smoke
 qemu-arm ./trackball-smoke
+"$BIN/clang" --target=armv7a-linux-androideabi21 -march=armv7-a -mthumb -Os -I"$TEST_SRC/../../bcmgpu" \\
+    -nostdlib -static -ffreestanding -fno-builtin -fno-stack-protector \\
+    -Wl,-e,_start -o "$TEST_DIR/vinput-smoke" "$TEST_SRC/vinput-smoke.c"
+qemu-arm ./vinput-smoke
 "$BIN/clang" --target=armv7a-linux-androideabi21 -march=armv7-a -mthumb -Os \
     -nostdlib -static -ffreestanding -fno-builtin -fno-stack-protector \
     -Wl,-e,_start -o "$TEST_DIR/netmgr-smoke" "$TEST_SRC/netmgr-smoke.c"

@@ -1,3 +1,4 @@
+/* Modified for AEmulator Plus, 2026-11-06: encrypted (RC4 + CAB) LG KDZ and legacy MSTXMETX DZ. */
 package app.aemu.importer.tools;
 
 import app.aemu.importer.tools.FirmwareToolset.Artifact;
@@ -42,6 +43,9 @@ import java.util.zip.InflaterInputStream;
  * partition image (chunks are placed at their start sector, gaps stay zero, all-zero blocks are left as
  * file holes). Chunks are streamed, nothing large is held in memory. Older LG BIN/TOT containers that
  * sit inside a KDZ are passed on to the existing {@link FirmwareToolset} LG handlers.
+ *
+ * <p>The oldest KDZ files (2008-2010 phones) are not this table at all but an RC4-encrypted Microsoft CAB; those are
+ * unpacked by {@link LgCab} and the .dz inside goes through the same DZ code ({@link #extractEncryptedKdz}).
  */
 final class LgKdz {
     private LgKdz() {}
@@ -56,6 +60,19 @@ final class LgKdz {
     // ================================================================== detection
 
     static boolean isDz(byte[] head) { return head.length >= 4 && u32(head, 0) == DZ_MAGIC; }
+
+    /** The older DZ of the 2009-2010 phones ("MSTXMETX"), see {@link LgLegacyDz}. */
+    static boolean isLegacyDz(byte[] head) { return LgLegacyDz.isMagic(head); }
+
+    /** RC4-encrypted CAB (old KDZ): the key comes from the file size, so the size is needed along with the first bytes. */
+    static boolean isEncryptedKdz(byte[] head, long size) { return LgCab.isEncryptedKdz(head, size); }
+
+    static boolean isEncryptedKdz(File f) { return LgCab.isEncryptedKdz(f); }
+
+    /** The same cabinet after decryption (what kdz_decrypt_encrypt writes as .cab), as long as it is named like one. */
+    static boolean isPlainKdzCab(byte[] head, String lowerName) {
+        return LgCab.isCabHeader(head) && (lowerName.endsWith(".kdz") || lowerName.endsWith(".cab"));
+    }
 
     /** True if the file's header parses as a KDZ file table (or carries a known KDZ magic). */
     static boolean looksLikeKdz(File f, byte[] head, boolean nameSaysKdz) {
@@ -199,6 +216,92 @@ final class LgKdz {
         return out;
     }
 
+    // ================================================================== encrypted (CAB) KDZ
+
+    /**
+     * Old KDZ: decrypts on the fly while reading the cabinet (no decrypted copy of the whole file), pulls out the
+     * firmware payloads and hands each to the DZ / LG BIN / raw image handling used for the newer KDZ files.
+     * Also accepts the already decrypted cabinet.
+     */
+    static List<Artifact> extractEncryptedKdz(File f, File work, Consumer<String> log) throws IOException {
+        if (!work.exists() && !work.mkdirs()) throw new IOException("cannot create work directory");
+        byte[] head = readHead(f, 12);
+        boolean encrypted = isEncryptedKdz(head, f.length());
+        byte[] key = encrypted ? LgCab.deriveKey(f.length()) : null;
+        if (!encrypted && !LgCab.isCabHeader(head)) throw new IOException("LG KDZ: not an encrypted KDZ / CAB file");
+        log.accept("LG KDZ: " + (encrypted ? "RC4-encrypted CAB" : "plain CAB") + ", " + (f.length() >> 20) + " MB");
+
+        File cabDir = new File(work, "cab");
+        List<File> members;
+        try (LgCab.Src src = encrypted ? LgCab.decrypting(f, key) : LgCab.plain(f)) {
+            LgCab.Cab cab = LgCab.parse(src);
+            for (LgCab.Member m : cab.members) {
+                log.accept("LG KDZ:   " + m.name + " (" + (m.size >> 10) + " KB)");
+            }
+            members = LgCab.extract(src, cab, cabDir, LgKdz::wantCabMember, log);
+        }
+        if (members.isEmpty()) throw new IOException("LG KDZ: the cabinet holds no firmware payload");
+
+        List<Artifact> out = new ArrayList<>();
+        IOException firstError = null;
+        int n = 0;
+        for (File m : members) {
+            String lower = m.getName().toLowerCase(Locale.US);
+            byte[] mag = readHead(m, 16);
+            try {
+                if (isDz(mag) || isLegacyDz(mag) || (lower.endsWith(".dz") && mag.length >= 4)) {
+                    out.addAll(extractDz(m, new File(work, "dz" + (n++)), log));
+                } else if (mag.length >= 4 && isLgBin(u32(mag, 0))) {
+                    File dir = new File(work, "bin" + (n++)); dir.mkdirs();
+                    try { out.addAll(FirmwareToolset.extract(m, new File(dir, "out"), log)); }
+                    catch (IOException | RuntimeException ex) { throw ex; }
+                    catch (Exception ex) { throw new IOException(ex); }
+                } else if (lower.endsWith(".img") || lower.endsWith(".bin")) {
+                    Role role = FirmwareToolset.roleFor(m.getName());
+                    String canon = role == Role.SYSTEM ? "system.img" : role == Role.BOOT ? "boot.img"
+                        : role == Role.RECOVERY ? "recovery.img" : role == Role.OEM ? "oem.img" : null;
+                    if (canon != null) {
+                        File dir = new File(work, "img" + (n++)); dir.mkdirs();
+                        File d = new File(dir, canon);
+                        if (m.renameTo(d)) out.add(new Artifact(d, role));
+                    } else {
+                        log.accept("LG KDZ: skipping " + m.getName());
+                    }
+                } else {
+                    log.accept("LG KDZ: skipping " + m.getName());
+                }
+            } catch (IOException | RuntimeException ex) {
+                log.accept("LG KDZ: " + m.getName() + " failed: " + ex.getMessage());
+                if (firstError == null) firstError = ex instanceof IOException ? (IOException) ex : new IOException(ex);
+            } finally {
+                m.delete();                                   // the unpacked copy is no longer needed once its images exist
+            }
+        }
+        deleteTree(cabDir);
+        out = firstPerRole(out);
+        if (out.isEmpty()) {
+            if (firstError != null) throw firstError;
+            throw new IOException("LG KDZ: no system/boot/recovery image inside");
+        }
+        return out;
+    }
+
+    /** What is worth unpacking from the cabinet: the firmware containers by name, and anything big enough to be one. */
+    private static boolean wantCabMember(LgCab.Member m) {
+        String n = m.name.toLowerCase(Locale.US);
+        return n.endsWith(".dz") || n.endsWith(".bin") || n.endsWith(".tot") || n.endsWith(".img") || m.size >= (1L << 20);
+    }
+
+    private static byte[] readHead(File f, int n) throws IOException {
+        try (RandomAccessFile r = new RandomAccessFile(f, "r")) { return readAt(r, 0, (int) Math.min(n, r.length())); }
+    }
+
+    private static void deleteTree(File f) {
+        File[] kids = f.listFiles();
+        if (kids != null) for (File k : kids) deleteTree(k);
+        f.delete();
+    }
+
     // ================================================================== DZ
 
     static final class Chunk {
@@ -214,6 +317,7 @@ final class LgKdz {
     static List<Artifact> extractDzRange(RandomAccessFile r, long base, long len, File work, Consumer<String> log) throws IOException {
         if (!work.exists() && !work.mkdirs()) throw new IOException("cannot create work directory");
         byte[] hd = readAt(r, base, (int) Math.min(len, 0xC0));
+        if (isLegacyDz(hd)) return LgLegacyDz.extract(r, base, len, work, log);
         if (!isDz(hd)) throw new IOException("LG DZ: bad magic");
         long major = u32(hd, 4), minor = u32(hd, 8);
         String device = hd.length >= 0x30 ? cstrPrintable(hd, 0x10, 32) : null;
@@ -403,7 +507,7 @@ final class LgKdz {
 
     // ================================================================== helpers
 
-    private static final class RangeIn extends InputStream {
+    static final class RangeIn extends InputStream {
         private final RandomAccessFile r; private long pos; private final long end;
         RangeIn(RandomAccessFile r, long off, long len) { this.r = r; pos = off; end = off + len; }
         @Override public int read() throws IOException { byte[] b = new byte[1]; return read(b, 0, 1) < 0 ? -1 : b[0] & 255; }
@@ -479,7 +583,7 @@ final class LgKdz {
         return true;
     }
 
-    private static byte[] readAt(RandomAccessFile r, long pos, int n) throws IOException {
+    static byte[] readAt(RandomAccessFile r, long pos, int n) throws IOException {
         if (n <= 0 || pos < 0) return new byte[0];
         r.seek(pos);
         byte[] b = new byte[n]; int got = 0;

@@ -19,6 +19,9 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.viewinterop.AndroidView
 import app.aemu.core.SmsStore
+import app.aemu.core.LegacyFirmware
+import app.aemu.core.LegacyKeys
+import app.aemu.core.VirtualKeyboardLayout
 import app.aemu.core.AlertType
 import app.aemu.core.WirelessAlert
 import app.aemu.core.NavButton
@@ -169,6 +172,7 @@ import kotlin.concurrent.thread
 import app.aemu.core.DisplayGeometry
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.material.icons.rounded.ScreenRotation
+import androidx.compose.material.icons.rounded.AspectRatio
 
 /** Процесс :vm держит ровно одну машину. */
 object VmHost {
@@ -219,6 +223,10 @@ class VmActivity : ComponentActivity() {
     /** where the skin, its screen and its keys are right now; null = no skin shown (none, or sideways) */
     private var skinLayout by mutableStateOf<app.aemu.core.DeviceSkin.Layout?>(null)
     private var updateGuestLayout: (() -> Unit)? = null
+    /** Guest screen placed by the person (corner dragging), as fractions of the free area; null = automatic fit */
+    private var userFrac by mutableStateOf<app.aemu.core.DisplayGeometry.Frac?>(null)
+    private var resizeMode by mutableStateOf(false)
+    private var resizeOverlay: ScreenResizeOverlay? = null
     /** Camera, microphone and Bluetooth are requested together so the VM boots once, after the person has answered. */
     private val hostPermissions = registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { result ->
         if (::vm.isInitialized) {
@@ -301,6 +309,7 @@ class VmActivity : ComponentActivity() {
             else GuestVm(applicationContext, resolved, intent.getBooleanExtra(EXTRA_LOW_POWER, false)).also { it.recoveryMode = intent.getBooleanExtra(EXTRA_RECOVERY, false); VmHost.vm = it }
         vm.onPower = { reboot, reason -> runOnUiThread { if (reboot) rebootVm(reason == "recovery") else stopVm() } }
         val s = vm.settings
+        userFrac = loadScreenFrac(vm.img.id)
         showLed = s.showLed
         if (s.keepScreenOn) window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
 
@@ -333,6 +342,8 @@ class VmActivity : ComponentActivity() {
             input = vm.input
             fb = if (vm.recoveryMode) app.aemu.core.RecoveryImage.fb(vm.paths) else vm.paths.fb
             if (vm.recoveryMode || vm.nativeUi) pages = 2
+            // Broadcom V3D firmware: SurfaceFlinger draws into whichever page of fb0 it panned to, not always the first
+            if (!vm.recoveryMode && !vm.nativeUi && vm.img.arch == app.aemu.core.GuestArch.ARM && app.aemu.core.BroadcomGpu.v3dFirmware(vm.paths.root)) autoPages = true
         }
         // 5.0+ renders through the standalone glserverd into fb0 (see GuestVm.glUp), shown like the software path
         val useBridge = vm.engine == Engine.KK && s.gpu && !vm.recoveryMode && !vm.nativeUi && vm.img.api < 21
@@ -351,6 +362,17 @@ class VmActivity : ComponentActivity() {
         applyVmTheme()
         val overlay = ComposeView(this).apply { setContent { AemuTheme(forceDark = true) { Overlay() } } }
         root.addView(overlay, FrameLayout.LayoutParams(-1, -1))
+        // corner grips of the resize mode: above everything, only touches that start on a grip are taken
+        resizeOverlay = ScreenResizeOverlay(this).apply {
+            visibility = if (resizeMode) View.VISIBLE else View.GONE
+            onResize = { r, finished ->
+                val area = this.area
+                userFrac = app.aemu.core.DisplayGeometry.fractions(area, r)
+                updateGuestLayout?.invoke()
+                if (finished) saveScreenFrac(vm.img.id)
+            }
+        }
+        root.addView(resizeOverlay, FrameLayout.LayoutParams(-1, -1))
         setContentView(root)
 
         // экран гостя вписываем с сохранением пропорций над панелью кнопок
@@ -388,8 +410,19 @@ class VmActivity : ComponentActivity() {
                     v.layoutParams = p
                 }
             }
-            val fit = DisplayGeometry.fit(root.width - root.paddingLeft - root.paddingRight,
-                root.height - root.paddingTop - root.paddingBottom, gw, gh, controlsHeightPx, controlsTurns, s.hostResolution)
+            val rw = root.width - root.paddingLeft - root.paddingRight
+            val rh = root.height - root.paddingTop - root.paddingBottom
+            val area = DisplayGeometry.available(rw, rh, controlsHeightPx, controlsTurns, s.hostResolution)
+            val minW = maxOf((96 * resources.displayMetrics.density).toInt(), area.width / 5)
+            val minH = maxOf((96 * resources.displayMetrics.density).toInt(), area.height / 5)
+            val frac = userFrac
+            val fit = if (frac != null) DisplayGeometry.place(area, frac, minW, minH)
+                else DisplayGeometry.fit(rw, rh, gw, gh, controlsHeightPx, controlsTurns, s.hostResolution)
+            resizeOverlay?.let { o ->
+                if (o.area != area || o.screen != fit || o.minWidth != minW || o.minHeight != minH) {
+                    o.area = area; o.screen = fit; o.minWidth = minW; o.minHeight = minH; o.invalidate()
+                }
+            }
             val w = fit.width
             val h = fit.height
             val lp = box.layoutParams as FrameLayout.LayoutParams
@@ -553,7 +586,7 @@ class VmActivity : ComponentActivity() {
 
     private fun recoveryKeys() = ::vm.isInitialized && vm.recoveryMode
 
-    private fun map(k: Int): Int? = when (k) {
+    private fun map(k: Int): Int? = if (::vm.isInitialized && LegacyFirmware.isPreRelease(vm.img.release)) LegacyKeys.fromAndroid(k) else when (k) {
         KeyEvent.KEYCODE_VOLUME_UP -> InputService.KEY_VOLUMEUP
         KeyEvent.KEYCODE_VOLUME_DOWN -> InputService.KEY_VOLUMEDOWN
         KeyEvent.KEYCODE_MENU -> InputService.KEY_MENU
@@ -613,6 +646,25 @@ class VmActivity : ComponentActivity() {
     private val askCamera = registerForActivityResult(ActivityResultContracts.RequestPermission()) { }
 
     private fun toast(msg: String) = runOnUiThread { Toast.makeText(this, msg, Toast.LENGTH_SHORT).show() }
+
+    private fun applyResizeMode(on: Boolean) {
+        resizeMode = on
+        resizeOverlay?.visibility = if (on) View.VISIBLE else View.GONE
+        if (on) { updateGuestLayout?.invoke(); toast(getString(R.string.vi_resize_hint)) }
+    }
+
+    private fun loadScreenFrac(id: String): app.aemu.core.DisplayGeometry.Frac? = runCatching {
+        val v = getSharedPreferences("vm_screen_rect", MODE_PRIVATE).getString(id, null)?.split(',')?.map { it.toFloat() }
+        if (v != null && v.size == 4 && v.all { it.isFinite() } && v[2] > 0f && v[3] > 0f)
+            app.aemu.core.DisplayGeometry.Frac(v[0], v[1], v[2], v[3]) else null
+    }.getOrNull()
+
+    private fun saveScreenFrac(id: String) {
+        val f = userFrac
+        getSharedPreferences("vm_screen_rect", MODE_PRIVATE).edit().apply {
+            if (f == null) remove(id) else putString(id, "${f.left},${f.top},${f.width},${f.height}")
+        }.apply()
+    }
 
     private fun guestAsync(cmd: String, done: ((String) -> Unit)? = null) {
         thread { val out = runCatching { vm.guestShell(cmd, 60_000) }.getOrElse { it.toString() }; done?.invoke(out) }
@@ -1122,7 +1174,7 @@ class VmActivity : ComponentActivity() {
                 val want = vm.legacyLogoRunning()
                 if (want != onFb && (guest.passthrough || onFb)) {
                     onFb = want
-                    if (want) { guest.pages = 2; guest.format = vm.logoFormat }
+                    if (want) { if (!guest.autoPages) guest.pages = 2; guest.format = vm.logoFormat }
                     guest.passthrough = !want; guest.poke()
                 }
                 delay(200)
@@ -1215,6 +1267,12 @@ class VmActivity : ComponentActivity() {
                     if (!vm.settings.motionSensors) DropdownMenuItem(text = { Text(stringResource(R.string.m_rotate_screen)) }, leadingIcon = { Icon(Icons.Rounded.ScreenRotation, null) },
                         enabled = running && vm.img.api in 9..25 && !vm.img.sensorsOff && !vm.recoveryMode && !vm.nativeUi,
                         onClick = { menu = false; rotateScreen() })
+                    DropdownMenuItem(text = { Text(stringResource(if (resizeMode) R.string.m_resize_done else R.string.m_resize_screen)) },
+                        leadingIcon = { Icon(Icons.Rounded.AspectRatio, null) },
+                        enabled = skinLayout == null, onClick = { menu = false; applyResizeMode(!resizeMode) })
+                    if (userFrac != null) DropdownMenuItem(text = { Text(stringResource(R.string.m_resize_reset)) },
+                        leadingIcon = { Icon(Icons.Rounded.RestartAlt, null) },
+                        onClick = { menu = false; userFrac = null; saveScreenFrac(vm.img.id); updateGuestLayout?.invoke() })
                     // long-press Menu makes 2.x–4.x call InputMethodManager.toggleSoftInput: the firmware's own keyboard
                     DropdownMenuItem(text = { Text(stringResource(R.string.m_keyboard)) }, leadingIcon = { Icon(Icons.Rounded.Keyboard, null) },
                         enabled = running, onClick = {
@@ -1244,6 +1302,12 @@ class VmActivity : ComponentActivity() {
                         enabled = running, onClick = { menu = false; dialog = Dlg.ADB })
                     DropdownMenuItem(text = { Text(stringResource(R.string.m_shell)) }, leadingIcon = { Icon(Icons.Rounded.Terminal, null) },
                         enabled = running, onClick = { menu = false; dialog = Dlg.SHELL })
+                    if (guest.autoPages) {
+                        // Broadcom V3D firmware only: how its frames are shown (see GuestScreen.fbMode); for finding out what flickers
+                        var fbModeShown by remember { mutableStateOf(guest.fbMode) }
+                        DropdownMenuItem(text = { Text("Screen mode: $fbModeShown (tap to change)") }, leadingIcon = { Icon(Icons.Rounded.Tune, null) },
+                            onClick = { guest.fbMode = (guest.fbMode + 1) % 4; fbModeShown = guest.fbMode; menu = false })
+                    }
                     DropdownMenuItem(text = { Text(stringResource(R.string.m_screenshot)) }, leadingIcon = { Icon(Icons.Rounded.Screenshot, null) },
                         enabled = running, onClick = { menu = false; screenshot() })
                     DropdownMenuItem(text = { Text(stringResource(if (vncOn) R.string.m_vnc_stop else R.string.m_vnc)) },
@@ -1302,7 +1366,16 @@ class VmActivity : ComponentActivity() {
             val showButtons = (vm.settings.showNavBar || vm.recoveryMode) && buttons.isNotEmpty() && (skinKeys.isEmpty() || vm.recoveryMode)
             // "Go to recovery" (leave the stock recovery's "No command" screen): only in a stock recovery, whatever the settings
             val stockRecovery = remember(vm.recoveryMode) { vm.recoveryMode && app.aemu.core.RecoveryImage.kind(vm.paths) == app.aemu.core.RecoveryImage.Kind.STOCK }
-            val showStrip = showButtons || stockRecovery
+            // Extra input methods (VM settings): the keypad is always available; mouse and keyboard needs the shim engine
+            val preOne = LegacyFirmware.isPreRelease(vm.img.release)
+            // a pre-1.0 build has no touch screen here: its keyboard is the ordinary key device (event0), not the mouse-and-keyboard nodes
+            val extraKeyboard = (vm.mouseKeyboardActive || preOne) && !vm.recoveryMode
+            val extraKeypad = vm.settings.keypad && !vm.recoveryMode && !vm.nativeUi && !preOne   // pre-1.0: the keyboard window carries the keypad
+            var keyboardOpen by remember { mutableStateOf(false) }
+            var keypadOpen by remember { mutableStateOf(false) }
+            val showStrip = showButtons || stockRecovery || extraKeyboard || extraKeypad
+            LaunchedEffect(extraKeyboard) { if (!extraKeyboard) keyboardOpen = false }
+            LaunchedEffect(extraKeypad) { if (!extraKeypad) keypadOpen = false }
             val stripTurns = controlsTurns
             val sideways = stripTurns % 2 != 0
             val stripAlignment = when (DisplayGeometry.edge(stripTurns)) {
@@ -1361,6 +1434,14 @@ class VmActivity : ComponentActivity() {
                         }
                     }, buttons = {
                         if (showStrip) ControlButtons(sideways) {
+                            val extrasFirst = stripTurns == 1 || stripTurns == 2
+                            val extraRotation = app.aemu.core.HostDisplayPolicy.controlIconRotation(tablet,
+                                hostUi.tabletNavbarRotation, iconTurns, windowTurns)
+                            @Composable fun ExtraButtons() {
+                                if (extraKeyboard) ExtraNavButton(KeyboardIcon, stringResource(R.string.vi_open_keyboard), keyboardOpen, vmTheme, extraRotation) { keyboardOpen = !keyboardOpen }
+                                if (extraKeypad) ExtraNavButton(KeypadIcon, stringResource(R.string.vi_open_keypad), keypadOpen, vmTheme, extraRotation) { keypadOpen = !keypadOpen }
+                            }
+                            if (extrasFirst) ExtraButtons()
                             if (stockRecovery && (stripTurns == 1 || stripTurns == 2)) GoToRecoveryButton(sideways)
                             (if (!showButtons) emptyList() else if (stripTurns == 1 || stripTurns == 2) buttons.asReversed() else buttons).forEach { button ->
                                 val code = when (button) {
@@ -1377,12 +1458,19 @@ class VmActivity : ComponentActivity() {
                                 }
                             }
                             if (stockRecovery && !(stripTurns == 1 || stripTurns == 2)) GoToRecoveryButton(sideways)
+                            if (!extrasFirst) ExtraButtons()
                         }
                         // Trackball-only layouts still keep it above a navbar-sized safety zone.
                         if (!showStrip && vm.settings.trackball) Spacer(if (sideways) Modifier.width(52.dp) else Modifier.height(52.dp))
                     })
                 }
                 }
+            }
+
+            // Floating input windows sit above the guest screen and the bar; the empty Box below has no pointer handler
+            Box(Modifier.fillMaxSize()) {
+                if (keyboardOpen && extraKeyboard) VirtualKeyboardWindow({ code, down -> vm.input.key(code, down) }, if (preOne) LegacyKeys.rows else VirtualKeyboardLayout.rows) { keyboardOpen = false }
+                if (keypadOpen && extraKeypad) KeypadWindow({ code, down -> vm.input.key(code, down) }, vm.input.homeCode) { keypadOpen = false }
             }
         }
     }

@@ -1,3 +1,4 @@
+/* Modified for AEmulator Plus, 2026-11-06: encrypted (RC4 + CAB) LG KDZ and legacy MSTXMETX DZ. */
 package app.aemu.importer.tools;
 
 import org.apache.commons.compress.archivers.zip.ZipArchiveEntry;
@@ -64,6 +65,11 @@ public final class FirmwareToolset {
         if (h.length >= 4 && u32(h,0) == 0xAA55EC44L) return "LG_BIN";
         if (h.length >= 4 && u32(h,0) == 0xAA55A5A5L) return "LG_BIN";
         if (h.length >= 4 && u32(h,0) == 0xAA55DD44L) return "LG_TOT";
+        // LG .kdz container / bare .dz chunk file (checked before the generic probes: a KDZ starts with a header size, not a magic)
+        if (LgKdz.isDz(h) || LgKdz.isLegacyDz(h)) return "LG_DZ";
+        // old KDZ = RC4-encrypted CAB (key from the file size); also the cabinet itself, as kdz_decrypt_encrypt leaves it
+        if (LgKdz.isEncryptedKdz(h, f.length()) || LgKdz.isPlainKdzCab(h, f.getName().toLowerCase(Locale.US))) return "LG_KDZ_CAB";
+        if (LgKdz.looksLikeKdz(f, h, f.getName().toLowerCase(Locale.US).endsWith(".kdz"))) return "LG_KDZ";
         if (h.length >= 8 && utf16(h,0,44).startsWith("BP_R")) return "PAC";
         if (isSbfHeader(h)) return "SBF";
         if (starts(h, "HTCIMAGE")) return "NBH";
@@ -106,6 +112,9 @@ public final class FirmwareToolset {
             case "HTC_SIGNED": return htcArtifacts(HtcFirmware.unwrapSigned(input, work, log));
             case "LG_TOT": return Lg.extractTot(input, work, log);
             case "LG_BIN": return Lg.extractBin(input, work, log);
+            case "LG_KDZ": return LgKdz.extractKdz(input, work, log);
+            case "LG_KDZ_CAB": return LgKdz.extractEncryptedKdz(input, work, log);
+            case "LG_DZ": return LgKdz.extractDz(input, work, log);
             case "RFS": return Collections.singletonList(new Artifact(Rfs.toZip(input, work, log), Role.ARCHIVE));
             case "SQUASHFS": return Collections.singletonList(new Artifact(SquashFs.toZip(input, work, log), Role.ARCHIVE));
             case "SUPER": return SuperImage.extract(input, work, log);
@@ -119,6 +128,9 @@ public final class FirmwareToolset {
             default: return Collections.emptyList();
         }
     }
+
+    /** True for an old LG KDZ (RC4-encrypted CAB). {@code head} is the start of the file, {@code size} its full length. */
+    public static boolean isEncryptedKdz(byte[] head, long size) { return LgKdz.isEncryptedKdz(head, size); }
 
     /** True for the HTC wrappers HtcFirmware unpacks: RUU .exe (MZ), Dream NBH, 256-byte-signed zip / boot image. */
     public static boolean isHtcContainer(byte[] head) { return HtcFirmware.looksLikeContainer(head); }

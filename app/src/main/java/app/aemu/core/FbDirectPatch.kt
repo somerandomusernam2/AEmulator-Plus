@@ -50,6 +50,24 @@ internal object FbDirectPatch {
     // patched mapFrameBuffer site: adds r0,r4,#0 ; b ; nop ; cmp r0,#0 ; bne +6 ; ldr r1,[sp,#S] ; adds r0,r4,#0
     private val DONE_SIG = intArrayOf(0x20, 0x1c, 0x09, 0xe0, 0xc0, 0x46, 0x00, 0x28, 0x06, 0xd1, ANY, 0x99, 0x20, 0x1c)
 
+    // ---- layout B: the m5 / pre-1.0 libui (m5-rc15), same design, different code generation
+    //   mapFrameBuffer, the no-flip branch (a jump target, not next to the flag test):
+    //     ldr r0,[sp,#S] ; bl malloc ; cmp r0,#0 ; beq fail ; str r0,[sp,#T] ; b back
+    //   -> `adds r0,r4,#0 ; nop ; nop` in place of `ldr ; bl`: buffer 1 is the mapped framebuffer (r4) as well
+    private val MAP_B_SIG = intArrayOf(
+        ANY, 0x98, ANY, 0xf7, ANY, ANY,                          // ldr r0,[sp,#S] ; bl malloc
+        0x00, 0x28, ANY, 0xd0, ANY, 0x90, ANY, 0xe7,             // cmp r0,#0 ; beq ; str r0,[sp,#T] ; b
+    )
+    private const val MAP_B_AT = 0
+    private val MAP_B_NEW = intArrayOf(0x20, 0x1c, 0xc0, 0x46, 0xc0, 0x46) // adds r0,r4,#0 ; nop ; nop
+    private val MAP_B_DONE = intArrayOf(0x20, 0x1c, 0xc0, 0x46, 0xc0, 0x46, 0x00, 0x28, ANY, 0xd0, ANY, 0x90)
+
+    //   ~EGLDisplaySurface (D1 and D2 are two copies of the same code):
+    //     movs r0,#0xb4 ; ldr r3,[r4,r0] ; lsls r2,r3,#31 ; bmi skip ; movs r2,#0x9c ; ldr r0,[r4,r2] ; bl free
+    private val DTOR_B_SIG = intArrayOf(
+        0xb4, 0x20, 0x23, 0x58, 0xda, 0x07, ANY, 0xd4, 0x9c, 0x22, 0xa0, 0x58, ANY, 0xf7,
+    )
+
     /** Every offset where [sig] matches and [accept] agrees (Thumb code is 2-byte aligned). */
     private fun findAll(d: ByteArray, sig: IntArray, accept: (Int) -> Boolean = { true }): List<Int> {
         val hits = ArrayList<Int>()
@@ -73,14 +91,28 @@ internal object FbDirectPatch {
     fun patch(d: ByteArray): Boolean {
         val m = mapSite(d)
         val t = dtorSite(d)
-        if (m.size != 1 || t.size != 1) return false
+        if (m.size != 1 || t.size != 1) return patchB(d)
         for (k in MAP_NEW.indices) d[m[0] + k] = MAP_NEW[k].toByte()
         // bmi -> b, same target: Thumb B (0xE000 | imm11) has the same low byte as the bmi's imm8
         d[t[0] + 5] = 0xe0.toByte()
         return true
     }
 
-    fun alreadyPatched(d: ByteArray): Boolean = findAll(d, DONE_SIG).isNotEmpty()
+    fun alreadyPatched(d: ByteArray): Boolean = findAll(d, DONE_SIG).isNotEmpty() || findAll(d, MAP_B_DONE).isNotEmpty()
+
+    /** Layout B (see MAP_B_SIG): one mapFrameBuffer site and at least one destructor copy. */
+    private fun siteCountsB(d: ByteArray): Pair<Int, Int> =
+        findAll(d, MAP_B_SIG).size to findAll(d, DTOR_B_SIG) { (d[it + 6].toInt() and 0xff) < 0x80 }.size
+
+    private fun patchB(d: ByteArray): Boolean {
+        val m = findAll(d, MAP_B_SIG)
+        val t = findAll(d, DTOR_B_SIG) { (d[it + 6].toInt() and 0xff) < 0x80 }
+        if (m.size != 1 || t.isEmpty() || t.size > 2) return false
+        val at = m[0] + MAP_B_AT
+        for (k in MAP_B_NEW.indices) d[at + k] = MAP_B_NEW[k].toByte()
+        for (x in t) d[x + 7] = 0xe0.toByte()   // bmi skip -> b skip (same target, same low byte)
+        return true
+    }
 
     /** Every libui.so that can be in the tree (regular files only, nothing outside [root]). */
     private fun candidates(root: File): List<File> {
@@ -97,8 +129,23 @@ internal object FbDirectPatch {
         if (!f.isFile || Files.isSymbolicLink(f.toPath())) return
         if (!f.canonicalPath.startsWith(root.canonicalPath + File.separator)) return
         val d = f.readBytes()
-        if (alreadyPatched(d)) return
+        if (alreadyPatched(d)) { log("display: ${f.relativeTo(root).path} already carries the direct-to-fb0 patch"); return }
         val orig = d.copyOf()
+        // (pre-1.0 builds such as m5-rc15 log "page flipping not supported" and stay black; with no line here the account of
+        // why the patch did not apply was missing: the counts say whether the code of this build differs or is ambiguous)
+        val mapHits = mapSite(d).size
+        val dtorHits = dtorSite(d).size
+        val (mapB, dtorB) = siteCountsB(d)
+        val matchesA = mapHits == 1 && dtorHits == 1
+        val matchesB = mapB == 1 && dtorB in 1..2
+        if (!matchesA && !matchesB) {
+            val text = String(d, Charsets.ISO_8859_1)
+            val at = text.indexOf("page flipping not supported")
+            log("display: ${f.relativeTo(root).path} (${d.size} bytes) NOT patched: layout A map/dtor matches=$mapHits/$dtorHits (1/1 needed), layout B map/dtor matches=$mapB/$dtorB (1/1-2 needed); " +
+                "message string ${if (at >= 0) "at 0x" + at.toString(16) else "not found"}; ELF class ${d.getOrNull(4)?.toInt()}, machine 0x" +
+                (if (d.size > 19) (((d[19].toInt() and 0xff) shl 8) or (d[18].toInt() and 0xff)).toString(16) else "?"))
+            return
+        }
         if (patch(d)) {
             val bak = File(f.parentFile, "libui.so.aemu-orig")
             if (!bak.exists()) bak.writeBytes(orig)

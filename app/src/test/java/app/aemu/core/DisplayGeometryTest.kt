@@ -34,4 +34,28 @@ class DisplayGeometryTest {
         assertEquals(1080 to 2400, DisplayGeometry.natural(2400, 1080, 1))
         assertEquals(1080 to 2400, DisplayGeometry.natural(1080, 2400, 0))
     }
+    @Test fun availableAreaSkipsTheControlStrip() {
+        assertEquals(DisplayGeometry.Rect(100, 180, 0, 0), DisplayGeometry.available(100, 200, 20, 0, false))
+        assertEquals(DisplayGeometry.Rect(180, 100, 20, 0), DisplayGeometry.available(200, 100, 20, 3, false))
+        assertEquals(DisplayGeometry.Rect(100, 200, 0, 0), DisplayGeometry.available(100, 200, 20, 0, true))
+    }
+    @Test fun draggedCornerKeepsOppositeCornerAndStaysInside() {
+        val area = DisplayGeometry.Rect(100, 200, 0, 0)
+        val cur = DisplayGeometry.Rect(60, 100, 20, 30)
+        val a = DisplayGeometry.dragCorner(area, cur, DisplayGeometry.Corner.BOTTOM_RIGHT, 90, 180, 20, 20)
+        assertEquals(DisplayGeometry.Rect(70, 150, 20, 30), a)
+        val out = DisplayGeometry.dragCorner(area, cur, DisplayGeometry.Corner.BOTTOM_RIGHT, 500, 900, 20, 20)
+        assertEquals(DisplayGeometry.Rect(80, 170, 20, 30), out)
+        val tl = DisplayGeometry.dragCorner(area, cur, DisplayGeometry.Corner.TOP_LEFT, -50, -50, 20, 20)
+        assertEquals(DisplayGeometry.Rect(80, 130, 0, 0), tl)
+        val tiny = DisplayGeometry.dragCorner(area, cur, DisplayGeometry.Corner.TOP_LEFT, 79, 129, 20, 20)
+        assertEquals(DisplayGeometry.Rect(20, 20, 60, 110), tiny)
+    }
+    @Test fun placementSurvivesAChangedAreaAndNeverLeavesIt() {
+        val f = DisplayGeometry.fractions(DisplayGeometry.Rect(100, 200, 0, 0), DisplayGeometry.Rect(50, 100, 10, 20))
+        val p = DisplayGeometry.place(DisplayGeometry.Rect(200, 100, 0, 0), f, 10, 10)
+        assertEquals(DisplayGeometry.Rect(100, 50, 20, 10), p)
+        val big = DisplayGeometry.place(DisplayGeometry.Rect(100, 100, 5, 5), DisplayGeometry.Frac(0.9f, 0.9f, 0.9f, 0.9f), 10, 10)
+        assertTrue(big.left >= 5 && big.top >= 5 && big.left + big.width <= 105 && big.top + big.height <= 105)
+    }
 }

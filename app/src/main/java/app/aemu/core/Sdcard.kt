@@ -56,7 +56,7 @@ object Sdcard {
             }
         }
         ctx.getExternalFilesDir(null)?.let { tries.add(File(it, "sdcard-${img.id}")) }
-        tries.add(File(ctx.filesDir, "sdcard-${img.id}"))
+        tries.add(File(ctx.filesDir.canonicalFile, "sdcard-${img.id}"))   // canonical: see ImageStore.imagesDir
         for (t in tries) if (writable(t)) return t else log("sdcard: ${t.absolutePath} not writable, trying next")
         log("sdcard: no writable location")
         return null

@@ -186,7 +186,11 @@ object DiagExport {
         File("/proc").listFiles()?.forEach { d ->
             val pid = d.name.toIntOrNull() ?: return@forEach
             val cmd = runCatching { String(File(d, "cmdline").readBytes(), Charsets.ISO_8859_1) }.getOrNull() ?: return@forEach
-            if (!cmd.contains(marker) || !cmd.contains("/system/bin/app_process") || cmd.contains("aemu-stubs.jar") ||
+            // Modified for AEmulator Plus (2026-11-07): the native arm64 engine's command line is "<libaemu64_N.so> <guest path> <argv...>"
+            // and has no image root in it, so the marker never matched: "SIGQUIT sent to 0 processes", no stack dump of a
+            // system_server that hangs (Android 12 / 13 stop right after StartFontManagerService) and no word about it anywhere.
+            val native = vm.engine == Engine.N64 && cmd.contains("libaemu64_")
+            if (!(cmd.contains(marker) || native) || !cmd.contains("/system/bin/app_process") || cmd.contains("aemu-stubs.jar") ||
                 cmd.contains("aemu-bt.jar") || cmd.contains(WifiEmu.JAR_NAME) || cmd.contains("aemu-sensorhub.jar")) return@forEach
             val comm = runCatching { File(d, "comm").readText().trim() }.getOrDefault("?")
             val threads = runCatching {
@@ -201,7 +205,7 @@ object DiagExport {
             if (runCatching { android.os.Process.sendSignal(pid, 3) }.isSuccess) signalled++
         }
         sb.append("SIGQUIT sent to $signalled processes\n\n")
-        sb.append(nativeServiceDump(marker))
+        sb.append(nativeServiceDump(marker, vm.engine == Engine.N64))
         // the catcher writes each process's stacks one after another; give them time (the emulated guest is slow)
         Thread.sleep(4000)
         sb.append("== new /data/anr/traces.txt content\n")
@@ -223,7 +227,7 @@ object DiagExport {
      * its wait channel, and the files the process holds open. Read-only; what the host will not show is left as "?".
      * Made to see why a service does not exit (the Android Things boot animation keeps the board's I2C bus claimed).
      */
-    private fun nativeServiceDump(marker: String): String {
+    private fun nativeServiceDump(marker: String, nativeEngine: Boolean = false): String {
         val sb = StringBuilder("== guest native programs (host view: pid, program, then tid:comm:state:syscall:wchan per thread, then open files)\n")
         File("/proc").listFiles()?.sortedBy { it.name.toIntOrNull() ?: 0 }?.forEach { d ->
             val pid = d.name.toIntOrNull() ?: return@forEach
@@ -231,7 +235,9 @@ object DiagExport {
             // the native engine's command line is "<qemu> <guest path of the program> <argv...>" - the guest path has no image
             // root in it, so the image cannot be recognised by it; every process of this app's uid that is not the app itself or
             // a Dalvik process (those are in the list above) is a guest program
-            if (pid == android.os.Process.myPid() || cmd.isEmpty() || cmd.contains("/system/bin/app_process")) return@forEach
+            // (the native engine's Dalvik processes - zygote, system_server - are listed here too, with the syscall and wait
+            // channel of every thread: the list above cannot show where a hung system_server is blocked)
+            if (pid == android.os.Process.myPid() || cmd.isEmpty() || (!nativeEngine && cmd.contains("/system/bin/app_process"))) return@forEach
             val prog = cmd.split('\u0000').filter { it.isNotEmpty() }.joinToString(" ").replace(marker, "<img>/").take(160)
             sb.append("$pid $prog\n")
             File(d, "task").listFiles()?.sortedBy { it.name.toIntOrNull() ?: 0 }?.forEach { t ->
@@ -358,7 +364,7 @@ object DiagExport {
         appendLine("settings: mtMode=${s.mtMode}, touchHz=${s.touchHz}, navButtons=${s.navButtons}")
         appendLine("radio: enabled=${s.radio}, cdma=${s.cdma ?: "auto"}, networkType=${NetworkType.label(s.networkType)}")
         appendLine("display: ${s.width}x${s.height}")
-        appendLine("input: guest clients connected=${vm.input.connected} [${vm.input.clientInfo()}], trackball=${vm.input.trackballConnected}, events sent=${vm.input.sent}, effective mtMode=${vm.input.mtMode}")
+        appendLine("input: guest clients connected=${vm.input.connected} [${vm.input.clientInfo()}], trackball=${vm.input.trackballConnected}, ${vm.input.inputModeInfo()}, events sent=${vm.input.sent}, effective mtMode=${vm.input.mtMode}")
         appendLine("strace: ${if (File(p.bin, "strace.keep").exists()) "on (run/strace.keep exists)" else "off"}")
         appendLine()
         appendLine("-- guest /dev/input and fb --")
@@ -432,6 +438,19 @@ object DiagExport {
             val hasDex = runCatching { java.util.zip.ZipFile(f).use { z -> z.getEntry("classes.dex") != null } }.getOrNull()
             appendLine("system/framework/$jar: " + (if (f.isFile) "${f.length()} bytes, classes.dex inside=$hasDex" else "missing"))
         }
+        appendLine()
+        // Modified for AEmulator Plus (2026-11-06): a Dalvik app_process that dies in libdvm (SIGSEGV addr 0x2c) is a class that the
+        // runtime registers but no boot jar defines; the list the VM gets and the jars it could have got are what tells which.
+        appendLine("-- boot class path (Dalvik) --")
+        runCatching {
+            appendLine("firmware list: ${vm.img.bootclasspath}")
+            val r = BootClasspathRepair.repair(p.root, vm.img.bootclasspath)
+            appendLine(r.report())
+            appendLine("exported: ${r.bootclasspath}")
+            if (r.undefined > 0) appendLine("classes libandroid_runtime names that no jar defines: ${r.undefined}")
+            File(p.root, "system/framework").listFiles()?.filter { it.isFile && it.name.endsWith(".jar") }?.sortedBy { it.name }
+                ?.let { jars -> appendLine("system/framework jars (${jars.size}): " + jars.joinToString { it.name }) }
+        }.onFailure { appendLine("boot class path: ${it.message}") }
         appendLine()
         appendLine("-- GL drivers (where SwiftShader and the bridge are in the guest tree) --")
         for (d in listOf("vendor/lib64/egl", "system/lib64/egl", "system/vendor/lib64/egl", "vendor/lib/egl", "system/lib/egl")) {
@@ -616,6 +635,8 @@ object DiagExport {
         }
         // the audio HAL host dlopen()s its implementation by bare name: which of them the tree has, and whether the vendor
         // namespace (/vendor/lib, /odm/lib) reaches it directly
+        appendLine("HAL files set aside (system/.aemu-parked, hw modules and impls):")
+        File(root, "system/.aemu-parked").list().orEmpty().filter { "#hw#" in it && it.endsWith(".so") }.sorted().forEach { appendLine("  $it") }
         appendLine("audio HAL implementations (the engine's host asks for these by bare name):")
         for (name in AudioImplLibs.HOST_IMPLS) {
             val reach = AudioImplLibs.reachable(root, name)

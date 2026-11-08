@@ -155,7 +155,8 @@ object WatchdogPatch {
      * Patches every classes*.dex of [jar] that has the Watchdog; rewrites the jar only when something changed.
      * [backup] gets a copy of the jar as it was first (when it does not exist yet).
      */
-    fun patchJar(jar: File, backup: File?): Result {
+    fun patchJar(jar: File, backup: File?, patcher: ((ByteArray) -> Result)? = null): Result {
+        val patch: (ByteArray) -> Result = patcher ?: { b -> patchDex(b) }
         val dexNames = ArrayList<String>()
         val patched = HashMap<String, ByteArray>()
         var seen = Outcome.ABSENT
@@ -165,7 +166,7 @@ object WatchdogPatch {
                 if (e.isDirectory || !dexName.matches(e.name)) continue
                 dexNames += e.name
                 val bytes = z.getInputStream(e).use { it.readBytes() }
-                val r = patchDex(bytes)
+                val r = patch(bytes)
                 when (r.outcome) {
                     Outcome.PATCHED -> { patched[e.name] = bytes; seen = Outcome.PATCHED }
                     Outcome.ALREADY -> if (seen != Outcome.PATCHED) seen = Outcome.ALREADY

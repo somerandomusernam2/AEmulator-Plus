@@ -50,8 +50,8 @@ object DexTools {
         fun protoReturn(p: Int) = type(u4(d, protoIdsOff + 12 * p + 4))
     }
 
-    /** code_item offsets of every method called [name] in class [cls] (only void ones with [voidOnly]). Null when the class is not in this dex. */
-    internal fun methodCode(x: Dex, name: String, cls: String, voidOnly: Boolean = false): List<Int>? {
+    /** code_item offsets of every method called [name] in class [cls] (only void ones with [voidOnly], only those returning type [returns] when given). Null when the class is not in this dex. */
+    internal fun methodCode(x: Dex, name: String, cls: String, voidOnly: Boolean = false, returns: String? = null): List<Int>? {
         val d = x.d
         for (c in 0 until x.classDefs) {
             val def = x.classDefsOff + 32 * c
@@ -70,7 +70,8 @@ object DexTools {
                     val (_, n2) = uleb(d, o); o += n2
                     val (code, n3) = uleb(d, o); o += n3
                     method += diff
-                    if (code != 0 && x.methodName(method) == name && (!voidOnly || x.protoReturn(x.methodProto(method)) == "V")) out += code
+                    if (code != 0 && x.methodName(method) == name && (!voidOnly || x.protoReturn(x.methodProto(method)) == "V") &&
+                        (returns == null || x.protoReturn(x.methodProto(method)) == returns)) out += code
                 }
             }
             return out

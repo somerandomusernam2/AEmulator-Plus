@@ -87,13 +87,21 @@ object GrallocProbe {
      * known one. Sony 4.2.x libui calls `alloc` at +0x40 (as AOSP) but `free` at +0x48 (AOSP: +0x44): with the AOSP device the
      * first freed buffer (BufferLiberator thread) calls NULL, SurfaceFlinger dies (SIGSEGV pc=0, lr libui+0x74c3) and zygote with it.
      * The store sequence `str r0,[r4,#0x40]; mov r0,r5; add r3,pc; str r1,[r4,#0x44]; str r3,[r4,#0x3c]` becomes the same with
-     * `str r1,[r4,#0x48]` (the device is 0x68 bytes, so +0x48 is inside it).
+     * `str r1,[r4,#0x48]` (the device is 0x68 bytes, so +0x48 is inside it), and `alloc` is also stored at +0x44 (see below).
      */
     fun withFreeAtSlot48(elf: ByteArray): ByteArray? {
         val start = openFunctionOffset(elf) ?: return null
-        val want = intArrayOf(0x6420, 0x4628, 0x447b, 0x6461, 0x63e3)
+        // str r0,[r4,#0x40]; mov r0,r5; add r3,pc; str r1,[r4,#0x44]; str r3,[r4,#0x3c]; str r4,[r6]; pop {r3-r7,pc}; nop
+        val want = intArrayOf(0x6420, 0x4628, 0x447b, 0x6461, 0x63e3, 0x6034, 0xbdf8, 0xbf00)
+        // Fixed for AEmulator Plus (2026-11-05): libui builds that free through +0x48 (Samsung KitKat, SM-G900A) also call
+        // `alloc` through +0x44 (`ldr r6,[r0,#0x44]; mov r1..r3; blx r6`), the slot vacated by moving `free`, so the first
+        // GraphicBuffer allocation called NULL (SurfaceFlinger SIGSEGV pc=0, lr libui+0x63a7, then a black screen forever).
+        // The device now carries alloc at +0x40 AND +0x44 and free at +0x48: both layouts work. The stores need one more
+        // halfword than before: `strd r0,r1,[r4,#0x44]` (4 bytes) takes the place of `str r1,[r4,#0x44]`, and the tail
+        // (`str r4,[r6]; pop`) moves up into the alignment nop that follows the function.
+        val repl = intArrayOf(0x6420, 0xe9c4, 0x0111, 0x4628, 0x447b, 0x63e3, 0x6034, 0xbdf8)
         var p = start
-        val end = minOf(start + 0x80, elf.size - 10)
+        val end = minOf(start + 0x80, elf.size - 2 * want.size)
         while (p <= end) {
             var ok = true
             for (k in want.indices) {
@@ -102,7 +110,10 @@ object GrallocProbe {
             }
             if (ok) {
                 val out = elf.copyOf()
-                out[p + 6] = 0xa1.toByte(); out[p + 7] = 0x64   // 0x6461 -> 0x64a1: str r1,[r4,#0x48]
+                for (k in repl.indices) {
+                    out[p + 2 * k] = (repl[k] and 0xff).toByte()
+                    out[p + 2 * k + 1] = ((repl[k] shr 8) and 0xff).toByte()
+                }
                 return out
             }
             p += 2

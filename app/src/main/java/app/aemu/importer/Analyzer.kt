@@ -106,7 +106,7 @@ class Analyzer(private val ctx: Context, private val paths: VmPaths, private val
         val warnings = ArrayList<String>()
         if (noBuildProp) warnings += ImportWarnings.NO_BUILD_PROP
         if (rcFiles.isEmpty() && dhdBcp == null && !legacy) warnings += ImportWarnings.NO_BOOT_IMG
-        // x86-32 runs (libqemu_i386.so); x86-64, MIPS and anything else the translators cannot run still gets the warning
+        // x86-32 (libqemu_kk_i386.so, 8.0+: libqemu_i386.so) and x86-64 (libqemu_x86_64.so) run; MIPS and anything else the translators cannot run still gets the warning
         if (GuestArch.isUnsupported(root, abi)) warnings += ImportWarnings.notArm(abi)
         if (api >= 21) warnings += ImportWarnings.experimental(release)
 
@@ -167,7 +167,7 @@ class Analyzer(private val ctx: Context, private val paths: VmPaths, private val
     }
 
     companion object {
-        const val VERSION = 19   // 19: "Desktop" tag from ro.product.system.device=desktop; 18: ICS developer builds (sdk 13, codename IceCreamSandwich) are API 14; 17: guest architecture (GuestArch) detected from the ELF files
+        const val VERSION = 20   // 20: an x86-64 firmware is recognised (GuestArch.X86_64, translated on the native engine), images imported earlier as "ARM" are re-analysed once; 19: "Desktop" tag from ro.product.system.device=desktop; 18: ICS developer builds (sdk 13, codename IceCreamSandwich) are API 14; 17: guest architecture (GuestArch) detected from the ELF files
 
         /**
          * Form-factor tag from ro.build.characteristics: if the line contains "tv" it is Google TV below API 18 and
@@ -175,6 +175,12 @@ class Analyzer(private val ctx: Context, private val paths: VmPaths, private val
          * "oogle/glass" (any case) is Glass OS and wins over the above. Null for
          * phones/tablets, which fall through to [skin].
          */
+        /** Added 2026-11-07: the TV half of [formFactorSkin], for a caller that has the ro.build.characteristics value and no skin (a line with "watch" as well is AOSP, not TV) */
+        internal fun isTvCharacteristics(line: String?): Boolean {
+            val l = line?.lowercase() ?: return false
+            return "tv" in l && "watch" !in l
+        }
+
         internal fun formFactorSkin(p: Map<String, String>, api: Int): String? {
             // "oogle/glass" skips the first letter: the fingerprint may say Google or google
             if (p["ro.build.fingerprint"]?.contains("oogle/glass", ignoreCase = true) == true) return "Glass OS"

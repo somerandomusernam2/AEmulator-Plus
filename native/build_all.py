@@ -172,8 +172,8 @@ def main():
     os.makedirs(common_dir, exist_ok=True)
     
     out_shim = os.path.join(common_dir, "libaemushim.so")
-    run([clang, "--target=armv7a-linux-androideabi21", "-march=armv7-a", "-mthumb", "-Os", "-fPIC", "-shared",
-         "-nostdlib", "-fvisibility=hidden", "-fno-stack-protector", "-ffreestanding", "-fno-builtin",
+    run([clang, "--target=armv7a-linux-androideabi21", "-march=armv7-a", "-mthumb", "-O2", "-fPIC", "-shared",
+         "-nostdlib", "-fvisibility=hidden", "-fno-stack-protector", "-ffreestanding", "-fno-builtin", "-I../bcmgpu",
          "-Wl,--hash-style=sysv", "-Wl,-z,norelro", "-Wl,--no-undefined", "-Wl,-soname,libaemushim.so",
          "-Wl,--build-id=none", "-o", out_shim, "aemushim.c", "crash.c", "-lc"], cwd=shim_dir)
     subprocess.run([strip, out_shim])

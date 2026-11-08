@@ -108,3 +108,12 @@ publishing notices or hashes does not remedy missing required source.
 - **2026-10-30 (2)**: a recovery that exits with code 159 (SIGSYS, killed by Android's app sandbox in a system call it does
   not allow) switches `run/recovery.strace` on, so the next try writes `run/recovery.trace`, and its tail goes into
   `run/recovery-last.log` (`GuestVm.kt`).
+- **2026-11-07**: two boot failures fixed (not boot-tested on a phone).
+  1. Android 12L (API 32) runs on kernel 31, whose runner (`native/guest64/31/run64.c`) did not translate `SO_PEERCRED`
+     (kernels 33+ do). The 32-bit zygote therefore saw system_server as the app's uid and died with "Only system UID is allowed
+     to connect to Zygote" (`zygote_secondary exited (code 0)`). The translation block of kernel 33 is now in kernel 31;
+     `libaemu64_31.so` is rebuilt from it.
+  2. Android 14 (kernel 34): the engine's audio service registered HAL 4.0 only, and 14's AudioFlinger found no usable
+     version ("Found no HAL version", null deref in `AudioFlinger::onFirstRef`, audioserver exit 139, black screen). The
+     engine's 4.0 implementation libraries are removed from `n64-34-own`, so the service registers 2.0 (its fallback), and the
+     manifests of `n64-34-own` / `n64-34-gsi` declare audio and audio.effect 2.0.

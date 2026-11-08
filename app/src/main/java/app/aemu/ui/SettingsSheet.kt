@@ -332,7 +332,7 @@ fun SettingsSheet(img: GuestImage, onDismiss: () -> Unit, onSave: (VmSettings, S
             Toggle(stringResource(R.string.vs_nav), stringResource(R.string.vs_nav_sub), s.showNavBar) { s = s.copy(showNavBar = it) }
             Toggle(stringResource(R.string.vs_guest_nav), stringResource(R.string.vs_guest_nav_sub), s.guestNavBar) { s = s.copy(guestNavBar = it) }
             Toggle(stringResource(R.string.vs_hide_menu), stringResource(R.string.vs_hide_menu_sub), s.hideMenuButton) { s = s.copy(hideMenuButton = it) }
-            NavigationSettings(s) { s = it }
+            NavigationSettings(s, app.aemu.core.LegacyFirmware.isPreRelease(img.release)) { s = it }
             Toggle(stringResource(R.string.vs_awake), stringResource(R.string.vs_awake_sub), s.keepScreenOn) { s = s.copy(keepScreenOn = it) }
             Toggle(stringResource(R.string.as_led), stringResource(R.string.as_led_sub), s.showLed) { s = s.copy(showLed = it) }
             Toggle(stringResource(R.string.vs_single), stringResource(R.string.vs_single_sub), s.mtMode == 4) { s = s.copy(mtMode = if (it) 4 else 0) }

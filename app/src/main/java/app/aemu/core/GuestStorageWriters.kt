@@ -21,7 +21,8 @@ internal object GuestStorageWriters {
             if (uid != Process.myUid()) continue
             val command = try { File(entry, "cmdline").readBytes().toString(Charsets.ISO_8859_1).replace('\u0000', ' ') }
                 catch (t: Exception) { if (!entry.exists()) continue else throw t }
-            check(!GuestWriterPolicy.matches(command, ctx.packageName, File(ctx.filesDir, "images").path)) {
+            check(!(GuestWriterPolicy.matches(command, ctx.packageName, ImageStore.imagesDir(ctx).path) ||
+                    GuestWriterPolicy.matches(command, ctx.packageName, File(ctx.filesDir, "images").path))) {
                 "Guest helper still running; shut down the VM first"
             }
         }

@@ -53,7 +53,23 @@
 #include <sys/ioctl.h>
 #include <linux/fb.h>
 
+#include <sys/socket.h>
+#include <sys/un.h>
+
 #include <hardware/hwcomposer2.h>
+
+#include "../grallocwrap/note.h"
+#include "../glbridge/common.h"
+extern int __system_property_get(const char *name, char *value);
+
+/* bionic's struct timespec (long fields) whatever header set builds this file: the zig/musl build (build-zig.sh) has a 64-bit
+ * time_t, which the guest's libc does not know (__clock_gettime64) */
+struct aemu_ts { long tv_sec; long tv_nsec; };
+extern int aemu_clock_gettime(int clk, struct aemu_ts *ts) __asm__("clock_gettime");
+extern int aemu_clock_nanosleep(int clk, int flags, const struct aemu_ts *req, struct aemu_ts *rem) __asm__("clock_nanosleep");
+#define timespec aemu_ts
+#define clock_gettime aemu_clock_gettime
+#define clock_nanosleep aemu_clock_nanosleep
 
 #define LOG_TAG "hwc2fb"
 extern int __android_log_print(int prio, const char *tag, const char *fmt, ...)
@@ -290,8 +306,37 @@ static void dmabuf_sync(int fd, int end) {
     ioctl(fd, 0x40086200, &flags);           /* DMA_BUF_IOCTL_SYNC, best effort */
 }
 
+/* Added for AEmulator Plus (2026-11-07): the GLES bridge's direct mode (debug.aemu.gl=3). SurfaceFlinger then composes on the
+ * phone's GPU, the client target is a buffer the HOST owns and its guest memory is never written, so copying it into fb0
+ * (below) shows black. The engine's gralloc leaves the host's buffer number in the buffer (meta_note); like native/hwchal
+ * this module sends that number to the host (OP_PRESENT) and the host shows its own frame. 0: not a host buffer or no
+ * renderer there, the caller copies the guest memory as before. */
+static int g_direct = -1, g_glfd = -1;
+static int direct_present(buffer_handle_t h) {
+    if (g_direct < 0) { char v[92] = {0}; g_direct = __system_property_get("debug.aemu.gl", v) > 0 && v[0] == '3'; }
+    if (!g_direct || !h) return 0;
+    struct meta_note *n = meta_note_at(h);
+    if (!n || n->magic != META_NOTE || !n->id || n->w <= 0 || n->h <= 0) return 0;
+    struct { uint32_t op, len; uint64_t id; uint32_t w, h; } __attribute__((packed)) q = { OP_PRESENT, 16, n->id, (uint32_t)n->w, (uint32_t)n->h };
+    uint32_t ok = 0;
+    for (int tries = 0; tries < 2; tries++) {
+        if (g_glfd < 0) {
+            struct sockaddr_un a; memset(&a, 0, sizeof(a)); a.sun_family = AF_UNIX;
+            strncpy(a.sun_path, AEMU_GL_SOCKET, sizeof(a.sun_path) - 1);
+            int fd = socket(AF_UNIX, SOCK_STREAM | SOCK_CLOEXEC, 0);
+            if (fd >= 0 && connect(fd, (struct sockaddr *)&a, sizeof(a)) < 0) { close(fd); fd = -1; }
+            if (fd < 0) { g_direct = 0; LOGE("direct: no renderer at %s, copying to fb0", AEMU_GL_SOCKET); return 0; }
+            g_glfd = fd;
+        }
+        if (write(g_glfd, &q, sizeof(q)) == (ssize_t)sizeof(q) && read(g_glfd, &ok, 4) == 4) return (int)ok;
+        close(g_glfd); g_glfd = -1;
+    }
+    return 0;
+}
+
 static void present_buffer(buffer_handle_t h) {
     if (!h) return;
+    if (direct_present(h)) { if (g_frames < 3) LOGI("direct: frame shown by the host"); g_frames++; return; }
     if (fb_open() < 0) { if ((g_failures++ % 120) == 0) LOGE("cannot open %s", g_fbpath); return; }
     const native_handle_t *nh = h;
     if (nh->numFds < 0 || nh->numInts < 0 || nh->numFds > 1024 || nh->numInts > 1024) return;

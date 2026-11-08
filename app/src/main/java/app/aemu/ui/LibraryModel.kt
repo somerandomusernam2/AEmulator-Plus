@@ -13,6 +13,8 @@ import app.aemu.core.GuestImage
 import app.aemu.core.ImageStore
 import app.aemu.core.VmSettings
 import app.aemu.importer.Importer
+import app.aemu.importer.PartitionChooser
+import app.aemu.importer.PartitionPrompt
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -27,6 +29,8 @@ data class ImportState(
     val log: List<String> = emptyList(),
     val error: String? = null,
     val done: GuestImage? = null,
+    /** Several images of one partition were found: the import waits for [LibraryModel.answerChoice]. */
+    val choice: PartitionPrompt? = null,
 )
 
 class LibraryModel(app: Application) : AndroidViewModel(app) {
@@ -35,6 +39,8 @@ class LibraryModel(app: Application) : AndroidViewModel(app) {
     private val _import = MutableStateFlow(ImportState())
     val import: StateFlow<ImportState> = _import
     private var importer: Importer? = null
+    /** The question the import thread is waiting on, if any (see [ask]). */
+    @Volatile private var pendingChoice: java.util.concurrent.CompletableFuture<Int>? = null
     /** The application context does not know the language picked in the app; this one does. */
     private val lctx: android.content.Context get() = app.aemu.AppPrefs.wrap(getApplication())
 
@@ -65,6 +71,7 @@ class LibraryModel(app: Application) : AndroidViewModel(app) {
             val imp = Importer(ctx,
                 onProgress = { step, p -> _import.value = _import.value.copy(step = step, progress = if (p >= 0) p else _import.value.progress.takeIf { it >= 0 } ?: -1f) },
                 log = { s -> log.add(s); _import.value = _import.value.copy(log = log.takeLast(50)) })
+            imp.chooser = PartitionChooser { prompt -> ask(prompt) }
             importer = imp
             try {
                 // умолчания из настроек приложения поверх того, что подобрал анализатор (экран, частоты)
@@ -74,6 +81,7 @@ class LibraryModel(app: Application) : AndroidViewModel(app) {
                 val img = if (name.endsWith(".aessvm", true)) raw else raw.copy(settings = raw.settings.copy(gpu = d.gpu, jit = d.jit, netProxy = d.netProxy,
                     showNavBar = d.showNavBar, navButtons = d.navButtons, trackball = d.trackball,
                     trackballDpad = d.trackballDpad, trackballStepDp = d.trackballStepDp,
+                    mouseKeyboard = d.mouseKeyboard, keypad = d.keypad,
                     keepScreenOn = d.keepScreenOn, showLed = d.showLed))
                 if (img != raw) ImageStore.save(ctx, img)
                 _import.value = _import.value.copy(active = false, done = img, step = lctx.getString(R.string.import_ready), progress = 1f)
@@ -101,7 +109,21 @@ class LibraryModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
-    fun cancelImport() { importer?.cancelled = true; cloneCancelled = true }
+    /** Runs on the import thread: shows the question and waits for the answer (the position of an option, or CANCEL). */
+    private fun ask(prompt: PartitionPrompt): Int {
+        val answer = java.util.concurrent.CompletableFuture<Int>()
+        pendingChoice = answer
+        _import.value = _import.value.copy(choice = prompt)
+        return try { answer.get() } catch (_: InterruptedException) { PartitionChooser.CANCEL } finally {
+            pendingChoice = null
+            _import.value = _import.value.copy(choice = null)
+        }
+    }
+
+    /** The answer to [ImportState.choice]: the position of the option picked, or [PartitionChooser.CANCEL] to stop the import. */
+    fun answerChoice(index: Int) { pendingChoice?.complete(index) }
+
+    fun cancelImport() { importer?.cancelled = true; cloneCancelled = true; pendingChoice?.complete(PartitionChooser.CANCEL) }
 
     /** A machine is running (they live in the :vm process); its files must not be changed under it. */
     fun vmRunning(): Boolean {

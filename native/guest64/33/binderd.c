@@ -18,6 +18,7 @@
 #include <sys/epoll.h>
 #include <sys/mman.h>
 #include <sys/resource.h>
+#include <sys/stat.h>
 #include <sys/socket.h>
 #include <sys/un.h>
 #include <unistd.h>
@@ -66,6 +67,7 @@ typedef uint32_t u32;
 #define T_FDA 0x66646185u
 #define T_PTR 0x70742a85u
 #define TF_ONE_WAY 1
+#define MAX_TXN (1ull << 30)      /* no buffer of a real transaction comes near this; it only keeps the sums below from overflowing */
 
 struct fbo { u32 type, flags; u64 binder, cookie; };   /* flat_binder_object, 64-bit; handle = low word of binder */
 
@@ -75,14 +77,16 @@ enum { W_TXN = 1, W_COMPLETE, W_NODE, W_DEAD_BINDER, W_CLEAR_DONE, W_ERROR };
 struct work { struct work *next; int type, deferred; struct txn *t; struct node *node; u64 cookie; u32 err; };
 struct wq { struct work *head, *tail; };
 
-struct ref { struct proc *proc; u32 desc; struct node *node; int strong, weak, has_death; u64 death; struct ref *next_in_node; };
+/* strong / weak count everything that keeps the reference alive: what the client acquired itself (ustrong / uweak) and what
+ * transaction buffers hold for it. A client can give back only its own; the buffers' share is released with the buffer. */
+struct ref { struct proc *proc; u32 desc; struct node *node; int strong, weak, ustrong, uweak, has_death; u64 death; struct ref *next_in_node; };
 struct node {
     struct proc *owner; u64 ptr, cookie; int internal_strong, local_strong, local_weak, nrefs, has_strong, has_weak, queued, has_async;
     int pend_strong, pend_weak;     /* BR_ACQUIRE / BR_INCREFS sent, not yet confirmed: the node keeps a reference of its own until then */
     struct ref *refs; struct wq async; struct node *hnext;
 };
 struct held { struct ref *ref; struct node *node; int strong; };      /* what a transaction buffer keeps alive */
-struct dbuf { struct dbuf *prev, *next; struct proc *proc; struct node *async_node; int nheld; struct held *held; };
+struct dbuf { struct dbuf *prev, *next; struct proc *proc; u64 id; struct node *async_node; int nheld; struct held *held; };
 struct txn {
     struct thread *from, *to_thread; struct proc *to_proc; struct txn *from_parent, *to_parent;
     struct node *target; u32 code, flags; int reply, need_reply, sender_pid; u32 sender_euid;
@@ -105,6 +109,7 @@ static struct node *ctx_mgr;
 static struct thread *cur;
 static int kick_any;
 static int ep, verbose;
+static u64 buf_seq;                     /* buffers are named to the client by number, never by address */
 
 static void logf_(const char *fmt, ...) {
     va_list ap; va_start(ap, fmt); vfprintf(stderr, fmt, ap); va_end(ap); fputc('\n', stderr);
@@ -215,7 +220,19 @@ static void held_release(struct held *h, int n) {
 
 // ------------------------------------------------------------------------------------------- transactions
 
+/* A transaction sits on the stack of its sender (linked through from_parent) from the call until the answer, and on the stack of
+ * the thread serving it (to_parent) from delivery until the reply. Either end can leave first, and a thread can be handed a nested
+ * call while its own call is still out, so a transaction is not always on top of the stack it is on: it is taken out wherever it is. */
+static struct txn **stack_link(struct thread *th, struct txn *x) { return x->to_thread == th ? &x->to_parent : &x->from_parent; }
+static void stack_remove(struct thread *th, struct txn *t) {
+    if (!th) return;
+    for (struct txn **pp = &th->stack; *pp; pp = stack_link(th, *pp))
+        if (*pp == t) { *pp = *stack_link(th, t); return; }
+}
+
 static void txn_free(struct txn *t) {
+    stack_remove(t->from, t); stack_remove(t->to_thread, t);        /* nothing may keep pointing at it */
+    t->from = t->to_thread = 0;
     if (t->held) held_release(t->held, t->nheld);
     for (int i = 0; i < t->nfds; i++) close(t->fds[i]);
     free(t->fds);
@@ -233,7 +250,7 @@ static void thread_error(struct thread *th, u32 err) {
 /* the caller of t will never get an answer */
 static void txn_fail(struct txn *t, u32 err) {
     struct thread *from = t->from;
-    if (from && from->stack == t) { from->stack = t->from_parent; thread_error(from, err); }
+    if (from) { stack_remove(from, t); t->from = 0; thread_error(from, err); }
     txn_free(t);
 }
 
@@ -307,35 +324,50 @@ static void queue_txn(struct txn *t, struct thread *target) {
     else { wq_push(&t->to_proc->todo, w); kick_proc(t->to_proc); }
 }
 
-static void do_txn(struct thread *th, struct c_txn *m, char *payload, int *fds, int nfds) {
+static void do_txn(struct thread *th, struct c_txn *m, size_t len, int *fds, int nfds) {
+    char *payload = (char *)(m + 1);
     struct proc *p = th->proc;
     struct txn *t = zalloc(sizeof *t);
     int reply = m->cmd == BC_REPLY;
     t->memfd = -1; t->code = m->code; t->flags = m->tflags; t->reply = reply;
     t->sender_pid = p->pid; t->sender_euid = m->h.euid;
     t->data_size = m->data_size; t->offsets_size = m->offsets_size; t->extra_size = m->extra_size;
+    /* the sizes come from the client: nothing is added up before they are known to be sane */
+    if (t->data_size > MAX_TXN || t->offsets_size > MAX_TXN || t->extra_size > MAX_TXN || (t->offsets_size & 7)) {
+        for (int i = 0; i < nfds; i++) close(fds[i]);
+        free(t); thread_error(th, BR_FAILED_REPLY); return;
+    }
     u64 total = ((t->data_size + 7) & ~7UL) + t->offsets_size;
     char *data;
     if (m->h.flags & F_BIG) {
+        struct stat st;
         if (nfds < 1) { free(t); thread_error(th, BR_FAILED_REPLY); return; }
         t->memfd = fds[0]; fds++; nfds--;
+        /* a descriptor shorter than the buffer it claims to hold would kill this process with SIGBUS on first touch (the padding
+         * after the data is not written by the front end when there is nothing behind it) */
+        u64 need = (t->offsets_size || t->extra_size ? ((t->data_size + 7) & ~7UL) : t->data_size) + t->offsets_size + t->extra_size;
+        if (fstat(t->memfd, &st) < 0 || (u64)st.st_size < need) { close(t->memfd); for (int i = 0; i < nfds; i++) close(fds[i]); free(t); thread_error(th, BR_FAILED_REPLY); return; }
         data = mmap(0, total ? total : 1, PROT_READ | PROT_WRITE, MAP_SHARED, t->memfd, 0);
         if (data == MAP_FAILED) { close(t->memfd); for (int i = 0; i < nfds; i++) close(fds[i]); free(t); thread_error(th, BR_FAILED_REPLY); return; }
     } else {
-        if (total + t->extra_size > INLINE_MAX + 4096) { free(t); thread_error(th, BR_FAILED_REPLY); return; }
-        data = t->data = malloc(total + t->extra_size + 8);
-        memcpy(data, payload, total + t->extra_size);
+        if (total + t->extra_size > INLINE_MAX + 4096) { for (int i = 0; i < nfds; i++) close(fds[i]); free(t); thread_error(th, BR_FAILED_REPLY); return; }
+        /* what the message does not carry is zero (the front end leaves out the padding after the data when no offsets follow) */
+        u64 need = total + t->extra_size, have = len - sizeof *m;
+        data = t->data = malloc(need + 8);
+        memcpy(data, payload, need < have ? need : have);
+        if (need > have) memset(data + have, 0, need - have);
     }
     if (nfds) { t->fds = malloc(nfds * sizeof(int)); memcpy(t->fds, fds, nfds * sizeof(int)); t->nfds = nfds; }
 
     struct thread *target_thread = 0; struct proc *to = 0; struct txn *in_reply_to = 0;
     u32 err = BR_FAILED_REPLY;
     if (reply) {
+        /* only the call this thread is serving can be answered: when the top of its stack is a call of its own (or there is
+         * none) the reply is refused and nobody else's transaction is touched, as in the driver */
+        if (!th->stack || th->stack->to_thread != th) goto fail;
         in_reply_to = th->stack;
-        if (!in_reply_to || in_reply_to->to_thread != th) goto fail;
-        th->stack = in_reply_to->to_parent;
         target_thread = in_reply_to->from;
-        if (!target_thread) { err = BR_DEAD_REPLY; in_reply_to->from = 0; txn_free(in_reply_to); in_reply_to = 0; goto fail; }
+        if (!target_thread) { err = BR_DEAD_REPLY; goto fail; }      /* the caller is gone */
         to = target_thread->proc;
     } else {
         struct node *n;
@@ -344,8 +376,9 @@ static void do_txn(struct thread *th, struct c_txn *m, char *payload, int *fds, 
         if (!n) goto fail;
         if (!n->owner) { err = BR_DEAD_REPLY; goto fail; }
         t->target = n; to = n->owner;
+        if (to == p) goto fail;             /* a process cannot call itself (the driver refuses this as well) */
         if (!(t->flags & TF_ONE_WAY) && th->stack) {
-            for (struct txn *x = th->stack; x; x = x->from_parent)
+            for (struct txn *x = th->stack; x; x = *stack_link(th, x))
                 if (x->from && x->from->proc == to) target_thread = x->from;
         }
     }
@@ -359,8 +392,7 @@ static void do_txn(struct thread *th, struct c_txn *m, char *payload, int *fds, 
 
     struct work *done = mkwork(W_COMPLETE);
     if (reply) {
-        target_thread->stack = in_reply_to->from_parent;
-        in_reply_to->from = 0; txn_free(in_reply_to);
+        txn_free(in_reply_to);              /* off both stacks, wherever it sits on the caller's */
         wq_push(&th->todo, done);
         queue_txn(t, target_thread);
     } else if (!(t->flags & TF_ONE_WAY)) {
@@ -377,7 +409,7 @@ static void do_txn(struct thread *th, struct c_txn *m, char *payload, int *fds, 
 fail:
     V("txn failed: pid %d handle %u code %u err %x", p->pid, m->handle, m->code, err);
     txn_free(t);
-    if (reply && in_reply_to) { th->stack = in_reply_to->to_parent; txn_fail(in_reply_to, BR_FAILED_REPLY); }
+    if (reply && in_reply_to) txn_fail(in_reply_to, BR_FAILED_REPLY);      /* the caller learns its call failed, if it is still there */
     thread_error(th, err);
 }
 
@@ -452,12 +484,12 @@ static void deliver(struct thread *th) {
     if (k) { iov[ni].iov_base = br; iov[ni++].iov_len = h.br_size; }
     if (t) {
         struct dbuf *b = zalloc(sizeof *b);
-        b->proc = p; b->held = t->held; b->nheld = t->nheld; t->held = 0; t->nheld = 0;
+        b->proc = p; b->id = ++buf_seq; b->held = t->held; b->nheld = t->nheld; t->held = 0; t->nheld = 0;
         b->next = p->bufs; if (p->bufs) p->bufs->prev = b; p->bufs = b;
         h.flags |= F_TXN; h.cmd = t->reply ? BR_REPLY : BR_TRANSACTION;
         h.code = t->code; h.tflags = t->flags; h.sender_pid = t->from || t->reply ? t->sender_pid : 0; h.sender_euid = t->sender_euid;
         if (t->target) { h.ptr = t->target->ptr; h.cookie = t->target->cookie; }
-        h.data_size = t->data_size; h.offsets_size = t->offsets_size; h.extra_size = t->extra_size; h.id = (u64)(uintptr_t)b;
+        h.data_size = t->data_size; h.offsets_size = t->offsets_size; h.extra_size = t->extra_size; h.id = b->id;
         if (t->memfd >= 0) { h.flags |= F_BIG; pass[np++] = t->memfd; }
         else if (t->data_size || t->offsets_size) { iov[ni].iov_base = t->data; iov[ni++].iov_len = ((t->data_size + 7) & ~7UL) + t->offsets_size + t->extra_size; }
         for (int i = 0; i < t->nfds && np < 254; i++) pass[np++] = t->fds[i];
@@ -489,6 +521,11 @@ static void deliver(struct thread *th) {
 
 // ------------------------------------------------------------------------------------------- commands
 
+static struct dbuf *buf_find(struct proc *p, u64 id) {
+    for (struct dbuf *b = p->bufs; b; b = b->next) if (b->id == id) return b;
+    return 0;
+}
+
 static void buf_free(struct proc *p, struct dbuf *b) {
     if (b->prev) b->prev->next = b->next; else p->bufs = b->next;
     if (b->next) b->next->prev = b->prev;
@@ -519,10 +556,19 @@ static void do_bcs(struct thread *th, u32 *c, int words) {
             /* a strong reference cannot be made out of a weak one once the object has no strong references left
              * (its owner may have destroyed it); the driver refuses this the same way */
             if (r && cmd == BC_ACQUIRE && !r->strong && !r->node->internal_strong && r->node != ctx_mgr) { V("pid %d: acquire of a released node refused", p->pid); break; }
-            if (r) ref_inc(r, cmd == BC_ACQUIRE);
+            if (r) { ref_inc(r, cmd == BC_ACQUIRE); if (cmd == BC_ACQUIRE) r->ustrong++; else r->uweak++; }
             break;
         }
-        case BC_RELEASE: case BC_DECREFS: { struct ref *r = ref_get(p, (u32)a); if (r) ref_dec(r, cmd == BC_RELEASE); break; }
+        case BC_RELEASE: case BC_DECREFS: {
+            /* a client gives back what it took, no more: the rest of the counts belong to transaction buffers, which drop them
+             * when they are freed (releasing them here would leave those buffers pointing at a reference that is gone) */
+            struct ref *r = ref_get(p, (u32)a);
+            if (!r) break;
+            if (cmd == BC_RELEASE) { if (r->ustrong <= 0) { V("pid %d: release of handle %u it does not hold", p->pid, (u32)a); break; } r->ustrong--; }
+            else { if (r->uweak <= 0) { V("pid %d: decrefs of handle %u it does not hold", p->pid, (u32)a); break; } r->uweak--; }
+            ref_dec(r, cmd == BC_RELEASE);
+            break;
+        }
         case BC_INCREFS_DONE: case BC_ACQUIRE_DONE: {
             struct node *n = node_get(p, a, b, 0);
             if (!n) break;
@@ -548,7 +594,7 @@ static void do_bcs(struct thread *th, u32 *c, int words) {
             break;
         }
         case BC_DEAD_BINDER_DONE: break;
-        case BC_AEMU_FREE: { struct dbuf *d = (struct dbuf *)(uintptr_t)a; if (d && d->proc == p) buf_free(p, d); break; }
+        case BC_AEMU_FREE: { struct dbuf *d = buf_find(p, a); if (d) buf_free(p, d); else V("pid %d: free of unknown buffer %llx", p->pid, (unsigned long long)a); break; }
         case BC_AEMU_MAX_THREADS: p->max_threads = (int)a; break;
         case BC_AEMU_CTX_MGR: if (!ctx_mgr) { ctx_mgr = node_get(p, 0, 0, 1); ctx_mgr->local_strong++; ctx_mgr->has_strong = ctx_mgr->has_weak = 1; } break;
         default: V("pid %d: unknown command %x", p->pid, cmd); return;
@@ -560,20 +606,18 @@ static void do_bcs(struct thread *th, u32 *c, int words) {
 
 static void thread_release(struct thread *th) {
     struct proc *p = th->proc;
-    for (struct txn *t = th->stack; t;) {
-        struct txn *nx;
+    while (th->stack) {
+        struct txn *t = th->stack;
         if (t->to_thread == th) {           /* we were serving it: the caller gets a dead reply */
-            nx = t->to_parent; t->to_thread = 0;
             struct thread *from = t->from;
-            if (from && from->stack == t) { from->stack = t->from_parent; thread_error(from, BR_DEAD_REPLY); }
-            t->from = 0; txn_free(t);
+            stack_remove(th, t); t->to_thread = 0;
+            if (from) { stack_remove(from, t); t->from = 0; thread_error(from, BR_DEAD_REPLY); }
+            txn_free(t);
         } else {                            /* we were waiting for its answer: nobody to answer to any more */
-            nx = t->from_parent; t->from = 0;
-            if (!t->to_thread) { /* still queued: stays there and is dropped at reply time */ }
+            stack_remove(th, t); t->from = 0;
+            /* still queued, or being served: it carries on without a sender, and its reply is dropped */
         }
-        t = nx;
     }
-    th->stack = 0;
     for (struct work *w; (w = wq_pop(&th->todo));) {
         if (w->type == W_TXN) txn_fail(w->t, BR_DEAD_REPLY);
         else if (w->type == W_NODE) { w->node->queued = 0; if (p) node_work(w->node); }
@@ -648,6 +692,7 @@ static void on_message(struct thread *th) {
     if ((size_t)n < sizeof *h) return;
     if (h->op == OP_HELLO) {
         struct c_hello *m = (struct c_hello *)buf;
+        if (th->proc || (size_t)n < sizeof *m) return;           /* one hello per connection */
         /* every open("/dev/binder") is a process of its own, as in the driver; its threads name it by pid + descriptor */
         struct proc *p = procs;
         while (p && !(p->pid == (int)m->pid && p->key == m->pad)) p = p->next;
@@ -663,7 +708,7 @@ static void on_message(struct thread *th) {
     cur = th;
     V("%d/%d: op %u flags %u len %zd fds %d", th->proc->pid, th->tid, h->op, h->flags, n, nfds);
     if (h->op == OP_BCS) do_bcs(th, (u32 *)(h + 1), (int)((n - sizeof *h) / 4));
-    else if (h->op == OP_TXN && (size_t)n >= sizeof(struct c_txn)) { do_txn(th, (struct c_txn *)buf, buf + sizeof(struct c_txn), fds, nfds); nfds = 0; }
+    else if (h->op == OP_TXN && (size_t)n >= sizeof(struct c_txn)) { do_txn(th, (struct c_txn *)buf, (size_t)n, fds, nfds); nfds = 0; }
     for (int i = 0; i < nfds; i++) close(fds[i]);
     if (h->flags & F_READ) {
         th->woken = 0; th->waiting = 1; th->nonblock = !!(h->flags & F_NONBLOCK); th->read_size = h->read_size;

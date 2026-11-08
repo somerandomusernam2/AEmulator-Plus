@@ -45,11 +45,12 @@ class InputService(private val paths: VmPaths, private val log: (String) -> Unit
     @Volatile var rateHz = 60
     @Volatile var mtMode = 0
     /**
-     * Pre-1.0 builds: the touch-down state is reported together as BTN_TOUCH and BTN_MOUSE. The earliest framework knew the
-     * panel button as BTN_MOUSE (0x110); the trace of the 0.9 runtime logs every BTN_TOUCH as an ordinary key event and
-     * never reacts to the touch. Whichever of the two the build understands starts the touch; the other is dropped.
+     * Pre-1.0 builds: the image's own key layout is in use, and the keypad's Menu, * and # are sent under the codes that layout
+     * gives them (see [legacyKeyAliases]). Touch is not reported to them at all (see [touchEnabled]).
      */
     @Volatile var legacyMouseButton = false
+    /** False for a pre-1.0 build: it has no touch screen support, so touch() sends nothing to the guest. */
+    @Volatile var touchEnabled = true
     /** MMI/FTM: minui and the touch probe of one process each keep their own event0 descriptor, so one pid may own several clients. */
     @Volatile var multiPerPid = false
     /**
@@ -119,6 +120,78 @@ class InputService(private val paths: VmPaths, private val log: (String) -> Unit
     }
 
     /**
+     * Input method "mouse and keyboard": a touchpad and a keyboard evdev node of their own (emulated in the guest shim,
+     * like the trackball) take over from the touch screen. While on, event0 is removed, touches go to the pad and every
+     * key (navigation bar, volume, power, the floating keyboard) goes to the keyboard device.
+     */
+    @Volatile var mouseKeyboardEnabled = false
+    /** Android API level of the guest; picks how the emulated touchpad is declared (see [touchpadDeviceType]). */
+    @Volatile var api = 0
+    private val padClients = CopyOnWriteArrayList<Client>()
+    private val keyboardClients = CopyOnWriteArrayList<Client>()
+    val touchpadConnected: Int get() = padClients.size
+    val keyboardConnected: Int get() = keyboardClients.size
+    private val pad = TouchpadProtocol()
+
+    private fun deviceServer(file: String, name: String, list: CopyOnWriteArrayList<Client>) =
+        UnixServer(java.io.File(paths.root, file), name) { c ->
+            runCatching { c.sendBufferSize = 64 * 1024 }
+            val me = Client(c.outputStream, runCatching { c.peerCredentials.pid }.getOrDefault(-1))
+            list.add(me)
+            log("$name: guest connected (pid ${me.pid})")
+            try {
+                val buf = ByteArray(32)
+                while (c.inputStream.read(buf) >= 0) { /* keep the evdev stream alive */ }
+            } finally { list.remove(me); me.close() }
+        }
+    private val padServer = deviceServer("dev/aemu_touchpad", "touchpad", padClients)
+    private val keyboardServer = deviceServer("dev/aemu_keyboard", "keyboard", keyboardClients)
+
+    private fun writeIdc(name: String, text: String) = runCatching {
+        java.io.File(paths.root, "system/usr/idc/$name.idc").apply {
+            parentFile?.mkdirs()
+            if (!exists() || readText() != text) writeText(text)
+            setReadable(true, false)
+        }
+    }.onFailure { log("input: cannot write $name.idc: ${it.message}") }
+
+    private fun serveMouseKeyboard() {
+        val inputDir = java.io.File(paths.root, "dev/input").apply { mkdirs() }
+        val pads = java.io.File(inputDir, "aemu-touchpad"); val kb = java.io.File(inputDir, "aemu-keyboard")
+        val event0 = java.io.File(inputDir, "event0")
+        if (!mouseKeyboardEnabled) {
+            // nodes left from an earlier boot would be opened by the guest with nobody serving them
+            pads.delete(); kb.delete()
+            return
+        }
+        pads.createNewFile(); kb.createNewFile()
+        // external devices: the guest hides its own on-screen keyboard and keeps the pointer outside the screen rotation
+        writeIdc("AEmulator_Touchpad", "device.internal = 0\ntouch.deviceType = ${touchpadDeviceType(api)}\ntouch.orientationAware = 0\n")
+        writeIdc("AEmulator_Keyboard", "device.internal = 0\n")
+        // the touch device is removed: nothing may find /dev/input/event0
+        if (event0.exists() && !event0.delete()) log("input: cannot remove event0, the touch screen stays visible to the guest")
+        padServer.start(log); keyboardServer.start(log)
+        log("input: mouse and keyboard mode (touchpad + keyboard, no touch screen)")
+    }
+
+    @Synchronized
+    fun padTouch(now: List<TouchpadProtocol.Contact>) {
+        val bytes = pad.frame(now, System.nanoTime())
+        if (bytes.isNotEmpty()) postTo(padClients, bytes)
+    }
+
+    @Synchronized
+    fun padButton(code: Int, pressed: Boolean) = postTo(padClients, pad.button(code, pressed, System.nanoTime()))
+
+    private fun postTo(list: CopyOnWriteArrayList<Client>, bytes: ByteArray) {
+        val w = widen(bytes)
+        var prune = false
+        for (c in list) { c.post(w); if (c.dead) prune = true }
+        if (prune) list.removeAll { it.dead }
+        sent += bytes.size / EV
+    }
+
+    /**
      * Android 3.x/4.x pick the touch device type from the device's .idc file (named after the evdev name, "dhd-touch").
      * Without one, 3.0/3.1 ignore it and 3.2 treats it as a touchpad (mouse cursor). Real devices ship such a file
      * (e.g. Atmel_maXTouch_Touchscreen_controller.idc), so write one for the emulated screen unless the image has it.
@@ -137,6 +210,7 @@ class InputService(private val paths: VmPaths, private val log: (String) -> Unit
 
     fun serve(): Boolean {
         writeTouchIdc()
+        serveMouseKeyboard()
         val ok = server.start(log)
         if (trackballEnabled) {
             // An emulator-owned node: no vendor library or original image is patched.
@@ -178,6 +252,9 @@ class InputService(private val paths: VmPaths, private val log: (String) -> Unit
     fun stop() {
         server.stop()
         trackballServer.stop()
+        padServer.stop(); keyboardServer.stop()
+        (padClients + keyboardClients).forEach { it.close() }
+        padClients.clear(); keyboardClients.clear()
         trackballClients.forEach { runCatching { it.out.close() } }
         trackballClients.clear()
         clients.forEach { it.close() }
@@ -186,6 +263,7 @@ class InputService(private val paths: VmPaths, private val log: (String) -> Unit
 
     @Synchronized
     fun touch(now: List<P>, force: Boolean = false) {
+        if (!touchEnabled) { pending = null; return }
         // Real touch panels report only when a finger moves. A held finger (typing on the soft keyboard) used to
         // be re-sent as identical frames; 1.5/1.6 hand every one to the IME window and wait for it to finish the
         // event, so a slow IME (AxT9) fell behind and the whole screen stopped taking input.
@@ -306,7 +384,6 @@ class InputService(private val paths: VmPaths, private val log: (String) -> Unit
         val wasDownPrev = wasDown
         if (down != wasDown) {
             put(b, EV_KEY, BTN_TOUCH, if (down) 1 else 0)
-            if (legacyMouseButton) put(b, EV_KEY, BTN_MOUSE, if (down) 1 else 0)
             wasDown = down
         }
         if (!down && mtMode == 4 && wasDownPrev) put(b, EV_ABS, ABS_PRESSURE, 0) // single-touch readers (1.5/1.6) end the touch on pressure 0
@@ -344,11 +421,25 @@ class InputService(private val paths: VmPaths, private val log: (String) -> Unit
         }
     }
 
+    /**
+     * Added for AEmulator Plus (2026-11-08). Pre-1.0 keypad: the app's keys use the codes of 1.5+ layouts (Menu 139, * 522, # 523),
+     * which the 0.9 qwerty.kl does not list: it names the same keys SOFT_LEFT (229/59), STAR (227) and POUND (228). EventHub drops a
+     * scancode its layout does not know, so Menu and the star and pound keys of the keypad did nothing. The codes are translated to
+     * the ones the firmware's own layout has (see [detectHome]); empty for every other image.
+     */
+    @Volatile private var keyAlias: Map<Int, Int> = emptyMap()
+
     fun key(code: Int, down: Boolean) {
         val b = ByteBuffer.allocate(2 * EV).order(ByteOrder.LITTLE_ENDIAN)
-        put(b, EV_KEY, code, if (down) 1 else 0)
+        put(b, EV_KEY, keyAlias[code] ?: code, if (down) 1 else 0)
         put(b, EV_SYN, SYN_REPORT, 0)
-        synchronized(this) { flush(b) }
+        synchronized(this) {
+            // mouse and keyboard mode: there is no touch device any more, the keyboard carries every key
+            if (mouseKeyboardEnabled && keyboardClients.isNotEmpty()) {
+                val a = ByteArray(b.position()); b.flip(); b.get(a); b.clear()
+                record(a); postTo(keyboardClients, a)
+            } else flush(b)
+        }
     }
 
     /**
@@ -375,6 +466,30 @@ class InputService(private val paths: VmPaths, private val log: (String) -> Unit
             }
             if (center != null && !foundCenter) { centerCode = center; foundCenter = true }
         }
+        keyAlias = if (legacyMouseButton) legacyKeyAliases(dir) else emptyMap()
+    }
+
+    /**
+     * Pre-1.0 only: for each key the app sends under a 1.5+ code, the code the firmware's layout gives that key, when the
+     * layout has no entry for the app's code. Several lines can carry one label (SOFT_LEFT 229 and 59): the first is taken.
+     */
+    private fun legacyKeyAliases(dir: java.io.File): Map<Int, Int> {
+        val wanted = listOf(KEY_MENU to "SOFT_LEFT", VirtualKeys.STAR to "STAR", VirtualKeys.POUND to "POUND")
+        val lines = listOf("qwerty.kl", "Generic.kl").firstNotNullOfOrNull { n ->
+            runCatching { java.io.File(dir, n).readLines() }.getOrNull()
+        } ?: return emptyMap()
+        val entries = lines.mapNotNull { l ->
+            val p = l.trim().split(Regex("\\s+"))
+            if (p.size >= 3 && p[0] == "key") p[1].toIntOrNull()?.let { it to p[2] } else null
+        }
+        val known = entries.map { it.first }.toSet()
+        val out = HashMap<Int, Int>()
+        for ((appCode, label) in wanted) {
+            if (appCode in known) continue
+            entries.firstOrNull { it.second == label }?.let { out[appCode] = it.first }
+        }
+        if (out.isNotEmpty()) log("keypad: pre-1.0 layout has no ${out.keys.joinToString()}, sent as ${out.entries.joinToString { "${it.key}->${it.value}" }}")
+        return out
     }
 
     private val comboRunning = java.util.concurrent.atomic.AtomicBoolean(false)
@@ -503,9 +618,19 @@ class InputService(private val paths: VmPaths, private val log: (String) -> Unit
     }
     @Synchronized fun recentEvents(): List<String> = recent.toList()
 
+    fun inputModeInfo(): String = "mouseKeyboard=$mouseKeyboardEnabled touchpad=${padClients.size} keyboard=${keyboardClients.size}"
+
     fun clientInfo(): String = clients.joinToString { "pid ${it.pid}${if (it.dropped > 0) " (dropped ${it.dropped} frames: guest does not read this descriptor)" else ""}" }
 
     companion object {
+        /**
+         * What the guest's InputReader must be told the emulated pad is. From Android 4.2 (API 17) "touchPad" means a raw
+         * touchpad whose contacts go to apps unscaled and draws NO cursor (the guest log shows sources=0x00100008 and
+         * "mode 2"): nothing on the screen could be clicked. "pointer" is the mouse-cursor mode (source MOUSE, arrow drawn
+         * by the guest). Before 4.2 "touchPad" itself was the cursor mode and "pointer" is not a known value.
+         */
+        fun touchpadDeviceType(api: Int): String = if (api >= 17) "pointer" else "touchPad"
+
         /** True when the guest's struct input_event is the 24-byte 64-bit one. */
         fun wideFor(engine: Engine, pure32Tree: Boolean): Boolean = engine == Engine.N64 && !pure32Tree
 
@@ -527,7 +652,6 @@ class InputService(private val paths: VmPaths, private val log: (String) -> Unit
         private const val ABS_MT_TRACKING_ID = 57
         private const val ABS_MT_PRESSURE = 58
         private const val BTN_TOUCH = 330
-        private const val BTN_MOUSE = 272
 
         const val KEY_HOME = 102
         const val KEY_BACK = 158

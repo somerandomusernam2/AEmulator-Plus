@@ -1,0 +1,113 @@
+/* minimal stand-in for AOSP hardware/hwcomposer2.h + the parts of hwcomposer_defs.h / system/graphics.h it needs.
+ * Values are the ones of Android 12 (HWC2 2.4); the numbers of the function descriptors are checked against the
+ * guest log (descriptor 54 = GET_DISPLAY_CAPABILITIES) and against the HIDL composer@2.4 passthrough. */
+#pragma once
+#include <stdint.h>
+#include <stddef.h>
+#include <stdbool.h>
+#include <stdio.h>
+#include <hardware/hardware.h>
+/* hwcomposer_defs.h */
+typedef struct hwc_client_target_property { int32_t pixelFormat; int32_t dataspace; } hwc_client_target_property_t;
+typedef struct hwc_rect { int left, top, right, bottom; } hwc_rect_t;
+typedef struct hwc_frect { float left, top, right, bottom; } hwc_frect_t;
+typedef struct hwc_region { size_t numRects; hwc_rect_t const *rects; } hwc_region_t;
+typedef struct hwc_color { uint8_t r, g, b, a; } hwc_color_t;
+typedef struct hwc_float_color { float r, g, b, a; } hwc_float_color_t;
+typedef struct hwc_vsync_period_change_constraints { bool seamlessRequired; int64_t desiredTimeNanos; } hwc_vsync_period_change_constraints_t;
+typedef struct hwc_vsync_period_change_timeline { int64_t newVsyncAppliedTimeNanos; bool refreshRequired; int64_t refreshTimeNanos; } hwc_vsync_period_change_timeline_t;
+#define HWC_HARDWARE_MODULE_ID "hwcomposer"
+#define HWC_HARDWARE_COMPOSER  "composer"
+#define HWC_MODULE_API_VERSION_0_1 HARDWARE_MODULE_API_VERSION(0, 1)
+#define HWC_DEVICE_API_VERSION_2_0 HARDWARE_DEVICE_API_VERSION_2(2, 0, HARDWARE_HAL_API_VERSION)
+#ifndef HARDWARE_DEVICE_API_VERSION_2
+#define HARDWARE_DEVICE_API_VERSION_2(maj,min,hdr) HARDWARE_MAKE_API_VERSION_2(maj,min,hdr)
+#endif
+#undef HWC_DEVICE_API_VERSION_2_0
+#define HWC_DEVICE_API_VERSION_2_0 HARDWARE_DEVICE_API_VERSION_2(2, 0, HARDWARE_HAL_API_VERSION)
+
+/* system/graphics.h (the values this module names) */
+enum { HAL_PIXEL_FORMAT_RGBA_8888 = 1, HAL_PIXEL_FORMAT_RGBX_8888 = 2, HAL_PIXEL_FORMAT_RGB_888 = 3,
+       HAL_PIXEL_FORMAT_RGB_565 = 4, HAL_PIXEL_FORMAT_BGRA_8888 = 5 };
+enum { HAL_COLOR_MODE_NATIVE = 0 };
+enum { HAL_RENDER_INTENT_COLORIMETRIC = 0 };
+
+typedef uint32_t hwc2_callback_descriptor_t;
+typedef uint32_t hwc2_capability_t;
+typedef uint32_t hwc2_composition_t;
+typedef uint32_t hwc2_connection_t;
+typedef uint32_t hwc2_config_t;
+typedef uint32_t hwc2_display_attribute_t;
+typedef uint32_t hwc2_display_type_t;
+typedef uint32_t hwc2_error_t;
+typedef uint32_t hwc2_function_descriptor_t;
+typedef uint32_t hwc2_power_mode_t;
+typedef uint32_t hwc2_vsync_t;
+typedef uint32_t hwc2_vsync_period_t;
+typedef uint64_t hwc2_display_t;
+typedef uint64_t hwc2_layer_t;
+typedef void *hwc2_callback_data_t;
+typedef void (*hwc2_function_pointer_t)(void);
+
+enum { HWC2_ERROR_NONE = 0, HWC2_ERROR_BAD_CONFIG = 1, HWC2_ERROR_BAD_DISPLAY = 2, HWC2_ERROR_BAD_LAYER = 3,
+       HWC2_ERROR_BAD_PARAMETER = 4, HWC2_ERROR_HAS_CHANGES = 5, HWC2_ERROR_NO_RESOURCES = 6, HWC2_ERROR_NOT_VALIDATED = 7,
+       HWC2_ERROR_UNSUPPORTED = 8, HWC2_ERROR_SEAMLESS_NOT_ALLOWED = 9, HWC2_ERROR_SEAMLESS_NOT_POSSIBLE = 10 };
+enum { HWC2_COMPOSITION_INVALID = 0, HWC2_COMPOSITION_CLIENT = 1, HWC2_COMPOSITION_DEVICE = 2, HWC2_COMPOSITION_SOLID_COLOR = 3,
+       HWC2_COMPOSITION_CURSOR = 4, HWC2_COMPOSITION_SIDEBAND = 5 };
+enum { HWC2_CONNECTION_INVALID = 0, HWC2_CONNECTION_CONNECTED = 1, HWC2_CONNECTION_DISCONNECTED = 2 };
+enum { HWC2_DISPLAY_TYPE_INVALID = 0, HWC2_DISPLAY_TYPE_PHYSICAL = 1, HWC2_DISPLAY_TYPE_VIRTUAL = 2 };
+enum { HWC2_DISPLAY_CONNECTION_TYPE_INTERNAL = 0, HWC2_DISPLAY_CONNECTION_TYPE_EXTERNAL = 1 };
+enum { HWC2_CONTENT_TYPE_NONE = 0, HWC2_CONTENT_TYPE_GRAPHICS = 1, HWC2_CONTENT_TYPE_PHOTO = 2, HWC2_CONTENT_TYPE_CINEMA = 3, HWC2_CONTENT_TYPE_GAME = 4 };
+enum { HWC2_POWER_MODE_OFF = 0, HWC2_POWER_MODE_DOZE = 1, HWC2_POWER_MODE_DOZE_SUSPEND = 3, HWC2_POWER_MODE_ON = 2 };
+enum { HWC2_VSYNC_INVALID = 0, HWC2_VSYNC_ENABLE = 1, HWC2_VSYNC_DISABLE = 2 };
+enum { HWC2_ATTRIBUTE_INVALID = 0, HWC2_ATTRIBUTE_WIDTH = 1, HWC2_ATTRIBUTE_HEIGHT = 2, HWC2_ATTRIBUTE_VSYNC_PERIOD = 3,
+       HWC2_ATTRIBUTE_DPI_X = 4, HWC2_ATTRIBUTE_DPI_Y = 5, HWC2_ATTRIBUTE_CONFIG_GROUP = 7 };
+enum { HWC2_CALLBACK_INVALID = 0, HWC2_CALLBACK_HOTPLUG = 1, HWC2_CALLBACK_REFRESH = 2, HWC2_CALLBACK_VSYNC = 3,
+       HWC2_CALLBACK_VSYNC_2_4 = 4, HWC2_CALLBACK_VSYNC_PERIOD_TIMING_CHANGED = 5, HWC2_CALLBACK_SEAMLESS_POSSIBLE = 6 };
+
+enum {
+    HWC2_FUNCTION_INVALID = 0, HWC2_FUNCTION_ACCEPT_DISPLAY_CHANGES, HWC2_FUNCTION_CREATE_LAYER, HWC2_FUNCTION_CREATE_VIRTUAL_DISPLAY,
+    HWC2_FUNCTION_DESTROY_LAYER, HWC2_FUNCTION_DESTROY_VIRTUAL_DISPLAY, HWC2_FUNCTION_DUMP, HWC2_FUNCTION_GET_ACTIVE_CONFIG,
+    HWC2_FUNCTION_GET_CHANGED_COMPOSITION_TYPES, HWC2_FUNCTION_GET_CLIENT_TARGET_SUPPORT, HWC2_FUNCTION_GET_COLOR_MODES,
+    HWC2_FUNCTION_GET_DISPLAY_ATTRIBUTE, HWC2_FUNCTION_GET_DISPLAY_CONFIGS, HWC2_FUNCTION_GET_DISPLAY_NAME,
+    HWC2_FUNCTION_GET_DISPLAY_REQUESTS, HWC2_FUNCTION_GET_DISPLAY_TYPE, HWC2_FUNCTION_GET_DOZE_SUPPORT,
+    HWC2_FUNCTION_GET_HDR_CAPABILITIES, HWC2_FUNCTION_GET_MAX_VIRTUAL_DISPLAY_COUNT, HWC2_FUNCTION_GET_RELEASE_FENCES,
+    HWC2_FUNCTION_PRESENT_DISPLAY, HWC2_FUNCTION_REGISTER_CALLBACK, HWC2_FUNCTION_SET_ACTIVE_CONFIG, HWC2_FUNCTION_SET_CLIENT_TARGET,
+    HWC2_FUNCTION_SET_COLOR_MODE, HWC2_FUNCTION_SET_COLOR_TRANSFORM, HWC2_FUNCTION_SET_CURSOR_POSITION,
+    HWC2_FUNCTION_SET_LAYER_BLEND_MODE, HWC2_FUNCTION_SET_LAYER_BUFFER, HWC2_FUNCTION_SET_LAYER_COLOR,
+    HWC2_FUNCTION_SET_LAYER_COMPOSITION_TYPE, HWC2_FUNCTION_SET_LAYER_DATASPACE, HWC2_FUNCTION_SET_LAYER_DISPLAY_FRAME,
+    HWC2_FUNCTION_SET_LAYER_PLANE_ALPHA, HWC2_FUNCTION_SET_LAYER_SIDEBAND_STREAM, HWC2_FUNCTION_SET_LAYER_SOURCE_CROP,
+    HWC2_FUNCTION_SET_LAYER_SURFACE_DAMAGE, HWC2_FUNCTION_SET_LAYER_TRANSFORM, HWC2_FUNCTION_SET_LAYER_VISIBLE_REGION,
+    HWC2_FUNCTION_SET_LAYER_Z_ORDER, HWC2_FUNCTION_SET_OUTPUT_BUFFER, HWC2_FUNCTION_SET_POWER_MODE, HWC2_FUNCTION_SET_VSYNC_ENABLED,
+    HWC2_FUNCTION_VALIDATE_DISPLAY,                                                      /* 43 */
+    HWC2_FUNCTION_SET_LAYER_FLOAT_COLOR, HWC2_FUNCTION_SET_LAYER_PER_FRAME_METADATA,    /* 44, 45 */
+    HWC2_FUNCTION_GET_PER_FRAME_METADATA_KEYS, HWC2_FUNCTION_SET_READBACK_BUFFER,       /* 46, 47 */
+    HWC2_FUNCTION_GET_READBACK_BUFFER_ATTRIBUTES, HWC2_FUNCTION_GET_READBACK_BUFFER_FENCE, /* 48, 49 */
+    HWC2_FUNCTION_GET_RENDER_INTENTS, HWC2_FUNCTION_SET_COLOR_MODE_WITH_RENDER_INTENT,  /* 50, 51 */
+    HWC2_FUNCTION_GET_DATASPACE_SATURATION_MATRIX,                                       /* 52 */
+    HWC2_FUNCTION_GET_DISPLAY_IDENTIFICATION_DATA, HWC2_FUNCTION_GET_DISPLAY_CAPABILITIES, /* 53, 54 */
+    HWC2_FUNCTION_SET_LAYER_COLOR_TRANSFORM, HWC2_FUNCTION_GET_DISPLAYED_CONTENT_SAMPLING_ATTRIBUTES, /* 55, 56 */
+    HWC2_FUNCTION_SET_DISPLAYED_CONTENT_SAMPLING_ENABLED, HWC2_FUNCTION_GET_DISPLAYED_CONTENT_SAMPLE, /* 57, 58 */
+    HWC2_FUNCTION_SET_LAYER_PER_FRAME_METADATA_BLOBS, HWC2_FUNCTION_GET_DISPLAY_BRIGHTNESS_SUPPORT,    /* 59, 60 */
+    HWC2_FUNCTION_SET_DISPLAY_BRIGHTNESS,                                                /* 61 */
+    HWC2_FUNCTION_GET_DISPLAY_CONNECTION_TYPE, HWC2_FUNCTION_GET_DISPLAY_VSYNC_PERIOD,  /* 62, 63 */
+    HWC2_FUNCTION_SET_ACTIVE_CONFIG_WITH_CONSTRAINTS, HWC2_FUNCTION_SET_AUTO_LOW_LATENCY_MODE, /* 64, 65 */
+    HWC2_FUNCTION_GET_SUPPORTED_CONTENT_TYPES, HWC2_FUNCTION_SET_CONTENT_TYPE,           /* 66, 67 */
+    HWC2_FUNCTION_GET_CLIENT_TARGET_PROPERTY, HWC2_FUNCTION_SET_LAYER_GENERIC_METADATA, /* 68, 69 */
+    HWC2_FUNCTION_GET_LAYER_GENERIC_METADATA_KEY,                                        /* 70 = 0x46 */
+};
+
+typedef void (*HWC2_PFN_HOTPLUG_T)(hwc2_callback_data_t, hwc2_display_t, int32_t);
+typedef void (*HWC2_PFN_REFRESH_T)(hwc2_callback_data_t, hwc2_display_t);
+typedef void (*HWC2_PFN_VSYNC_T)(hwc2_callback_data_t, hwc2_display_t, int64_t);
+typedef void (*HWC2_PFN_VSYNC_2_4_T)(hwc2_callback_data_t, hwc2_display_t, int64_t, hwc2_vsync_period_t);
+#define HWC2_PFN_HOTPLUG HWC2_PFN_HOTPLUG_T
+#define HWC2_PFN_REFRESH HWC2_PFN_REFRESH_T
+#define HWC2_PFN_VSYNC HWC2_PFN_VSYNC_T
+#define HWC2_PFN_VSYNC_2_4 HWC2_PFN_VSYNC_2_4_T
+
+typedef struct hwc2_device {
+    struct hw_device_t common;
+    void (*getCapabilities)(struct hwc2_device *device, uint32_t *outCount, int32_t *outCapabilities);
+    hwc2_function_pointer_t (*getFunction)(struct hwc2_device *device, int32_t descriptor);
+} hwc2_device_t;

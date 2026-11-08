@@ -1,7 +1,7 @@
 # x86-32 guest firmware
 
 AEmulator Plus runs an x86-32 Android firmware on the **same universal engine** as ARM firmware. The only
-architecture-specific host binary is the translator: `libqemu_i386.so` (QEMU 8.2.4 `i386-linux-user` with the SENSES
+architecture-specific host binary is the translator: `libqemu_kk_i386.so` (QEMU 8.2.4 `i386-linux-user` with the SENSES
 patches) instead of `libqemu_kk.so`. x86-64 and the native engine are not covered.
 
 ## Importing Android-x86 ISO files
@@ -18,7 +18,7 @@ below), so everything in this document applies to it. Android-x86 5.1 (API 22) i
 | Detection from the ELF machine type (`EM_386` = x86-32) of the firmware's own files; `ro.product.cpu.abi` is only the fallback | `GuestArch.detect`, `importer/Analyzer.kt` (profile version 17: older images are re-analysed once) |
 | "Not ARM" import warning dropped for x86-32 (still shown for x86-64, MIPS, ...) | `GuestArch.isUnsupported` |
 | Translator choice, no `native32`, no `DHD_NO_SMC` / `GUEST_NO_SMC`, no preload of libraries of another architecture | `core/GuestRunner.kt` |
-| Translator checks with a clear message when `libqemu_i386.so` is not in the APK | `core/GuestVm.kt` |
+| Translator checks with a clear message when `libqemu_kk_i386.so` is not in the APK | `core/GuestVm.kt` |
 | Engine helper files per architecture, missing files skipped | `core/EngineAssets.kt` (`forArch`), `core/TreeFixer.kt` |
 | GPU/hwui off for an x86 guest until the x86 GL library exists | `core/GuestVm.kt` (`settings`) |
 
@@ -61,11 +61,11 @@ Tested against a QEMU 8.2.4 tree: all patches apply, `i386-linux-user` builds. R
 
 ```
 sudo ./qemu-senses/qemu/build-android.sh      # on aarch64 Linux
-cp qemu-senses/qemu/build/qemu-i386-android app/src/main/jniLibs/arm64-v8a/libqemu_i386.so
+cp qemu-senses/qemu/build/qemu-i386-android app/src/main/jniLibs/arm64-v8a/libqemu_kk_i386.so
 ```
 
-The ARM binary goes to `libqemu_kk.so` as before. Without `libqemu_i386.so` the app still builds; an x86 image then stops
-at start with "the x86 translator (libqemu_i386.so) is not in this build of the app".
+The ARM binary goes to `libqemu_kk.so` as before. Without `libqemu_kk_i386.so` the app still builds; an x86 image then stops
+at start with "the x86 translator (libqemu_kk_i386.so) is not in this build of the app".
 
 ## Software GL renderer for x86 firmware
 
@@ -109,3 +109,39 @@ Each item below is a failure seen in the logs of an API 25 x86 image (Wear, Tag 
 Build: `native/guestshim/build-x86.sh` (needs `gcc -m32`). Test: `native/guestshim/tests/aemushim-x86-smoke.c` (header says how to run it).
 An existing x86 image picks the file up on the next start (the installer compares size and CRC). `libaemuxattr.so` is not needed
 on x86: its job (installd's xattr calls) is done here, in the library every guest process preloads.
+
+## Stock translators for the native engine
+
+`libqemu_i386.so` and `libqemu_x86_64.so` are now **unpatched QEMU 8.2.7** (`i386-linux-user` / `x86_64-linux-user`), built with Zig as static aarch64
+executables, see `tools/qemu-zig/README.md`. They have no SENSES patches (no `DHD_*` env, no pagelog). The patched x86-32 build for the KK engine is
+`libqemu_kk_i386.so`.
+
+## x86-64 on the native engine: engine files built with zig (2026-11-04)
+
+`assets/engines/n64-x86_64` holds the engine's own x86-64 builds (sources and scripts in `native/x86_64`). The arm/arm64
+files of the other layers are still not installed for a translated firmware; these are. Today: `hwcomposer.default.so`,
+the HWC2 module that stops `composer@2.4-service` exiting with `failed to get hwcomposer2 function 54`. It is skipped when
+the firmware has a hwcomposer HAL of its own. The graphics allocator (minigbm needs a DRM node) and an OpenGL ES driver are
+still missing for x86-64 guests, see `native/x86_64/README.md`.
+
+## 32-bit programs of an x86 / x86-64 firmware: `-B 0` and the 4 GiB reservation (2026-11-04)
+
+`libqemu_i386.so` (stock QEMU 8.2.7, a non-PIE static executable linked at 0x1000000) reserves a 32-bit guest's whole address
+space by default. With the runner's `-B 0` that is [0, 4 GiB) of the host, which contains the translator's own image, so every
+32-bit program (zygote_secondary, the audio HAL, ...) exited with code 1:
+`libqemu_i386.so: /system/bin/app_process32: requires virtual address space that is in use (omit the -B option ...)`.
+`tools/patch_i386_translator_reserved_va.py` removes the default reservation (one instruction); `libqemu_x86_64.so` needs nothing,
+a 64-bit target reserves nothing. Run the script again after rebuilding the translator (the address is checked). A clean fix is
+to link the translator as a PIE / at a high base; then the patch is not needed.
+
+## x86 / x86-64 firmware: audio, gatekeeper and camera provider (2026-11-04)
+
+Boot log of an Android 10 x86-64 image (`Android SDK built for x86_64`) with the three services dying on every start:
+
+| Service | Log | Cause | Fix (`TreeFixer`) |
+|---|---|---|---|
+| `vendor.audio-hal-2-0` (32-bit program, `libqemu_i386.so`) | `Could not get passthrough implementation for android.hardware.audio@4.0::IDevicesFactory/default`, `Could not register audio core API 2, 4 nor 5`, exit 134; audioserver waits for `IDevicesFactory/default` | `sanitize()` (import) and the per-start vendor-HAL pass set the firmware's own `android.hardware.audio@4.0-impl.so`, `audio.effect@4.0-impl.so` and `audio.primary.*.so` aside, assuming the engine's ARM HALs take their place; for an x86 guest nothing does | not set aside for a foreign-architecture guest; `restoreForeignAudioHal()` puts back what an earlier import parked |
+| `vendor.gatekeeper-1-0` | `Unable to open GateKeeper HAL`, exit 139 | passthrough over `gatekeeper.<board>.so`, which the image does not have | `parkHalsWithoutModuleOfPure32Treble()` now judges foreign-architecture trees too: service and rc go aside, declaration dropped, gatekeeperd uses its software GateKeeper |
+| `vendor.camera-provider-2-4` | `Could not get passthrough implementation for android.hardware.camera.provider@2.4::ICameraProvider/legacy/0`, exit 1; cameraserver "Waited one second for ... ICameraProvider/legacy/0" | the goldfish camera module (`camera.ranchu.so`) is set aside and needs the emulator host anyway | same rule: provider set aside, declaration dropped, cameraserver sees no provider |
+
+`diag.txt` lists the HAL files set aside (`HAL files set aside`), so the next log shows what is still parked.

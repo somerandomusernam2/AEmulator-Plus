@@ -39,7 +39,7 @@ enum {
     NR_setregid = 143, NR_setgid = 144, NR_setreuid = 145, NR_setuid = 146, NR_setresuid = 147, NR_getresuid = 148,
     NR_setresgid = 149, NR_getresgid = 150, NR_setfsuid = 151, NR_setfsgid = 152, NR_getgroups = 158, NR_setgroups = 159,
     NR_prctl = 167, NR_getpid = 172, NR_getuid = 174, NR_geteuid = 175, NR_getgid = 176, NR_getegid = 177, NR_gettid = 178,
-    NR_socket = 198, NR_socketpair = 199, NR_bind = 200, NR_connect = 203, NR_getsockname = 204, NR_sendto = 206, NR_setsockopt = 208, NR_getsockopt = 209,
+    NR_socket = 198, NR_socketpair = 199, NR_bind = 200, NR_listen = 201, NR_connect = 203, NR_getsockname = 204, NR_sendto = 206, NR_setsockopt = 208, NR_getsockopt = 209,
     NR_shutdown = 210, NR_sendmsg = 211, NR_recvmsg = 212, NR_munmap = 215, NR_execve = 221, NR_mmap = 222, NR_mprotect = 226,
     NR_renameat2 = 276, NR_memfd_create = 279, NR_statx = 291, NR_faccessat2 = 439,
 };
@@ -84,7 +84,9 @@ static char g_props[512];       // host file behind /dev/__properties__
 static char g_exe[PATH_MAX];    // guest view of the running program
 static int g_uid, g_gid;        // the ids the guest believes it has
 static u32 g_real_uid;
-static char g_qemu[512];        // qemu-arm for the firmware's 32-bit programs (AEMU64_QEMU)
+static char g_qemu[512];        // translator for the firmware's 32-bit programs (AEMU64_QEMU): qemu-arm, or qemu-i386 for an x86 firmware
+static char g_qemu64[512];      // translator for the 64-bit programs of a firmware that is not arm64 (AEMU64_QEMU64): qemu-x86_64
+static int g_xlate64;           // this process is that translator running a 64-bit x86 program (g_is32 is set as well: it is a translator process)
 static int g_crash;
 static u64 g_logdev, g_logino;      // the service log on descriptor 2 (a file or a pipe to the app)
 static int g_logpipe;
@@ -401,25 +403,41 @@ static long fb_ioctl(u32 cmd, u64 arg) {
 // /dev/input/event0: a stream of struct input_event from the app (AEMU64_INPUT socket); the evdev questions of the
 // guest's EventHub are answered here: a direct multi-touch screen with the navigation and volume keys.
 static char g_input[108];
-static int g_infds[4];                          // descriptors + 1
+// The input method "mouse and keyboard" (VM settings > Controls): an emulated touchpad and keyboard of their own take the
+// place of the touch screen. The app leaves two empty nodes in /dev/input (aemu-touchpad, aemu-keyboard) and serves one
+// socket for each (AEMU64_PAD, AEMU64_KBD); both stay empty when the method is off.
+static char g_pad[108], g_kbd[108];
+#define IN_TOUCH 0
+#define IN_PAD 1
+#define IN_KBD 2
+#define IN_SLOTS 16
+static int g_infds[IN_SLOTS];                   // descriptors + 1
+static unsigned char g_inkind[IN_SLOTS];        // what each one is: IN_TOUCH, IN_PAD or IN_KBD
+static int g_innext;                            // where the next one goes when the table is full
 
-static int is_input_fd(int fd) { for (int i = 0; i < 4; i++) if (g_infds[i] == fd + 1) return 1; return 0; }
+static int input_kind(int fd) { for (int i = 0; i < IN_SLOTS; i++) if (g_infds[i] == fd + 1) return g_inkind[i] + 1; return 0; }
+static int is_input_fd(int fd) { return input_kind(fd) != 0; }
 
-static long input_open(long flags) {
-    if (!g_input[0]) return -ENOENT;
+static long input_open_at(const char *sock, int kind, long flags) {
+    if (!sock[0]) return -ENOENT;
     long s = S3(NR_socket, 1, 1 | (flags & 02004000), 0);
     if (s < 0) return s;
     struct sockaddr_un sa; sa.family = 1;
-    u64 l = slen(g_input); memcpy(sa.path, g_input, l + 1);
+    u64 l = slen(sock); memcpy(sa.path, sock, l + 1);
     long r = S3(NR_connect, s, &sa, 2 + l + 1);
     if (r < 0) { S1(NR_close, s); return r; }
-    for (int i = 0; i < 4; i++) if (!g_infds[i] || g_infds[i] == (int)s + 1) { g_infds[i] = (int)s + 1; break; }
+    int slot = -1;
+    for (int i = 0; i < IN_SLOTS; i++) if (!g_infds[i] || g_infds[i] == (int)s + 1) { slot = i; break; }
+    if (slot < 0) { slot = g_innext; g_innext = (g_innext + 1) % IN_SLOTS; }
+    g_infds[slot] = (int)s + 1; g_inkind[slot] = (unsigned char)kind;
     return s;
 }
 
+static long input_open(long flags) { return input_open_at(g_input, IN_TOUCH, flags); }
+
 static void setbit(u8 *m, u64 len, u32 bit) { if (bit / 8 < len) m[bit / 8] |= (u8)(1 << (bit % 8)); }
 
-static long input_ioctl(u32 cmd, u64 arg) {
+static long touch_ioctl(u32 cmd, u64 arg) {
     u32 nr = cmd & 0xff, len = (cmd >> 16) & 0x3fff;
     u8 *out = (u8 *)arg;
     if (!g_fbw) fb_geom();
@@ -449,6 +467,55 @@ static long input_ioctl(u32 cmd, u64 arg) {
     return -EINVAL;
 }
 
+// The evdev questions of the emulated touchpad (a pointer device, multi-touch protocol A, 0..4095 on both axes) and of the
+// emulated keyboard. The same answers as the guest shim gives an ARM guest (native/guestshim/vinput.h).
+#define PAD_MAX 4095
+static long vinput_ioctl(int kind, u32 cmd, u64 arg) {
+    u32 nr = cmd & 0xff, len = (cmd >> 16) & 0x3fff;
+    u8 *out = (u8 *)arg;
+    int pad = kind == IN_PAD;
+    if (nr == 0x90 || nr == 0xa0 || nr == 0x03) return 0;                        // grab, clock id, repeat
+    if (!arg) return -EFAULT;
+    if (!(cmd & 0x80000000u)) return -25;                                        // ENOTTY: only reads are answered
+    if (nr == 0x01 && len == 4) { *(int *)arg = 0x010001; return 0; }            // EVIOCGVERSION
+    if (nr == 0x02 && len == 8) { u16 *id = (u16 *)arg; id[0] = 6 /* BUS_VIRTUAL */; id[1] = 0; id[2] = pad ? 2 : 3; id[3] = 1; return 0; }
+    if (nr >= 0x06 && nr <= 0x08) {                                              // name, physical path, unique ID
+        const char *s = pad ? (nr == 6 ? "AEmulator Touchpad" : nr == 7 ? "aemu/touchpad" : "aemu-touchpad")
+                            : (nr == 6 ? "AEmulator Keyboard" : nr == 7 ? "aemu/keyboard" : "aemu-keyboard");
+        u32 i = 0;
+        if (!len) return 0;
+        while (i + 1 < len && s[i]) { out[i] = (u8)s[i]; i++; }
+        out[i++] = 0;
+        return (long)i;
+    }
+    if (nr == 0x09 || nr == 0x18 || nr == 0x19 || nr == 0x1a || nr == 0x1b || (nr >= 0x20 && nr <= 0x3f)) {
+        memset(out, 0, len);
+        if (nr == 0x09 && pad) setbit(out, len, 0);                              // INPUT_PROP_POINTER
+        if (nr == 0x20) { setbit(out, len, 0); setbit(out, len, 1); if (pad) setbit(out, len, 3); }   // SYN, KEY, (ABS)
+        if (nr == 0x21) {
+            if (pad) { setbit(out, len, 272); setbit(out, len, 273); setbit(out, len, 330); }       // BTN_LEFT, BTN_RIGHT, BTN_TOUCH
+            else for (u32 k = 1; k < 249; k++) setbit(out, len, k);
+        }
+        if (nr == 0x23 && pad) { setbit(out, len, 48); setbit(out, len, 53); setbit(out, len, 54); setbit(out, len, 57); setbit(out, len, 58); }
+        return (long)len;
+    }
+    if (nr >= 0x40 && nr < 0x80 && pad) {                                        // EVIOCGABS(axis)
+        int *a = (int *)arg; u32 ax = nr - 0x40, words = len / 4;
+        for (u32 i = 0; i < words && i < 6; i++) a[i] = 0;
+        if (words < 3) return -EINVAL;
+        if (ax == 53 || ax == 54) a[2] = PAD_MAX;
+        else if (ax == 48 || ax == 58) a[2] = 255;
+        else if (ax == 57) a[2] = 31;
+        else return -EINVAL;
+        return 0;
+    }
+    return -25; /* ENOTTY */
+}
+
+static long input_ioctl(int kind, u32 cmd, u64 arg) {
+    return kind == IN_TOUCH ? touch_ioctl(cmd, arg) : vinput_ioctl(kind, cmd, arg);
+}
+
 // ---------------------------------------------------------------------------------------------------- exec
 
 static int env_is_ours(const char *e) { return pre(e, "AEMU64_"); }
@@ -462,7 +529,7 @@ static long do_exec(const char *path, char *const argv[], char *const envp[]) {
     u64 na = 0, ne = 0;
     if (argv) while (argv[na]) na++;
     if (envp) while (envp[ne]) ne++;
-    u64 need = (na + ne + 24) * sizeof(char *);
+    u64 need = (na + ne + 26) * sizeof(char *);
     char **v = (char **)S6(NR_mmap, 0, need, 3, 0x22, -1, 0);
     if ((u64)v >= (u64)-4095) return -ENOMEM;
     char **a = v, **e;
@@ -487,10 +554,15 @@ static long do_exec(const char *path, char *const argv[], char *const envp[]) {
     if (g_crash) *a++ = "AEMU64_CRASH=1";
     static char e_input[130];
     if (g_input[0]) { memcpy(e_input, "AEMU64_INPUT=", 13); memcpy(e_input + 13, g_input, slen(g_input) + 1); *a++ = e_input; }
+    static char e_pad[135], e_kbd[135];
+    if (g_pad[0]) { memcpy(e_pad, "AEMU64_PAD=", 11); memcpy(e_pad + 11, g_pad, slen(g_pad) + 1); *a++ = e_pad; }
+    if (g_kbd[0]) { memcpy(e_kbd, "AEMU64_KBD=", 11); memcpy(e_kbd + 11, g_kbd, slen(g_kbd) + 1); *a++ = e_kbd; }
     static char e_bproto[32];
     if (g_bproto > 0 && g_bproto < 100) { memcpy(e_bproto, "AEMU64_BINDER_PROTOCOL=", 23); char tb[24], *ts = utoa((u64)g_bproto, tb + sizeof tb); memcpy(e_bproto + 23, ts, slen(ts) + 1); *a++ = e_bproto; }
     static char e_qemu[540];
     if (g_qemu[0]) { memcpy(e_qemu, "AEMU64_QEMU=", 12); memcpy(e_qemu + 12, g_qemu, slen(g_qemu) + 1); *a++ = e_qemu; }
+    static char e_qemu64[540];
+    if (g_qemu64[0]) { memcpy(e_qemu64, "AEMU64_QEMU64=", 14); memcpy(e_qemu64 + 14, g_qemu64, slen(g_qemu64) + 1); *a++ = e_qemu64; }
     static char e_sd[540];
     if (g_sdlen) { memcpy(e_sd, "AEMU64_SDCARD=", 14); memcpy(e_sd + 14, g_sd, g_sdlen + 1); *a++ = e_sd; }
     *a++ = 0;
@@ -591,12 +663,19 @@ static long trap2(long nr, long *a, void *uc, char **pbp) {
                     return S2(NR_memfd_create, "aemu-ashmem", (a[2] & 02000000) ? 1 : 0);
                 }
                 if (seq(P(1), "/dev/binder") || seq(P(1), "/dev/hwbinder") || seq(P(1), "/dev/vndbinder")) return binder_open(a[2], P(1));
+                if (seq(P(1), "/dev/input/aemu-touchpad")) return input_open_at(g_pad, IN_PAD, a[2]);
+                if (seq(P(1), "/dev/input/aemu-keyboard")) return input_open_at(g_kbd, IN_KBD, a[2]);
                 if (pre(P(1), "/dev/input/event")) return input_open(a[2]);
             }
             u64 pl = slen(P(1));
             if (pre(P(1), "/proc/") && ((pl >= 13 && seq(P(1) + pl - 13, "/attr/current")) || (pl >= 10 && seq(P(1) + pl - 10, "/attr/exec")))) {
                 return fake_memfile("aemu-attr", "u:r:su:s0\n", 10);
             }
+            // Zygote (7.0+) keeps the trace marker open and fstat()s every descriptor it takes into a fork; the phone lets
+            // an app write there but not stat it, so system_server died with "Unable to stat 5" (ported from the 30+ engine).
+            // Nothing reads the guest's trace: /dev/null (zygote allows that one too)
+            if (P(1)[0] == '/' && P(1)[1] == 's' && (seq(P(1), "/sys/kernel/tracing/trace_marker") || seq(P(1), "/sys/kernel/debug/tracing/trace_marker")))
+                return S4(nr, AT_FDCWD, "/dev/null", a[2], 0);
             if (seq(P(1), "/sys/fs/selinux/enforce")) {
                 return fake_memfile("aemu-enforce", "0\n", 2);
             }
@@ -676,7 +755,7 @@ static long trap2(long nr, long *a, void *uc, char **pbp) {
         }
         return r;
     }
-    case NR_faccessat: case NR_faccessat2: {     // faccessat2 has the same first three arguments and takes the flags in a[3]
+    case NR_faccessat: {     // NOT faccessat2 (439): it is trapped only to answer ENOSYS (falls out of the switch), so glibc retries with this case; translating 439 here made a 32-bit guest's own access("/dev/urandom") loop forever (0.0.0.3.5+)
         char *b1 = PB(0);
         if (P(1)) {
             if (seq(P(1), "/dev/binder") || seq(P(1), "/dev/hwbinder") || seq(P(1), "/dev/vndbinder") || seq(P(1), "/dev/ashmem")) {
@@ -844,7 +923,7 @@ static long trap2(long nr, long *a, void *uc, char **pbp) {
         return do_exec(P(0), (char *const *)a[1], (char *const *)a[2]);
     case NR_ioctl:
         if (((a[1] >> 8) & 0xff) == ASHMEM_MAGIC) return ashmem_ioctl((int)a[0], (u32)a[1], (u64)a[2]);
-        if (((a[1] >> 8) & 0xff) == 'E' && is_input_fd((int)a[0])) return input_ioctl((u32)a[1], (u64)a[2]);
+        if (((a[1] >> 8) & 0xff) == 'E' && is_input_fd((int)a[0])) return input_ioctl(input_kind((int)a[0]) - 1, (u32)a[1], (u64)a[2]);
         if (((u32)a[1] & 0xffffff00u) == 0x4600) return fb_ioctl((u32)a[1], (u64)a[2]);
         if (((a[1] >> 8) & 0xff) == 'b' && is_binder_fd((int)a[0])) return binder_ioctl((int)a[0], (u32)a[1], (u64)a[2]);
         return S3(nr, a[0], a[1], a[2]);
@@ -1250,8 +1329,11 @@ void aemu_main(u64 *sp) {
     if ((r = env_get(envp, "AEMU64_PROPS")) && slen(r) < sizeof g_props) memcpy(g_props, r, slen(r) + 1);
     g_crash = env_get(envp, "AEMU64_CRASH") != 0;
     if ((r = env_get(envp, "AEMU64_INPUT")) && slen(r) < sizeof g_input) memcpy(g_input, r, slen(r) + 1);
+    if ((r = env_get(envp, "AEMU64_PAD")) && slen(r) < sizeof g_pad) memcpy(g_pad, r, slen(r) + 1);
+    if ((r = env_get(envp, "AEMU64_KBD")) && slen(r) < sizeof g_kbd) memcpy(g_kbd, r, slen(r) + 1);
     if ((r = env_get(envp, "AEMU64_SDCARD")) && slen(r) < sizeof g_sd) { g_sdlen = slen(r); memcpy(g_sd, r, g_sdlen + 1); }
     if ((r = env_get(envp, "AEMU64_QEMU")) && slen(r) < sizeof g_qemu) memcpy(g_qemu, r, slen(r) + 1);
+    if ((r = env_get(envp, "AEMU64_QEMU64")) && slen(r) < sizeof g_qemu64) memcpy(g_qemu64, r, slen(r) + 1);
     if ((r = env_get(envp, "AEMU64_BINDER")) && slen(r) < sizeof g_bsock) memcpy(g_bsock, r, slen(r) + 1);
     if ((r = env_get(envp, "AEMU64_BINDER_PROTOCOL"))) g_bproto = (int)atou(r);
     if ((r = env_get(envp, "AEMU64_HWBINDER")) && slen(r) < sizeof g_hwbsock) memcpy(g_hwbsock, r, slen(r) + 1);
@@ -1316,10 +1398,12 @@ void aemu_main(u64 *sp) {
         sa.path[pl] = 0;
         u64 mode = 0; if (v[pl] == ',') for (const char *m = v + pl + 1; *m >= '0' && *m <= '7'; m++) mode = mode * 8 + (u64)(*m - '0');
         const char *ty = v + pl; if (*ty == ',') for (ty++; *ty && *ty != ','; ty++);
-        long s = S3(NR_socket, 1, seq(ty, ",seqpacket") ? 5 : seq(ty, ",dgram") ? 2 : 1 /*SOCK_STREAM*/, 0);
+        int sty = seq(ty, ",seqpacket") ? 5 : seq(ty, ",dgram") ? 2 : 1 /*SOCK_STREAM*/;
+        long s = S3(NR_socket, 1, sty, 0);
         if (s < 0) continue;
         S3(NR_unlinkat, AT_FDCWD, sa.path, 0);
         if (S3(NR_bind, s, &sa, 2 + pl + 1) < 0) { S1(NR_close, s); continue; }
+        if (sty != 2) S3(NR_listen, s, 50, 0);    // stream/seqpacket: queue connects until the service calls listen() itself (e.g. a slow zygote_secondary); a bound-only socket gave ECONNREFUSED. Datagram sockets cannot listen.
         S4(NR_fchmodat, AT_FDCWD, sa.path, mode ? mode : 0660, 0);
         char *o = sockenv[nsock++]; u64 nl = (u64)(eq - name); if (nl > 40) nl = 40;
         memcpy(o, "ANDROID_SOCKET_", 15); memcpy(o + 15, name, nl); o[15 + nl] = '=';
@@ -1349,16 +1433,21 @@ void aemu_main(u64 *sp) {
     int is32 = 0;
     if (gargv != nargv) {
         long f2 = S4(NR_openat, AT_FDCWD, prog, 0x80000, 0);
-        if (f2 >= 0) { hn = S3(NR_read, f2, head, 8); S1(NR_close, f2); }
+        if (f2 >= 0) { hn = S3(NR_read, f2, head, 20); S1(NR_close, f2); }
     } else {                                    // a script: what matters is its interpreter
         long f2 = S4(NR_openat, AT_FDCWD, prog, 0x80000, 0);
-        hn = f2 >= 0 ? S3(NR_read, f2, head, 8) : 0;
+        hn = f2 >= 0 ? S3(NR_read, f2, head, 20) : 0;
         if (f2 >= 0) S1(NR_close, f2);
     }
-    if (hn > 5 && head[0] == 0x7f && head[4] == 1) {
+    // A 64-bit x86 program (e_machine 62) of an x86-64 firmware goes to qemu-x86_64; every other 64-bit program (arm64, 183)
+    // is run natively as before. A 32-bit one goes to the 32-bit translator (qemu-arm, or qemu-i386 for an x86 firmware).
+    int xl64 = hn > 19 && head[0] == 0x7f && head[4] == 2 && head[5] == 1 &&
+               (((unsigned char)head[18]) | ((unsigned)(unsigned char)head[19] << 8)) == 62;
+    if ((hn > 5 && head[0] == 0x7f && head[4] == 1) || xl64) {
         struct kstat st;
         if (S4(NR_newfstatat, AT_FDCWD, prog, &st, 0) == 0 && st.st_size < 1024) S1(NR_exit_group, 0);   // the engine's "true"
-        if (!g_qemu[0]) die("32-bit program and no translator: ", prog);
+        const char *tq = xl64 ? g_qemu64 : g_qemu;
+        if (!tq[0]) die(xl64 ? "x86-64 program and no translator (libqemu_x86_64.so): " : "32-bit program and no translator: ", prog);
         // a 32-bit program of a 64-bit firmware: qemu-arm translates the code, and its system calls come back
         // through the same filter. Guest addresses are host addresses (-B 0), so binder and ashmem work unchanged.
         static char *qargv[4100]; long k = 0;
@@ -1368,9 +1457,9 @@ void aemu_main(u64 *sp) {
         // itself, and the 8.x linker picks the library namespaces of a program by that path (/vendor/bin/ = a vendor
         // program, which is given the VNDK libraries)
         unxl(progcopy);
-        qargv[k++] = g_qemu; qargv[k++] = "-B"; qargv[k++] = "0"; qargv[k++] = "-0"; qargv[k++] = (char *)argv0; qargv[k++] = progcopy;
+        qargv[k++] = (char *)tq; qargv[k++] = "-B"; qargv[k++] = "0"; qargv[k++] = "-0"; qargv[k++] = (char *)argv0; qargv[k++] = progcopy;
         for (long i = 1; i < gargc && k < 4096; i++) qargv[k++] = gargv[i];
-        qargv[k] = 0; gargv = qargv; gargc = k; argv0 = g_qemu; prog = g_qemu; is32 = 1; g_is32 = 1;
+        qargv[k] = 0; gargv = qargv; gargc = k; argv0 = tq; prog = tq; is32 = 1; g_is32 = 1; if (xl64) g_xlate64 = 1;
     }
     // each world has its own libraries
     static char ldpath[64];
@@ -1395,6 +1484,18 @@ void aemu_main(u64 *sp) {
         for (int i = 0; i < 5; i++) S4(NR_rt_sigaction, fatal[i], &ca, 0, 8);
     }
     if (!env_get(envp, "AEMU64_F")) install_filter();
+
+    // A guest program runs as this runner, so the kernel's argument block holds the runner's own file as argv[0]. Android's
+    // Process.setArgV0 rewrites that string in place, and getprogname() / Process.myProcessName() read it back: with the
+    // .so path there, WebView.setDataDirectorySuffix() refused it ("contains a path separator") and input methods
+    // (Baidu, Sogou) died in Application.onCreate. The program's path goes into the kernel's string (always the longer
+    // one), as on a phone where argv[0] is /system/bin/app_process64 before setArgV0. 32-bit goes through qemu's own argv.
+    if (!is32 && argv[0] && argv0 && slen(argv[0]) >= slen(argv0)) {
+        char tmp[PATH_MAX];
+        memcpy(tmp, argv0, slen(argv0) + 1);
+        memcpy(argv[0], tmp, slen(argv0) + 1);
+        argv0 = argv[0];
+    }
 
     // the guest's initial stack: argc, argv, envp (without our variables), auxv
     u64 ne = 0; while (envp[ne]) ne++;

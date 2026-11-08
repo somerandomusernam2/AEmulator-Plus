@@ -44,7 +44,7 @@ object Screenshot {
         val raw = pullRaw(ctx, fb, "temp-$stamp-fb0.raw") ?: return null
         try {
             val bpp = if (format == 0) 2 else 4
-            val png = rawToPng(raw, w, h, format, bpp, if (pages == 2) page else 0) ?: return null
+            val png = rawToPng(raw, w, h, format, bpp, if (pages >= 2) page else 0) ?: return null
             return save(ctx, png, name)
         } finally {
             raw.delete()
@@ -108,7 +108,7 @@ object Screenshot {
     /** Thumbnail straight from the guest framebuffer (same formats as [take]). Blocking. */
     fun thumbnailFromFb(dir: File, fb: File?, w: Int, h: Int, format: Int, pages: Int, page: Int): Boolean {
         if (fb == null || !fb.isFile || w <= 0 || h <= 0) return false
-        val bmp = runCatching { rawToBitmap(fb, w, h, format, if (format == 0) 2 else 4, if (pages == 2) page else 0) }.getOrNull() ?: return false
+        val bmp = runCatching { rawToBitmap(fb, w, h, format, if (format == 0) 2 else 4, if (pages >= 2) page else 0) }.getOrNull() ?: return false
         val ok = !isBlank(bmp) && saveThumbnail(dir, bmp)
         bmp.recycle()
         return ok
@@ -128,7 +128,7 @@ object Screenshot {
         val size = w.toLong() * h * bpp
         if (size > Int.MAX_VALUE) return false
         if (frameBuf.size != size.toInt()) frameBuf = ByteArray(size.toInt())
-        val pg = if (pages == 2) page else 0
+        val pg = if (pages >= 2) page else 0
         RandomAccessFile(fb, "r").use { f ->
             val off = pg * size
             if (f.length() < off + size) {

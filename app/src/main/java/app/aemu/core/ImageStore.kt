@@ -33,7 +33,12 @@ class VmPaths(val ctx: Context, val id: String) {
 }
 
 object ImageStore {
-    fun imagesDir(ctx: Context): File = File(ctx.filesDir, "images").apply { mkdirs() }
+    // Modified for AEmulator Plus (2026-11-04): the canonical path. ctx.filesDir is /data/user/0/<pkg>/files, but the kernel
+    // reports an open descriptor's target (readlink /proc/self/fd/N) as the real /data/data/<pkg>/files/... path. The guest
+    // runner (run64) shows the guest only descriptors whose target is under AEMU64_ROOT and turns every other one into
+    // /dev/null, so with the symlinked root every library the linker had opened looked like /dev/null: "library
+    // libbase.so (/dev/null) is not accessible for the namespace", and every service exited with code 1.
+    fun imagesDir(ctx: Context): File = File(ctx.filesDir.canonicalFile, "images").apply { mkdirs() }
 
     fun list(ctx: Context): List<GuestImage> =
         imagesDir(ctx).listFiles()?.mapNotNull { d ->

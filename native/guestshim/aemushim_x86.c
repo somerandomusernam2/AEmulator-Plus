@@ -9,12 +9,17 @@
 //
 // The same file carries the other hooks an Android 7.x userland needs on the phone's kernel (what each one fixes is
 // noted at the function): extended attributes (installd), seccomp (mediaextractor/mediacodec), SO_MARK (netd), alarm
-// clocks (system_server). The rest of aemushim.c (power, mounts, execve of scripts, netmgr, ...) is not ported.
+// clocks (system_server), and the emulated touchpad and keyboard of the input method \"mouse and keyboard\" (vinput.h,
+// open() + ioctl() of the two emulator-owned nodes in /dev/input). The rest of aemushim.c (power, mounts, execve of
+// scripts, netmgr, ...) is not ported.
 //
 // build: native/guestshim/build-x86.sh  ->  app/src/main/assets/engines/common-x86/libaemushim.so
 
 #define EXPORT __attribute__((visibility("default")))
 
+#define NR_open          5
+#define NR_ioctl        54
+#define NR_openat      295
 #define NR_readlink     85
 #define NR_readlinkat  305
 #define NR_socketcall  102
@@ -170,6 +175,66 @@ EXPORT int getsockname(int fd, void *addr, unsigned *len)
         if (m != n) { u->path[m] = 0; *len = 2 + m + 1; }
     }
     return 0;
+}
+
+/* ---- mouse and keyboard (emulated evdev touchpad and keyboard, see vinput.h) ---------------------------------------
+ * EventHub opens the two nodes the app leaves in /dev/input and asks them the EVIOC* questions; open() hands back a socket
+ * to the app and ioctl() answers for it. Every other path and every other descriptor goes straight to the kernel call,
+ * the same call bionic would have made (O_LARGEFILE added for open, as bionic does). */
+#include "vinput.h"
+
+#define VI_O_LARGEFILE 0100000
+
+EXPORT int open(const char *path, int flags, ...)
+{
+    int mode = 0;
+    if (flags & 0100 /* O_CREAT */) {
+        __builtin_va_list ap; __builtin_va_start(ap, flags); mode = __builtin_va_arg(ap, int); __builtin_va_end(ap);
+    }
+    long v = vinput_open(path, flags);
+    if (v != -4096) return v < 0 ? fail(v) : (int)v;
+    long r = sys3(NR_open, (long)path, flags | VI_O_LARGEFILE, mode);
+    return r < 0 ? fail(r) : (int)r;
+}
+EXPORT int open64(const char *path, int flags, ...)
+{
+    int mode = 0;
+    if (flags & 0100 /* O_CREAT */) {
+        __builtin_va_list ap; __builtin_va_start(ap, flags); mode = __builtin_va_arg(ap, int); __builtin_va_end(ap);
+    }
+    return open(path, flags, mode);
+}
+EXPORT int __open_2(const char *path, int flags) { return open(path, flags, 0); }
+
+EXPORT int openat(int dirfd, const char *path, int flags, ...)
+{
+    int mode = 0;
+    if (flags & 0100 /* O_CREAT */) {
+        __builtin_va_list ap; __builtin_va_start(ap, flags); mode = __builtin_va_arg(ap, int); __builtin_va_end(ap);
+    }
+    long v = vinput_open(path, flags);
+    if (v != -4096) return v < 0 ? fail(v) : (int)v;
+    long r = sys4(NR_openat, dirfd, (long)path, flags | VI_O_LARGEFILE, mode);
+    return r < 0 ? fail(r) : (int)r;
+}
+EXPORT int openat64(int dirfd, const char *path, int flags, ...)
+{
+    int mode = 0;
+    if (flags & 0100 /* O_CREAT */) {
+        __builtin_va_list ap; __builtin_va_start(ap, flags); mode = __builtin_va_arg(ap, int); __builtin_va_end(ap);
+    }
+    return openat(dirfd, path, flags, mode);
+}
+EXPORT int __openat_2(int dirfd, const char *path, int flags) { return openat(dirfd, path, flags, 0); }
+
+EXPORT int ioctl(int fd, int req, void *arg)
+{
+    if (((unsigned)req >> 8 & 255) == 'E') {
+        int vk = vinput_fd(fd);
+        if (vk) return vinput_ioctl(vk, (unsigned)req, arg);
+    }
+    long r = sys3(NR_ioctl, fd, req, (long)arg);
+    return r < 0 ? fail(r) : (int)r;
 }
 
 /* ---- extended attributes ------------------------------------------------------------------------------------------

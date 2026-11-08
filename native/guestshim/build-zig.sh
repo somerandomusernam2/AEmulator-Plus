@@ -25,7 +25,7 @@ $ZIG cc $T -fPIC -shared -nostdlib -ffreestanding -fno-builtin -Os \
     -Wl,--version-script,"$STUB/libc.map" -Wl,-soname,libc.so -o "$STUB/libc_stub.so" "$STUB/libc.c"
 
 NOE="-fno-exceptions -fno-unwind-tables -fno-asynchronous-unwind-tables"
-F="$T -Os -fPIC -shared -nostdlib -ffreestanding -fno-builtin -fvisibility=hidden -fno-stack-protector $NOE
+F="-I../bcmgpu $T -Os -fPIC -shared -nostdlib -ffreestanding -fno-builtin -fvisibility=hidden -fno-stack-protector $NOE
    -Wl,--hash-style=sysv -Wl,-z,norelro -Wl,--build-id=none -Wl,--no-undefined -Wl,-z,max-page-size=4096 -Wl,-s -L$STUB"
 $ZIG cc $F -Wl,-soname,libaemushim.so -o "$OUT" aemushim.c crash.c -lc_stub
 $ZIG cc $F -Wl,-soname,librecshim.so -o "$DIR/librecshim.so" recshim.c -lc_stub

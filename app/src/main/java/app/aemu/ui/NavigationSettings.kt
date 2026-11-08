@@ -29,7 +29,7 @@ internal fun NavButton.labelRes(): Int = when (this) {
 }
 
 @Composable
-internal fun NavigationSettings(s: VmSettings, set: (VmSettings) -> Unit) {
+internal fun NavigationSettings(s: VmSettings, preRelease: Boolean = false, set: (VmSettings) -> Unit) {
     val buttons = NavControls.parse(s.navButtons)
     if (s.showNavBar) {
         Text(stringResource(R.string.nav_buttons), modifier = Modifier.padding(horizontal = 16.dp))
@@ -63,5 +63,10 @@ internal fun NavigationSettings(s: VmSettings, set: (VmSettings) -> Unit) {
             Text(stringResource(R.string.nav_sensitivity, s.trackballStepDp))
             Slider(s.trackballStepDp.toFloat(), { set(s.copy(trackballStepDp = it.toInt().coerceIn(4, 48))) }, valueRange = 4f..48f)
         }
+    }
+    // a pre-1.0 image has one combined keypad and keyboard window of its own, always on: neither input method applies
+    if (!preRelease) {
+        Toggle(stringResource(R.string.vi_mouse_keyboard), stringResource(R.string.vi_mouse_keyboard_sub), s.mouseKeyboard) { set(s.copy(mouseKeyboard = it)) }
+        Toggle(stringResource(R.string.vi_keypad), stringResource(R.string.vi_keypad_sub), s.keypad) { set(s.copy(keypad = it)) }
     }
 }

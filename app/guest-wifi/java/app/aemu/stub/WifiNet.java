@@ -33,7 +33,7 @@ final class WifiNet extends NetworkAgent implements WifiLink {
         private Identity(int type, int transport, String legacyName, String iface) {
             this.type = type; this.transport = transport; this.legacyName = legacyName; this.iface = iface;
         }
-        static final Identity WIFI = new Identity(TYPE_WIFI, TRANSPORT_WIFI, "WIFI", "wlan0");
+        static final Identity WIFI = new Identity(TYPE_WIFI, TRANSPORT_WIFI, "WIFI", "eth0");
         static final Identity ETHERNET = new Identity(TYPE_ETHERNET, TRANSPORT_ETHERNET, "ETHERNET", "eth0");
     }
     // INTERNET, NOT_RESTRICTED, TRUSTED, NOT_VPN, NOT_METERED

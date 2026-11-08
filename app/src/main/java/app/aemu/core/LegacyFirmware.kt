@@ -184,12 +184,30 @@ object LegacyFirmware {
      * no *.rc in the root, which on this firmware starts app_process with arguments it does not know, in place of the runtime.
      */
     fun bootPlan(root: File): List<GuestService>? {
-        if (!isLegacyLayout(root)) return null
         val rc = File(root, "etc/init.rc").takeIf { it.isFile && !File(root, "init.rc").isFile }
             ?.let { f -> runCatching { f.readText() }.getOrNull() }
             ?.takeIf { isLegacyInitRc(it) }
             ?.let { runCatching { parseInitRc(it) }.getOrNull() }
-        return plan(rc, root)
+        if (isLegacyLayout(root)) return plan(rc, root)
+        return splitPlan(rc, root)
+    }
+
+    /**
+     * Builds such as 29386 (HTC, 0.9) are linked against /system, not /android, so [isLegacyLayout] is false for them, yet
+     * the system is still brought up by two programs from the old init.rc: app_process (the zygote, which opens its own
+     * socket and then only waits) and the runtime that asks it for system_server. With the generic plan only the zygote
+     * was started, with arguments of 1.0 that this build may not know, and the system sat in accept() for ever
+     * (strace: socket, bind, listen, and nothing after).
+     *
+     * Only for a tree whose own old-syntax /etc/init.rc names an autostart zygote and/or runtime that is really in the tree;
+     * the arguments are the ones the tree's init.rc gives. The zygote goes first. Null otherwise (generic plan).
+     */
+    fun splitPlan(rc: Rc?, root: File): List<GuestService>? {
+        if (rc == null) return null
+        val entries = rc.services.filter { it.autostart && (it.name == "zygote" || it.name == "runtime") && hostFile(root, it.argv.first()).isFile }
+            .sortedBy { if (it.name == "zygote") 0 else 1 }
+        if (entries.isEmpty()) return null
+        return entries.map { GuestService(it.name, it.argv, restart = true) }
     }
 
     // ------------------------------------------------------------------------------------------------------ layout
@@ -273,7 +291,9 @@ object LegacyFirmware {
      * Only for a pre-1.0 tree; anything that is already at dev/fb0 is left as it is. True if the link was made.
      */
     fun ensureFbAlias(root: File): Boolean {
-        if (!isLegacyLayout(root)) return false
+        // (build 29386 is linked against /system, not /android, but its runtime is the same program: it opens /dev/fb0 and exits
+        // with code 1 when that is missing, so a javalib tree with a runtime gets the alias too)
+        if (!isLegacyLayout(root) && !(File(root, "system/javalib").isDirectory && File(root, "system/bin/runtime").isFile)) return false
         val at = File(root, "dev/fb0")
         if (exists(at)) return false
         return runCatching {

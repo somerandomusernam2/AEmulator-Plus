@@ -273,6 +273,11 @@ object InitPlan {
         "kpoc_charger",
         // mtkbt: MediaTek's Bluetooth stack daemon; without its chip it fills the log with thousands of lines a second
         "mtkbt",
+        // aal: MediaTek's adaptive ambient-light display daemon. Its ioctl on the display driver always fails here and it
+        // retries without a pause: "E AALService: DISP_IOCTL_GET_AALSTATISTICS error" 3,000,000 times in 30 s (a 214 MB log),
+        // which starves system_server, the window manager's input dispatch stays off ("Dropped event because input dispatch is
+        // disabled") and touch never reaches the UI (Android 4.2 MT65xx image, 2026-11-06). Nothing depends on it.
+        "aal",
         // mountd (1.0-1.5): cannot mount a block device here; the host answers on its socket instead (VoldStub)
         "mountd",
         "ueventd", "vold", "rild", "ril-daemon", "adbd", "debuggerd", "debuggerd64", "console", "dbus", "bluetoothd",
@@ -283,7 +288,7 @@ object InitPlan {
         "rmt_storage", "qmuxd", "netmgrd", "thermald", "mpdecision", "thermal-engine", "time_daemon", "diag", "common_time", "tf_daemon",
     )
     private val SKIP_BIN = setOf(
-        "logwrapper", "sh", "rild", "vold", "wpa_supplicant", "dhcpcd", "bluetoothd", "hciattach", "btld", "adbd",
+        "logwrapper", "aal", "sh", "rild", "vold", "wpa_supplicant", "dhcpcd", "bluetoothd", "hciattach", "btld", "adbd",
         "sdcard", "gpsd", "gps", "akmd", "orientationd", "geomagneticd", "sensor", "charging", "playlpm", "lpm", "lpmkey", "bootanimation",
         "rmt_storage", "qmuxd", "netmgrd", "thermald", "mpdecision", "thermal-engine", "fm_", "wifi", "wifi_", "gps_", "hostapd", "mediaserver",
         "common_time", "tf_daemon", "drexe", "npsmobex", "immvibed", "cbd", "smdexe", "ddexe", "mdm_helper", "rilproxy",

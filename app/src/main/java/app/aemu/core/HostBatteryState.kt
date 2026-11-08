@@ -32,6 +32,31 @@ internal data class HostBatteryState(val percent: Int, val status: Int, val plug
             file.parentFile!!.mkdirs()
             file.writeText("$value\n")
         }
+        writeAndroidPower(base)
+    }
+
+    /**
+     * Pre-1.0 BatteryService reads /sys/android_power/battery_level, _scale, _raw and charging_state (made by
+     * TreeFixer.preOnePowerNodes, which is the only thing that creates battery_level: other releases are left alone).
+     * Same source as the power_supply nodes above, so host following, the manual level / charging switch of the VM
+     * menu and the default (100 %, full, plugged) all reach the guest. The wording of charging_state is a best guess.
+     */
+    private fun writeAndroidPower(base: File) {
+        val dir = File(base, "sys/android_power")
+        if (!File(dir, "battery_level").isFile) return
+        val charging = when {
+            status == 5 && (ac || usb || wireless) -> "Maintaining"
+            status == 2 || (status != 3 && status != 4 && (ac || usb || wireless)) -> "Charging"
+            else -> "Discharging"
+        }
+        val entries = mapOf("battery_level" to percent.toString(), "battery_level_scale" to "100",
+            "battery_level_raw" to percent.toString(), "charging_state" to charging)
+        for ((name, value) in entries) {
+            val file = File(dir, name)
+            check(file.canonicalFile == file.absoluteFile) { "Battery node is a symlink: $name" }
+            file.writeText("$value\n")
+            file.setReadable(true, false); file.setWritable(true, false)
+        }
     }
     companion object {
         fun from(level: Int, scale: Int, status: Int, plugged: Int): HostBatteryState? {

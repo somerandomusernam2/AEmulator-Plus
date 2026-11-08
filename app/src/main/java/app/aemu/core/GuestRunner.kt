@@ -36,7 +36,7 @@ class GuestRunner(
     val kernel: Kernel64 get() = Kernel64.forApi(img.api)
     val qemu: File get() = paths.nativeBin(
         if (engine == Engine.N64) kernel.runner
-        // x86-32: one translator (libqemu_i386.so); the 2.x mmap-base fallback is an ARM linker workaround, it has no x86 build
+        // x86-32: one translator (libqemu_kk_i386.so); the 2.x mmap-base fallback is an ARM linker workaround, it has no x86 build
         else if (arch != GuestArch.ARM) arch.translator(engine)
         // pre-1.0 images only: the translator with read-implies-exec (see LegacyFirmware.PRE_RELEASE_TRANSLATOR)
         else if (LegacyFirmware.isPreRelease(img.release) && paths.nativeBin(LegacyFirmware.PRE_RELEASE_TRANSLATOR).canExecute()) LegacyFirmware.PRE_RELEASE_TRANSLATOR
@@ -117,12 +117,21 @@ class GuestRunner(
             e["AEMU64_VNDBINDER"] = paths.vndbinderSock.absolutePath
         }
         e["AEMU64_INPUT"] = paths.inputSock.absolutePath
+        // input method "mouse and keyboard": the sockets of the emulated touchpad and keyboard (InputService); the runner
+        // only opens them when the guest opens the nodes aemu-touchpad / aemu-keyboard, which exist in that mode alone
+        e["AEMU64_PAD"] = File(paths.root, "dev/aemu_touchpad").absolutePath
+        e["AEMU64_KBD"] = File(paths.root, "dev/aemu_keyboard").absolutePath
         // 32-bit firmware whose libbinder insists on protocol 7: the guest runner (libaemu64_26/27) answers BINDER_VERSION
         // with it and translates the 32-bit binder structures for those programs (see BinderProtocol)
         BinderProtocol.saved(paths.bin)?.let { e[BinderProtocol.GUEST_ENV] = it.toString() }
-        paths.nativeBin("libqemu_arm.so").takeIf { it.canExecute() }?.let { e["AEMU64_QEMU"] = it.absolutePath }
+        // Modified for AEmulator Plus (2026-11-04): the translators come from the firmware's architecture (GuestArch.n64Lib32/64):
+        // ARM: libqemu_arm.so for its 32-bit programs; x86: libqemu_i386.so; x86-64: libqemu_x86_64.so for the 64-bit programs
+        // and libqemu_i386.so for the 32-bit side. The runner (libaemu64_<api>.so) picks by the program's ELF class and machine.
+        arch.n64Lib32.takeIf { it.isNotEmpty() }?.let { paths.nativeBin(it) }?.takeIf { it.canExecute() }?.let { e["AEMU64_QEMU"] = it.absolutePath }
+        arch.n64Lib64?.let { paths.nativeBin(it) }?.takeIf { it.canExecute() }?.let { e["AEMU64_QEMU64"] = it.absolutePath }
         sdcardHost?.let { e["AEMU64_SDCARD"] = it.absolutePath }
-        if (img.settings.gpu && kernel.gpuBridge32 != null) {
+        // (the GPU bridge for 32-bit programs is an ARM library: a firmware of another architecture never gets it)
+        if (img.settings.gpu && kernel.gpuBridge32 != null && !arch.foreign) {
             e["DHD_GL"] = "/dev/socket/gl"
             if (!HostInfo.gpu().contains("adreno")) e["DHD_GL3"] = "0"
             e["AEMU_GL_RETARGET"] = "0"; e["AEMU_GL_CLIENT_ARRAYS"] = "0"      // as on the 4.4 engine for 4.3+
@@ -169,7 +178,8 @@ class GuestRunner(
         // Modified for AEmulator Plus (2026-11-01): a tree with both sides gets the preload for its 32-bit ELF programs
         // only. LD_PRELOAD of a 32-bit library into a 64-bit program is a fatal linker error, and QEMU_SET_ENV is only
         // read by qemu-arm anyway. (run64.c do_exec drops it again when a 32-bit program starts a 64-bit one.)
-        val xattrTarget = isPure32Tree(paths.root) || (has32BitSide(paths.root) && isGuestElf32(paths.root, program))
+        // (libaemuxattr.so is an ARM library: never for a firmware of another architecture, whose translator forwards the calls itself)
+        val xattrTarget = !arch.foreign && (isPure32Tree(paths.root) || (has32BitSide(paths.root) && isGuestElf32(paths.root, program)))
         if (xattrTarget && File(paths.root, xattrPath.removePrefix("/")).isFile &&
             program?.substringAfterLast('/') != "installd") {
             val key = "DHD_ENV_LD_PRELOAD"
@@ -209,7 +219,8 @@ class GuestRunner(
         e["EXTERNAL_STORAGE"] = img.exports["EXTERNAL_STORAGE"] ?: img.sdcardPath
         e["ASEC_MOUNTPOINT"] = img.exports["ASEC_MOUNTPOINT"] ?: "/mnt/asec"
         e["LOOP_MOUNTPOINT"] = img.exports["LOOP_MOUNTPOINT"] ?: "/mnt/obb"
-        e["BOOTCLASSPATH"] = img.bootclasspath
+        // Modified for AEmulator Plus (2026-11-06): jars the firmware's own libandroid_runtime registers classes from, but its init.rc leaves out (see BootClasspathRepair)
+        e["BOOTCLASSPATH"] = BootClasspathRepair.repair(paths.root, img.bootclasspath).bootclasspath
         // 4.2+: зигота монтирует карту для каждого пользователя и без этих переменных роняет приложения
         // 5.0+: Environment.isExternalStorageEmulated() ищет путь /storage/emulated/<user> среди томов MountService (storage_list.xml).
         // У прошивки с единственным физическим томом (SDK/goldfish: /storage/sdcard) такого тома нет, и ActivityManager не может
@@ -276,7 +287,7 @@ class GuestRunner(
     private fun archFixups(e: MutableMap<String, String>) {
         if (!arch.supportsNoSmc) { e.remove("DHD_NO_SMC"); e.remove("GUEST_NO_SMC") }
         // The stand variables (binder socket, framebuffer size, input socket, creds, owners, sdcard, net ports, uid/gid...)
-        // are named DHD_<X> for the ARM translators (libqemu_kk/gb), but libqemu_i386.so (QEMU 8.2 + SENSES patches) only
+        // are named DHD_<X> for the ARM translators (libqemu_kk/gb), but libqemu_kk_i386.so (QEMU 8.2 + SENSES patches) only
         // reads GUEST_<X>. With DHD_BINDER alone the x86 guest never gets a /dev/binder ("GUEST_BINDER не задан — открытие
         // отклонено" -> ENOENT): servicemanager, surfaceflinger and every other native service abort, zygote segfaults.
         // dhdrun keeps GUEST_* (it only strips DHD_*), and qemu hides GUEST_* from the guest's own environment.

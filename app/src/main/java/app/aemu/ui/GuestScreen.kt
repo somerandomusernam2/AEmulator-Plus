@@ -39,6 +39,8 @@ class GuestScreen(ctx: Context, val w: Int, val h: Int) : View(ctx) {
     private var directFrames = 0L
     /** 2 = the guest flips between two pages by panning (recovery's minui); show the one it wrote last */
     var pages = 1
+    /** Broadcom V3D firmware: SurfaceFlinger pans between several pages of fb0 (the file holds 4 here); count them from the file size and follow the page written last */
+    var autoPages = false
     /** pixel format of fb0: 0 = RGB565, 1 = RGBA/RGBX_8888, 2 = BGRA_8888 (TWRP); a change remaps the file */
     @Volatile var format = 0
         set(v) {
@@ -47,7 +49,23 @@ class GuestScreen(ctx: Context, val w: Int, val h: Int) : View(ctx) {
             mappedIno = -1
             poke()
         }
-    private val pageHash = LongArray(2)
+    private val pageHash = LongArray(8)
+    private var panMode = false
+    private var lastChanged = 0
+    private var postSeen = 0
+    /** the menu entry "Screen mode" picks how a V3D firmware's frames are shown: 0 = the page that changed last, at once; 1 = the page the
+     *  last job drew in, once the job count has been still for a moment; 2 = like 1 and never while a job runs. Default 1. */
+    @Volatile var fbMode = 1
+    private var traceBusy = 0
+    private var traceSeq = 0
+    private var traceLines = 0
+    private var flashes = 0
+    private var prevAvg = -1
+    private val traceBuf = StringBuilder()
+    private var postOff = 0
+    private var lastMove = 0L
+    private var unsettledSince = 0L
+    private val postBuf = java.nio.ByteBuffer.allocate(16).order(java.nio.ByteOrder.LITTLE_ENDIAN)
     private var argb: IntArray? = null
     private var page = 0
     /** the page of a two-page fb0 that was written last (0 for single-page buffers) */
@@ -65,6 +83,7 @@ class GuestScreen(ctx: Context, val w: Int, val h: Int) : View(ctx) {
     private var quiet = 0
     @Volatile private var live = false
     private val gate = Object()
+    private companion object { const val POST_MAGIC = 0x31544f50; const val SETTLE_MS = 10L; const val SETTLE_MAX_MS = 50L; const val BUSY_MAX_MS = 400L; const val BLACK_HOLD_MS = 150L }
     private val paint = Paint().apply { isFilterBitmap = true }
     private val dst = Rect()
 
@@ -114,23 +133,57 @@ class GuestScreen(ctx: Context, val w: Int, val h: Int) : View(ctx) {
         if (buf == null) {
             if (!f.isFile || f.length() < pixels) return
             raf = RandomAccessFile(f, "r")
+            if (autoPages && pages == 1 && f.length() >= pixels * 2) pages = (f.length() / pixels).toInt().coerceIn(2, 8)
             // (the engine's hwcomposer counts its frames in the first word after the page)
-            val span = if (pages == 2 && f.length() >= pixels * 2) pixels * 2 else if (f.length() >= pixels + 8) pixels + 8 else pixels
+            val span = if (pages >= 2 && f.length() >= pixels * pages) pixels * pages else if (pages >= 2 && f.length() >= pixels * 2) pixels * 2 else if (f.length() >= pixels + 8) pixels + 8 else pixels
             buf = raf!!.channel.map(FileChannel.MapMode.READ_ONLY, 0, span)
             mappedIno = runCatching { android.system.Os.stat(f.absolutePath).st_ino }.getOrDefault(0L)
             bmp = Bitmap.createBitmap(w, h, if (format == 0) Bitmap.Config.RGB_565 else Bitmap.Config.ARGB_8888)
         }
         val b = buf ?: return
         val bitmap = bmp ?: return
-        val two = b.capacity() >= pixels * 2
+        val two = pages >= 2 && b.capacity() >= pixels * 2
         if (two) {
-            // two pages: follow the one whose content changed most recently
-            for (pg in 0..1) {
+            // several pages: follow the one whose content changed most recently
+            val n = (b.capacity() / pixels).toInt().coerceIn(2, 8)
+            for (pg in 0 until n) {
                 var hh = 0L
                 var j = (pg * pixels).toInt()
-                val end = j + pixels.toInt() - 4
+                val end = j + pixels.toInt() - 4 - (if (pg == n - 1) 16 else 0)
                 while (j <= end) { hh = 31 * hh + b.getInt(j); j += 2048 }
-                if (hh != pageHash[pg]) { pageHash[pg] = hh; page = pg }
+                if (hh != pageHash[pg]) { pageHash[pg] = hh; lastChanged = pg; if (!panMode || fbMode == 0) page = pg }
+            }
+            if (autoPages) {
+                // V3D firmware: the shim leaves a record at the end of fb0 after every job {render target offset, job count}. A frame is
+                // several jobs, so the page is shown once the count has stopped rising (SETTLE_MS) or, for a stream that never stops,
+                // after SETTLE_MAX_MS. Without a record (older shim) the page that changed last is shown at once, as before.
+                val r = if (fbMode == 0) null else postRecord(f)
+                if (r != null && fbMode == 3) {
+                    // The first job of a frame clears the whole page to black and the compose job fills it in tens of milliseconds later
+                    // (translation is slow): those black frames are what flashed. Show the page the last job drew in as soon as it has
+                    // anything in it; an all-black page is kept off the screen unless no job has run for BLACK_HOLD_MS (a really black screen).
+                    panMode = true
+                    val t = System.currentTimeMillis()
+                    traceBusy = r.third; traceSeq = r.second
+                    if (r.second != postSeen || r.third != 0) { postSeen = r.second; lastMove = t }
+                    page = (r.first.toLong() / pixels).toInt().coerceIn(0, n - 1)
+                    if (pageHash[page] == 0L && (t - lastMove < BLACK_HOLD_MS || r.third != 0)) { quiet++; return }
+                } else if (r != null) {
+                    panMode = true
+                    val t = System.currentTimeMillis()
+                    val busy = r.third != 0 && fbMode == 2
+                    traceBusy = r.third; traceSeq = r.second
+                    if (r.second != postSeen || busy) { postSeen = r.second; postOff = r.first; lastMove = t; if (unsettledSince == 0L) unsettledSince = t }
+                    if (unsettledSince == 0L) { quiet++; return }
+                    // while a job runs the page may hold the cleared or half composed frame: wait for it (long jobs are normal under
+                    // translation); the longer cap only guards against a record left busy by a process that died mid-job
+                    if (t - lastMove < SETTLE_MS && t - unsettledSince < (if (busy) BUSY_MAX_MS else SETTLE_MAX_MS)) return
+                    if (busy && t - unsettledSince < BUSY_MAX_MS) return
+                    unsettledSince = 0L
+                    page = (postOff.toLong() / pixels).toInt().coerceIn(0, n - 1)
+                    // a record that names a page with nothing in it: show the page that changed last
+                    if (pageHash[page] == 0L && pageHash[lastChanged] != 0L) page = lastChanged
+                }
             }
         }
         val base = if (two) (page * pixels).toInt() else 0
@@ -165,6 +218,7 @@ class GuestScreen(ctx: Context, val w: Int, val h: Int) : View(ctx) {
                 quiet = 0
                 lastHash = hash
                 changed++
+                trace(bitmap)
                 shown++
                 val now = System.currentTimeMillis()
                 if (changedAt == 0L) changedAt = now
@@ -174,11 +228,47 @@ class GuestScreen(ctx: Context, val w: Int, val h: Int) : View(ctx) {
         }
     }
 
+    private fun runDir(): File? = fb?.parentFile?.parentFile?.parentFile?.parentFile?.let { File(it, "run") }
+
+    /** What was shown, for the diag: a line per shown frame (the first 600) and a PNG of every frame whose brightness jumps (the first 8). */
+    private fun trace(bm: Bitmap) {
+        if (!autoPages || traceLines >= 600 && flashes >= 8) return
+        var sum = 0L; var n = 0
+        val stepX = maxOf(1, bm.width / 16); val stepY = maxOf(1, bm.height / 24)
+        var y = stepY / 2
+        while (y < bm.height) { var x = stepX / 2; while (x < bm.width) { val c = bm.getPixel(x, y); sum += ((c shr 16 and 255) + (c shr 8 and 255) + (c and 255)) / 3; n++; x += stepX }; y += stepY }
+        val avg = if (n > 0) (sum / n).toInt() else 0
+        val jump = prevAvg >= 0 && Math.abs(avg - prevAvg) > 40
+        if (traceLines < 600) {
+            traceBuf.append(System.currentTimeMillis() % 100000).append(" mode=").append(fbMode).append(" page=").append(page)
+                .append(" seq=").append(traceSeq).append(" busy=").append(traceBusy).append(" avg=").append(avg).append(if (jump) " JUMP" else "").append('\n')
+            traceLines++
+            if (traceLines % 25 == 0 || traceLines == 600) runCatching { File(runDir(), "screen-trace.log").appendText(traceBuf.toString()); traceBuf.setLength(0) }
+        }
+        if (jump && flashes < 8) {
+            flashes++
+            runCatching { java.io.FileOutputStream(File(runDir(), "flash-$flashes-page$page-avg$avg.png")).use { bm.compress(Bitmap.CompressFormat.PNG, 90, it) } }
+        }
+        prevAvg = avg
+    }
+
+    /** the shim's record of the last V3D job (see bcmgpu.h): {render target offset, job count}, or null when the shim leaves none */
+    private fun postRecord(f: File): Triple<Int, Int, Int>? {
+        val ch = raf?.channel ?: return null
+        val len = f.length()
+        if (len < 16) return null
+        postBuf.clear()
+        if (ch.read(postBuf, len - 16) != 16) return null
+        postBuf.flip()
+        if (postBuf.getInt(0) != POST_MAGIC) return null
+        return Triple(postBuf.getInt(4), postBuf.getInt(8), postBuf.getInt(12))
+    }
+
     /** the hwcomposer's count of frames written to fb0 (0 when the file has none) */
     private fun fbCount(): Int {
         val b = buf ?: return 0
         val pixels = w * h * (if (format == 0) 2 else 4)
-        return if (pages != 2 && b.capacity() >= pixels + 8) b.getInt(pixels) else 0
+        return if (pages < 2 && b.capacity() >= pixels + 8) b.getInt(pixels) else 0
     }
 
     override fun onDraw(c: Canvas) {
@@ -194,6 +284,19 @@ class GuestScreen(ctx: Context, val w: Int, val h: Int) : View(ctx) {
         poke()
         if (width <= 0 || height <= 0) return false
         val act = e.actionMasked
+        if (inp.mouseKeyboardEnabled) {
+            // mouse and keyboard: the guest has no touch screen, this view is its touchpad
+            val liftedIndex = if (act == MotionEvent.ACTION_POINTER_UP) e.actionIndex else -1
+            val over = act == MotionEvent.ACTION_UP || act == MotionEvent.ACTION_CANCEL
+            val contacts = ArrayList<app.aemu.core.TouchpadProtocol.Contact>(e.pointerCount)
+            for (i in 0 until e.pointerCount) {
+                if (over || i == liftedIndex) continue
+                contacts.add(app.aemu.core.TouchpadProtocol.Contact(e.getPointerId(i),
+                    app.aemu.core.TouchpadProtocol.pad(gx(e.getX(i)), w), app.aemu.core.TouchpadProtocol.pad(gy(e.getY(i)), h)))
+            }
+            inp.padTouch(contacts)
+            return true
+        }
         val up = act == MotionEvent.ACTION_UP || act == MotionEvent.ACTION_CANCEL
         val gone = if (act == MotionEvent.ACTION_POINTER_UP) e.actionIndex else -1
         // промежуточные точки движения — чтобы жесты и прокрутка были плавными

@@ -124,6 +124,13 @@
     <string name="imp_unpacking">Unpacking %1$s</string>
     <string name="imp_verifying">Verifying %1$s</string>
     <string name="imp_extracting">Extracting: %1$s</string>
+    <string name="imp_inspecting">Inspecting %1$s</string>
+    <string name="imp_choice_api">API level %1$s</string>
+    <string name="imp_choice_build">build number %1$s</string>
+    <string name="imp_choice_title">Which %1$s to import?</string>
+    <string name="imp_choice_text">This package has more than one %1$s (%2$d of %3$d). Pick the one to import.</string>
+    <string name="imp_choice_ok">Import</string>
+    <string name="imp_choice_cancel">Cancel import</string>
     <string name="imp_building_img_from_ota">Building %1$s.img from OTA</string>
     <string name="imp_edl">EDL: %1$s</string>
     <string name="imp_reading">Reading %1$s</string>

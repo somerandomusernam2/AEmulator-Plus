@@ -1,0 +1,11 @@
+#!/usr/bin/env python3
+import sys, os, hashlib, subprocess
+out=[]
+d="/tmp/fa-links"; os.makedirs(d,exist_ok=True)
+for a in sys.argv[1:]:
+    if a.endswith(".fa") and os.path.exists(a):
+        p=os.path.abspath(a)
+        l=p+".a"   # thin archive: members are relative to its directory, so the copy must live beside it
+        import shutil; shutil.copyfile(p,l); a=l
+    out.append(a)
+os.execvp("python3",["python3","-m","ziglang","cc","-target","aarch64-linux-musl"]+out+["-UNDEBUG","-D_LARGEFILE64_SOURCE"])
