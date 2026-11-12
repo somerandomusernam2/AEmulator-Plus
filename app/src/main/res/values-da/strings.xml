@@ -17,7 +17,7 @@
     <string name="storage_text">Tillad adgang til alle filer: så ligger hvert systems hukommelseskort i mappen AEmulator i det interne lager – praktisk til APK-filer, musik og fotos.</string>
     <string name="allow">Tillad</string>
     <string name="empty_title">Ingen systemer endnu</string>
-    <string name="empty_text">Tilføj ARM-firmware til Android 1.0–7.x: en recovery-ZIP, et Odin-arkiv (.tar.md5), system.img eller et fabriksimage.</string>
+    <string name="empty_text">Tilføj ARM-firmware til Android 1.0–17: en recovery-ZIP, et Odin-arkiv (.tar.md5), system.img eller et fabriksimage.</string>
     <string name="empty_help">Hvilke filer virker?</string>
     <string name="import_failed">Importen mislykkedes</string>
     <string name="import_running">Importerer firmware</string>
@@ -29,7 +29,7 @@
     <string name="start">Start</string>
     <string name="rename">Omdøb</string>
     <string name="help_title">Understøttet firmware</string>
-    <string name="help_text">• Android 2.2–4.4: 32-bit ARM-firmware, kører via QEMU (ældre end 2.2: eksperimentel).\n• Android 5.0–17: arm64-firmware og GSI, kører direkte på telefonen.\n\nFormater:\n• CWM/TWRP recovery-ZIP (MIUI, CyanogenMod, porterede og de fleste brugerdefinerede ROM\'er);\n• Samsung: Odin .tar / .tar.md5 eller ZIP med AP_*.tar.md5;\n• Googles fabriksimages (.tgz / .zip);\n• system.img (ext4, sparse, YAFFS2), TWRP-backup system.ext4.win;\n• OTA med system.new.dat(.br) + system.transfer.list.\n\nBedst er det, hvis arkivet indeholder boot.img: rækkefølgen for start af tjenester hentes derfra.</string>
+    <string name="help_text">• Android 2.2–4.4: 32-bit ARM-firmware, kører via QEMU (ældre end 2.2: eksperimentel).\n• Android 5.0–17: arm64-firmware og GSI, kører direkte på telefonen.\n\nFormater:\n• CWM/TWRP recovery-ZIP (MIUI, CyanogenMod, porterede og de fleste brugerdefinerede ROM\'er);\n• Samsung: Odin .tar / .tar.md5 eller ZIP med AP_*.tar.md5;\n• Googles fabriksimages (.tgz / .zip);\n• system.img (ext4, sparse, YAFFS2), TWRP-backup system.ext4.win;\n• OTA med system.new.dat(.br) + system.transfer.list;\n• Også: 7z, RAR, LG .kdz, Sony .ftf, Huawei UPDATE.APP, Qualcomm EDL, payload.bin, super.img, EROFS, Android-x86 ISO.\n\nBedst er det, hvis arkivet indeholder boot.img: rækkefølgen for start af tjenester hentes derfra.</string>
     <string name="vs_screen">Gæstens skærm</string>
     <string name="vs_fixed_2x">Desire HD-motoren bruger en fast 480×800-skærm ved 240 dpi.</string>
     <string name="vs_screen_hint">Lavere opløsning gør systemet hurtigere.</string>
@@ -44,6 +44,13 @@
     <string name="vs_legacy_sub">Den ældre Desire HD-motor: kun GLES 1.x, 480×800-skærm. Brug den, hvis hovedmotoren ikke virker.</string>
     <string name="vs_lowram">Lavt RAM-forbrug</string>
     <string name="vs_lowram_sub">ro.config.low_ram – systemet sparer på hukommelsen.</string>
+    <string name="vs_memory_mode">Hukommelsesstyring</string>
+    <string name="vs_memory_light">Let</string>
+    <string name="vs_memory_medium">Middel</string>
+    <string name="vs_memory_aggressive">Aggressiv</string>
+    <string name="vs_memory_light_sub">Baggrundsapps stoppes kun, når selve telefonen næsten løber tør for hukommelse. Færrest genstarter; bruger mest hukommelse. Træder i kraft efter en fuld genstart af den virtuelle maskine.</string>
+    <string name="vs_memory_medium_sub">Afbalanceret: beholder et moderat antal baggrundsapps og stopper resten, når den ledige hukommelse bliver lav. Træder i kraft efter en fuld genstart af den virtuelle maskine.</string>
+    <string name="vs_memory_aggressive_sub">Beholder få baggrundsapps og tjekker ofte, så hukommelsen frigives tidligt. Bruger mindst hukommelse, men apps genstarter oftere. Træder i kraft efter en fuld genstart af den virtuelle maskine.</string>
     <string name="vs_proxy">Moderne TLS-proxy</string>
     <string name="vs_proxy_sub">Lader gamle browsere og apps åbne nutidens HTTPS-websteder.</string>
     <string name="vs_controls">Betjening</string>
@@ -146,7 +153,7 @@
     <string name="vs_strace">Spor tjenesters systemkald</string>
     <string name="vs_strace_sub">Tjenestenavne adskilt af kommaer, f.eks. mediaserver,zygote. Gør disse tjenester langsommere og skriver sporingen til deres logs. Anvendes ved næste opstart.</string>
     <string name="vs_wifi">Wi-Fi-netværk</string>
-    <string name="vs_wifi_sub">Viser værtens internet for den virtuelle maskine som et tilsluttet Wi-Fi-netværk i stedet for Ethernet. Android 2.3, 4.0–7.x. Anvendes ved næste opstart.</string>
+    <string name="vs_wifi_sub">Viser værtens internet for den virtuelle maskine som et tilsluttet Wi-Fi-netværk i stedet for Ethernet. Android 2.3, 4.0–17 (8–17: eksperimentel). Anvendes ved næste opstart.</string>
     <string name="vs_wifi_ssid">Netværksnavn (SSID)</string>
     <string name="vs_wifi_ssid_sub">Op til 32 bytes</string>
     <string name="vs_wifi_ssid_error">Netværksnavnet må ikke være tomt</string>
@@ -487,4 +494,35 @@
     <string name="thermal_invalid">Indtast en værdi fra -40 til 150.</string>
     <string name="thermal_apply">Anvend</string>
     <string name="thermal_reset">Brug standard</string>
+    <string name="vs_guest_nav">Aktivér navigationslinje / proceslinje</string>
+    <string name="vs_guest_nav_sub">Lader gæsten tegne sin egen navigationslinje eller proceslinjen i Android-skrivebordsbuilds (sætter qemu.hw.mainkeys=0). Slå kun til ved import for skrivebordsbuilds, og lad det være slået fra for alle andre aftryk. Træder i kraft ved næste fulde opstart.</string>
+    <string name="th_group_plain">Enkle temaer</string>
+    <string name="th_group_skins">Temaer med enhedsskin (af @regectt)</string>
+    <string name="th_group_custom">Egne temaer</string>
+    <string name="th_custom_empty">Ingen egne temaer endnu. Tryk på “Nyt tema” for at oprette et, eller importér en .aetheme-fil. Enkle temaer og enhedsskin kan ikke ændres: Duplikér et for at redigere det.</string>
+    <string name="th_expand">Udvid liste</string>
+    <string name="th_collapse">Skjul liste</string>
+    <string name="vs_art_boot_image">Brug ART-bootaftryk (Android 14+)</string>
+    <string name="vs_art_boot_image_sub">Fra: Gæsten kører uden bootaftryk. Opstarten er langsommere, men intet ved aftrykket kan fejle. Til: Emulatoren forbereder et bootaftryk til dette runtime (oprettes én gang ved næste start, hvilket tager lidt tid).</string>
+    <string name="vs_no_watchdog">Deaktivér systemets watchdog (Android 14+)</string>
+    <string name="vs_no_watchdog_sub">Til en opstart, der er langsommere end Androids watchdog-grænse på 60 s, som dræber system_server i en løkke. Patcher firmwarens services.jar, så watchdog-tråden afsluttes med det samme; et reelt systemdeadlock afhjælpes derefter ikke længere af en genstart. Jar-filens prækompilerede kode ignoreres, hvilket kan gøre den første opstart langsommere. Slås det fra, gendannes den originale jar. Træder i kraft ved næste fulde opstart.</string>
+    <string name="folder_new">Ny mappe</string>
+    <string name="folder_new_dots">Ny mappe…</string>
+    <string name="folder_rename">Omdøb mappe</string>
+    <string name="folder_delete">Slet mappe (ROM’erne beholdes)</string>
+    <string name="folder_move">Flyt til mappe</string>
+    <string name="folder_none">Ikke i en mappe</string>
+    <string name="folder_default_name">Mappe</string>
+    <string name="folder_empty">Tom – slip ROM’er her</string>
+    <string name="folder_open">Åbn mappe</string>
+    <string name="folder_close">Luk mappe</string>
+    <plurals name="folder_roms">
+        <item quantity="one">%1$d ROM</item>
+        <item quantity="other">%1$d ROM\'er</item>
+    </plurals>
+    <string name="phantom_title">Dræber af fantomprocesser</string>
+    <string name="phantom_msg">På din enhed er indstillingen “Deaktivér begrænsninger for underprocesser” i Udviklerindstillinger ikke slået til. Det betyder, at zygote bliver dræbt under emulatorens opstart, så emulatoren ikke kan starte. Det anbefales derfor på det kraftigste at slå den til.</string>
+    <string name="phantom_open_dev">Åbn Udviklerindstillinger</string>
+    <string name="phantom_ignore">Ignorér</string>
+    <string name="phantom_never">Påmind aldrig igen</string>
 </resources>

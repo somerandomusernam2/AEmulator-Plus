@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Added for AEmulator Plus, 2026-11-10: tabs and several machines at once -->
+<resources>
+    <string name="tab_home">Кітапхана</string>
+    <string name="tab_close">Қойындыны жабу</string>
+    <string name="tab_close_title">%1$s жабылсын ба?</string>
+    <string name="tab_close_text">«Жию» қойындыны жабады, ал машина фонда жұмысын жалғастырады; оны кітапханадан қайта ашыңыз. «Өшіру» машинаны өшіреді.</string>
+    <string name="tab_minimize">Жию</string>
+    <string name="tab_shutdown">Өшіру</string>
+    <string name="vm_slots_full">Машинаның барлық %1$d слоты бос емес. Алдымен біреуін өшіріңіз.</string>
+</resources>

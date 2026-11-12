@@ -30,4 +30,17 @@
     <string name="vs_sf_tombstone">SurfaceFlinger strigties tombstone (derinimas)</string>
     <string name="vs_sf_tombstone_sub">Jei SurfaceFlinger sugenda, programinė įranga įrašo į žurnalą įprastą tombstone (su sugedusia funkcija) vietoj trumpos ataskaitos. Naudokite siųsdami pranešimą apie klaidą. Taikoma kitą kartą visiškai paleidus virtualią mašiną.</string>
     <string name="bluetooth_permission_denied">„Bluetooth“ leidimas atmestas: svečias bus paleistas be šeimininko „Bluetooth“.</string>
+    <string name="vi_mouse_keyboard">Įvestis: pelė ir klaviatūra</string>
+    <string name="vi_mouse_keyboard_sub">Užregistruoja svečiui jutiklinį kilimėlį ir klaviatūrą ir pašalina jo jutiklinį ekraną. Ekranas tampa jutikliniu kilimėliu (palieskite, kad spustelėtumėte, du pirštai slinkimui), o naršymo juostoje atsiranda klaviatūros mygtukas. Reikia QEMU variklio (ne vietinio 64 bitų) ir visiško virtualiosios mašinos paleidimo iš naujo.</string>
+    <string name="vi_keypad">Įvestis: mygtukų klaviatūra</string>
+    <string name="vi_keypad_sub">Prideda prie naršymo juostos mygtukų klaviatūros mygtuką: rodyklių klavišai, Gerai, programiniai klavišai, Skambinti / Baigti ir 0–9 * # kaip mygtukiniame telefone. Lietimas ir toliau veikia, o mygtukų klaviatūrą galima derinti su pele ir klaviatūra.</string>
+    <string name="vi_keyboard">Klaviatūra</string>
+    <string name="vi_keypad_title">Mygtukų klaviatūra</string>
+    <string name="vi_close">Uždaryti</string>
+    <string name="vi_open_keyboard">Klaviatūra</string>
+    <string name="vi_open_keypad">Mygtukų klaviatūra</string>
+    <string name="m_resize_screen">Keisti ekrano dydį</string>
+    <string name="m_resize_done">Dydžio keitimas baigtas</string>
+    <string name="m_resize_reset">Atkurti ekrano dydį</string>
+    <string name="vi_resize_hint">Vilkite ekrano kampą, kad pakeistumėte jo dydį. Baigę atidarykite meniu ir palieskite „Dydžio keitimas baigtas“.</string>
 </resources>

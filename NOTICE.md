@@ -117,3 +117,26 @@ publishing notices or hashes does not remedy missing required source.
      version ("Found no HAL version", null deref in `AudioFlinger::onFirstRef`, audioserver exit 139, black screen). The
      engine's 4.0 implementation libraries are removed from `n64-34-own`, so the service registers 2.0 (its fallback), and the
      manifests of `n64-34-own` / `n64-34-gsi` declare audio and audio.effect 2.0.
+- **2026-11-09**: several machines at once, in one window with tabs (written without a build or a phone: not compiled, not
+  tested). Each machine runs in a process slot of its own (`:vm`, `:vm1`..`:vm3`, with `:binderN` / `:glN` helpers for the
+  GB engine): `core/VmSlots.kt` (slot bookkeeping), `core/TabRegistry.kt` (the open tabs, shared between processes),
+  `core/KeeperSlots.kt`, `ui/VmActivitySlots.kt`, `dev/lk/dhd/BinderSlot{1,2,3}.java`, `GlSlot{1,2,3}.java`, and the
+  matching manifest entries. `Keeper.kt`, `LiveVmStatus.kt`, `VmStorageLease.kt` (one lock per slot; reset/import/export take
+  all of them) and `GuestVm.kt` (`killLeftovers` now only ends the processes of its own machine) were made per slot. The
+  library and every machine window share one task and one tab bar (`ui/TabBar.kt`): a small library tab, then one tab per
+  open machine named with its first 10 characters and "..."; closing a tab asks whether to minimize (the tab goes, the
+  machine keeps running) or shut down. `VmActivity.kt`, `MainActivity.kt`, `Home.kt`, `Library3D.kt`, `LibraryModel.kt` adapted;
+  the VNC server takes the first free port from 5900.
+- **2026-11-09**: two machines on one tab (split screen), on top of the multi-instance tabs (written without a build or a
+  phone: not compiled, not tested). Pressing, holding and dragging a tab onto the machine's screen shows a preview of the half
+  it will take (top, bottom, left or right, like snapping a window); dropping it there makes one tab of two machines, titled
+  "2 tabs". Each machine keeps a window of its own (its own tab bar, navigation bar and menu button) and the two windows
+  share the screen: the base window is made half of the screen, the other machine's window is a translucent overlay
+  activity (`VmOverlayActivity*`, `Theme.AEmulator.Vm.Overlay`) on its other half, so the base window stays visible and
+  running beneath it. `core/TabRegistry.kt` stores tabs of two machines (`base+overlay@side`) and re-fits every window when
+  the list changes; `core/SplitLayout.kt` (geometry), `ui/SplitDrop.kt` (drag shadow and drop zones), `ui/TabBar.kt`,
+  `ui/VmActivity.kt` and `AndroidManifest.xml` adapted. Closing a tab of two asks: separate, minimize both or shut down both.
+- **2026-11-10**: fix for the split-screen tabs (not compiled, not tested): the tab bar's dialogs are a transparent window of
+  their own over the whole screen (`ui/TabDialogActivity.kt`, `Theme.AEmulator.TabDialog`) instead of a dialog of one half,
+  which the other half covered. The close button of a tab of two machines now asks to split it back into two tabs (nothing is
+  closed), and the dialog goes away by itself when its tab changes.

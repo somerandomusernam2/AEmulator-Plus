@@ -23,6 +23,8 @@ class GuestRunner(
     var noTcgOpt = false
     var singleTouch = false
     var binderVerbose = false
+    /** set by the VM at start from [BinderGuard]: preload the binder guard into every guest program of this boot */
+    @Volatile var guardArmed = false
     var sdcardHost: File? = null
     /** user's extra qemu options from firmware settings: KEY=VALUE tokens become env vars, the rest go to qemu */
     var userQemuArgs: String = ""
@@ -210,9 +212,17 @@ class GuestRunner(
         }
         // ashmem через memfd (движок) + наша прослойка от запрещённых в песочнице вызовов (mount, reboot…).
         // glibc firmware (Google TV) cannot load the bionic-linked libaemushim.so (DT_NEEDED libc.so): ashmem shim only.
+        // The binder guard only for a VM that has shown the daemon's bare-object fault (BinderGuard), and only where its
+        // library is in the tree: an ARM bionic userland on the universal/2.x engines, never glibc or a foreign architecture.
+        val guard = guardArmed && !arch.foreign && !GuestPreload.isGlibcFirmware(paths.root) &&
+            File(paths.root, GuestPreload.GUARD.removePrefix("/")).isFile
         e["DHD_ENV_LD_PRELOAD"] = GuestPreload.value(GuestPreload.isGlibcFirmware(paths.root),
             xattr = isPure32Tree(paths.root) && File(paths.root, GuestPreload.xattrFor(program).removePrefix("/")).isFile,
-            xattrPath = GuestPreload.xattrFor(program))
+            xattrPath = GuestPreload.xattrFor(program), guard = guard)
+        if (guard) {
+            e[BinderGuard.ENV] = "1"
+            e[BinderGuard.ENV_LOG] = File(paths.bin, BinderGuard.LOG).absolutePath
+        }
         e["ANDROID_ROOT"] = img.exports["ANDROID_ROOT"] ?: "/system"
         e["ANDROID_DATA"] = img.exports["ANDROID_DATA"] ?: "/data"
         e["ANDROID_ASSETS"] = img.exports["ANDROID_ASSETS"] ?: "/system/app"

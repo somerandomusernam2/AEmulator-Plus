@@ -225,4 +225,11 @@
     <string name="update_err_wrong_package">Завантажений APK належить іншому застосунку</string>
     <string name="catalog_err_too_many_lines">У каталозі понад 10000 рядків</string>
     <string name="imp_iso_no_system">В образі ISO не знайдено системи Android (очікується system.sfs або system.img)</string>
+    <string name="imp_inspecting">Перевірка %1$s</string>
+    <string name="imp_choice_api">Рівень API %1$s</string>
+    <string name="imp_choice_build">номер збірки %1$s</string>
+    <string name="imp_choice_title">Який %1$s імпортувати?</string>
+    <string name="imp_choice_text">У цьому пакеті кілька варіантів %1$s (%2$d з %3$d). Виберіть той, який потрібно імпортувати.</string>
+    <string name="imp_choice_ok">Імпортувати</string>
+    <string name="imp_choice_cancel">Скасувати імпорт</string>
 </resources>

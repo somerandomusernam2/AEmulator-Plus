@@ -30,4 +30,17 @@
     <string name="bluetooth_permission_denied">Permisiunea Bluetooth a fost refuzată: sistemul invitat va porni fără Bluetooth de la gazdă.</string>
     <string name="vs_sf_tombstone">Tombstone la blocarea SurfaceFlinger (depanare)</string>
     <string name="vs_sf_tombstone_sub">Dacă SurfaceFlinger se blochează, firmware-ul scrie în jurnal un tombstone obișnuit (cu funcția care s-a blocat) în loc de un raport scurt. Folosește-l la trimiterea unui raport de eroare. Se aplică la următoarea pornire completă a VM-ului.</string>
+    <string name="vi_mouse_keyboard">Intrare: mouse și tastatură</string>
+    <string name="vi_mouse_keyboard_sub">Înregistrează un touchpad și o tastatură în invitat și îi elimină ecranul tactil. Ecranul devine touchpad (atinge pentru clic, două degete pentru derulare), iar în bara de navigare apare un buton de tastatură. Necesită motorul QEMU (nu cel nativ pe 64 de biți) și o repornire completă a mașinii virtuale.</string>
+    <string name="vi_keypad">Intrare: tastatură numerică</string>
+    <string name="vi_keypad_sub">Adaugă în bara de navigare un buton de tastatură numerică: taste săgeți, OK, taste soft, Apel/Încheiere și 0–9 * # ca la un telefon cu butoane. Atingerea continuă să funcționeze, iar tastatura numerică poate fi combinată cu mouse-ul și tastatura.</string>
+    <string name="vi_keyboard">Tastatură</string>
+    <string name="vi_keypad_title">Tastatură numerică</string>
+    <string name="vi_close">Închide</string>
+    <string name="vi_open_keyboard">Tastatură</string>
+    <string name="vi_open_keypad">Tastatură numerică</string>
+    <string name="m_resize_screen">Redimensionează ecranul</string>
+    <string name="m_resize_done">Redimensionare terminată</string>
+    <string name="m_resize_reset">Resetează dimensiunea ecranului</string>
+    <string name="vi_resize_hint">Trage de un colț al ecranului pentru a-l redimensiona. Când ai terminat, deschide meniul și atinge „Redimensionare terminată”.</string>
 </resources>

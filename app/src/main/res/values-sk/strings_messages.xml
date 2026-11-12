@@ -225,4 +225,11 @@
     <string name="update_err_wrong_package">Stiahnuté APK má nesprávny balík aplikácie</string>
     <string name="catalog_err_too_many_lines">Katalóg presahuje 10000 riadkov</string>
     <string name="imp_iso_no_system">V obraze ISO sa nenašiel systém Android (očakáva sa system.sfs alebo system.img)</string>
+    <string name="imp_inspecting">Kontrola: %1$s</string>
+    <string name="imp_choice_api">Úroveň API %1$s</string>
+    <string name="imp_choice_build">číslo zostavenia %1$s</string>
+    <string name="imp_choice_title">Ktorú položku (%1$s) importovať?</string>
+    <string name="imp_choice_text">Tento balík obsahuje viac ako jednu položku (%1$s): %2$d z %3$d. Vyberte tú, ktorú chcete importovať.</string>
+    <string name="imp_choice_ok">Importovať</string>
+    <string name="imp_choice_cancel">Zrušiť import</string>
 </resources>

@@ -18,7 +18,7 @@
     <string name="storage_text">Tillåt åtkomst till alla filer: då ligger varje systems minneskort i mappen AEmulator i det interna minnet – praktiskt för APK-filer, musik och foton.</string>
     <string name="allow">Tillåt</string>
     <string name="empty_title">Inga system ännu</string>
-    <string name="empty_text">Lägg till en ARM-firmware för Android 2.2–6.0: en recovery-ZIP, ett Odin-arkiv (.tar.md5), system.img eller en fabriksavbild.</string>
+    <string name="empty_text">Lägg till en ARM-firmware för Android 1.0–17: en recovery-ZIP, ett Odin-arkiv (.tar.md5), system.img eller en fabriksavbild.</string>
     <string name="empty_help">Vilka filer fungerar?</string>
     <string name="import_failed">Importen misslyckades</string>
     <string name="import_running">Importerar firmware</string>
@@ -30,7 +30,7 @@
     <string name="start">Starta</string>
     <string name="rename">Byt namn</string>
     <string name="help_title">Firmware som stöds</string>
-    <string name="help_text">• Android 2.2 och 4.0–4.4: huvudsakligt stöd; 5.x–6.x: experimentellt.\n• Endast 32-bitars ARM-firmware (armeabi / armeabi-v7a).\n\nFormat:\n• CWM/TWRP recovery-ZIP (MIUI, CyanogenMod, portar, de flesta anpassade ROM);\n• Samsung: Odin .tar / .tar.md5 eller en ZIP med AP_*.tar.md5;\n• Googles fabriksavbilder (.tgz / .zip);\n• system.img (ext4, sparse, YAFFS2), TWRP-säkerhetskopia system.ext4.win;\n• OTA med system.new.dat(.br) + system.transfer.list.\n\nBäst om arkivet innehåller boot.img: ordningen för start av tjänster hämtas därifrån.</string>
+    <string name="help_text">• Android 2.2–4.4: 32-bitars ARM-firmware, körs via QEMU (äldre än 2.2: experimentellt).\n• Android 5.0–17: arm64-firmware och GSI:er, körs inbyggt på telefonen.\n\nFormat:\n• CWM/TWRP recovery-ZIP (MIUI, CyanogenMod, portar, de flesta anpassade ROM);\n• Samsung: Odin .tar / .tar.md5 eller en ZIP med AP_*.tar.md5;\n• Googles fabriksavbilder (.tgz / .zip);\n• system.img (ext4, sparse, YAFFS2), TWRP-säkerhetskopia system.ext4.win;\n• OTA med system.new.dat(.br) + system.transfer.list;\n• Även: 7z, RAR, LG .kdz, Sony .ftf, Huawei UPDATE.APP, Qualcomm EDL, payload.bin, super.img, EROFS, Android-x86 ISO.\n\nBäst om arkivet innehåller boot.img: ordningen för start av tjänster hämtas därifrån.</string>
     <string name="vs_screen">Gästskärm</string>
     <string name="vs_fixed_2x">Android 2.x använder en fast skärm på 480×800 vid 240 dpi.</string>
     <string name="vs_screen_hint">En mindre skärm gör systemet snabbare.</string>
@@ -45,6 +45,13 @@
     <string name="vs_legacy_sub">Den äldre Desire HD-motorn: endast GLES 1.x, skärm på 480×800. Använd den om huvudmotorn inte fungerar.</string>
     <string name="vs_lowram">Läge för lite minne</string>
     <string name="vs_lowram_sub">ro.config.low_ram – systemet sparar minne.</string>
+    <string name="vs_memory_mode">Minneshantering</string>
+    <string name="vs_memory_light">Lätt</string>
+    <string name="vs_memory_medium">Medel</string>
+    <string name="vs_memory_aggressive">Aggressiv</string>
+    <string name="vs_memory_light_sub">Bakgrundsappar stoppas bara när själva telefonen nästan har slut på minne. Minst antal omstarter; använder mest minne. Gäller efter en fullständig omstart av den virtuella maskinen.</string>
+    <string name="vs_memory_medium_sub">Balanserad: behåller ett måttligt antal bakgrundsappar och stoppar resten när det lediga minnet blir lågt. Gäller efter en fullständig omstart av den virtuella maskinen.</string>
+    <string name="vs_memory_aggressive_sub">Behåller få bakgrundsappar och kontrollerar ofta, så att minne frigörs tidigt. Använder minst minne, men appar startar om oftare. Gäller efter en fullständig omstart av den virtuella maskinen.</string>
     <string name="vs_proxy">Modern TLS-proxy</string>
     <string name="vs_proxy_sub">Låter gamla webbläsare och appar öppna dagens HTTPS-webbplatser.</string>
     <string name="vs_controls">Kontroller</string>
@@ -136,7 +143,7 @@
     <string name="vs_strace">Spåra systemanrop från tjänster</string>
     <string name="vs_strace_sub">Tjänstenamn åtskilda med kommatecken, t.ex. mediaserver,zygote. Gör dessa tjänster långsammare och skriver spårningen till deras loggar. Gäller vid nästa start.</string>
     <string name="vs_wifi">Wi-Fi-nätverk</string>
-    <string name="vs_wifi_sub">Visar värdens internet för den virtuella maskinen som ett anslutet Wi-Fi-nätverk i stället för Ethernet. Android 2.3, 4.0–7.x. Gäller vid nästa start.</string>
+    <string name="vs_wifi_sub">Visar värdens internet för den virtuella maskinen som ett anslutet Wi-Fi-nätverk i stället för Ethernet. Android 2.3, 4.0–17 (8–17: experimentellt). Gäller vid nästa start.</string>
     <string name="vs_wifi_ssid">Nätverksnamn (SSID)</string>
     <string name="vs_wifi_ssid_sub">Upp till 32 byte</string>
     <string name="vs_wifi_ssid_error">Nätverksnamnet får inte vara tomt</string>
@@ -488,4 +495,35 @@
     <string name="m_reset_menu_pos">Återställ menyknappen</string>
     <string name="as_led">Notifieringslampa</string>
     <string name="as_led_sub">Visa gasttelefonens lysdiod ovanför skärmen</string>
+    <string name="vs_guest_nav">Aktivera navigeringsfält / aktivitetsfält</string>
+    <string name="vs_guest_nav_sub">Låter gästen rita sitt eget navigeringsfält, eller aktivitetsfältet i Android-skrivbordsbyggen (anger qemu.hw.mainkeys=0). Slå på vid import endast för skrivbordsbyggen och låt det vara av för alla andra avbilder. Gäller vid nästa fullständiga start.</string>
+    <string name="th_group_plain">Enkla teman</string>
+    <string name="th_group_skins">Teman med enhetsskal (av @regectt)</string>
+    <string name="th_group_custom">Egna teman</string>
+    <string name="th_custom_empty">Inga egna teman ännu. Tryck på ”Nytt tema” för att skapa ett eller importera en .aetheme-fil. Enkla teman och enhetsskal kan inte ändras: duplicera ett för att redigera det.</string>
+    <string name="th_expand">Visa listan</string>
+    <string name="th_collapse">Dölj listan</string>
+    <string name="vs_art_boot_image">Använd ART-startavbild (Android 14+)</string>
+    <string name="vs_art_boot_image_sub">Av: gästen körs utan startavbild. Starten går långsammare, men inget med avbilden kan misslyckas. På: emulatorn förbereder en startavbild för den här körmiljön (skapas en gång vid nästa start, vilket tar en stund).</string>
+    <string name="vs_no_watchdog">Inaktivera systemets watchdog (Android 14+)</string>
+    <string name="vs_no_watchdog_sub">För en start som tar längre tid än Androids watchdog-gräns på 60 s, som avslutar system_server i en loop. Patchar firmwarens services.jar så att watchdog-tråden avslutas direkt; ett verkligt systemlås åtgärdas då inte längre av en omstart. Jar-filens förkompilerade kod ignoreras, vilket kan göra första starten långsammare. Om du stänger av det återställs originalfilen. Gäller vid nästa fullständiga start.</string>
+    <string name="folder_new">Ny mapp</string>
+    <string name="folder_new_dots">Ny mapp…</string>
+    <string name="folder_rename">Byt namn på mapp</string>
+    <string name="folder_delete">Ta bort mapp (ROM-filerna behålls)</string>
+    <string name="folder_move">Flytta till mapp</string>
+    <string name="folder_none">Inte i någon mapp</string>
+    <string name="folder_default_name">Mapp</string>
+    <string name="folder_empty">Tom – släpp ROM-filer här</string>
+    <string name="folder_open">Öppna mapp</string>
+    <string name="folder_close">Stäng mapp</string>
+    <plurals name="folder_roms">
+        <item quantity="one">%1$d ROM</item>
+        <item quantity="other">%1$d ROM</item>
+    </plurals>
+    <string name="phantom_title">Fantomprocessavlivare</string>
+    <string name="phantom_msg">På din enhet är alternativet ”Inaktivera begränsningar för underordnade processer” i Utvecklaralternativ inte aktiverat. Det innebär att zygote avslutas när emulatorn startar, vilket gör att emulatorn inte kan starta. Det rekommenderas därför STARKT att aktivera det.</string>
+    <string name="phantom_open_dev">Öppna Utvecklaralternativ</string>
+    <string name="phantom_ignore">Ignorera</string>
+    <string name="phantom_never">Påminn aldrig igen</string>
 </resources>

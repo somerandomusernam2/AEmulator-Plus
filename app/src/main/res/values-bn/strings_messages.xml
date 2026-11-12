@@ -225,4 +225,11 @@
     <string name="update_err_wrong_package">ডাউনলোড করা APK-র অ্যাপ্লিকেশন প্যাকেজ ভুল</string>
     <string name="catalog_err_too_many_lines">ক্যাটালগ 10000 লাইন ছাড়িয়েছে</string>
     <string name="imp_iso_no_system">ISO ইমেজে কোনো Android সিস্টেম পাওয়া যায়নি (system.sfs বা system.img প্রত্যাশিত ছিল)</string>
+    <string name="imp_inspecting">%1$s পরীক্ষা করা হচ্ছে</string>
+    <string name="imp_choice_api">API লেভেল %1$s</string>
+    <string name="imp_choice_build">বিল্ড নম্বর %1$s</string>
+    <string name="imp_choice_title">কোন %1$s ইমপোর্ট করবেন?</string>
+    <string name="imp_choice_text">এই প্যাকেজে একাধিক %1$s আছে (%3$d-এর মধ্যে %2$d)। ইমপোর্ট করার জন্য একটি বেছে নিন।</string>
+    <string name="imp_choice_ok">ইমপোর্ট করুন</string>
+    <string name="imp_choice_cancel">ইমপোর্ট বাতিল করুন</string>
 </resources>

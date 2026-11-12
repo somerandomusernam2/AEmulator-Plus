@@ -30,4 +30,17 @@
     <string name="bluetooth_permission_denied">ไม่ได้รับสิทธิ์บลูทูธ: เกสต์จะบูตโดยไม่มีบลูทูธของโฮสต์</string>
     <string name="vs_sf_tombstone">Tombstone เมื่อ SurfaceFlinger ขัดข้อง (ดีบัก)</string>
     <string name="vs_sf_tombstone_sub">หาก SurfaceFlinger ขัดข้อง ให้เฟิร์มแวร์เขียน tombstone ปกติลงบันทึก (พร้อมฟังก์ชันที่ขัดข้อง) แทนรายงานสั้น ๆ ใช้เมื่อส่งรายงานข้อบกพร่อง มีผลในการบูต VM แบบเต็มครั้งถัดไป</string>
+    <string name="vi_mouse_keyboard">อินพุต: เมาส์และคีย์บอร์ด</string>
+    <string name="vi_mouse_keyboard_sub">ลงทะเบียนทัชแพดและคีย์บอร์ดใน Guest และถอดหน้าจอสัมผัสของ Guest ออก หน้าจอจะกลายเป็นทัชแพด (แตะเพื่อคลิก ใช้สองนิ้วเพื่อเลื่อน) และจะมีปุ่มคีย์บอร์ดปรากฏในแถบนำทาง ต้องใช้เอนจิน QEMU (ไม่ใช่เอนจิน 64 บิตแบบเนทีฟ) และต้องรีสตาร์ต VM ใหม่ทั้งหมด</string>
+    <string name="vi_keypad">อินพุต: แป้นกด</string>
+    <string name="vi_keypad_sub">เพิ่มปุ่มแป้นกดในแถบนำทาง: ปุ่มลูกศร, ตกลง, ซอฟต์คีย์, โทร/วางสาย และ 0–9 * # เหมือนโทรศัพท์ปุ่มกด ระบบสัมผัสยังใช้งานได้ตามปกติ และใช้ร่วมกับเมาส์และคีย์บอร์ดได้</string>
+    <string name="vi_keyboard">คีย์บอร์ด</string>
+    <string name="vi_keypad_title">แป้นกด</string>
+    <string name="vi_close">ปิด</string>
+    <string name="vi_open_keyboard">คีย์บอร์ด</string>
+    <string name="vi_open_keypad">แป้นกด</string>
+    <string name="m_resize_screen">ปรับขนาดหน้าจอ</string>
+    <string name="m_resize_done">ปรับขนาดเสร็จแล้ว</string>
+    <string name="m_resize_reset">รีเซ็ตขนาดหน้าจอ</string>
+    <string name="vi_resize_hint">ลากมุมของหน้าจอเพื่อปรับขนาด เมื่อเสร็จแล้วให้เปิดเมนูและแตะ “ปรับขนาดเสร็จแล้ว”</string>
 </resources>

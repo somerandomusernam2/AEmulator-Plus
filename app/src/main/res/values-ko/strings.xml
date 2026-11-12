@@ -18,7 +18,7 @@
     <string name="storage_text">모든 파일 접근을 허용하면 각 시스템의 메모리 카드가 내부 저장소의 AEmulator 폴더에 생겨 APK, 음악, 사진을 넣기 편합니다.</string>
     <string name="allow">허용</string>
     <string name="empty_title">아직 시스템이 없습니다</string>
-    <string name="empty_text">Android 2.2–6.0용 ARM 펌웨어를 추가하세요: 리커버리 ZIP, Odin 아카이브(.tar.md5), system.img 또는 팩토리 이미지.</string>
+    <string name="empty_text">Android 1.0–17용 ARM 펌웨어를 추가하세요: 리커버리 ZIP, Odin 아카이브(.tar.md5), system.img 또는 팩토리 이미지.</string>
     <string name="empty_help">어떤 파일이 되나요?</string>
     <string name="import_failed">가져오기 실패</string>
     <string name="import_running">펌웨어 가져오는 중</string>
@@ -30,7 +30,7 @@
     <string name="start">시작</string>
     <string name="rename">이름 변경</string>
     <string name="help_title">지원 펌웨어</string>
-    <string name="help_text">• Android 2.3–4.4: 32비트 ARM 펌웨어, QEMU로 실행.\n• Android 5.0–17: arm64 펌웨어와 GSI, 휴대폰에서 네이티브 실행.\n\n형식:\n• CWM/TWRP 리커버리 ZIP(MIUI, CyanogenMod, 포팅, 대부분의 커스텀 롬)\n• 삼성: Odin .tar / .tar.md5 또는 AP_*.tar.md5가 든 ZIP\n• Google 팩토리 이미지(.tgz / .zip)\n• system.img(ext4, sparse), TWRP 백업 system.ext4.win\n• system.new.dat(.br) + system.transfer.list가 있는 OTA\n\n아카이브에 boot.img가 있으면 가장 좋습니다. 서비스 시작 순서를 여기서 읽습니다.</string>
+    <string name="help_text">• Android 2.3–4.4: 32비트 ARM 펌웨어, QEMU로 실행.\n• Android 5.0–17: arm64 펌웨어와 GSI, 휴대폰에서 네이티브 실행.\n\n형식:\n• CWM/TWRP 리커버리 ZIP(MIUI, CyanogenMod, 포팅, 대부분의 커스텀 롬)\n• 삼성: Odin .tar / .tar.md5 또는 AP_*.tar.md5가 든 ZIP\n• Google 팩토리 이미지(.tgz / .zip)\n• system.img(ext4, sparse), TWRP 백업 system.ext4.win\n• system.new.dat(.br) + system.transfer.list가 있는 OTA\n• 그 외: 7z, RAR, LG .kdz, Sony .ftf, Huawei UPDATE.APP, Qualcomm EDL, payload.bin, super.img, EROFS, Android-x86 ISO\n\n아카이브에 boot.img가 있으면 가장 좋습니다. 서비스 시작 순서를 여기서 읽습니다.</string>
     <string name="vs_screen">게스트 화면</string>
     <string name="vs_fixed_2x">Android 2.x는 480×800, 240 dpi 고정 화면을 씁니다.</string>
     <string name="vs_screen_hint">화면이 작을수록 시스템이 빨라집니다.</string>
@@ -45,6 +45,13 @@
     <string name="vs_legacy_sub">이전 Desire HD 엔진: GLES 1.x만, 480×800 화면. 기본 엔진이 실패할 때 사용하세요.</string>
     <string name="vs_lowram">저메모리 모드</string>
     <string name="vs_lowram_sub">ro.config.low_ram — 시스템이 메모리를 아낍니다.</string>
+    <string name="vs_memory_mode">메모리 관리</string>
+    <string name="vs_memory_light">가벼움</string>
+    <string name="vs_memory_medium">보통</string>
+    <string name="vs_memory_aggressive">공격적</string>
+    <string name="vs_memory_light_sub">백그라운드 앱은 휴대폰 자체의 메모리가 거의 바닥났을 때만 종료됩니다. 재시작이 가장 적고 메모리를 가장 많이 사용합니다. VM을 완전히 다시 시작하면 적용됩니다.</string>
+    <string name="vs_memory_medium_sub">균형: 백그라운드 앱을 적당한 수만큼 유지하고, 여유 메모리가 줄어들면 나머지를 종료합니다. VM을 완전히 다시 시작하면 적용됩니다.</string>
+    <string name="vs_memory_aggressive_sub">백그라운드 앱을 적게 유지하고 자주 확인하므로 메모리가 일찍 확보됩니다. 메모리 사용량은 가장 적지만 앱이 더 자주 재시작됩니다. VM을 완전히 다시 시작하면 적용됩니다.</string>
     <string name="vs_proxy">최신 TLS 프록시</string>
     <string name="vs_proxy_sub">오래된 브라우저와 앱으로 오늘날의 HTTPS 사이트를 엽니다.</string>
     <string name="vs_controls">조작</string>
@@ -321,7 +328,7 @@
     <string name="vs_strace">서비스의 시스템 호출 추적</string>
     <string name="vs_strace_sub">서비스 이름을 쉼표로 구분합니다(예: mediaserver,zygote). 해당 서비스가 느려지고 추적 내용이 로그에 기록됩니다. 다음 부팅 시 적용됩니다.</string>
     <string name="vs_wifi">Wi-Fi 네트워크</string>
-    <string name="vs_wifi_sub">호스트의 인터넷을 이더넷 대신 연결된 Wi-Fi 네트워크로 VM에 보여 줍니다. Android 2.3, 4.0–7.x. 다음 부팅 시 적용됩니다.</string>
+    <string name="vs_wifi_sub">호스트의 인터넷을 이더넷 대신 연결된 Wi-Fi 네트워크로 VM에 보여 줍니다. Android 2.3, 4.0–17 (8–17: 실험적). 다음 부팅 시 적용됩니다.</string>
     <string name="vs_wifi_ssid">네트워크 이름(SSID)</string>
     <string name="vs_wifi_ssid_sub">최대 32바이트</string>
     <string name="vs_wifi_ssid_error">네트워크 이름은 비워 둘 수 없습니다</string>
@@ -486,4 +493,34 @@
     <string name="thermal_invalid">-40에서 150 사이의 값을 입력하세요.</string>
     <string name="thermal_apply">적용</string>
     <string name="thermal_reset">기본값 사용</string>
+    <string name="vs_guest_nav">탐색 바 / 작업 표시줄 사용</string>
+    <string name="vs_guest_nav_sub">게스트가 자체 탐색 바 또는 Android 데스크톱 빌드의 작업 표시줄을 그리도록 합니다(qemu.hw.mainkeys=0 설정). 가져올 때 데스크톱 빌드에만 켜고, 다른 모든 이미지에서는 꺼 두세요. 다음 전체 부팅부터 적용됩니다.</string>
+    <string name="th_group_plain">기본 테마</string>
+    <string name="th_group_skins">기기 스킨 테마(@regectt 제작)</string>
+    <string name="th_group_custom">사용자 지정 테마</string>
+    <string name="th_custom_empty">아직 사용자 지정 테마가 없습니다. “새 테마”를 탭하여 만들거나 .aetheme 파일을 가져오세요. 기본 테마와 기기 스킨은 변경할 수 없습니다. 편집하려면 복제하세요.</string>
+    <string name="th_expand">목록 펼치기</string>
+    <string name="th_collapse">목록 접기</string>
+    <string name="vs_art_boot_image">ART 부트 이미지 사용(Android 14 이상)</string>
+    <string name="vs_art_boot_image_sub">끔: 게스트가 부트 이미지 없이 실행됩니다. 시작은 느리지만 이미지로 인한 오류는 발생하지 않습니다. 켬: 에뮬레이터가 이 런타임용 부트 이미지를 준비합니다(다음 시작 시 한 번 생성되며 시간이 걸립니다).</string>
+    <string name="vs_no_watchdog">시스템 워치독 비활성화(Android 14 이상)</string>
+    <string name="vs_no_watchdog_sub">부팅이 Android의 60초 워치독 제한보다 느려 system_server가 계속 종료되는 경우에 사용합니다. 펌웨어의 services.jar를 패치하여 워치독 스레드가 즉시 종료되도록 합니다. 이후에는 실제 시스템 교착 상태를 재시작으로 복구할 수 없습니다. jar의 사전 컴파일된 코드는 무시되므로 첫 부팅이 느려질 수 있습니다. 끄면 원래 jar가 복원됩니다. 다음 전체 부팅부터 적용됩니다.</string>
+    <string name="folder_new">새 폴더</string>
+    <string name="folder_new_dots">새 폴더…</string>
+    <string name="folder_rename">폴더 이름 바꾸기</string>
+    <string name="folder_delete">폴더 삭제(ROM은 유지됨)</string>
+    <string name="folder_move">폴더로 이동</string>
+    <string name="folder_none">폴더에 없음</string>
+    <string name="folder_default_name">폴더</string>
+    <string name="folder_empty">비어 있음 — 여기에 ROM을 놓으세요</string>
+    <string name="folder_open">폴더 열기</string>
+    <string name="folder_close">폴더 닫기</string>
+    <plurals name="folder_roms">
+        <item quantity="other">ROM %1$d개</item>
+    </plurals>
+    <string name="phantom_title">유령 프로세스 킬러</string>
+    <string name="phantom_msg">기기의 개발자 옵션에서 “하위 프로세스 제한 해제” 옵션이 켜져 있지 않습니다. 이 경우 에뮬레이터를 시작하는 동안 zygote가 종료되어 에뮬레이터를 부팅할 수 없습니다. 따라서 이 옵션을 켜는 것을 강력히 권장합니다.</string>
+    <string name="phantom_open_dev">개발자 옵션 열기</string>
+    <string name="phantom_ignore">무시</string>
+    <string name="phantom_never">다시 알리지 않음</string>
 </resources>

@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Added for AEmulator Plus, 2026-11-10: tabs and several machines at once -->
+<resources>
+    <string name="tab_home">Kitaplık</string>
+    <string name="tab_close">Sekmeyi kapat</string>
+    <string name="tab_close_title">%1$s kapatılsın mı?</string>
+    <string name="tab_close_text">“Küçült” sekmeyi kapatır ancak makine arka planda çalışmaya devam eder; kitaplıktan yeniden açın. “Makineyi kapat” makineyi tamamen kapatır.</string>
+    <string name="tab_minimize">Küçült</string>
+    <string name="tab_shutdown">Makineyi kapat</string>
+    <string name="vm_slots_full">%1$d makine yuvasının tümü kullanımda. Önce birini kapatın.</string>
+</resources>

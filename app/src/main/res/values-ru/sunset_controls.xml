@@ -30,4 +30,17 @@
     <string name="bluetooth_permission_denied">Разрешение Bluetooth отклонено: гостевая система загрузится без Bluetooth хоста.</string>
     <string name="vs_sf_tombstone">Tombstone при сбое SurfaceFlinger (отладка)</string>
     <string name="vs_sf_tombstone_sub">Если SurfaceFlinger падает, прошивка запишет в журнал обычный tombstone (с функцией, вызвавшей сбой) вместо краткого отчёта. Включайте при отправке отчёта об ошибке. Применяется при следующем полном запуске ВМ.</string>
+    <string name="vi_mouse_keyboard">Ввод: мышь и клавиатура</string>
+    <string name="vi_mouse_keyboard_sub">Регистрирует в гостевой системе тачпад и клавиатуру и убирает её сенсорный экран. Экран становится тачпадом (касание — клик, два пальца — прокрутка), а в панели навигации появляется кнопка клавиатуры. Требуется движок QEMU (не нативный 64-битный) и полный перезапуск ВМ.</string>
+    <string name="vi_keypad">Ввод: кнопочная панель</string>
+    <string name="vi_keypad_sub">Добавляет в панель навигации кнопку клавишной панели: стрелки, OK, софт-клавиши, вызов/завершение и 0–9 * # как у кнопочного телефона. Сенсорный ввод продолжает работать, а саму панель можно сочетать с мышью и клавиатурой.</string>
+    <string name="vi_keyboard">Клавиатура</string>
+    <string name="vi_keypad_title">Клавишная панель</string>
+    <string name="vi_close">Закрыть</string>
+    <string name="vi_open_keyboard">Клавиатура</string>
+    <string name="vi_open_keypad">Клавишная панель</string>
+    <string name="m_resize_screen">Изменить размер экрана</string>
+    <string name="m_resize_done">Готово</string>
+    <string name="m_resize_reset">Сбросить размер экрана</string>
+    <string name="vi_resize_hint">Потяните за угол экрана, чтобы изменить его размер. По завершении откройте меню и нажмите «Готово».</string>
 </resources>

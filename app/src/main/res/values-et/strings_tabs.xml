@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Added for AEmulator Plus, 2026-11-10: tabs and several machines at once -->
+<resources>
+    <string name="tab_home">Teek</string>
+    <string name="tab_close">Sulge vahekaart</string>
+    <string name="tab_close_title">Kas sulgeda „%1$s“?</string>
+    <string name="tab_close_text">„Minimeeri“ sulgeb vahekaardi, kuid masin jätkab taustal tööd; avage see uuesti teegist. „Lülita välja“ lülitab masina välja.</string>
+    <string name="tab_minimize">Minimeeri</string>
+    <string name="tab_shutdown">Lülita välja</string>
+    <string name="vm_slots_full">Kõik %1$d masinaplatsi on kasutusel. Lülitage kõigepealt üks välja.</string>
+</resources>

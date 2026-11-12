@@ -53,9 +53,12 @@ export NDK="$ANDROID_HOME/ndk/22.1.7171670"
 (cd native/audiohal && sh build.sh)
 (cd native/camerahal && sh build.sh)
 (cd native/sensorhal && sh build.sh)
+sh native/hwc1fb/build-zig.sh   # needs only `python3 -m pip install ziglang`
 sh native/setupctl/build.sh
 ```
 
+- `hwc1fb`: the minimal HWC 1.1 composer for 4.2 - 4.4 firmware on the 32-bit engine
+  (`engines/kk/hwcomposer.default.so`, see its source header). Built with `zig cc`, no NDK.
 - `guestshim`: preload shim, recovery shim and `aemu_true.so`.
 - `audiohal`: AOSP, Sony DIRECTTRACK, ICS/Qualcomm and MTK audio HAL variants.
   `native/audiohal/build-zig.sh` is a fallback that builds the same six

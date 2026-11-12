@@ -19,7 +19,7 @@
     <string name="storage_text">Allow access to all files: then each system’s memory card lives in the AEmulator folder of internal storage — handy for APKs, music and photos.</string>
     <string name="allow">Allow</string>
     <string name="empty_title">No systems yet</string>
-    <string name="empty_text">Add an ARM firmware for Android 1.0–7.x; a recovery ZIP, an Odin archive (.tar.md5), system.img or a factory image.</string>
+    <string name="empty_text">Add an ARM firmware for Android 1.0–17; a recovery ZIP, an Odin archive (.tar.md5), system.img or a factory image.</string>
     <string name="empty_help">Which files work?</string>
     <string name="import_failed">Import failed</string>
     <string name="import_running">Importing firmware</string>
@@ -31,7 +31,7 @@
     <string name="start">Start</string>
     <string name="rename">Rename</string>
     <string name="help_title">Supported firmware</string>
-    <string name="help_text">• Android 2.2–4.4: 32-bit ARM firmware, runs through QEMU (earlier than 2.2: experimental).\n• Android 5.0–17: arm64 firmware and GSIs, run natively on the phone.\n\nFormats:\n• CWM/TWRP recovery ZIP (MIUI, CyanogenMod, ports, most custom ROMs);\n• Samsung: Odin .tar / .tar.md5 or a ZIP with AP_*.tar.md5;\n• Google factory images (.tgz / .zip);\n• system.img (ext4, sparse, YAFFS2), TWRP backup system.ext4.win;\n• OTA with system.new.dat(.br) + system.transfer.list.\n\nBest if the archive contains boot.img: the service start order is taken from it.</string>
+    <string name="help_text">• Android 2.2–4.4: 32-bit ARM firmware, runs through QEMU (earlier than 2.2: experimental).\n• Android 5.0–17: arm64 firmware and GSIs, run natively on the phone.\n\nFormats:\n• CWM/TWRP recovery ZIP (MIUI, CyanogenMod, ports, most custom ROMs);\n• Samsung: Odin .tar / .tar.md5 or a ZIP with AP_*.tar.md5;\n• Google factory images (.tgz / .zip);\n• system.img (ext4, sparse, YAFFS2), TWRP backup system.ext4.win;\n• OTA with system.new.dat(.br) + system.transfer.list;\n• Also: 7z, RAR, LG .kdz, Sony .ftf, Huawei UPDATE.APP, Qualcomm EDL, payload.bin, super.img, EROFS, Android-x86 ISO.\n\nBest if the archive contains boot.img: the service start order is taken from it.</string>
     <string name="vs_screen">Guest screen</string>
     <string name="vs_fixed_2x">The Desire HD engine uses a fixed 480×800 screen at 240 dpi.</string>
     <string name="vs_screen_hint">A lower resolution makes the system faster.</string>
@@ -46,6 +46,13 @@
     <string name="vs_legacy_sub">The older Desire HD engine: GLES 1.x only, 480×800 screen. Use it if the main engine fails.</string>
     <string name="vs_lowram">Low memory mode</string>
     <string name="vs_lowram_sub">ro.config.low_ram — the system saves memory.</string>
+    <string name="vs_memory_mode">Memory management</string>
+    <string name="vs_memory_light">Light</string>
+    <string name="vs_memory_medium">Medium</string>
+    <string name="vs_memory_aggressive">Aggressive</string>
+    <string name="vs_memory_light_sub">Background apps are stopped only when the phone itself is nearly out of memory. Fewest restarts; uses the most memory. Takes effect after a full VM restart.</string>
+    <string name="vs_memory_medium_sub">Balanced: keeps a moderate number of background apps and stops the rest when free memory gets low. Takes effect after a full VM restart.</string>
+    <string name="vs_memory_aggressive_sub">Keeps few background apps and checks often, so memory is freed early. Uses the least memory, but apps restart more often. Takes effect after a full VM restart.</string>
     <string name="vs_proxy">Modern TLS proxy</string>
     <string name="vs_proxy_sub">Lets old browsers and apps open today’s HTTPS sites.</string>
     <string name="vs_controls">Controls</string>
@@ -517,4 +524,9 @@
         <item quantity="one">%d ROM</item>
         <item quantity="other">%d ROMs</item>
     </plurals>
+    <string name="phantom_title">Phantom process killer</string>
+    <string name="phantom_msg">Your device doesn\'t have the “Disable child process restrictions” option enabled in Developer Options. This means that the zygote will get killed during the emulator\'s startup, making it impossible for the emulator boot. Thus, it is HIGHLY RECOMMENDED to enable it.</string>
+    <string name="phantom_open_dev">Open Developer Options</string>
+    <string name="phantom_ignore">Ignore</string>
+    <string name="phantom_never">Never remind again</string>
 </resources>

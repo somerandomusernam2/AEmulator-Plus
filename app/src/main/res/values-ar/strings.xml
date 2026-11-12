@@ -18,7 +18,7 @@
     <string name="storage_text">اسمح بالوصول إلى كل الملفات: ستكون بطاقة ذاكرة كل نظام في مجلد AEmulator بالذاكرة الداخلية، وهو مناسب لملفات APK والموسيقى والصور.</string>
     <string name="allow">سماح</string>
     <string name="empty_title">لا توجد أنظمة بعد</string>
-    <string name="empty_text">أضف برنامجًا ثابتًا لمعالج ARM لأندرويد 2.2–6.0: ملف ZIP للريكفري، أو أرشيف Odin (.tar.md5)، أو system.img، أو صورة المصنع.</string>
+    <string name="empty_text">أضف برنامجًا ثابتًا لمعالج ARM لأندرويد 1.0–17: ملف ZIP للريكفري، أو أرشيف Odin (.tar.md5)، أو system.img، أو صورة المصنع.</string>
     <string name="empty_help">ما الملفات المناسبة؟</string>
     <string name="import_failed">فشل الاستيراد</string>
     <string name="import_running">جارٍ استيراد البرنامج الثابت</string>
@@ -30,7 +30,7 @@
     <string name="start">تشغيل</string>
     <string name="rename">إعادة تسمية</string>
     <string name="help_title">البرامج الثابتة المدعومة</string>
-    <string name="help_text">• أندرويد 2.3–4.4: برامج ARM ثابتة بمعمارية 32 بت، تعمل عبر QEMU.\n• أندرويد 5.0–17: برامج arm64 الثابتة وصور GSI، تعمل مباشرة على الهاتف.\n\nالصيغ:\n• ملف ZIP للريكفري CWM/TWRP (MIUI وCyanogenMod والمنقولة ومعظم الرومات المعدلة)؛\n• سامسونج: ‎.tar / .tar.md5 من Odin أو ZIP يحوي AP_*.tar.md5؛\n• صور مصنع Google ‏(.tgz / .zip)؛\n• system.img ‏(ext4، sparse)، نسخة TWRP ‏system.ext4.win؛\n• OTA مع system.new.dat(.br) و system.transfer.list.\n\nالأفضل أن يحوي الأرشيف boot.img: منه يُؤخذ ترتيب تشغيل الخدمات.</string>
+    <string name="help_text">• أندرويد 2.3–4.4: برامج ARM ثابتة بمعمارية 32 بت، تعمل عبر QEMU.\n• أندرويد 5.0–17: برامج arm64 الثابتة وصور GSI، تعمل مباشرة على الهاتف.\n\nالصيغ:\n• ملف ZIP للريكفري CWM/TWRP (MIUI وCyanogenMod والمنقولة ومعظم الرومات المعدلة)؛\n• سامسونج: ‎.tar / .tar.md5 من Odin أو ZIP يحوي AP_*.tar.md5؛\n• صور مصنع Google ‏(.tgz / .zip)؛\n• system.img ‏(ext4، sparse)، نسخة TWRP ‏system.ext4.win؛\n• OTA مع system.new.dat(.br) و system.transfer.list؛\n• وأيضًا: 7z, RAR, LG .kdz, Sony .ftf, Huawei UPDATE.APP, Qualcomm EDL, payload.bin, super.img, EROFS, Android-x86 ISO.\n\nالأفضل أن يحوي الأرشيف boot.img: منه يُؤخذ ترتيب تشغيل الخدمات.</string>
     <string name="vs_screen">شاشة الضيف</string>
     <string name="vs_fixed_2x">يستخدم أندرويد 2.x شاشة ثابتة 480×800 بدقة 240 dpi.</string>
     <string name="vs_screen_hint">كلما صغرت الشاشة زادت سرعة النظام.</string>
@@ -45,6 +45,13 @@
     <string name="vs_legacy_sub">محرك Desire HD القديم: ‏GLES 1.x فقط وشاشة 480×800. استخدمه إن فشل المحرك الرئيسي.</string>
     <string name="vs_lowram">وضع الذاكرة المنخفضة</string>
     <string name="vs_lowram_sub">ro.config.low_ram — يوفّر النظام الذاكرة.</string>
+    <string name="vs_memory_mode">إدارة الذاكرة</string>
+    <string name="vs_memory_light">خفيفة</string>
+    <string name="vs_memory_medium">متوسطة</string>
+    <string name="vs_memory_aggressive">مكثّفة</string>
+    <string name="vs_memory_light_sub">لا تُغلق تطبيقات الخلفية إلا عندما توشك ذاكرة الهاتف نفسه على النفاد. أقل عدد من عمليات إعادة التشغيل، وأعلى استهلاك للذاكرة. يسري بعد إعادة تشغيل كاملة للجهاز الافتراضي.</string>
+    <string name="vs_memory_medium_sub">متوازنة: تُبقي عددًا معتدلًا من تطبيقات الخلفية وتُغلق الباقي عندما تنخفض الذاكرة الحرة. يسري بعد إعادة تشغيل كاملة للجهاز الافتراضي.</string>
+    <string name="vs_memory_aggressive_sub">تُبقي عددًا قليلًا من تطبيقات الخلفية وتفحص الذاكرة كثيرًا، فتُحرَّر مبكرًا. أقل استهلاك للذاكرة، لكن التطبيقات تُعاد تشغيلها أكثر. يسري بعد إعادة تشغيل كاملة للجهاز الافتراضي.</string>
     <string name="vs_proxy">وكيل TLS حديث</string>
     <string name="vs_proxy_sub">تفتح المتصفحات والتطبيقات القديمة مواقع HTTPS الحالية.</string>
     <string name="vs_controls">التحكم</string>
@@ -326,7 +333,7 @@
     <string name="vs_strace">تتبّع استدعاءات النظام للخدمات</string>
     <string name="vs_strace_sub">أسماء الخدمات مفصولة بفواصل، مثل mediaserver,zygote. يُبطئ هذه الخدمات ويكتب التتبّع في سجلاتها. يُطبَّق عند الإقلاع التالي.</string>
     <string name="vs_wifi">شبكة Wi-Fi</string>
-    <string name="vs_wifi_sub">يعرض إنترنت المضيف للجهاز الافتراضي كشبكة Wi-Fi متصلة بدلًا من Ethernet. Android 2.3, 4.0–7.x. يُطبَّق عند الإقلاع التالي.</string>
+    <string name="vs_wifi_sub">يعرض إنترنت المضيف للجهاز الافتراضي كشبكة Wi-Fi متصلة بدلًا من Ethernet. Android 2.3, 4.0–17 (8–17: تجريبي). يُطبَّق عند الإقلاع التالي.</string>
     <string name="vs_wifi_ssid">اسم الشبكة (SSID)</string>
     <string name="vs_wifi_ssid_sub">حتى 32 بايت</string>
     <string name="vs_wifi_ssid_error">لا يمكن أن يكون اسم الشبكة فارغًا</string>
@@ -491,4 +498,39 @@
     <string name="thermal_invalid">أدخل قيمة من -40 إلى 150.</string>
     <string name="thermal_apply">تطبيق</string>
     <string name="thermal_reset">استخدام الافتراضي</string>
+    <string name="vs_guest_nav">تفعيل شريط التنقل / شريط المهام</string>
+    <string name="vs_guest_nav_sub">يسمح للنظام الضيف برسم شريط التنقل الخاص به، أو شريط المهام في إصدارات أندرويد لأجهزة سطح المكتب (يضبط qemu.hw.mainkeys=0). فعّله عند الاستيراد لإصدارات سطح المكتب فقط، واتركه معطّلًا لجميع الصور الأخرى. يسري عند التشغيل الكامل التالي.</string>
+    <string name="th_group_plain">سمات بسيطة</string>
+    <string name="th_group_skins">سمات بشكل الجهاز (من @regectt)</string>
+    <string name="th_group_custom">سمات مخصصة</string>
+    <string name="th_custom_empty">لا توجد سمات مخصصة بعد. اضغط «سمة جديدة» لإنشاء واحدة، أو استورد ملف .aetheme. لا يمكن تغيير السمات البسيطة وأشكال الأجهزة: كرّر واحدة لتعديلها.</string>
+    <string name="th_expand">توسيع القائمة</string>
+    <string name="th_collapse">طيّ القائمة</string>
+    <string name="vs_art_boot_image">استخدام صورة إقلاع ART (أندرويد 14+)</string>
+    <string name="vs_art_boot_image_sub">معطّل: يعمل النظام الضيف بدون صورة إقلاع. يكون بدء التشغيل أبطأ لكن لا شيء يتعلق بالصورة قد يفشل. مفعّل: يُعدّ المحاكي صورة إقلاع لبيئة التشغيل هذه (تُنشأ مرة واحدة عند البدء التالي، وهذا يستغرق وقتًا).</string>
+    <string name="vs_no_watchdog">تعطيل مراقب النظام (watchdog) (أندرويد 14+)</string>
+    <string name="vs_no_watchdog_sub">للإقلاع الأبطأ من حدّ مراقب النظام في أندرويد البالغ 60 ثانية، والذي يُنهي system_server في حلقة متكررة. يعدّل ملف services.jar في البرنامج الثابت بحيث ينتهي خيط المراقب فورًا؛ ولن يُعالج أي تجمّد حقيقي للنظام بإعادة التشغيل بعد ذلك. يُتجاهل الكود المُجمَّع مسبقًا في ملف jar، ما قد يجعل أول إقلاع أبطأ. يؤدي إيقافه إلى استعادة ملف jar الأصلي. يسري عند التشغيل الكامل التالي.</string>
+    <string name="folder_new">مجلد جديد</string>
+    <string name="folder_new_dots">مجلد جديد…</string>
+    <string name="folder_rename">إعادة تسمية المجلد</string>
+    <string name="folder_delete">حذف المجلد (مع الإبقاء على الرومات)</string>
+    <string name="folder_move">نقل إلى مجلد</string>
+    <string name="folder_none">ليس في مجلد</string>
+    <string name="folder_default_name">مجلد</string>
+    <string name="folder_empty">فارغ — أفلت الرومات هنا</string>
+    <string name="folder_open">فتح المجلد</string>
+    <string name="folder_close">إغلاق المجلد</string>
+    <plurals name="folder_roms">
+        <item quantity="zero">لا رومات</item>
+        <item quantity="one">روم واحد</item>
+        <item quantity="two">رومان</item>
+        <item quantity="few">%1$d رومات</item>
+        <item quantity="many">%1$d رومًا</item>
+        <item quantity="other">%1$d روم</item>
+    </plurals>
+    <string name="phantom_title">قاتل العمليات الشبحية</string>
+    <string name="phantom_msg">خيار «تعطيل قيود العمليات الفرعية» غير مفعّل في خيارات المطوّر على جهازك. هذا يعني أن zygote سيُنهى أثناء بدء تشغيل المحاكي، مما يجعل إقلاع المحاكي مستحيلًا. لذلك يُوصى بشدة بتفعيله.</string>
+    <string name="phantom_open_dev">فتح خيارات المطوّر</string>
+    <string name="phantom_ignore">تجاهل</string>
+    <string name="phantom_never">عدم التذكير مرة أخرى</string>
 </resources>

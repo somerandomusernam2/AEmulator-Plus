@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Added for AEmulator Plus, 2026-11-10: tabs and several machines at once -->
+<resources>
+    <string name="tab_home">Knihovna</string>
+    <string name="tab_close">Zavřít kartu</string>
+    <string name="tab_close_title">Zavřít %1$s?</string>
+    <string name="tab_close_text">„Minimalizovat“ zavře kartu a stroj dál běží na pozadí; znovu ho otevřete z knihovny. „Vypnout“ stroj vypne.</string>
+    <string name="tab_minimize">Minimalizovat</string>
+    <string name="tab_shutdown">Vypnout</string>
+    <string name="vm_slots_full">Všech %1$d slotů pro stroje je obsazeno. Nejprve jeden vypněte.</string>
+</resources>

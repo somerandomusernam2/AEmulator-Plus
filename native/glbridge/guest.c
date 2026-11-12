@@ -1364,8 +1364,88 @@ EXPORT EGLBoolean eglSwapBuffers(EGLDisplay d, EGLSurface surface) {
 EXPORT EGLBoolean eglSwapBuffersWithDamageKHR(EGLDisplay d, EGLSurface s, EGLint *rects, EGLint n) { (void)rects; (void)n; return eglSwapBuffers(d, s); }
 EXPORT EGLBoolean eglSetDamageRegionKHR(EGLDisplay d, EGLSurface s, EGLint *rects, EGLint n) { (void)d; (void)s; (void)rects; (void)n; return 1; }
 
+/* ---- YUV buffers: converted to RGBA on the guest side, then carried like any RGBA buffer ----
+ * The host GPU bridge only knows RGBA/RGBX/RGB888/RGB565 (host.c buf_fill), so a video decoder's NV21 / YV12 buffer
+ * is turned into a tight RGBA block here and goes out through the existing OP_IMAGE_DATA / OP_IMAGE_TEX paths.
+ * The layouts are the ones the engine's gralloc gives (gralloc5/mapper.c planes(), grallocwrap/gralloc_wrap.c):
+ *   0x11 / 0x23  NV21 in one block: Y (stride = width), then V and U interleaved, no row padding
+ *   0x32315659   YV12: Y, V, U; the Y stride aligned to 16, the chroma stride to 16 of half that */
+#define YUV_NV21 1
+#define YUV_YV12 2
+static int yuv_kind(uint32_t f) { return f == 0x11 || f == 0x23 ? YUV_NV21 : f == 0x32315659 ? YUV_YV12 : 0; }
+static inline uint8_t yuv_clamp(int v) { return (uint8_t)(v < 0 ? 0 : v > 255 ? 255 : v); }
+/* The buffer's format: its own, else what the note says (the note is the gralloc's truth for the buffer) */
+static int yuv_kind_of(const struct ANativeWindowBuffer *b, const struct meta_note *note) {
+    int k = yuv_kind((uint32_t)b->format);
+    if (!k && note && note->magic == META_NOTE) k = yuv_kind((uint32_t)note->format);
+    return k;
+}
+/* Returns w*h*4 bytes of RGBA (top row first, alpha 255, malloc'd), or 0: not a YUV buffer this converts, or its
+ * memory cannot be read. BT.709 video range, integer math (BT.601 when the note's dataspace says so). */
+static uint8_t *yuv_take(struct ANativeWindowBuffer *b, const struct meta_note *note) {
+    static int said;
+    int kind = yuv_kind_of(b, note);
+    if (!kind || b->width <= 0 || b->height <= 0 || b->width > 8192 || b->height > 8192) return 0;
+    uint32_t w = (uint32_t)b->width, h = (uint32_t)b->height, cw = (w + 1) / 2, ch = (h + 1) / 2;
+    int have = note && note->magic == META_NOTE;
+    uint32_t ys = w, cs = 0, stride = have && note->stride > 0 ? (uint32_t)note->stride : b->stride > 0 ? (uint32_t)b->stride : 0;
+    uint64_t need;
+    if (kind == YUV_YV12) {
+        ys = stride >= w ? stride : (w + 15) & ~15u;
+        cs = (ys / 2 + 15) & ~15u;
+        need = (uint64_t)ys * h + 2 * (uint64_t)cs * ch;
+    } else need = (uint64_t)w * h + 2 * (uint64_t)cw * ch;
+    uint8_t *out = malloc((size_t)w * h * 4);
+    if (!out) return 0;
+    /* (a buffer that refuses a plain lock is read through the note's base, without a fence) */
+    uint8_t *va = buf_lock(b, 0);
+    int locked = va != 0;
+    if (!va) {
+        const struct rgb_note_handle *p = note_handle_of(b->handle);
+        if (p && p->base && p->size > 0 && (uint64_t)p->size >= need) va = (uint8_t *)(uintptr_t)p->base;
+        if (va && said < 5) LOG("a YUV buffer would not lock: read through the note's base");
+    }
+    if (!va) { free(out); return 0; }
+    /* BT.709 by default; BT.601 for the dataspace standards 2 and 3 (BT601_625, BT601_525) */
+    uint32_t std = have ? ((uint32_t)note->dataspace >> 16) & 0x3f : 0;
+    int crv = 459, cgu = 55, cgv = 136, cbu = 541;
+    if (std == 2 || std == 3) { crv = 409; cgu = 100; cgv = 208; cbu = 516; }
+    const uint8_t *Y = va, *UV = va + (size_t)w * h, *V = va + (size_t)ys * h, *U = V + (size_t)cs * ch;
+    for (uint32_t y = 0; y < h; y++) {
+        const uint8_t *yr = Y + (size_t)y * ys;
+        const uint8_t *uv = UV + (size_t)(y >> 1) * 2 * cw, *vr = V + (size_t)(y >> 1) * cs, *ur = U + (size_t)(y >> 1) * cs;
+        uint8_t *d = out + (size_t)y * w * 4;
+        for (uint32_t x = 0; x < w; x++, d += 4) {
+            int v, u, c = (yr[x] - 16) * 298;
+            if (kind == YUV_NV21) { v = uv[(x >> 1) * 2]; u = uv[(x >> 1) * 2 + 1]; }
+            else { v = vr[x >> 1]; u = ur[x >> 1]; }
+            u -= 128; v -= 128;
+            d[0] = yuv_clamp((c + crv * v + 128) >> 8);
+            d[1] = yuv_clamp((c - cgu * u - cgv * v + 128) >> 8);
+            d[2] = yuv_clamp((c + cbu * u + 128) >> 8);
+            d[3] = 255;
+        }
+    }
+    if (locked) buf_unlock(b);
+    if (said < 5) { said++; LOG("a %ux%u YUV frame (format 0x%x, stride %u): converted for the phone's GPU", w, h, (unsigned)b->format, ys); }
+    return out;
+}
+
 /* ---- images: SwiftShader's own, and for each the buffer it was made of (a bridged context uploads its pixels) ---- */
-static struct { void *img; struct ANativeWindowBuffer *buf; uint32_t host; } g_img[256];     /* host: an image of a bridged context's texture */
+/* host: an image of a bridged context's texture; own: a handle of ours that only carries the buffer to the upload */
+static struct { void *img; struct ANativeWindowBuffer *buf; uint32_t host; int own; } g_img[256];
+/* An image that is only the buffer: what a YUV buffer gets when SwiftShader (or a bridged context) cannot make one */
+static EGLImageKHR own_image(struct ANativeWindowBuffer *b) {
+    void *h = b ? malloc(8) : 0;
+    int ok = 0;
+    if (!h) { t_err = EGL_BAD_ALLOC; return 0; }
+    pthread_mutex_lock(&g_lock);
+    for (int i = 0; i < 256; i++) if (!g_img[i].img) { g_img[i].img = h; g_img[i].buf = b; g_img[i].host = 0; g_img[i].own = 1; ok = 1; break; }
+    pthread_mutex_unlock(&g_lock);
+    if (!ok) { free(h); t_err = EGL_BAD_ALLOC; return 0; }
+    b->common.incRef(&b->common);
+    return h;
+}
 EXPORT EGLImageKHR eglCreateImageKHR(EGLDisplay d, EGLContext context, EGLenum target, EGLClientBuffer buffer, const EGLint *attribs) {
     struct ectx *c = context;
     SSF(EGLImageKHR, CreateImageKHR, (EGLDisplay, EGLContext, EGLenum, EGLClientBuffer, const EGLint *));
@@ -1374,23 +1454,29 @@ EXPORT EGLImageKHR eglCreateImageKHR(EGLDisplay d, EGLContext context, EGLenum t
         struct ts *T = t_ts;
         void *h = 0;
         uint32_t id = 0;
+        /* (a native buffer is only carried: its pixels go to the host when a texture is bound to the image) */
+        if (target == 0x3140 /* EGL_NATIVE_BUFFER_ANDROID */ && buffer) return own_image(buffer);
         if (target != 0x30B1 /* EGL_GL_TEXTURE_2D_KHR */ || !T || !T->ctx) { t_err = EGL_BAD_MATCH; return 0; }
         begin(T, OP_IMAGE_CREATE, 8, 8); put32(T, (uint32_t)(uintptr_t)buffer); put32(T, (uint32_t)attr_of(attribs, 0x30BC, 0));
         rsync(T);
         id = get32v(T);
         if (id && (h = malloc(8))) {
             pthread_mutex_lock(&g_lock);
-            for (int i = 0; i < 256; i++) if (!g_img[i].img) { g_img[i].img = h; g_img[i].buf = 0; g_img[i].host = id; id = 0; break; }
+            for (int i = 0; i < 256; i++) if (!g_img[i].img) { g_img[i].img = h; g_img[i].buf = 0; g_img[i].host = id; g_img[i].own = 0; id = 0; break; }
             pthread_mutex_unlock(&g_lock);
         }
         if (!h || id) { free(h); t_err = EGL_BAD_ALLOC; return 0; }
         return h;
     }
     void *img = CreateImageKHR ? CreateImageKHR(d, c ? c->ss : 0, target, buffer, attribs) : 0;
+    /* SwiftShader may decline a YUV buffer: the image is then ours, and only carries the buffer to the upload */
+    if (!img && target == 0x3140 /* EGL_NATIVE_BUFFER_ANDROID */ && buffer &&
+        yuv_kind_of(buffer, meta_note_at(((struct ANativeWindowBuffer *)buffer)->handle)))
+        return own_image(buffer);
     if (img && target == 0x3140 /* EGL_NATIVE_BUFFER_ANDROID */) {
         struct ANativeWindowBuffer *b = buffer;
         pthread_mutex_lock(&g_lock);
-        for (int i = 0; i < 256; i++) if (!g_img[i].img) { g_img[i].img = img; g_img[i].buf = b; b->common.incRef(&b->common); break; }
+        for (int i = 0; i < 256; i++) if (!g_img[i].img) { g_img[i].img = img; g_img[i].buf = b; g_img[i].host = 0; g_img[i].own = 0; b->common.incRef(&b->common); break; }
         pthread_mutex_unlock(&g_lock);
     }
     return img;
@@ -1399,9 +1485,11 @@ EXPORT EGLBoolean eglDestroyImageKHR(EGLDisplay d, EGLImageKHR img) {
     struct ANativeWindowBuffer *b = 0;
     pthread_mutex_lock(&g_lock);
     uint32_t host = 0;
-    for (int i = 0; i < 256; i++) if (g_img[i].img == img) { b = g_img[i].buf; host = g_img[i].host; g_img[i].img = 0; g_img[i].buf = 0; g_img[i].host = 0; break; }
+    int own = 0;
+    for (int i = 0; i < 256; i++) if (g_img[i].img == img) { b = g_img[i].buf; host = g_img[i].host; own = g_img[i].own; g_img[i].img = 0; g_img[i].buf = 0; g_img[i].host = 0; g_img[i].own = 0; break; }
     pthread_mutex_unlock(&g_lock);
     if (b) b->common.decRef(&b->common);
+    if (own) { free(img); return 1; }     /* (ours: nothing of SwiftShader's behind it) */
     if (host) {
         struct ts *T = ts_get();
         if (T) { begin(T, OP_IMAGE_DESTROY, 4, 4); put32(T, host); }
@@ -1434,7 +1522,17 @@ static void e_glEGLImageTargetTexture2DOES(GLenum target, GLeglImageOES image) {
         uint32_t wanted = get32v(T);
         /* (it may be drawn into from now on: gralloc asks the host before the memory is read) */
         if (target == 0x0DE1 && !note->pad[1]) note->pad[1] = 1;
-        if (!wanted || !bpp) return;
+        if (!wanted) return;
+        if (!bpp && yuv_kind_of(b, note)) {     /* video: converted to RGBA, then as an RGBA buffer of the width's stride */
+            uint8_t *rgba = yuv_take(b, note);
+            if (!rgba) return;
+            begin(T, OP_IMAGE_DATA, 36, 36 + BLOB(w * h * 4));
+            put64(T, note->id); put64(T, count); put32(T, w); put32(T, h); put32(T, w); put32(T, 1 /* RGBA_8888 */);
+            putblob(T, rgba, w * h * 4);
+            free(rgba);
+            return;
+        }
+        if (!bpp) return;
         uint8_t *px = buf_lock(b, 0);
         if (!px) return;
         uint32_t n = (uint32_t)b->stride * h * (uint32_t)bpp;
@@ -1442,6 +1540,15 @@ static void e_glEGLImageTargetTexture2DOES(GLenum target, GLeglImageOES image) {
         put64(T, note->id); put64(T, count); put32(T, w); put32(T, h); put32(T, (uint32_t)b->stride); put32(T, (uint32_t)b->format);
         putblob(T, px, n);
         buf_unlock(b);
+        return;
+    }
+    if (!bpp && yuv_kind_of(b, note)) {
+        uint8_t *rgba = yuv_take(b, note);
+        if (rgba) {
+            begin(T, OP_IMAGE_TEX, 16, 16 + BLOB(w * h * 4));
+            put32(T, target); put32(T, w); put32(T, h); putblob(T, rgba, w * h * 4);
+            free(rgba);
+        }
         return;
     }
     if (!bpp) { not_carried(); return; }

@@ -225,4 +225,11 @@
     <string name="update_err_wrong_package">Ladatun APK:n sovelluspaketti on väärä</string>
     <string name="catalog_err_too_many_lines">Luettelo ylittää 10000 riviä</string>
     <string name="imp_iso_no_system">ISO-levykuvasta ei löytynyt Android-järjestelmää (odotettiin system.sfs tai system.img)</string>
+    <string name="imp_inspecting">Tarkistetaan: %1$s</string>
+    <string name="imp_choice_api">API-taso %1$s</string>
+    <string name="imp_choice_build">koontiversion numero %1$s</string>
+    <string name="imp_choice_title">Mikä %1$s tuodaan?</string>
+    <string name="imp_choice_text">Tämä paketti sisältää useamman kuin yhden kohteen (%1$s): %2$d / %3$d. Valitse tuotava.</string>
+    <string name="imp_choice_ok">Tuo</string>
+    <string name="imp_choice_cancel">Peruuta tuonti</string>
 </resources>

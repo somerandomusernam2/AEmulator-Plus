@@ -225,4 +225,11 @@
     <string name="update_err_wrong_package">Den nedlastede APK-en har feil apppakke</string>
     <string name="catalog_err_too_many_lines">Katalogen har over 10000 linjer</string>
     <string name="imp_iso_no_system">Fant ikke noe Android-system i ISO-avbildet (forventet system.sfs eller system.img)</string>
+    <string name="imp_inspecting">Undersøker %1$s</string>
+    <string name="imp_choice_api">API-nivå %1$s</string>
+    <string name="imp_choice_build">byggnummer %1$s</string>
+    <string name="imp_choice_title">Hvilken %1$s skal importeres?</string>
+    <string name="imp_choice_text">Denne pakken inneholder mer enn én %1$s (%2$d av %3$d). Velg den som skal importeres.</string>
+    <string name="imp_choice_ok">Importer</string>
+    <string name="imp_choice_cancel">Avbryt import</string>
 </resources>

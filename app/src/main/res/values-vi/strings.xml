@@ -18,7 +18,7 @@
     <string name="storage_text">Cho phép truy cập mọi tệp: thẻ nhớ của mỗi hệ thống sẽ nằm trong thư mục AEmulator của bộ nhớ trong — tiện để chép APK, nhạc và ảnh.</string>
     <string name="allow">Cho phép</string>
     <string name="empty_title">Chưa có hệ thống nào</string>
-    <string name="empty_text">Thêm firmware ARM cho Android 2.2–6.0: ZIP recovery, gói Odin (.tar.md5), system.img hoặc factory image.</string>
+    <string name="empty_text">Thêm firmware ARM cho Android 1.0–17: ZIP recovery, gói Odin (.tar.md5), system.img hoặc factory image.</string>
     <string name="empty_help">Tệp nào dùng được?</string>
     <string name="import_failed">Nhập thất bại</string>
     <string name="import_running">Đang nhập firmware</string>
@@ -30,7 +30,7 @@
     <string name="start">Chạy</string>
     <string name="rename">Đổi tên</string>
     <string name="help_title">Firmware được hỗ trợ</string>
-    <string name="help_text">• Android 2.3–4.4: firmware ARM 32-bit, chạy qua QEMU.\n• Android 5.0–17: firmware arm64 và GSI, chạy trực tiếp trên điện thoại.\n\nĐịnh dạng:\n• ZIP recovery CWM/TWRP (MIUI, CyanogenMod, bản port, đa số ROM tùy biến);\n• Samsung: Odin .tar / .tar.md5 hoặc ZIP chứa AP_*.tar.md5;\n• factory image của Google (.tgz / .zip);\n• system.img (ext4, sparse), bản sao lưu TWRP system.ext4.win;\n• OTA với system.new.dat(.br) + system.transfer.list.\n\nTốt nhất gói có boot.img: thứ tự khởi động dịch vụ được lấy từ đó.</string>
+    <string name="help_text">• Android 2.3–4.4: firmware ARM 32-bit, chạy qua QEMU.\n• Android 5.0–17: firmware arm64 và GSI, chạy trực tiếp trên điện thoại.\n\nĐịnh dạng:\n• ZIP recovery CWM/TWRP (MIUI, CyanogenMod, bản port, đa số ROM tùy biến);\n• Samsung: Odin .tar / .tar.md5 hoặc ZIP chứa AP_*.tar.md5;\n• factory image của Google (.tgz / .zip);\n• system.img (ext4, sparse), bản sao lưu TWRP system.ext4.win;\n• OTA với system.new.dat(.br) + system.transfer.list;\n• Ngoài ra: 7z, RAR, LG .kdz, Sony .ftf, Huawei UPDATE.APP, Qualcomm EDL, payload.bin, super.img, EROFS, Android-x86 ISO.\n\nTốt nhất gói có boot.img: thứ tự khởi động dịch vụ được lấy từ đó.</string>
     <string name="vs_screen">Màn hình khách</string>
     <string name="vs_fixed_2x">Android 2.x dùng màn hình cố định 480×800, 240 dpi.</string>
     <string name="vs_screen_hint">Màn hình càng nhỏ hệ thống càng nhanh.</string>
@@ -45,6 +45,13 @@
     <string name="vs_legacy_sub">Engine cũ của Desire HD: chỉ GLES 1.x, màn hình 480×800. Dùng khi engine chính thất bại.</string>
     <string name="vs_lowram">Chế độ ít bộ nhớ</string>
     <string name="vs_lowram_sub">ro.config.low_ram — hệ thống tiết kiệm bộ nhớ.</string>
+    <string name="vs_memory_mode">Quản lý bộ nhớ</string>
+    <string name="vs_memory_light">Nhẹ</string>
+    <string name="vs_memory_medium">Vừa</string>
+    <string name="vs_memory_aggressive">Quyết liệt</string>
+    <string name="vs_memory_light_sub">Ứng dụng nền chỉ bị dừng khi bản thân điện thoại gần hết bộ nhớ. Ít khởi động lại nhất; dùng nhiều bộ nhớ nhất. Có hiệu lực sau khi khởi động lại hoàn toàn VM.</string>
+    <string name="vs_memory_medium_sub">Cân bằng: giữ một số lượng vừa phải ứng dụng nền và dừng các ứng dụng còn lại khi bộ nhớ trống xuống thấp. Có hiệu lực sau khi khởi động lại hoàn toàn VM.</string>
+    <string name="vs_memory_aggressive_sub">Giữ ít ứng dụng nền và kiểm tra thường xuyên, nên bộ nhớ được giải phóng sớm. Dùng ít bộ nhớ nhất, nhưng ứng dụng khởi động lại thường xuyên hơn. Có hiệu lực sau khi khởi động lại hoàn toàn VM.</string>
     <string name="vs_proxy">Proxy TLS hiện đại</string>
     <string name="vs_proxy_sub">Trình duyệt và ứng dụng cũ mở được trang HTTPS ngày nay.</string>
     <string name="vs_controls">Điều khiển</string>
@@ -321,7 +328,7 @@
     <string name="vs_strace">Theo dõi lệnh gọi hệ thống của dịch vụ</string>
     <string name="vs_strace_sub">Tên dịch vụ cách nhau bằng dấu phẩy, ví dụ mediaserver,zygote. Làm các dịch vụ đó chậm đi và ghi dấu vết vào nhật ký của chúng. Áp dụng ở lần khởi động sau.</string>
     <string name="vs_wifi">Mạng Wi-Fi</string>
-    <string name="vs_wifi_sub">Hiển thị internet của máy chủ cho máy ảo dưới dạng mạng Wi-Fi đã kết nối thay vì Ethernet. Android 2.3, 4.0–7.x. Áp dụng ở lần khởi động sau.</string>
+    <string name="vs_wifi_sub">Hiển thị internet của máy chủ cho máy ảo dưới dạng mạng Wi-Fi đã kết nối thay vì Ethernet. Android 2.3, 4.0–17 (8–17: thử nghiệm). Áp dụng ở lần khởi động sau.</string>
     <string name="vs_wifi_ssid">Tên mạng (SSID)</string>
     <string name="vs_wifi_ssid_sub">Tối đa 32 byte</string>
     <string name="vs_wifi_ssid_error">Tên mạng không được để trống</string>
@@ -486,4 +493,34 @@
     <string name="thermal_invalid">Nhập giá trị từ -40 đến 150.</string>
     <string name="thermal_apply">Áp dụng</string>
     <string name="thermal_reset">Dùng mặc định</string>
+    <string name="vs_guest_nav">Bật thanh điều hướng / thanh tác vụ</string>
+    <string name="vs_guest_nav_sub">Cho phép hệ thống khách tự vẽ thanh điều hướng, hoặc thanh tác vụ của các bản dựng Android dành cho máy tính (đặt qemu.hw.mainkeys=0). Chỉ bật khi nhập cho các bản dựng dành cho máy tính, tắt với mọi ảnh đĩa khác. Có hiệu lực ở lần khởi động đầy đủ tiếp theo.</string>
+    <string name="th_group_plain">Giao diện đơn giản</string>
+    <string name="th_group_skins">Giao diện vỏ thiết bị (của @regectt)</string>
+    <string name="th_group_custom">Giao diện tùy chỉnh</string>
+    <string name="th_custom_empty">Chưa có giao diện tùy chỉnh nào. Nhấn “Giao diện mới” để tạo, hoặc nhập tệp .aetheme. Không thể thay đổi giao diện đơn giản và vỏ thiết bị: hãy nhân bản một giao diện để chỉnh sửa.</string>
+    <string name="th_expand">Mở rộng danh sách</string>
+    <string name="th_collapse">Thu gọn danh sách</string>
+    <string name="vs_art_boot_image">Dùng ảnh khởi động ART (Android 14+)</string>
+    <string name="vs_art_boot_image_sub">Tắt: hệ thống khách chạy không có ảnh khởi động. Khởi động chậm hơn nhưng không có gì liên quan đến ảnh có thể lỗi. Bật: trình giả lập chuẩn bị ảnh khởi động cho môi trường chạy này (chỉ tạo một lần ở lần khởi động tiếp theo, mất một lúc).</string>
+    <string name="vs_no_watchdog">Tắt watchdog hệ thống (Android 14+)</string>
+    <string name="vs_no_watchdog_sub">Dùng cho trường hợp khởi động chậm hơn giới hạn watchdog 60 giây của Android, khiến system_server bị tắt lặp đi lặp lại. Vá services.jar của phần sụn để luồng watchdog kết thúc ngay; sau đó, tình trạng treo hệ thống thật sự sẽ không còn được khắc phục bằng cách khởi động lại. Mã biên dịch sẵn của jar bị bỏ qua, có thể khiến lần khởi động đầu chậm hơn. Tắt tùy chọn này sẽ khôi phục jar gốc. Có hiệu lực ở lần khởi động đầy đủ tiếp theo.</string>
+    <string name="folder_new">Thư mục mới</string>
+    <string name="folder_new_dots">Thư mục mới…</string>
+    <string name="folder_rename">Đổi tên thư mục</string>
+    <string name="folder_delete">Xóa thư mục (giữ lại các ROM)</string>
+    <string name="folder_move">Chuyển vào thư mục</string>
+    <string name="folder_none">Không nằm trong thư mục</string>
+    <string name="folder_default_name">Thư mục</string>
+    <string name="folder_empty">Trống — thả ROM vào đây</string>
+    <string name="folder_open">Mở thư mục</string>
+    <string name="folder_close">Đóng thư mục</string>
+    <plurals name="folder_roms">
+        <item quantity="other">%1$d ROM</item>
+    </plurals>
+    <string name="phantom_title">Trình diệt tiến trình ma</string>
+    <string name="phantom_msg">Thiết bị của bạn chưa bật tùy chọn “Tắt giới hạn tiến trình con” trong Tùy chọn cho nhà phát triển. Điều này có nghĩa là zygote sẽ bị tắt trong lúc trình giả lập khởi động, khiến trình giả lập không thể khởi động. Vì vậy, CHÚNG TÔI KHUYẾN NGHỊ MẠNH MẼ bạn nên bật tùy chọn này.</string>
+    <string name="phantom_open_dev">Mở Tùy chọn cho nhà phát triển</string>
+    <string name="phantom_ignore">Bỏ qua</string>
+    <string name="phantom_never">Không nhắc lại</string>
 </resources>

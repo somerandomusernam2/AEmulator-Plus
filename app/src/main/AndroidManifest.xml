@@ -86,6 +86,92 @@
             android:windowSoftInputMode="adjustResize"
             android:theme="@style/Theme.AEmulator.Vm" />
 
+        <!-- Added for AEmulator Plus, 2026-11-09: process slot 1 (a machine of its own, running next to the others) -->
+        <activity
+            android:name=".ui.VmActivity1"
+            android:configChanges="keyboard|keyboardHidden|orientation|screenSize|screenLayout|smallestScreenSize|density|uiMode|navigation"
+            android:exported="false"
+            android:launchMode="standard"
+            android:process=":vm1"
+            android:resizeableActivity="true"
+            android:screenOrientation="unspecified"
+            android:windowSoftInputMode="adjustResize"
+            android:theme="@style/Theme.AEmulator.Vm" />
+
+        <!-- Added for AEmulator Plus, 2026-11-09: process slot 2 (a machine of its own, running next to the others) -->
+        <activity
+            android:name=".ui.VmActivity2"
+            android:configChanges="keyboard|keyboardHidden|orientation|screenSize|screenLayout|smallestScreenSize|density|uiMode|navigation"
+            android:exported="false"
+            android:launchMode="standard"
+            android:process=":vm2"
+            android:resizeableActivity="true"
+            android:screenOrientation="unspecified"
+            android:windowSoftInputMode="adjustResize"
+            android:theme="@style/Theme.AEmulator.Vm" />
+
+        <!-- Added for AEmulator Plus, 2026-11-09: process slot 3 (a machine of its own, running next to the others) -->
+        <activity
+            android:name=".ui.VmActivity3"
+            android:configChanges="keyboard|keyboardHidden|orientation|screenSize|screenLayout|smallestScreenSize|density|uiMode|navigation"
+            android:exported="false"
+            android:launchMode="standard"
+            android:process=":vm3"
+            android:resizeableActivity="true"
+            android:screenOrientation="unspecified"
+            android:windowSoftInputMode="adjustResize"
+            android:theme="@style/Theme.AEmulator.Vm" />
+
+        <!-- Added for AEmulator Plus, 2026-11-09: the translucent windows of a tab with two machines (the one on top) -->
+        <activity
+            android:name=".ui.VmOverlayActivity"
+            android:configChanges="keyboard|keyboardHidden|orientation|screenSize|screenLayout|smallestScreenSize|density|uiMode|navigation"
+            android:exported="false"
+            android:launchMode="standard"
+            android:process=":vm"
+            android:resizeableActivity="true"
+            android:screenOrientation="unspecified"
+            android:windowSoftInputMode="adjustResize"
+            android:theme="@style/Theme.AEmulator.Vm.Overlay" />
+        <activity
+            android:name=".ui.VmOverlayActivity1"
+            android:configChanges="keyboard|keyboardHidden|orientation|screenSize|screenLayout|smallestScreenSize|density|uiMode|navigation"
+            android:exported="false"
+            android:launchMode="standard"
+            android:process=":vm1"
+            android:resizeableActivity="true"
+            android:screenOrientation="unspecified"
+            android:windowSoftInputMode="adjustResize"
+            android:theme="@style/Theme.AEmulator.Vm.Overlay" />
+        <activity
+            android:name=".ui.VmOverlayActivity2"
+            android:configChanges="keyboard|keyboardHidden|orientation|screenSize|screenLayout|smallestScreenSize|density|uiMode|navigation"
+            android:exported="false"
+            android:launchMode="standard"
+            android:process=":vm2"
+            android:resizeableActivity="true"
+            android:screenOrientation="unspecified"
+            android:windowSoftInputMode="adjustResize"
+            android:theme="@style/Theme.AEmulator.Vm.Overlay" />
+        <activity
+            android:name=".ui.VmOverlayActivity3"
+            android:configChanges="keyboard|keyboardHidden|orientation|screenSize|screenLayout|smallestScreenSize|density|uiMode|navigation"
+            android:exported="false"
+            android:launchMode="standard"
+            android:process=":vm3"
+            android:resizeableActivity="true"
+            android:screenOrientation="unspecified"
+            android:windowSoftInputMode="adjustResize"
+            android:theme="@style/Theme.AEmulator.Vm.Overlay" />
+
+        <!-- Added for AEmulator Plus, 2026-11-10: the tab bar's dialogs, in a transparent window over everything (both halves of a split) -->
+        <activity
+            android:name=".ui.TabDialogActivity"
+            android:excludeFromRecents="true"
+            android:exported="false"
+            android:launchMode="standard"
+            android:theme="@style/Theme.AEmulator.TabDialog" />
+
         <activity android:name=".ui.VmRestartActivity" android:exported="false" />
 
         <service
@@ -106,6 +192,60 @@
             android:name="dev.lk.dhd.GlSlot"
             android:exported="false"
             android:process=":gl" />
+
+        <service
+            android:name=".core.Keeper1"
+            android:exported="false"
+            android:foregroundServiceType="specialUse"
+            android:process=":vm1">
+            <property
+                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="Keeps the emulated Android system running" />
+        </service>
+        <service
+            android:name="dev.lk.dhd.BinderSlot1"
+            android:exported="false"
+            android:process=":binder1" />
+        <service
+            android:name="dev.lk.dhd.GlSlot1"
+            android:exported="false"
+            android:process=":gl1" />
+
+        <service
+            android:name=".core.Keeper2"
+            android:exported="false"
+            android:foregroundServiceType="specialUse"
+            android:process=":vm2">
+            <property
+                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="Keeps the emulated Android system running" />
+        </service>
+        <service
+            android:name="dev.lk.dhd.BinderSlot2"
+            android:exported="false"
+            android:process=":binder2" />
+        <service
+            android:name="dev.lk.dhd.GlSlot2"
+            android:exported="false"
+            android:process=":gl2" />
+
+        <service
+            android:name=".core.Keeper3"
+            android:exported="false"
+            android:foregroundServiceType="specialUse"
+            android:process=":vm3">
+            <property
+                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="Keeps the emulated Android system running" />
+        </service>
+        <service
+            android:name="dev.lk.dhd.BinderSlot3"
+            android:exported="false"
+            android:process=":binder3" />
+        <service
+            android:name="dev.lk.dhd.GlSlot3"
+            android:exported="false"
+            android:process=":gl3" />
 
         <provider
             android:name="androidx.core.content.FileProvider"

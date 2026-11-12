@@ -17,7 +17,7 @@
     <string name="storage_text">Leyfðu aðgang að öllum skrám: þá er minniskort hvers kerfis í AEmulator-möppunni í innri geymslu — þægilegt fyrir APK-skrár, tónlist og myndir.</string>
     <string name="allow">Leyfa</string>
     <string name="empty_title">Engin kerfi enn</string>
-    <string name="empty_text">Bættu við ARM-fastbúnaði fyrir Android 1.0–7.x: recovery-ZIP, Odin-safnskrá (.tar.md5), system.img eða verksmiðjumynd.</string>
+    <string name="empty_text">Bættu við ARM-fastbúnaði fyrir Android 1.0–17: recovery-ZIP, Odin-safnskrá (.tar.md5), system.img eða verksmiðjumynd.</string>
     <string name="empty_help">Hvaða skrár virka?</string>
     <string name="import_failed">Innflutningur mistókst</string>
     <string name="import_running">Flyt inn fastbúnað</string>
@@ -29,7 +29,7 @@
     <string name="start">Ræsa</string>
     <string name="rename">Endurnefna</string>
     <string name="help_title">Studdur fastbúnaður</string>
-    <string name="help_text">• Android 2.2–4.4: 32 bita ARM-fastbúnaður, keyrður í gegnum QEMU (eldri en 2.2: á tilraunastigi).\n• Android 5.0–17: arm64-fastbúnaður og GSI-myndir, keyrt beint á símanum.\n\nSnið:\n• CWM/TWRP recovery-ZIP (MIUI, CyanogenMod, tilfærslur, flest sérsniðin ROM);\n• Samsung: Odin .tar / .tar.md5 eða ZIP með AP_*.tar.md5;\n• Verksmiðjumyndir frá Google (.tgz / .zip);\n• system.img (ext4, sparse, YAFFS2), TWRP-afrit system.ext4.win;\n• OTA með system.new.dat(.br) + system.transfer.list.\n\nBest er ef safnskráin inniheldur boot.img: ræsiröð þjónusta er tekin úr henni.</string>
+    <string name="help_text">• Android 2.2–4.4: 32 bita ARM-fastbúnaður, keyrður í gegnum QEMU (eldri en 2.2: á tilraunastigi).\n• Android 5.0–17: arm64-fastbúnaður og GSI-myndir, keyrt beint á símanum.\n\nSnið:\n• CWM/TWRP recovery-ZIP (MIUI, CyanogenMod, tilfærslur, flest sérsniðin ROM);\n• Samsung: Odin .tar / .tar.md5 eða ZIP með AP_*.tar.md5;\n• Verksmiðjumyndir frá Google (.tgz / .zip);\n• system.img (ext4, sparse, YAFFS2), TWRP-afrit system.ext4.win;\n• OTA með system.new.dat(.br) + system.transfer.list;\n• Einnig: 7z, RAR, LG .kdz, Sony .ftf, Huawei UPDATE.APP, Qualcomm EDL, payload.bin, super.img, EROFS, Android-x86 ISO.\n\nBest er ef safnskráin inniheldur boot.img: ræsiröð þjónusta er tekin úr henni.</string>
     <string name="vs_screen">Skjár gests</string>
     <string name="vs_fixed_2x">Desire HD-vélin notar fastan 480×800 skjá við 240 dpi.</string>
     <string name="vs_screen_hint">Lægri upplausn gerir kerfið hraðara.</string>
@@ -44,6 +44,13 @@
     <string name="vs_legacy_sub">Eldri Desire HD-vélin: aðeins GLES 1.x, 480×800 skjár. Notaðu hana ef aðalvélin bilar.</string>
     <string name="vs_lowram">Lítið minni</string>
     <string name="vs_lowram_sub">ro.config.low_ram — kerfið sparar minni.</string>
+    <string name="vs_memory_mode">Minnisstjórnun</string>
+    <string name="vs_memory_light">Létt</string>
+    <string name="vs_memory_medium">Miðlungs</string>
+    <string name="vs_memory_aggressive">Ágeng</string>
+    <string name="vs_memory_light_sub">Bakgrunnsforritum er aðeins hætt þegar sjálfum símanum er nánast að verða minnislaus. Fæstar endurræsingar; notar mest minni. Tekur gildi eftir fulla endurræsingu sýndarvélarinnar.</string>
+    <string name="vs_memory_medium_sub">Jafnvægi: heldur hóflegum fjölda bakgrunnsforrita og stöðvar hin þegar laust minni minnkar. Tekur gildi eftir fulla endurræsingu sýndarvélarinnar.</string>
+    <string name="vs_memory_aggressive_sub">Heldur fáum bakgrunnsforritum og athugar oft, svo minni losnar snemma. Notar minnst minni, en forrit endurræsast oftar. Tekur gildi eftir fulla endurræsingu sýndarvélarinnar.</string>
     <string name="vs_proxy">Nútíma TLS-milliþjónn</string>
     <string name="vs_proxy_sub">Leyfir gömlum vöfrum og forritum að opna HTTPS-vefsíður nútímans.</string>
     <string name="vs_controls">Stýringar</string>
@@ -146,7 +153,7 @@
     <string name="vs_strace">Rekja kerfiskall þjónusta</string>
     <string name="vs_strace_sub">Heiti þjónusta aðgreind með kommum, t.d. mediaserver,zygote. Hægir á þessum þjónustum og skrifar slóðina í annála þeirra. Tekur gildi við næstu ræsingu.</string>
     <string name="vs_wifi">Wi-Fi net</string>
-    <string name="vs_wifi_sub">Sýnir nettengingu hýsilsins fyrir sýndarvélinni sem tengt Wi-Fi net í stað Ethernet. Android 2.3, 4.0–7.x. Tekur gildi við næstu ræsingu.</string>
+    <string name="vs_wifi_sub">Sýnir nettengingu hýsilsins fyrir sýndarvélinni sem tengt Wi-Fi net í stað Ethernet. Android 2.3, 4.0–17 (8–17: á tilraunastigi). Tekur gildi við næstu ræsingu.</string>
     <string name="vs_wifi_ssid">Heiti nets (SSID)</string>
     <string name="vs_wifi_ssid_sub">Allt að 32 bæti</string>
     <string name="vs_wifi_ssid_error">Heiti nets má ekki vera autt</string>
@@ -490,4 +497,31 @@
     <string name="thermal_invalid">Sláðu inn gildi frá -40 til 150.</string>
     <string name="thermal_apply">Virkja</string>
     <string name="thermal_reset">Nota sjálfgefið</string>
+    <string name="th_group_plain">Einföld þemu</string>
+    <string name="th_group_skins">Þemu með útliti tækis (eftir @regectt)</string>
+    <string name="th_group_custom">Sérsniðin þemu</string>
+    <string name="th_custom_empty">Engin sérsniðin þemu enn. Ýttu á „Nýtt þema“ til að búa eitt til eða fluttu inn .aetheme-skrá. Ekki er hægt að breyta einföldum þemum og útliti tækja: afritaðu eitt til að breyta því.</string>
+    <string name="th_expand">Víkka lista</string>
+    <string name="th_collapse">Þjappa lista saman</string>
+    <string name="vs_art_boot_image">Nota ART-ræsimynd (Android 14+)</string>
+    <string name="vs_art_boot_image_sub">Slökkt: gesturinn keyrir án ræsimyndar. Ræsing er hægari en ekkert varðandi myndina getur mistekist. Kveikt: hermirinn útbýr ræsimynd fyrir þetta keyrsluumhverfi (búin til einu sinni við næstu ræsingu, sem tekur nokkra stund).</string>
+    <string name="folder_new">Ný mappa</string>
+    <string name="folder_new_dots">Ný mappa…</string>
+    <string name="folder_rename">Endurnefna möppu</string>
+    <string name="folder_delete">Eyða möppu (ROM-in haldast)</string>
+    <string name="folder_move">Færa í möppu</string>
+    <string name="folder_none">Ekki í möppu</string>
+    <string name="folder_default_name">Mappa</string>
+    <string name="folder_empty">Tómt – slepptu ROM-um hér</string>
+    <string name="folder_open">Opna möppu</string>
+    <string name="folder_close">Loka möppu</string>
+    <plurals name="folder_roms">
+        <item quantity="one">%1$d ROM</item>
+        <item quantity="other">%1$d ROM</item>
+    </plurals>
+    <string name="phantom_title">Draugaferlabani</string>
+    <string name="phantom_msg">Kveikt er ekki á valkostinum „Afvirkja takmarkanir undirferla“ í þróunarvalkostum tækisins. Það þýðir að zygote verður stöðvað við ræsingu hermisins, sem gerir hermanum ókleift að ræsast. Því er eindregið mælt með að kveikja á honum.</string>
+    <string name="phantom_open_dev">Opna þróunarvalkosti</string>
+    <string name="phantom_ignore">Hunsa</string>
+    <string name="phantom_never">Ekki minna mig aftur á</string>
 </resources>

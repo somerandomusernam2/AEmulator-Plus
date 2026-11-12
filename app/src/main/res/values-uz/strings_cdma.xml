@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- put into app/src/main/res/values/ (other languages fall back to these) -->
+<resources>
+    <string name="vs_cdma">CDMA modem</string>
+    <string name="vs_cdma_sub">CDMA modemni emulyatsiya qiladi: 1xRTT / EV-DO roʻyxatdan oʻtish, MEID, CDMA obunasi va CDMA matnli xabarlar. Keyingi toʻliq yuklanishda qoʻllanadi.</string>
+    <string name="vs_cdma_fw_yes">Bu proshivka CDMA ustida LTE (telephony.lteOnCdmaDevice=1): standart boʻyicha yoqilgan.</string>
+    <string name="vs_cdma_fw_no">Bu proshivka CDMA ustida LTE emas: standart boʻyicha oʻchiq.</string>
+</resources>

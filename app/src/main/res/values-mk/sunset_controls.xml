@@ -30,4 +30,17 @@
     <string name="bluetooth_permission_denied">Дозволата за Bluetooth е одбиена: гостинот ќе стартува без Bluetooth на домаќинот.</string>
     <string name="vs_sf_tombstone">Tombstone при пад на SurfaceFlinger (дебагирање)</string>
     <string name="vs_sf_tombstone_sub">Ако SurfaceFlinger падне, фирмверот запишува обичен tombstone во дневникот (со функцијата што падна) наместо краток извештај. Користете при праќање извештај за грешка. Важи при следното целосно стартување на ВМ.</string>
+    <string name="vi_mouse_keyboard">Внес: глушец и тастатура</string>
+    <string name="vi_mouse_keyboard_sub">Регистрира допирна подлога и тастатура во гостинот и го отстранува неговиот екран на допир. Екранот станува допирна подлога (допрете за клик, два прста за лизгање), а во лентата за навигација се појавува копче за тастатура. Бара QEMU машина (не изворната 64-битна) и целосно рестартирање на виртуелната машина.</string>
+    <string name="vi_keypad">Внес: тастатура со копчиња</string>
+    <string name="vi_keypad_sub">Додава копче за тастатура со копчиња во лентата за навигација: стрелки, OK, софтверски копчиња, Повик/Крај и 0–9 * # како на телефон со копчиња. Допирот продолжува да работи, а тастатурата со копчиња може да се комбинира со глушец и тастатура.</string>
+    <string name="vi_keyboard">Тастатура</string>
+    <string name="vi_keypad_title">Тастатура со копчиња</string>
+    <string name="vi_close">Затвори</string>
+    <string name="vi_open_keyboard">Тастатура</string>
+    <string name="vi_open_keypad">Тастатура со копчиња</string>
+    <string name="m_resize_screen">Промени ја големината на екранот</string>
+    <string name="m_resize_done">Менувањето големина заврши</string>
+    <string name="m_resize_reset">Ресетирај ја големината на екранот</string>
+    <string name="vi_resize_hint">Повлечете агол од екранот за да ја промените големината. Кога ќе завршите, отворете го менито и допрете „Менувањето големина заврши“.</string>
 </resources>

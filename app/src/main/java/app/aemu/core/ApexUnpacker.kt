@@ -37,7 +37,13 @@ object ApexUnpacker {
                 val up = "../".repeat(sysApex.relativeTo(root).path.count { it == '/' } + 1)
                 if (!flat.exists()) Os.symlink("${up}apex/$name", flat.path)
                 done++
-            }.onFailure { log("apex ${pkg.name}: ${it.message}") }
+            }.onFailure {
+                // ("zip END header not found" says nothing about the file: its size and first bytes tell a stub, a truncated copy
+                // and another container apart; the VNDK snapshot packages are where a vendor's older HIDL interface libraries live)
+                val head = runCatching { pkg.inputStream().use { i -> ByteArray(8).let { b -> b.copyOf(maxOf(0, i.read(b))) } } }
+                    .getOrDefault(ByteArray(0)).joinToString(" ") { "%02x".format(it) }
+                log("apex ${pkg.name}: ${it.message} (${pkg.length()} bytes, starts with ${head.ifEmpty { "nothing" }})")
+            }
         }
         return done
     }

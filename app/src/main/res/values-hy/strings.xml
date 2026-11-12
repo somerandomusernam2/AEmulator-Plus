@@ -17,7 +17,7 @@
     <string name="storage_text">Թույլատրեք մուտք բոլոր ֆայլերին. այդ դեպքում յուրաքանչյուր համակարգի հիշաքարտը կգտնվի ներքին հիշողության AEmulator պանակում. հարմար է APK-ների, երաժշտության և լուսանկարների համար։</string>
     <string name="allow">Թույլատրել</string>
     <string name="empty_title">Համակարգեր դեռ չկան</string>
-    <string name="empty_text">Ավելացրեք ARM որոնվածք Android 1.0–7.x-ի համար՝ recovery ZIP, Odin արխիվ (.tar.md5), system.img կամ գործարանային պատկեր։</string>
+    <string name="empty_text">Ավելացրեք ARM որոնվածք Android 1.0–17-ի համար՝ recovery ZIP, Odin արխիվ (.tar.md5), system.img կամ գործարանային պատկեր։</string>
     <string name="empty_help">Ո՞ր ֆայլերն են հարմար</string>
     <string name="import_failed">Ներմուծումը ձախողվեց</string>
     <string name="import_running">Որոնվածքի ներմուծում</string>
@@ -29,7 +29,7 @@
     <string name="start">Մեկնարկել</string>
     <string name="rename">Վերանվանել</string>
     <string name="help_title">Աջակցվող որոնվածք</string>
-    <string name="help_text">• Android 2.2–4.4. 32-բիթանոց ARM որոնվածք, աշխատում է QEMU-ով (2.2-ից վաղ տարբերակներ՝ փորձարարական)։\n• Android 5.0–17. arm64 որոնվածք և GSI-ներ, աշխատում են անմիջապես հեռախոսի վրա։\n\nձևաչափեր.\n• CWM/TWRP recovery ZIP (MIUI, CyanogenMod, պորտեր, մեծ մասամբ՝ հատուկ ROM-եր);\n• Samsung. Odin .tar / .tar.md5 կամ ZIP՝ AP_*.tar.md5-ով;\n• Google-ի գործարանային պատկերներ (.tgz / .zip);\n• system.img (ext4, sparse, YAFFS2), TWRP-ի պահուստային պատճեն system.ext4.win;\n• OTA՝ system.new.dat(.br) + system.transfer.list ֆայլերով։\n\nԼավագն այն է, երբ արխիվում կա boot.img. ծառայությունների մեկնարկի կարգը վերցվում է դրանից։</string>
+    <string name="help_text">• Android 2.2–4.4. 32-բիթանոց ARM որոնվածք, աշխատում է QEMU-ով (2.2-ից վաղ տարբերակներ՝ փորձարարական)։\n• Android 5.0–17. arm64 որոնվածք և GSI-ներ, աշխատում են անմիջապես հեռախոսի վրա։\n\nձևաչափեր.\n• CWM/TWRP recovery ZIP (MIUI, CyanogenMod, պորտեր, մեծ մասամբ՝ հատուկ ROM-եր);\n• Samsung. Odin .tar / .tar.md5 կամ ZIP՝ AP_*.tar.md5-ով;\n• Google-ի գործարանային պատկերներ (.tgz / .zip);\n• system.img (ext4, sparse, YAFFS2), TWRP-ի պահուստային պատճեն system.ext4.win;\n• OTA՝ system.new.dat(.br) + system.transfer.list ֆայլերով։;\n• Նաև. 7z, RAR, LG .kdz, Sony .ftf, Huawei UPDATE.APP, Qualcomm EDL, payload.bin, super.img, EROFS, Android-x86 ISO\n\nԼավագն այն է, երբ արխիվում կա boot.img. ծառայությունների մեկնարկի կարգը վերցվում է դրանից։</string>
     <string name="vs_screen">Հյուրի էկրան</string>
     <string name="vs_fixed_2x">Desire HD շարժիչն օգտագործում է ֆիքսված 480×800 էկրան՝ 240 dpi-ով։</string>
     <string name="vs_screen_hint">Ավելի ցածր թույլատրելիությունը համակարգն ավելի արագ է դարձնում։</string>
@@ -44,6 +44,13 @@
     <string name="vs_legacy_sub">Desire HD-ի հին շարժիչը՝ միայն GLES 1.x, 480×800 էկրան։ Օգտագործեք, եթե հիմնական շարժիչը չի աշխատում։</string>
     <string name="vs_lowram">Ցածր հիշողության ռեժիմ</string>
     <string name="vs_lowram_sub">ro.config.low_ram — համակարգը խնայում է հիշողությունը։</string>
+    <string name="vs_memory_mode">Հիշողության կառավարում</string>
+    <string name="vs_memory_light">Թեթև</string>
+    <string name="vs_memory_medium">Միջին</string>
+    <string name="vs_memory_aggressive">Ագրեսիվ</string>
+    <string name="vs_memory_light_sub">Ֆոնային հավելվածները կանգնեցվում են միայն այն ժամանակ, երբ հենց հեռախոսի հիշողությունը գրեթե սպառվում է։ Ամենաքիչ վերագործարկումները, ամենաշատ հիշողության օգտագործումը։ Ուժի մեջ է մտնում վիրտուալ մեքենայի լրիվ վերագործարկումից հետո։</string>
+    <string name="vs_memory_medium_sub">Հավասարակշռված․ պահում է ֆոնային հավելվածների չափավոր քանակ և մնացածը կանգնեցնում է, երբ ազատ հիշողությունը նվազում է։ Ուժի մեջ է մտնում վիրտուալ մեքենայի լրիվ վերագործարկումից հետո։</string>
+    <string name="vs_memory_aggressive_sub">Պահում է քիչ ֆոնային հավելվածներ և հաճախ ստուգում է, այդ պատճառով հիշողությունը շուտ է ազատվում։ Օգտագործում է ամենաքիչ հիշողություն, սակայն հավելվածներն ավելի հաճախ են վերագործարկվում։ Ուժի մեջ է մտնում վիրտուալ մեքենայի լրիվ վերագործարկումից հետո։</string>
     <string name="vs_proxy">Ժամանակակից TLS պրոքսի</string>
     <string name="vs_proxy_sub">Թույլ է տալիս հին զննիչներին և հավելվածներին բացել այսօրվա HTTPS կայքերը։</string>
     <string name="vs_controls">Կառավարում</string>
@@ -146,7 +153,7 @@
     <string name="vs_strace">Ծառայությունների համակարգային կանչերի հետագծում</string>
     <string name="vs_strace_sub">Ծառայությունների անունները՝ ստորակետերով, օր.՝ mediaserver,zygote։ Դանդաղեցնում է այդ ծառայությունները և հետագծումը գրում է դրանց մատյաններում։ Կիրառվում է հաջորդ բեռնման ժամանակ։</string>
     <string name="vs_wifi">Wi-Fi ցանց</string>
-    <string name="vs_wifi_sub">Հոսթի ինտերնետը VM-ին ցույց է տալիս որպես միացված Wi-Fi ցանց՝ Ethernet-ի փոխարեն։ Android 2.3, 4.0–7.x։ Կիրառվում է հաջորդ բեռնման ժամանակ։</string>
+    <string name="vs_wifi_sub">Հոսթի ինտերնետը VM-ին ցույց է տալիս որպես միացված Wi-Fi ցանց՝ Ethernet-ի փոխարեն։ Android 2.3, 4.0–17 (8–17: փորձարարական)։ Կիրառվում է հաջորդ բեռնման ժամանակ։</string>
     <string name="vs_wifi_ssid">Ցանցի անուն (SSID)</string>
     <string name="vs_wifi_ssid_sub">Մինչև 32 բայթ</string>
     <string name="vs_wifi_ssid_error">Ցանցի անունը չի կարող դատարկ լինել</string>
@@ -487,4 +494,35 @@
     <string name="thermal_invalid">Մուտքագրեք արժեք -40-ից մինչև 150։</string>
     <string name="thermal_apply">Կիրառել</string>
     <string name="thermal_reset">Օգտագործել լռելյայնը</string>
+    <string name="vs_guest_nav">Միացնել նավիգացիայի վահանակը / առաջադրանքների գոտին</string>
+    <string name="vs_guest_nav_sub">Թույլ է տալիս հյուրին նկարել իր նավիգացիայի վահանակը կամ Android-ի աշխատասեղանի կառուցվածքների առաջադրանքների գոտին (սահմանում է qemu.hw.mainkeys=0): Ներմուծման ժամանակ միացրեք միայն աշխատասեղանի կառուցվածքների համար, մնացած բոլոր պատկերների համար թողեք անջատված: Ուժի մեջ է մտնում հաջորդ լրիվ բեռնման ժամանակ:</string>
+    <string name="th_group_plain">Պարզ թեմաներ</string>
+    <string name="th_group_skins">Սարքի տեսքի թեմաներ (հեղինակ՝ @regectt)</string>
+    <string name="th_group_custom">Հատուկ թեմաներ</string>
+    <string name="th_custom_empty">Հատուկ թեմաներ դեռ չկան: Հպեք «Նոր թեմա»՝ ստեղծելու համար, կամ ներմուծեք .aetheme ֆայլ: Պարզ թեմաները և սարքերի տեսքերը հնարավոր չէ փոխել. կրկնօրինակեք մեկը՝ խմբագրելու համար:</string>
+    <string name="th_expand">Ընդարձակել ցանկը</string>
+    <string name="th_collapse">Ծալել ցանկը</string>
+    <string name="vs_art_boot_image">Օգտագործել ART բեռնման պատկերը (Android 14+)</string>
+    <string name="vs_art_boot_image_sub">Անջատված. հյուրը աշխատում է առանց բեռնման պատկերի: Գործարկումն ավելի դանդաղ է, բայց պատկերի հետ կապված ոչինչ չի կարող ձախողվել: Միացված. էմուլյատորը պատրաստում է բեռնման պատկեր այս կատարման միջավայրի համար (ստեղծվում է մեկ անգամ հաջորդ գործարկման ժամանակ, ինչը որոշ ժամանակ է պահանջում):</string>
+    <string name="vs_no_watchdog">Անջատել համակարգի watchdog-ը (Android 14+)</string>
+    <string name="vs_no_watchdog_sub">Այն բեռնման համար, որը ավելի դանդաղ է, քան Android-ի watchdog-ի 60 վրկ սահմանաչափը, որը ցիկլով դադարեցնում է system_server-ը: Կարկատում է ներկառուցյալ ծրագրի services.jar-ը, որպեսզի watchdog-ի թելն անմիջապես ավարտվի. համակարգի իրական փակուղին դրանից հետո այլևս չի վերականգնվում վերագործարկմամբ: jar-ի նախապես կոմպիլյացված կոդն անտեսվում է, ինչը կարող է դանդաղեցնել առաջին բեռնումը: Անջատելը վերականգնում է սկզբնական jar-ը: Ուժի մեջ է մտնում հաջորդ լրիվ բեռնման ժամանակ:</string>
+    <string name="folder_new">Նոր թղթապանակ</string>
+    <string name="folder_new_dots">Նոր թղթապանակ…</string>
+    <string name="folder_rename">Վերանվանել թղթապանակը</string>
+    <string name="folder_delete">Ջնջել թղթապանակը (ROM-երը կպահպանվեն)</string>
+    <string name="folder_move">Տեղափոխել թղթապանակ</string>
+    <string name="folder_none">Թղթապանակում չէ</string>
+    <string name="folder_default_name">Թղթապանակ</string>
+    <string name="folder_empty">Դատարկ է — քաշեք ROM-երն այստեղ</string>
+    <string name="folder_open">Բացել թղթապանակը</string>
+    <string name="folder_close">Փակել թղթապանակը</string>
+    <plurals name="folder_roms">
+        <item quantity="one">%1$d ROM</item>
+        <item quantity="other">%1$d ROM</item>
+    </plurals>
+    <string name="phantom_title">Ուրվական գործընթացների սպանիչ</string>
+    <string name="phantom_msg">Ձեր սարքի Ծրագրավորողի ընտրանքներում միացված չէ «Անջատել ենթագործընթացների սահմանափակումները» ընտրանքը: Սա նշանակում է, որ էմուլյատորի գործարկման ժամանակ zygote-ը կդադարեցվի, և էմուլյատորը չի կարողանա բեռնվել: Ուստի ՇԱՏ ԽՈՐՀՈՒՐԴ Է ՏՐՎՈՒՄ միացնել այն:</string>
+    <string name="phantom_open_dev">Բացել Ծրագրավորողի ընտրանքները</string>
+    <string name="phantom_ignore">Անտեսել</string>
+    <string name="phantom_never">Այլևս չհիշեցնել</string>
 </resources>

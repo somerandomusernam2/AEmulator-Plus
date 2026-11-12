@@ -31,4 +31,17 @@
     <string name="vs_sf_tombstone">SurfaceFlinger çökmə tombstone-u (sazlama)</string>
     <string name="vs_sf_tombstone_sub">SurfaceFlinger çökərsə, mikroproqramın qısa hesabat əvəzinə jurnala adi tombstone (çöküb funksiya ilə) yazmasına icazə verir. Xəta hesabatı göndərərkən istifadə edin. Növbəti tam virtual maşın yükləməsində tətbiq olunur.</string>
     <string name="bluetooth_permission_denied">Bluetooth icazəsi rədd edildi: qonaq host Bluetooth olmadan yüklənəcək.</string>
+    <string name="vi_mouse_keyboard">Daxiletmə: siçan və klaviatura</string>
+    <string name="vi_mouse_keyboard_sub">Qonaqda toxunma paneli və klaviatura qeydiyyatdan keçirir və onun toxunma ekranını silir. Ekran toxunma panelinə çevrilir (klik üçün toxunun, sürüşdürmək üçün iki barmaq) və naviqasiya panelində klaviatura düyməsi görünür. QEMU mühərriki (doğma 64 bitlik deyil) və VM-in tam yenidən başladılması tələb olunur.</string>
+    <string name="vi_keypad">Daxiletmə: düymə paneli</string>
+    <string name="vi_keypad_sub">Naviqasiya panelinə düymə paneli düyməsi əlavə edir: ox düymələri, OK, proqram düymələri, Zəng/Bitir və düyməli telefon kimi 0–9 * #. Toxunma işləməyə davam edir və siçan və klaviatura ilə birlikdə istifadə oluna bilər.</string>
+    <string name="vi_keyboard">Klaviatura</string>
+    <string name="vi_keypad_title">Düymə paneli</string>
+    <string name="vi_close">Bağla</string>
+    <string name="vi_open_keyboard">Klaviatura</string>
+    <string name="vi_open_keypad">Düymə paneli</string>
+    <string name="m_resize_screen">Ekranın ölçüsünü dəyiş</string>
+    <string name="m_resize_done">Ölçü dəyişdirildi</string>
+    <string name="m_resize_reset">Ekran ölçüsünü sıfırla</string>
+    <string name="vi_resize_hint">Ölçüsünü dəyişmək üçün ekranın küncündən dartın. Bitdikdə menyunu açın və “Ölçü dəyişdirildi” üzərinə toxunun.</string>
 </resources>

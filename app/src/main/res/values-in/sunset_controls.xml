@@ -30,4 +30,17 @@
     <string name="bluetooth_permission_denied">Izin Bluetooth ditolak: tamu akan boot tanpa Bluetooth host.</string>
     <string name="vs_sf_tombstone">Tombstone crash SurfaceFlinger (debug)</string>
     <string name="vs_sf_tombstone_sub">Jika SurfaceFlinger crash, biarkan firmware menulis tombstone biasa ke log (beserta fungsi yang crash) alih-alih laporan singkat. Gunakan saat mengirim laporan bug. Berlaku pada boot VM penuh berikutnya.</string>
+    <string name="vi_mouse_keyboard">Input: mouse dan keyboard</string>
+    <string name="vi_mouse_keyboard_sub">Mendaftarkan touchpad dan keyboard di guest dan menghapus layar sentuhnya. Layar menjadi touchpad (ketuk untuk klik, dua jari untuk menggulir) dan tombol keyboard muncul di bilah navigasi. Memerlukan mesin QEMU (bukan mesin 64-bit native) dan restart VM penuh.</string>
+    <string name="vi_keypad">Input: keypad</string>
+    <string name="vi_keypad_sub">Menambahkan tombol keypad ke bilah navigasi: tombol panah, OK, tombol lunak, Panggil/Akhiri, dan 0–9 * # seperti ponsel tombol. Sentuhan tetap berfungsi dan dapat dikombinasikan dengan mouse dan keyboard.</string>
+    <string name="vi_keyboard">Keyboard</string>
+    <string name="vi_keypad_title">Keypad</string>
+    <string name="vi_close">Tutup</string>
+    <string name="vi_open_keyboard">Keyboard</string>
+    <string name="vi_open_keypad">Keypad</string>
+    <string name="m_resize_screen">Ubah ukuran layar</string>
+    <string name="m_resize_done">Selesai mengubah ukuran</string>
+    <string name="m_resize_reset">Setel ulang ukuran layar</string>
+    <string name="vi_resize_hint">Seret sudut layar untuk mengubah ukurannya. Setelah selesai, buka menu dan ketuk “Selesai mengubah ukuran”.</string>
 </resources>

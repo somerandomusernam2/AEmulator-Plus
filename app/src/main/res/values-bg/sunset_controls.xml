@@ -32,4 +32,17 @@
     <string name="bluetooth_permission_denied">Разрешението за Bluetooth е отказано: гостът ще се зареди без Bluetooth на хоста.</string>
     <string name="vs_sf_tombstone">Tombstone при срив на SurfaceFlinger (отстраняване на грешки)</string>
     <string name="vs_sf_tombstone_sub">Ако SurfaceFlinger се срине, фърмуерът записва в журнала обикновен tombstone (с функцията, предизвикала срива) вместо кратък отчет. Използвайте при изпращане на доклад за грешка. Прилага се при следващото пълно стартиране на ВМ.</string>
+    <string name="vi_mouse_keyboard">Вход: мишка и клавиатура</string>
+    <string name="vi_mouse_keyboard_sub">Регистрира тъчпад и клавиатура в госта и премахва неговия сензорен екран. Екранът става тъчпад (докосване за щракване, два пръста за превъртане), а в лентата за навигация се появява бутон за клавиатура. Изисква QEMU енджина (не нативния 64-битов) и пълно рестартиране на виртуалната машина.</string>
+    <string name="vi_keypad">Вход: клавиатура с бутони</string>
+    <string name="vi_keypad_sub">Добавя в лентата за навигация бутон за клавиатура с бутони: стрелки, OK, софтуерни клавиши, Обаждане/Край и 0–9 * # като при телефон с бутони. Докосването продължава да работи, а клавиатурата с бутони може да се комбинира с мишка и клавиатура.</string>
+    <string name="vi_keyboard">Клавиатура</string>
+    <string name="vi_keypad_title">Клавиатура с бутони</string>
+    <string name="vi_close">Затваряне</string>
+    <string name="vi_open_keyboard">Клавиатура</string>
+    <string name="vi_open_keypad">Клавиатура с бутони</string>
+    <string name="m_resize_screen">Промяна на размера на екрана</string>
+    <string name="m_resize_done">Преоразмеряването е готово</string>
+    <string name="m_resize_reset">Нулиране на размера на екрана</string>
+    <string name="vi_resize_hint">Плъзнете ъгъл на екрана, за да промените размера му. Когато приключите, отворете менюто и докоснете „Преоразмеряването е готово“.</string>
 </resources>

@@ -18,7 +18,7 @@
     <string name="storage_text">Разрешите доступ ко всем файлам — тогда «карта памяти» каждой системы будет лежать в папке AEmulator внутренней памяти, и туда удобно класть APK, музыку и фото.</string>
     <string name="allow">Разрешить</string>
     <string name="empty_title">Пока нет ни одной системы</string>
-    <string name="empty_text">Добавьте прошивку Android 2.2–6.0 для ARM: ZIP для рекавери, архив Odin (.tar.md5), system.img или factory-образ.</string>
+    <string name="empty_text">Добавьте прошивку Android 1.0–17 для ARM: ZIP для рекавери, архив Odin (.tar.md5), system.img или factory-образ.</string>
     <string name="empty_help">Какие файлы подходят?</string>
     <string name="import_failed">Импорт не удался</string>
     <string name="import_running">Импорт прошивки</string>
@@ -30,7 +30,7 @@
     <string name="start">Запустить</string>
     <string name="rename">Переименовать</string>
     <string name="help_title">Какие прошивки подходят</string>
-    <string name="help_text">• Android 2.3–4.4: 32-битные ARM-прошивки, работают через QEMU.\n• Android 5.0–17: arm64-прошивки и GSI, работают нативно на телефоне.\n\nФорматы:\n• ZIP для CWM/TWRP (MIUI, CyanogenMod, порты, большинство кастомных прошивок);\n• Samsung: .tar / .tar.md5 из Odin или ZIP с AP_*.tar.md5;\n• factory-образы Google (.tgz / .zip);\n• system.img (ext4, sparse, YAFFS2), TWRP-бэкап system.ext4.win;\n• OTA с system.new.dat(.br) + system.transfer.list.\n\nЛучше всего, если в архиве есть boot.img — из него берётся порядок загрузки служб.</string>
+    <string name="help_text">• Android 2.3–4.4: 32-битные ARM-прошивки, работают через QEMU.\n• Android 5.0–17: arm64-прошивки и GSI, работают нативно на телефоне.\n\nФорматы:\n• ZIP для CWM/TWRP (MIUI, CyanogenMod, порты, большинство кастомных прошивок);\n• Samsung: .tar / .tar.md5 из Odin или ZIP с AP_*.tar.md5;\n• factory-образы Google (.tgz / .zip);\n• system.img (ext4, sparse, YAFFS2), TWRP-бэкап system.ext4.win;\n• OTA с system.new.dat(.br) + system.transfer.list;\n• Также: 7z, RAR, LG .kdz, Sony .ftf, Huawei UPDATE.APP, Qualcomm EDL, payload.bin, super.img, EROFS, Android-x86 ISO.\n\nЛучше всего, если в архиве есть boot.img — из него берётся порядок загрузки служб.</string>
     <string name="vs_screen">Экран гостя</string>
     <string name="vs_fixed_2x">Для Android 2.x экран фиксирован: 480×800, 240 dpi.</string>
     <string name="vs_screen_hint">Чем меньше экран — тем быстрее работает система.</string>
@@ -45,6 +45,13 @@
     <string name="vs_legacy_sub">Старый движок стенда Desire HD: GLES только 1.x, экран 480×800. Включайте, если основной не справился.</string>
     <string name="vs_lowram">Режим малой памяти</string>
     <string name="vs_lowram_sub">ro.config.low_ram — система экономит память.</string>
+    <string name="vs_memory_mode">Управление памятью</string>
+    <string name="vs_memory_light">Лёгкое</string>
+    <string name="vs_memory_medium">Среднее</string>
+    <string name="vs_memory_aggressive">Агрессивное</string>
+    <string name="vs_memory_light_sub">Фоновые приложения останавливаются, только когда у самого телефона почти не остаётся памяти. Меньше всего перезапусков; расходует больше всего памяти. Вступает в силу после полного перезапуска виртуальной машины.</string>
+    <string name="vs_memory_medium_sub">Сбалансированный режим: сохраняет умеренное число фоновых приложений и останавливает остальные, когда свободной памяти становится мало. Вступает в силу после полного перезапуска виртуальной машины.</string>
+    <string name="vs_memory_aggressive_sub">Сохраняет мало фоновых приложений и проверяет часто, поэтому память освобождается заранее. Расходует меньше всего памяти, но приложения перезапускаются чаще. Вступает в силу после полного перезапуска виртуальной машины.</string>
     <string name="vs_proxy">Современный TLS-прокси</string>
     <string name="vs_proxy_sub">Старые браузеры и приложения открывают современные HTTPS-сайты.</string>
     <string name="vs_controls">Управление</string>
@@ -117,7 +124,7 @@
     <string name="vs_qemu_args">Доп. параметры qemu</string>
     <string name="vs_qemu_args_sub">Пример: -d unimp DHD_TBFLUSH=2 (ИМЯ=значение становится переменной окружения)</string>
     <string name="vs_wifi">Сеть Wi-Fi</string>
-    <string name="vs_wifi_sub">Показывает интернет хоста в ВМ как подключённую сеть Wi-Fi вместо Ethernet. Android 2.3, 4.0–7.x. Применяется при следующей загрузке.</string>
+    <string name="vs_wifi_sub">Показывает интернет хоста в ВМ как подключённую сеть Wi-Fi вместо Ethernet. Android 2.3, 4.0–17 (8–17: экспериментально). Применяется при следующей загрузке.</string>
     <string name="vs_wifi_ssid">Имя сети (SSID)</string>
     <string name="vs_wifi_ssid_sub">До 32 байт</string>
     <string name="vs_wifi_ssid_error">Имя сети не может быть пустым</string>
@@ -491,4 +498,35 @@
     <string name="thermal_invalid">Введите значение от -40 до 150.</string>
     <string name="thermal_apply">Применить</string>
     <string name="thermal_reset">По умолчанию</string>
+    <string name="vs_guest_nav">Включить панель навигации / панель задач</string>
+    <string name="vs_guest_nav_sub">Позволяет гостевой системе рисовать собственную панель навигации или панель задач в десктопных сборках Android (задаёт qemu.hw.mainkeys=0). Включайте при импорте только для десктопных сборок, для всех остальных образов оставляйте выключенным. Применяется при следующей полной загрузке.</string>
+    <string name="th_group_plain">Простые темы</string>
+    <string name="th_group_skins">Темы с обликом устройств (от @regectt)</string>
+    <string name="th_group_custom">Пользовательские темы</string>
+    <string name="th_custom_empty">Пользовательских тем пока нет. Нажмите «Новая тема», чтобы создать её, или импортируйте файл .aetheme. Простые темы и облики устройств изменить нельзя: продублируйте тему, чтобы отредактировать её.</string>
+    <string name="th_expand">Развернуть список</string>
+    <string name="th_collapse">Свернуть список</string>
+    <string name="vs_art_boot_image">Использовать загрузочный образ ART (Android 14+)</string>
+    <string name="vs_art_boot_image_sub">Выкл.: гостевая система работает без загрузочного образа. Запуск медленнее, но с образом ничего не может пойти не так. Вкл.: эмулятор готовит загрузочный образ для этой среды выполнения (создаётся один раз при следующем запуске, это занимает время).</string>
+    <string name="folder_new">Новая папка</string>
+    <string name="folder_new_dots">Новая папка…</string>
+    <string name="folder_rename">Переименовать папку</string>
+    <string name="folder_delete">Удалить папку (прошивки сохранятся)</string>
+    <string name="folder_move">Переместить в папку</string>
+    <string name="folder_none">Не в папке</string>
+    <string name="folder_default_name">Папка</string>
+    <string name="folder_empty">Пусто — перетащите прошивки сюда</string>
+    <string name="folder_open">Открыть папку</string>
+    <string name="folder_close">Закрыть папку</string>
+    <plurals name="folder_roms">
+        <item quantity="one">%1$d прошивка</item>
+        <item quantity="few">%1$d прошивки</item>
+        <item quantity="many">%1$d прошивок</item>
+        <item quantity="other">%1$d прошивки</item>
+    </plurals>
+    <string name="phantom_title">Убийца фантомных процессов</string>
+    <string name="phantom_msg">На вашем устройстве не включена опция «Отключить ограничения дочерних процессов» в параметрах разработчика. Из-за этого zygote будет завершён при запуске эмулятора, и эмулятор не сможет загрузиться. Поэтому НАСТОЯТЕЛЬНО РЕКОМЕНДУЕТСЯ включить её.</string>
+    <string name="phantom_open_dev">Открыть параметры разработчика</string>
+    <string name="phantom_ignore">Игнорировать</string>
+    <string name="phantom_never">Больше не напоминать</string>
 </resources>

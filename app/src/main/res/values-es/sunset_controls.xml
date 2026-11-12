@@ -30,4 +30,17 @@
     <string name="bluetooth_permission_denied">Permiso de Bluetooth denegado: el invitado arrancará sin Bluetooth del anfitrión.</string>
     <string name="vs_sf_tombstone">Tombstone de fallo de SurfaceFlinger (depuración)</string>
     <string name="vs_sf_tombstone_sub">Si SurfaceFlinger falla, deja que el firmware escriba un tombstone normal en el registro (con la función que falla) en lugar de un informe corto. Úsalo al enviar un informe de error. Se aplica en el próximo arranque completo de la VM.</string>
+    <string name="vi_mouse_keyboard">Entrada: ratón y teclado</string>
+    <string name="vi_mouse_keyboard_sub">Registra un panel táctil y un teclado en el invitado y elimina su pantalla táctil. La pantalla se convierte en un panel táctil (toca para hacer clic, dos dedos para desplazarte) y aparece un botón de teclado en la barra de navegación. Requiere el motor QEMU (no el nativo de 64 bits) y reiniciar por completo la VM.</string>
+    <string name="vi_keypad">Entrada: teclado numérico</string>
+    <string name="vi_keypad_sub">Añade un botón de teclado numérico a la barra de navegación: teclas de flecha, OK, teclas programables, Llamar/Colgar y 0–9 * # como en un teléfono de teclas. El tacto sigue funcionando y se puede combinar con ratón y teclado.</string>
+    <string name="vi_keyboard">Teclado</string>
+    <string name="vi_keypad_title">Teclado numérico</string>
+    <string name="vi_close">Cerrar</string>
+    <string name="vi_open_keyboard">Teclado</string>
+    <string name="vi_open_keypad">Teclado numérico</string>
+    <string name="m_resize_screen">Cambiar tamaño de pantalla</string>
+    <string name="m_resize_done">Cambio de tamaño terminado</string>
+    <string name="m_resize_reset">Restablecer tamaño de pantalla</string>
+    <string name="vi_resize_hint">Arrastra una esquina de la pantalla para cambiar su tamaño. Cuando termines, abre el menú y toca «Cambio de tamaño terminado».</string>
 </resources>

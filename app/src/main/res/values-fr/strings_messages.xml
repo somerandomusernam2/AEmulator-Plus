@@ -225,4 +225,11 @@
     <string name="update_err_wrong_package">L’APK téléchargé a un mauvais paquet d’application</string>
     <string name="catalog_err_too_many_lines">Le catalogue dépasse 10000 lignes</string>
     <string name="imp_iso_no_system">Aucun système Android trouvé dans l\'image ISO (system.sfs ou system.img attendu)</string>
+    <string name="imp_inspecting">Analyse de %1$s</string>
+    <string name="imp_choice_api">Niveau d’API %1$s</string>
+    <string name="imp_choice_build">numéro de build %1$s</string>
+    <string name="imp_choice_title">Quel(le) %1$s importer ?</string>
+    <string name="imp_choice_text">Ce paquet contient plusieurs %1$s (%2$d sur %3$d). Choisissez celui à importer.</string>
+    <string name="imp_choice_ok">Importer</string>
+    <string name="imp_choice_cancel">Annuler l’import</string>
 </resources>

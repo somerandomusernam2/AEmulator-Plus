@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- put into app/src/main/res/values/ (other languages fall back to these) -->
+<resources>
+    <string name="m_wea">Жасалма өзгөчө кырдаал эскертүүсү</string>
+    <string name="m_wea_type">Эскертүү түрү</string>
+    <string name="m_wea_sent">Өзгөчө кырдаал эскертүүсү жөнөтүлдү</string>
+    <string name="m_wea_failed">Жөнөтүлгөн жок: телефондун телефония кызматы иштебей жатат</string>
+    <string name="wea_presidential">Президенттик эскертүү</string>
+    <string name="wea_extreme">Өтө олуттуу коркунуч</string>
+    <string name="wea_severe">Олуттуу коркунуч</string>
+    <string name="wea_amber">AMBER эскертүүсү</string>
+    <string name="wea_test">Милдеттүү айлык сынак</string>
+    <string name="wea_body_presidential">Президенттик эскертүү: Бул өзгөчө кырдаал эскертүү тутумунун сынагы. Эч кандай аракет талап кылынбайт.</string>
+    <string name="wea_body_extreme">Өтө олуттуу эскертүү: Аймагыңызда торнадо эскертүүсү. Дароо башпаанек издеңиз. Бул сынак.</string>
+    <string name="wea_body_severe">Олуттуу эскертүү: Аймагыңызда саат 18:00гө чейин күн күркүрөө эскертүүсү. Бул сынак.</string>
+    <string name="wea_body_amber">AMBER эскертүүсү: Бала жоголду, көк седан. Көрсөңүз, 911ге чалыңыз. Бул сынак.</string>
+    <string name="wea_body_test">Бул зымсыз өзгөчө кырдаал эскертүү тутумунун сынагы. Эч кандай аракет талап кылынбайт.</string>
+</resources>

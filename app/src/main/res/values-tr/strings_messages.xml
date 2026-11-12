@@ -225,4 +225,11 @@
     <string name="update_err_wrong_package">İndirilen APK’nın uygulama paketi yanlış</string>
     <string name="catalog_err_too_many_lines">Katalog 10000 satırı aşıyor</string>
     <string name="imp_iso_no_system">ISO görüntüsünde Android sistemi bulunamadı (system.sfs veya system.img bekleniyordu)</string>
+    <string name="imp_inspecting">%1$s inceleniyor</string>
+    <string name="imp_choice_api">API düzeyi %1$s</string>
+    <string name="imp_choice_build">yapı numarası %1$s</string>
+    <string name="imp_choice_title">Hangi %1$s içe aktarılsın?</string>
+    <string name="imp_choice_text">Bu paket birden fazla %1$s içeriyor (%2$d / %3$d). İçe aktarılacak olanı seçin.</string>
+    <string name="imp_choice_ok">İçe aktar</string>
+    <string name="imp_choice_cancel">İçe aktarmayı iptal et</string>
 </resources>

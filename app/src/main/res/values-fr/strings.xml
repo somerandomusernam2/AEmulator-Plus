@@ -18,7 +18,7 @@
     <string name="storage_text">Autorisez l’accès à tous les fichiers : la carte mémoire de chaque système sera dans le dossier AEmulator du stockage interne, pratique pour les APK, la musique et les photos.</string>
     <string name="allow">Autoriser</string>
     <string name="empty_title">Aucun système pour l’instant</string>
-    <string name="empty_text">Ajoutez une ROM ARM pour Android 2.2–6.0 : ZIP recovery, archive Odin (.tar.md5), system.img ou image d’usine.</string>
+    <string name="empty_text">Ajoutez une ROM ARM pour Android 1.0–17 : ZIP recovery, archive Odin (.tar.md5), system.img ou image d’usine.</string>
     <string name="empty_help">Quels fichiers conviennent ?</string>
     <string name="import_failed">Échec de l’importation</string>
     <string name="import_running">Importation de la ROM</string>
@@ -30,7 +30,7 @@
     <string name="start">Démarrer</string>
     <string name="rename">Renommer</string>
     <string name="help_title">ROM prises en charge</string>
-    <string name="help_text">• Android 2.3–4.4 : ROM ARM 32 bits, via QEMU.\n• Android 5.0–17 : ROM arm64 et GSI, en natif sur le téléphone.\n\nFormats :\n• ZIP recovery CWM/TWRP (MIUI, CyanogenMod, portages, la plupart des ROM custom) ;\n• Samsung : .tar / .tar.md5 d’Odin ou ZIP avec AP_*.tar.md5 ;\n• images d’usine Google (.tgz / .zip) ;\n• system.img (ext4, sparse), sauvegarde TWRP system.ext4.win ;\n• OTA avec system.new.dat(.br) + system.transfer.list.\n\nIdéalement l’archive contient boot.img : l’ordre de démarrage des services en est tiré.</string>
+    <string name="help_text">• Android 2.3–4.4 : ROM ARM 32 bits, via QEMU.\n• Android 5.0–17 : ROM arm64 et GSI, en natif sur le téléphone.\n\nFormats :\n• ZIP recovery CWM/TWRP (MIUI, CyanogenMod, portages, la plupart des ROM custom) ;\n• Samsung : .tar / .tar.md5 d’Odin ou ZIP avec AP_*.tar.md5 ;\n• images d’usine Google (.tgz / .zip) ;\n• system.img (ext4, sparse), sauvegarde TWRP system.ext4.win ;\n• OTA avec system.new.dat(.br) + system.transfer.list;\n• Également: 7z, RAR, LG .kdz, Sony .ftf, Huawei UPDATE.APP, Qualcomm EDL, payload.bin, super.img, EROFS, Android-x86 ISO.\n\nIdéalement l’archive contient boot.img : l’ordre de démarrage des services en est tiré.</string>
     <string name="vs_screen">Écran invité</string>
     <string name="vs_fixed_2x">Android 2.x utilise un écran fixe 480×800 à 240 dpi.</string>
     <string name="vs_screen_hint">Plus l’écran est petit, plus le système est rapide.</string>
@@ -45,6 +45,13 @@
     <string name="vs_legacy_sub">L’ancien moteur Desire HD : GLES 1.x seulement, écran 480×800. À utiliser si le moteur principal échoue.</string>
     <string name="vs_lowram">Mode mémoire faible</string>
     <string name="vs_lowram_sub">ro.config.low_ram — le système économise la mémoire.</string>
+    <string name="vs_memory_mode">Gestion de la mémoire</string>
+    <string name="vs_memory_light">Légère</string>
+    <string name="vs_memory_medium">Moyenne</string>
+    <string name="vs_memory_aggressive">Agressive</string>
+    <string name="vs_memory_light_sub">Les applis en arrière-plan ne sont arrêtées que lorsque le téléphone lui-même n’a presque plus de mémoire. Le moins de redémarrages, mais la plus grande consommation de mémoire. Pris en compte après un redémarrage complet de la VM.</string>
+    <string name="vs_memory_medium_sub">Équilibrée : garde un nombre modéré d’applis en arrière-plan et arrête les autres quand la mémoire libre diminue. Pris en compte après un redémarrage complet de la VM.</string>
+    <string name="vs_memory_aggressive_sub">Garde peu d’applis en arrière-plan et vérifie souvent, de sorte que la mémoire est libérée tôt. Consomme le moins de mémoire, mais les applis redémarrent plus souvent. Pris en compte après un redémarrage complet de la VM.</string>
     <string name="vs_proxy">Proxy TLS moderne</string>
     <string name="vs_proxy_sub">Les anciens navigateurs et applis ouvrent les sites HTTPS actuels.</string>
     <string name="vs_controls">Commandes</string>
@@ -323,7 +330,7 @@
     <string name="vs_strace">Tracer les appels système des services</string>
     <string name="vs_strace_sub">Noms de services séparés par des virgules, p. ex. mediaserver,zygote. Ralentit ces services et écrit la trace dans leurs journaux. S’applique au prochain démarrage.</string>
     <string name="vs_wifi">Réseau Wi-Fi</string>
-    <string name="vs_wifi_sub">Présente à la VM l’accès Internet de l’hôte comme un réseau Wi-Fi connecté plutôt que comme Ethernet. Android 2.3, 4.0–7.x. S’applique au prochain démarrage.</string>
+    <string name="vs_wifi_sub">Présente à la VM l’accès Internet de l’hôte comme un réseau Wi-Fi connecté plutôt que comme Ethernet. Android 2.3, 4.0–17 (8–17: expérimental). S’applique au prochain démarrage.</string>
     <string name="vs_wifi_ssid">Nom du réseau (SSID)</string>
     <string name="vs_wifi_ssid_sub">32 octets maximum</string>
     <string name="vs_wifi_ssid_error">Le nom du réseau ne peut pas être vide</string>
@@ -488,4 +495,36 @@
     <string name="thermal_invalid">Saisissez une valeur de -40 à 150.</string>
     <string name="thermal_apply">Appliquer</string>
     <string name="thermal_reset">Utiliser la valeur par défaut</string>
+    <string name="vs_guest_nav">Activer la barre de navigation / barre des tâches</string>
+    <string name="vs_guest_nav_sub">Laisse le système invité dessiner sa propre barre de navigation, ou la barre des tâches des versions Android pour ordinateur (définit qemu.hw.mainkeys=0). À activer à l’import uniquement pour les versions pour ordinateur, et à laisser désactivé pour toutes les autres images. Prend effet au prochain démarrage complet.</string>
+    <string name="th_group_plain">Thèmes simples</string>
+    <string name="th_group_skins">Thèmes de coques d’appareils (par @regectt)</string>
+    <string name="th_group_custom">Thèmes personnalisés</string>
+    <string name="th_custom_empty">Aucun thème personnalisé pour le moment. Touchez « Nouveau thème » pour en créer un, ou importez un fichier .aetheme. Les thèmes simples et les coques d’appareils ne peuvent pas être modifiés : dupliquez-en un pour le modifier.</string>
+    <string name="th_expand">Développer la liste</string>
+    <string name="th_collapse">Réduire la liste</string>
+    <string name="vs_art_boot_image">Utiliser l’image de démarrage ART (Android 14+)</string>
+    <string name="vs_art_boot_image_sub">Désactivé : le système invité s’exécute sans image de démarrage. Le démarrage est plus lent, mais rien ne peut échouer côté image. Activé : l’émulateur prépare une image de démarrage pour cet environnement d’exécution (créée une seule fois au prochain démarrage, ce qui prend un certain temps).</string>
+    <string name="vs_no_watchdog">Désactiver le watchdog système (Android 14+)</string>
+    <string name="vs_no_watchdog_sub">Pour un démarrage plus lent que la limite de 60 s du watchdog d’Android, qui tue system_server en boucle. Modifie le fichier services.jar du firmware pour que le thread du watchdog se termine aussitôt ; un véritable blocage du système n’est alors plus corrigé par un redémarrage. Le code précompilé du jar est ignoré, ce qui peut ralentir le premier démarrage. Le désactiver restaure le jar d’origine. Prend effet au prochain démarrage complet.</string>
+    <string name="folder_new">Nouveau dossier</string>
+    <string name="folder_new_dots">Nouveau dossier…</string>
+    <string name="folder_rename">Renommer le dossier</string>
+    <string name="folder_delete">Supprimer le dossier (conserve les ROM)</string>
+    <string name="folder_move">Déplacer vers un dossier</string>
+    <string name="folder_none">Hors dossier</string>
+    <string name="folder_default_name">Dossier</string>
+    <string name="folder_empty">Vide — déposez des ROM ici</string>
+    <string name="folder_open">Ouvrir le dossier</string>
+    <string name="folder_close">Fermer le dossier</string>
+    <plurals name="folder_roms">
+        <item quantity="one">%1$d ROM</item>
+        <item quantity="many">%1$d de ROM</item>
+        <item quantity="other">%1$d ROM</item>
+    </plurals>
+    <string name="phantom_title">Tueur de processus fantômes</string>
+    <string name="phantom_msg">L’option « Désactiver les restrictions des processus enfants » n’est pas activée dans les options pour les développeurs de votre appareil. Le zygote sera donc tué au démarrage de l’émulateur, ce qui empêche l’émulateur de démarrer. Il est donc FORTEMENT RECOMMANDÉ de l’activer.</string>
+    <string name="phantom_open_dev">Ouvrir les options pour les développeurs</string>
+    <string name="phantom_ignore">Ignorer</string>
+    <string name="phantom_never">Ne plus me le rappeler</string>
 </resources>

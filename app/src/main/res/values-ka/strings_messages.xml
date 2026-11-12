@@ -226,4 +226,11 @@
     <string name="update_err_wrong_variant">განახლების APK არ შეესაბამება აპლიკაციის ამ ვარიანტს</string>
     <string name="update_err_wrong_package">ჩამოტვირთულ APK-ს აპლიკაციის არასწორი პაკეტი აქვს</string>
     <string name="catalog_err_too_many_lines">კატალოგი 10000 ხაზს აღემატება</string>
+    <string name="imp_inspecting">მოწმდება %1$s</string>
+    <string name="imp_choice_api">API დონე %1$s</string>
+    <string name="imp_choice_build">აწყობის ნომერი %1$s</string>
+    <string name="imp_choice_title">რომელი %1$s შემოვიტანოთ?</string>
+    <string name="imp_choice_text">ამ პაკეტში ერთზე მეტი %1$s არის (%2$d %3$d-დან). აირჩიეთ შესატანი.</string>
+    <string name="imp_choice_ok">იმპორტი</string>
+    <string name="imp_choice_cancel">იმპორტის გაუქმება</string>
 </resources>

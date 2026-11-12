@@ -30,4 +30,17 @@
     <string name="bluetooth_permission_denied">藍牙權限遭拒：客體將在沒有主機藍牙的情況下開機。</string>
     <string name="vs_sf_tombstone">SurfaceFlinger 當機墓碑（除錯）</string>
     <string name="vs_sf_tombstone_sub">SurfaceFlinger 當機時，讓韌體將一般墓碑（含當機的函式）寫入記錄，而非簡短報告。提交錯誤報告時請使用。下次完整啟動虛擬機器時生效。</string>
+    <string name="vi_mouse_keyboard">輸入:滑鼠和鍵盤</string>
+    <string name="vi_mouse_keyboard_sub">在客體中註冊觸控板和鍵盤,並移除其觸控螢幕。螢幕會變成觸控板(輕觸點選,雙指捲動),導覽列中會出現鍵盤按鈕。需要 QEMU 引擎(非原生 64 位元引擎)並完全重新啟動虛擬機器。</string>
+    <string name="vi_keypad">輸入:小鍵盤</string>
+    <string name="vi_keypad_sub">在導覽列中新增小鍵盤按鈕:方向鍵、確認鍵、軟鍵、通話/結束,以及類似功能型手機的 0–9 * #。觸控仍可使用,並可與滑鼠和鍵盤搭配使用。</string>
+    <string name="vi_keyboard">鍵盤</string>
+    <string name="vi_keypad_title">小鍵盤</string>
+    <string name="vi_close">關閉</string>
+    <string name="vi_open_keyboard">鍵盤</string>
+    <string name="vi_open_keypad">小鍵盤</string>
+    <string name="m_resize_screen">調整螢幕大小</string>
+    <string name="m_resize_done">完成調整</string>
+    <string name="m_resize_reset">重設螢幕大小</string>
+    <string name="vi_resize_hint">拖曳螢幕的一角來調整大小。完成後開啟選單並輕觸「完成調整」。</string>
 </resources>

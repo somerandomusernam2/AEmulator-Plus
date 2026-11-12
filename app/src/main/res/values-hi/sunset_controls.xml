@@ -30,4 +30,17 @@
     <string name="bluetooth_permission_denied">ब्लूटूथ अनुमति अस्वीकृत: गेस्ट होस्ट ब्लूटूथ के बिना बूट होगा।</string>
     <string name="vs_sf_tombstone">SurfaceFlinger क्रैश टॉम्बस्टोन (डीबग)</string>
     <string name="vs_sf_tombstone_sub">अगर SurfaceFlinger क्रैश हो, तो छोटी रिपोर्ट की जगह फ़र्मवेयर को लॉग में सामान्य टॉम्बस्टोन (क्रैश हुए फ़ंक्शन सहित) लिखने दें। बग रिपोर्ट भेजते समय इसका इस्तेमाल करें। अगले पूर्ण VM बूट पर लागू होगा।</string>
+    <string name="vi_mouse_keyboard">इनपुट: माउस और कीबोर्ड</string>
+    <string name="vi_mouse_keyboard_sub">गेस्ट में एक टचपैड और एक कीबोर्ड रजिस्टर करता है और उसकी टच स्क्रीन हटा देता है। स्क्रीन टचपैड बन जाती है (क्लिक के लिए टैप करें, स्क्रॉल के लिए दो उँगलियाँ) और नेविगेशन बार में कीबोर्ड बटन दिखाई देता है। इसके लिए QEMU इंजन (नेटिव 64-बिट नहीं) और VM का पूरा रीस्टार्ट ज़रूरी है।</string>
+    <string name="vi_keypad">इनपुट: कीपैड</string>
+    <string name="vi_keypad_sub">नेविगेशन बार में कीपैड बटन जोड़ता है: ऐरो कीज़, OK, सॉफ़्ट कीज़, कॉल/समाप्त और बटन वाले फ़ोन की तरह 0–9 * #। टच काम करता रहता है और इसे माउस और कीबोर्ड के साथ जोड़ा जा सकता है।</string>
+    <string name="vi_keyboard">कीबोर्ड</string>
+    <string name="vi_keypad_title">कीपैड</string>
+    <string name="vi_close">बंद करें</string>
+    <string name="vi_open_keyboard">कीबोर्ड</string>
+    <string name="vi_open_keypad">कीपैड</string>
+    <string name="m_resize_screen">स्क्रीन का आकार बदलें</string>
+    <string name="m_resize_done">आकार बदलना पूरा हुआ</string>
+    <string name="m_resize_reset">स्क्रीन का आकार रीसेट करें</string>
+    <string name="vi_resize_hint">आकार बदलने के लिए स्क्रीन का कोना खींचें। पूरा होने पर मेनू खोलें और “आकार बदलना पूरा हुआ” पर टैप करें।</string>
 </resources>

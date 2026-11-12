@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Added for AEmulator Plus, 2026-11-10: tabs and several machines at once -->
+<resources>
+    <string name="tab_home">စာကြည့်တိုက်</string>
+    <string name="tab_close">တက်ဘ်ကို ပိတ်ရန်</string>
+    <string name="tab_close_title">%1$s ကို ပိတ်မလား။</string>
+    <string name="tab_close_text">“ချုံ့ရန်” က တက်ဘ်ကို ပိတ်သော်လည်း စက်သည် နောက်ခံတွင် ဆက်လည်ပတ်နေသည်၊ စာကြည့်တိုက်မှ ပြန်ဖွင့်နိုင်သည်။ “စက်ပိတ်ရန်” က စက်ကို ပိတ်သည်။</string>
+    <string name="tab_minimize">ချုံ့ရန်</string>
+    <string name="tab_shutdown">စက်ပိတ်ရန်</string>
+    <string name="vm_slots_full">စက်နေရာ %1$d ခုလုံး အသုံးပြုနေသည်။ အရင်ဆုံး တစ်ခုကို ပိတ်ပါ။</string>
+</resources>

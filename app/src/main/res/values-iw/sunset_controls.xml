@@ -30,4 +30,17 @@
     <string name="bluetooth_permission_denied">הרשאת Bluetooth נדחתה: האורח יאותחל בלי Bluetooth של המארח.</string>
     <string name="vs_sf_tombstone">Tombstone של קריסת SurfaceFlinger (ניפוי באגים)</string>
     <string name="vs_sf_tombstone_sub">אם SurfaceFlinger קורס, הקושחה תכתוב ליומן tombstone רגיל (עם הפונקציה שקרסה) במקום דוח קצר. השתמש בכך בעת שליחת דוח באג. יחול באתחול המלא הבא של המכונה הווירטואלית.</string>
+    <string name="vi_mouse_keyboard">קלט: עכבר ומקלדת</string>
+    <string name="vi_mouse_keyboard_sub">רושם משטח מגע ומקלדת במערכת האורחת ומסיר את מסך המגע שלה. המסך הופך למשטח מגע (הקשה ללחיצה, שתי אצבעות לגלילה) וכפתור מקלדת מופיע בסרגל הניווט. נדרש מנוע QEMU (לא המנוע המקורי של 64 סיביות) והפעלה מחדש מלאה של המכונה הווירטואלית.</string>
+    <string name="vi_keypad">קלט: לוח מקשים</string>
+    <string name="vi_keypad_sub">מוסיף לסרגל הניווט כפתור של לוח מקשים: מקשי חצים, אישור, מקשי תוכנה, חיוג/סיום ו-0–9 * # כמו בטלפון עם מקשים. המגע ממשיך לפעול וניתן לשלב את לוח המקשים עם עכבר ומקלדת.</string>
+    <string name="vi_keyboard">מקלדת</string>
+    <string name="vi_keypad_title">לוח מקשים</string>
+    <string name="vi_close">סגירה</string>
+    <string name="vi_open_keyboard">מקלדת</string>
+    <string name="vi_open_keypad">לוח מקשים</string>
+    <string name="m_resize_screen">שינוי גודל המסך</string>
+    <string name="m_resize_done">סיום שינוי הגודל</string>
+    <string name="m_resize_reset">איפוס גודל המסך</string>
+    <string name="vi_resize_hint">גרור פינה של המסך כדי לשנות את גודלו. בסיום פתח את התפריט והקש על ״סיום שינוי הגודל״.</string>
 </resources>

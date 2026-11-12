@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Added for AEmulator Plus, 2026-11-10: tabs and several machines at once -->
+<resources>
+    <string name="tab_home">Китепкана</string>
+    <string name="tab_close">Өтмөктү жабуу</string>
+    <string name="tab_close_title">%1$s жабылсынбы?</string>
+    <string name="tab_close_text">«Кичирейтүү» өтмөктү жабат, ал эми машина фондо иштей берет; аны китепканадан кайра ачыңыз. «Өчүрүү» машинаны өчүрөт.</string>
+    <string name="tab_minimize">Кичирейтүү</string>
+    <string name="tab_shutdown">Өчүрүү</string>
+    <string name="vm_slots_full">Машинанын бардык %1$d уячасы бош эмес. Адегенде бирөөнү өчүрүңүз.</string>
+</resources>

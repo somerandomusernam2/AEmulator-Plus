@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- put into app/src/main/res/values/ (other languages fall back to these) -->
+<resources>
+    <string name="vs_cdma">Модеми CDMA</string>
+    <string name="vs_cdma_sub">Модеми CDMA-ро тақлид мекунад: бақайдгирии 1xRTT / EV-DO, MEID, обунаи CDMA ва паёмакҳои CDMA. Дар боркунии пурраи оянда татбиқ мешавад.</string>
+    <string name="vs_cdma_fw_yes">Ин прошивка LTE бар CDMA аст (telephony.lteOnCdmaDevice=1): бо пешфарз фаъол.</string>
+    <string name="vs_cdma_fw_no">Ин прошивка LTE бар CDMA нест: бо пешфарз хомӯш.</string>
+</resources>

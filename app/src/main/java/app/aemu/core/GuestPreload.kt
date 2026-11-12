@@ -38,6 +38,12 @@ object GuestPreload {
         if (program != null && (program.startsWith("/vendor/") || program.startsWith("/odm/") ||
                 program.startsWith("/system/vendor/"))) XATTR_VENDOR else XATTR
 
+    /**
+     * Contains the binder daemon's bare-object fault (see [BinderGuard]). Never preloaded unless the VM has been
+     * armed; sits in front of [SHIM] because it hands every ioctl on to the shim's.
+     */
+    const val GUARD = BinderGuard.LIB
+
     /** glibc-only: emulates the Marvell /dev/shm_cache + /dev/shm_noncache devices (see shm_shim.c) */
     const val SHMSHIM = "/system/lib/libshmshim.so"
 
@@ -50,6 +56,6 @@ object GuestPreload {
         (File(root, "lib/ld-linux.so.3").exists() || File(root, "lib/ld-linux.so.2").exists()) &&
             !File(root, "system/bin/linker").exists()
 
-    fun value(glibc: Boolean, xattr: Boolean = false, xattrPath: String = XATTR): String =
-        if (glibc) "$ASHMEM:$SHMSHIM" else "$ASHMEM:$SHIM:$RLIMIT" + (if (xattr) ":$xattrPath" else "")
+    fun value(glibc: Boolean, xattr: Boolean = false, xattrPath: String = XATTR, guard: Boolean = false): String =
+        if (glibc) "$ASHMEM:$SHMSHIM" else "$ASHMEM:" + (if (guard) "$GUARD:" else "") + "$SHIM:$RLIMIT" + (if (xattr) ":$xattrPath" else "")
 }

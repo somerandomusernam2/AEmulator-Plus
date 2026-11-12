@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Added for AEmulator Plus, 2026-11-10: tabs and several machines at once -->
+<resources>
+    <string name="tab_home">ไลบรารี</string>
+    <string name="tab_close">ปิดแท็บ</string>
+    <string name="tab_close_title">ปิด %1$s หรือไม่</string>
+    <string name="tab_close_text">“ย่อ” จะปิดแท็บแต่เครื่องยังทำงานอยู่เบื้องหลัง เปิดอีกครั้งได้จากไลบรารี ส่วน “ปิดเครื่อง” จะปิดเครื่อง</string>
+    <string name="tab_minimize">ย่อ</string>
+    <string name="tab_shutdown">ปิดเครื่อง</string>
+    <string name="vm_slots_full">ช่องเครื่องทั้ง %1$d ช่องถูกใช้งานอยู่ โปรดปิดเครื่องหนึ่งเครื่องก่อน</string>
+</resources>

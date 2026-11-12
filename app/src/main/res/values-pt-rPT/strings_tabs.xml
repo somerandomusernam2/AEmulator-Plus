@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Added for AEmulator Plus, 2026-11-10: tabs and several machines at once -->
+<resources>
+    <string name="tab_home">Biblioteca</string>
+    <string name="tab_close">Fechar separador</string>
+    <string name="tab_close_title">Fechar %1$s?</string>
+    <string name="tab_close_text">“Minimizar” fecha o separador e mantém a máquina em execução em segundo plano; volte a abri-la a partir da biblioteca. “Encerrar” desliga a máquina.</string>
+    <string name="tab_minimize">Minimizar</string>
+    <string name="tab_shutdown">Encerrar</string>
+    <string name="vm_slots_full">Todas as %1$d ranhuras de máquina estão em uso. Encerre primeiro uma.</string>
+</resources>

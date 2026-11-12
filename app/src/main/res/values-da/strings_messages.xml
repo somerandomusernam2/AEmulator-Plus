@@ -225,4 +225,11 @@
     <string name="update_err_wrong_variant">Opdaterings-APK\'en passer ikke til denne appvariant</string>
     <string name="update_err_wrong_package">Den hentede APK har den forkerte apppakke</string>
     <string name="catalog_err_too_many_lines">Kataloget overstiger 10000 linjer</string>
+    <string name="imp_inspecting">Undersøger %1$s</string>
+    <string name="imp_choice_api">API-niveau %1$s</string>
+    <string name="imp_choice_build">buildnummer %1$s</string>
+    <string name="imp_choice_title">Hvilken %1$s skal importeres?</string>
+    <string name="imp_choice_text">Denne pakke indeholder mere end én %1$s (%2$d af %3$d). Vælg den, der skal importeres.</string>
+    <string name="imp_choice_ok">Importér</string>
+    <string name="imp_choice_cancel">Annullér import</string>
 </resources>

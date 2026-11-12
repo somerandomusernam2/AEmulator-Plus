@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Added for AEmulator Plus, 2026-11-10: tabs and several machines at once -->
+<resources>
+    <string name="tab_home">Library</string>
+    <string name="tab_close">Isara ang tab</string>
+    <string name="tab_close_title">Isara ang %1$s?</string>
+    <string name="tab_close_text">Isinasara ng “I-minimize” ang tab at patuloy na tatakbo ang machine sa background; buksan itong muli mula sa library. Pinapatay ng “I-shut down” ang machine.</string>
+    <string name="tab_minimize">I-minimize</string>
+    <string name="tab_shutdown">I-shut down</string>
+    <string name="vm_slots_full">Ginagamit na ang lahat ng %1$d slot ng machine. Mag-shut down muna ng isa.</string>
+</resources>

@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Added for AEmulator Plus, 2026-11-10: tabs and several machines at once -->
+<resources>
+    <string name="tab_home">المكتبة</string>
+    <string name="tab_close">إغلاق التبويب</string>
+    <string name="tab_close_title">إغلاق %1$s؟</string>
+    <string name="tab_close_text">يؤدي «تصغير» إلى إغلاق التبويب مع إبقاء الجهاز يعمل في الخلفية؛ افتحه مجددًا من المكتبة. أما «إيقاف التشغيل» فيطفئ الجهاز.</string>
+    <string name="tab_minimize">تصغير</string>
+    <string name="tab_shutdown">إيقاف التشغيل</string>
+    <string name="vm_slots_full">جميع خانات الأجهزة (%1$d) قيد الاستخدام. أوقف تشغيل أحدها أولًا.</string>
+</resources>

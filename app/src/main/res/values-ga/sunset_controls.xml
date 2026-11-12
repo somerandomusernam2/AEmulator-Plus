@@ -31,4 +31,17 @@
     <string name="vs_sf_tombstone">Leac uaighe tuairte SurfaceFlinger (dífhabhtú)</string>
     <string name="vs_sf_tombstone_sub">Má thuairteann SurfaceFlinger, lig do na dochtearraí leac uaighe gnáth a scríobh sa logchomhad (leis an bhfeidhm a thuairt) in ionad tuairisce gearra. Úsáid é agus tuairisc fhabht á seoladh. Cuirtear i bhfeidhm ag an gcéad tosú iomlán eile den mheaisín fíorúil.</string>
     <string name="bluetooth_permission_denied">Diúltaíodh cead Bluetooth: tosóidh an t-aoi gan Bluetooth an óstríomhaire.</string>
+    <string name="vi_mouse_keyboard">Ionchur: luch agus méarchlár</string>
+    <string name="vi_mouse_keyboard_sub">Cláraíonn sé ceap tadhaill agus méarchlár san aoi agus baineann sé a scáileán tadhaill de. Éiríonn an scáileán ina cheap tadhaill (tapáil chun cliceáil, dhá mhéar chun scrollú) agus feictear cnaipe méarchláir sa bharra nascleanúna. Teastaíonn inneall QEMU (ní an t-inneall dúchasach 64-giotán) agus athosú iomlán den ríomhaire fíorúil.</string>
+    <string name="vi_keypad">Ionchur: eochaircheap</string>
+    <string name="vi_keypad_sub">Cuireann sé cnaipe eochaircheaptha leis an mbarra nascleanúna: eochracha saigheada, OK, eochracha boga, Glaoigh/Críochnaigh agus 0–9 * # cosúil le guthán cnaipe. Leanann an tadhall de bheith ag obair agus is féidir é a chomhcheangal leis an luch agus leis an méarchlár.</string>
+    <string name="vi_keyboard">Méarchlár</string>
+    <string name="vi_keypad_title">Eochaircheap</string>
+    <string name="vi_close">Dún</string>
+    <string name="vi_open_keyboard">Méarchlár</string>
+    <string name="vi_open_keypad">Eochaircheap</string>
+    <string name="m_resize_screen">Athraigh méid an scáileáin</string>
+    <string name="m_resize_done">Athrú méide déanta</string>
+    <string name="m_resize_reset">Athshocraigh méid an scáileáin</string>
+    <string name="vi_resize_hint">Tarraing cúinne den scáileán chun a mhéid a athrú. Nuair a bheidh tú críochnaithe, oscail an roghchlár agus tapáil “Athrú méide déanta”.</string>
 </resources>

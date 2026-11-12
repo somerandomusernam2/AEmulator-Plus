@@ -17,7 +17,7 @@
     <string name="storage_text">ყველა ფაილზე წვდომის დაშვება: მაშინ თითოეული სისტემის მეხსიერების ბარათი იქნება შიდა მეხსიერების AEmulator საქაღალდეში — მოსახერხებელია APK-ების, მუსიკისა და ფოტოებისთვის.</string>
     <string name="allow">დაშვება</string>
     <string name="empty_title">სისტემები ჯერ არ არის</string>
-    <string name="empty_text">დაამატეთ ARM ფირმვერი Android 1.0–7.x-ისთვის: recovery ZIP, Odin არქივი (.tar.md5), system.img ან ქარხნული გამოსახულება.</string>
+    <string name="empty_text">დაამატეთ ARM ფირმვერი Android 1.0–17-ისთვის: recovery ZIP, Odin არქივი (.tar.md5), system.img ან ქარხნული გამოსახულება.</string>
     <string name="empty_help">რომელი ფაილები გამოდგება?</string>
     <string name="import_failed">იმპორტი ვერ შესრულდა</string>
     <string name="import_running">ფირმვერის იმპორტი</string>
@@ -29,7 +29,7 @@
     <string name="start">დაწყება</string>
     <string name="rename">გადარქმევა</string>
     <string name="help_title">მხარდაჭერილი ფირმვერი</string>
-    <string name="help_text">• Android 2.2–4.4: 32-ბიტიანი ARM ფირმვერი, მუშაობს QEMU-ს საშუალებით (2.2-მდე ვერსიები: ექსპერიმენტული).\n• Android 5.0–17: arm64 ფირმვერი და GSI-ები, მუშაობს უშუალოდ ტელეფონზე.\n\nფორმატები:\n• CWM/TWRP recovery ZIP (MIUI, CyanogenMod, პორტები, უმეტესი მორგებული ROM-ი);\n• Samsung: Odin .tar / .tar.md5 ან ZIP, რომელშიც არის AP_*.tar.md5;\n• Google-ის ქარხნული გამოსახულებები (.tgz / .zip);\n• system.img (ext4, sparse, YAFFS2), TWRP-ის სარეზერვო ასლი system.ext4.win;\n• OTA system.new.dat(.br) + system.transfer.list ფაილებით.\n\nსაუკეთესოა, თუ არქივში არის boot.img: სერვისების გაშვების რიგი მისგან აიღება.</string>
+    <string name="help_text">• Android 2.2–4.4: 32-ბიტიანი ARM ფირმვერი, მუშაობს QEMU-ს საშუალებით (2.2-მდე ვერსიები: ექსპერიმენტული).\n• Android 5.0–17: arm64 ფირმვერი და GSI-ები, მუშაობს უშუალოდ ტელეფონზე.\n\nფორმატები:\n• CWM/TWRP recovery ZIP (MIUI, CyanogenMod, პორტები, უმეტესი მორგებული ROM-ი);\n• Samsung: Odin .tar / .tar.md5 ან ZIP, რომელშიც არის AP_*.tar.md5;\n• Google-ის ქარხნული გამოსახულებები (.tgz / .zip);\n• system.img (ext4, sparse, YAFFS2), TWRP-ის სარეზერვო ასლი system.ext4.win;\n• OTA system.new.dat(.br) + system.transfer.list ფაილებით;\n• ასევე: 7z, RAR, LG .kdz, Sony .ftf, Huawei UPDATE.APP, Qualcomm EDL, payload.bin, super.img, EROFS, Android-x86 ISO.\n\nსაუკეთესოა, თუ არქივში არის boot.img: სერვისების გაშვების რიგი მისგან აიღება.</string>
     <string name="vs_screen">სტუმრის ეკრანი</string>
     <string name="vs_fixed_2x">Desire HD-ის ძრავა იყენებს ფიქსირებულ 480×800 ეკრანს 240 dpi-ზე.</string>
     <string name="vs_screen_hint">უფრო დაბალი გაფართოება სისტემას აჩქარებს.</string>
@@ -44,6 +44,13 @@
     <string name="vs_legacy_sub">Desire HD-ის ძველი ძრავა: მხოლოდ GLES 1.x, 480×800 ეკრანი. გამოიყენეთ, თუ ძირითადი ძრავა ვერ მუშაობს.</string>
     <string name="vs_lowram">მცირე მეხსიერების რეჟიმი</string>
     <string name="vs_lowram_sub">ro.config.low_ram — სისტემა მეხსიერებას ზოგავს.</string>
+    <string name="vs_memory_mode">მეხსიერების მართვა</string>
+    <string name="vs_memory_light">მსუბუქი</string>
+    <string name="vs_memory_medium">საშუალო</string>
+    <string name="vs_memory_aggressive">აგრესიული</string>
+    <string name="vs_memory_light_sub">ფონური აპები ჩერდება მხოლოდ მაშინ, როცა თავად ტელეფონს მეხსიერება თითქმის ამოეწურა. ყველაზე ცოტა გადატვირთვა; ყველაზე მეტ მეხსიერებას იყენებს. ძალაში შედის ვირტუალური მანქანის სრული გადატვირთვის შემდეგ.</string>
+    <string name="vs_memory_medium_sub">დაბალანსებული: ფონში ინახავს აპების ზომიერ რაოდენობას და დანარჩენს აჩერებს, როცა თავისუფალი მეხსიერება მცირდება. ძალაში შედის ვირტუალური მანქანის სრული გადატვირთვის შემდეგ.</string>
+    <string name="vs_memory_aggressive_sub">ფონში ცოტა აპს ინახავს და ხშირად ამოწმებს, ამიტომ მეხსიერება ადრე თავისუფლდება. ყველაზე ცოტა მეხსიერებას იყენებს, მაგრამ აპები უფრო ხშირად გადაიტვირთება. ძალაში შედის ვირტუალური მანქანის სრული გადატვირთვის შემდეგ.</string>
     <string name="vs_proxy">თანამედროვე TLS პროქსი</string>
     <string name="vs_proxy_sub">ძველ ბრაუზერებსა და აპებს საშუალებას აძლევს, გახსნან დღევანდელი HTTPS საიტები.</string>
     <string name="vs_controls">მართვა</string>
@@ -146,7 +153,7 @@
     <string name="vs_strace">სერვისების სისტემური გამოძახებების თვალყურის დევნება</string>
     <string name="vs_strace_sub">სერვისების სახელები მძიმეებით გამოყოფილი, მაგ. mediaserver,zygote. ამ სერვისებს ანელებს და ტრასირებას მათ ჟურნალებში წერს. გამოიყენება შემდეგი ჩატვირთვისას.</string>
     <string name="vs_wifi">Wi-Fi ქსელი</string>
-    <string name="vs_wifi_sub">ჰოსტის ინტერნეტს VM-ს აჩვენებს როგორც დაკავშირებულ Wi-Fi ქსელს Ethernet-ის ნაცვლად. Android 2.3, 4.0–7.x. გამოიყენება შემდეგი ჩატვირთვისას.</string>
+    <string name="vs_wifi_sub">ჰოსტის ინტერნეტს VM-ს აჩვენებს როგორც დაკავშირებულ Wi-Fi ქსელს Ethernet-ის ნაცვლად. Android 2.3, 4.0–17 (8–17: ექსპერიმენტული). გამოიყენება შემდეგი ჩატვირთვისას.</string>
     <string name="vs_wifi_ssid">ქსელის სახელი (SSID)</string>
     <string name="vs_wifi_ssid_sub">32 ბაიტამდე</string>
     <string name="vs_wifi_ssid_error">ქსელის სახელი არ შეიძლება ცარიელი იყოს</string>
@@ -487,4 +494,35 @@
     <string name="thermal_invalid">შეიყვანეთ მნიშვნელობა -40-დან 150-მდე.</string>
     <string name="thermal_apply">გამოყენება</string>
     <string name="thermal_reset">ნაგულისხმევის გამოყენება</string>
+    <string name="vs_guest_nav">ნავიგაციის ზოლის / ამოცანათა ზოლის ჩართვა</string>
+    <string name="vs_guest_nav_sub">აძლევს სტუმარს საკუთარი ნავიგაციის ზოლის ან Android-ის დესკტოპური აწყობების ამოცანათა ზოლის დახატვის საშუალებას (ადგენს qemu.hw.mainkeys=0-ს). იმპორტისას ჩართეთ მხოლოდ დესკტოპური აწყობებისთვის, ყველა სხვა ანაბეჭდისთვის გამორთული დატოვეთ. ძალაში შედის შემდეგი სრული ჩატვირთვისას.</string>
+    <string name="th_group_plain">მარტივი თემები</string>
+    <string name="th_group_skins">მოწყობილობის გარეგნობის თემები (ავტორი: @regectt)</string>
+    <string name="th_group_custom">მორგებული თემები</string>
+    <string name="th_custom_empty">მორგებული თემები ჯერ არ არის. შესაქმნელად შეეხეთ „ახალი თემა“-ს ან შემოიტანეთ .aetheme ფაილი. მარტივი თემებისა და მოწყობილობების გარეგნობის შეცვლა შეუძლებელია: გაამრავლეთ ერთ-ერთი რედაქტირებისთვის.</string>
+    <string name="th_expand">სიის გაშლა</string>
+    <string name="th_collapse">სიის ჩაკეცვა</string>
+    <string name="vs_art_boot_image">ART-ის ჩატვირთვის ანაბეჭდის გამოყენება (Android 14+)</string>
+    <string name="vs_art_boot_image_sub">გამორთულია: სტუმარი მუშაობს ჩატვირთვის ანაბეჭდის გარეშე. გაშვება უფრო ნელია, მაგრამ ანაბეჭდთან დაკავშირებული არაფერი შეიძლება ჩავარდეს. ჩართულია: ემულატორი ამზადებს ჩატვირთვის ანაბეჭდს ამ გაშვების გარემოსთვის (იქმნება ერთხელ შემდეგი გაშვებისას, რასაც გარკვეული დრო სჭირდება).</string>
+    <string name="vs_no_watchdog">სისტემური watchdog-ის გამორთვა (Android 14+)</string>
+    <string name="vs_no_watchdog_sub">ჩატვირთვისთვის, რომელიც Android-ის 60-წამიან watchdog-ის ლიმიტზე ნელია და system_server-ს ციკლურად წყვეტს. არჩევს firmware-ის services.jar-ს ისე, რომ watchdog-ის ნაკადი დაუყოვნებლივ დასრულდეს; სისტემის რეალური ჩაკეტვა ამის შემდეგ აღარ მოგვარდება გადატვირთვით. jar-ის წინასწარ კომპილირებული კოდი იგნორირდება, რამაც პირველი ჩატვირთვა შეიძლება შეანელოს. გამორთვა აღადგენს ორიგინალ jar-ს. ძალაში შედის შემდეგი სრული ჩატვირთვისას.</string>
+    <string name="folder_new">ახალი საქაღალდე</string>
+    <string name="folder_new_dots">ახალი საქაღალდე…</string>
+    <string name="folder_rename">საქაღალდის სახელის შეცვლა</string>
+    <string name="folder_delete">საქაღალდის წაშლა (ROM-ები შენახული დარჩება)</string>
+    <string name="folder_move">საქაღალდეში გადატანა</string>
+    <string name="folder_none">საქაღალდეში არ არის</string>
+    <string name="folder_default_name">საქაღალდე</string>
+    <string name="folder_empty">ცარიელია — ჩააგდეთ ROM-ები აქ</string>
+    <string name="folder_open">საქაღალდის გახსნა</string>
+    <string name="folder_close">საქაღალდის დახურვა</string>
+    <plurals name="folder_roms">
+        <item quantity="one">%1$d ROM</item>
+        <item quantity="other">%1$d ROM</item>
+    </plurals>
+    <string name="phantom_title">მოჩვენებითი პროცესების მკვლელი</string>
+    <string name="phantom_msg">თქვენს მოწყობილობაზე დეველოპერის პარამეტრებში ჩართული არ არის პარამეტრი „შვილობილი პროცესების შეზღუდვების გამორთვა“. ეს ნიშნავს, რომ ემულატორის გაშვებისას zygote შეწყდება და ემულატორი ვერ ჩაიტვირთება. ამიტომ მისი ჩართვა ძალიან რეკომენდებულია.</string>
+    <string name="phantom_open_dev">დეველოპერის პარამეტრების გახსნა</string>
+    <string name="phantom_ignore">იგნორირება</string>
+    <string name="phantom_never">აღარ შემახსენო</string>
 </resources>

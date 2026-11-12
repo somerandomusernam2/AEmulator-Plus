@@ -225,4 +225,11 @@
     <string name="update_err_wrong_package">APK-ja e shkarkuar ka paketë aplikacioni të gabuar</string>
     <string name="catalog_err_too_many_lines">Katalogu tejkalon 10000 rreshta</string>
     <string name="imp_iso_no_system">Në imazhin ISO nuk u gjet asnjë sistem Android (pritej system.sfs ose system.img)</string>
+    <string name="imp_inspecting">Po inspektohet %1$s</string>
+    <string name="imp_choice_api">Niveli i API-t %1$s</string>
+    <string name="imp_choice_build">numri i ndërtimit %1$s</string>
+    <string name="imp_choice_title">Cilin %1$s të importoj?</string>
+    <string name="imp_choice_text">Ky paketë ka më shumë se një %1$s (%2$d nga %3$d). Zgjidh atë që do të importohet.</string>
+    <string name="imp_choice_ok">Importo</string>
+    <string name="imp_choice_cancel">Anulo importimin</string>
 </resources>

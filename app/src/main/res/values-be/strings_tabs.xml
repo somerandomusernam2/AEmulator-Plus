@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Added for AEmulator Plus, 2026-11-10: tabs and several machines at once -->
+<resources>
+    <string name="tab_home">Бібліятэка</string>
+    <string name="tab_close">Закрыць укладку</string>
+    <string name="tab_close_title">Закрыць %1$s?</string>
+    <string name="tab_close_text">«Згарнуць» закрывае ўкладку, але машына працягвае працаваць у фоне; адкрыйце яе зноў з бібліятэкі. «Выключыць» выключае машыну.</string>
+    <string name="tab_minimize">Згарнуць</string>
+    <string name="tab_shutdown">Выключыць</string>
+    <string name="vm_slots_full">Усе %1$d слотаў для машын занятыя. Спачатку выключыце адну.</string>
+</resources>

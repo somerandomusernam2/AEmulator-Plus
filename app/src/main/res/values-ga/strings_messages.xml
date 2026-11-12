@@ -224,4 +224,11 @@
     <string name="update_err_wrong_variant">Ní hionann APK an nuashonraithe agus leagan na haipe seo</string>
     <string name="update_err_wrong_package">Tá pacáiste aipe mícheart ar an APK íoslódáilte</string>
     <string name="catalog_err_too_many_lines">Sáraíonn an chatalóg 10000 líne</string>
+    <string name="imp_inspecting">Á scrúdú: %1$s</string>
+    <string name="imp_choice_api">Leibhéal API %1$s</string>
+    <string name="imp_choice_build">uimhir tógála %1$s</string>
+    <string name="imp_choice_title">Cén %1$s ar cheart a iompórtáil?</string>
+    <string name="imp_choice_text">Tá níos mó ná %1$s amháin sa phacáiste seo (%2$d as %3$d). Roghnaigh an ceann atá le hiompórtáil.</string>
+    <string name="imp_choice_ok">Iompórtáil</string>
+    <string name="imp_choice_cancel">Cealaigh an t-iompórtáil</string>
 </resources>

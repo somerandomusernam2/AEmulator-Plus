@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Added for AEmulator Plus, 2026-11-10: tabs and several machines at once -->
+<resources>
+    <string name="tab_home">Bibliothek</string>
+    <string name="tab_close">Tab schließen</string>
+    <string name="tab_close_title">%1$s schließen?</string>
+    <string name="tab_close_text">„Minimieren“ schließt den Tab, lässt die Maschine aber im Hintergrund weiterlaufen; öffne sie wieder über die Bibliothek. „Herunterfahren“ schaltet die Maschine aus.</string>
+    <string name="tab_minimize">Minimieren</string>
+    <string name="tab_shutdown">Herunterfahren</string>
+    <string name="vm_slots_full">Alle %1$d Maschinenplätze sind belegt. Fahre zuerst eine herunter.</string>
+</resources>

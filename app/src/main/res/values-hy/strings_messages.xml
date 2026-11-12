@@ -226,4 +226,11 @@
     <string name="update_err_wrong_variant">Թարմացման APK-ն չի համապատասխանում հավելվածի այս տարբերակին</string>
     <string name="update_err_wrong_package">Ներբեռնված APK-ն ունի հավելվածի սխալ փաթեթ</string>
     <string name="catalog_err_too_many_lines">Կատալոգը գերազանցում է 10000 տողը</string>
+    <string name="imp_inspecting">Ստուգվում է %1$s</string>
+    <string name="imp_choice_api">API մակարդակ %1$s</string>
+    <string name="imp_choice_build">կառուցման համար %1$s</string>
+    <string name="imp_choice_title">Որ %1$s-ը ներմուծել:</string>
+    <string name="imp_choice_text">Այս փաթեթում մեկից ավելի %1$s կա (%2$d՝ %3$d-ից): Ընտրեք ներմուծվելիքը:</string>
+    <string name="imp_choice_ok">Ներմուծել</string>
+    <string name="imp_choice_cancel">Չեղարկել ներմուծումը</string>
 </resources>

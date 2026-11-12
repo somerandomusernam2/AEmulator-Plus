@@ -225,4 +225,11 @@
     <string name="update_err_wrong_package">De gedownloade apk heeft het verkeerde app-pakket</string>
     <string name="catalog_err_too_many_lines">Catalogus bevat meer dan 10000 regels</string>
     <string name="imp_iso_no_system">Geen Android-systeem gevonden in het ISO-bestand (verwacht: system.sfs of system.img)</string>
+    <string name="imp_inspecting">%1$s wordt gecontroleerd</string>
+    <string name="imp_choice_api">API-niveau %1$s</string>
+    <string name="imp_choice_build">buildnummer %1$s</string>
+    <string name="imp_choice_title">Welke %1$s importeren?</string>
+    <string name="imp_choice_text">Dit pakket bevat meer dan één %1$s (%2$d van %3$d). Kies degene die je wilt importeren.</string>
+    <string name="imp_choice_ok">Importeren</string>
+    <string name="imp_choice_cancel">Import annuleren</string>
 </resources>

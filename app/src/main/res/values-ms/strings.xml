@@ -18,7 +18,7 @@
     <string name="storage_text">Benarkan akses kepada semua fail: kad memori setiap sistem akan berada dalam folder AEmulator pada storan dalaman — mudah untuk APK, muzik dan foto.</string>
     <string name="allow">Benarkan</string>
     <string name="empty_title">Belum ada sistem</string>
-    <string name="empty_text">Tambah perisian tegar ARM untuk Android 2.2–6.0: ZIP pemulihan, arkib Odin (.tar.md5), system.img atau imej kilang.</string>
+    <string name="empty_text">Tambah perisian tegar ARM untuk Android 1.0–17: ZIP pemulihan, arkib Odin (.tar.md5), system.img atau imej kilang.</string>
     <string name="empty_help">Fail yang manakah berfungsi?</string>
     <string name="import_failed">Import gagal</string>
     <string name="import_running">Mengimport perisian tegar</string>
@@ -30,7 +30,7 @@
     <string name="start">Mula</string>
     <string name="rename">Namakan semula</string>
     <string name="help_title">Perisian tegar yang disokong</string>
-    <string name="help_text">• Android 2.2 dan 4.0–4.4: sokongan utama; 5.x–6.x: eksperimen.\n• Hanya perisian tegar ARM 32-bit (armeabi / armeabi-v7a).\n\nFormat:\n• ZIP pemulihan CWM/TWRP (MIUI, CyanogenMod, port, kebanyakan ROM tersuai);\n• Samsung: Odin .tar / .tar.md5 atau ZIP dengan AP_*.tar.md5;\n• imej kilang Google (.tgz / .zip);\n• system.img (ext4, sparse, YAFFS2), sandaran TWRP system.ext4.win;\n• OTA dengan system.new.dat(.br) + system.transfer.list.\n\nPaling baik jika arkib mengandungi boot.img: susunan permulaan perkhidmatan diambil daripadanya.</string>
+    <string name="help_text">• Android 2.2–4.4: perisian tegar ARM 32-bit, berjalan melalui QEMU (sebelum 2.2: eksperimen).\n• Android 5.0–17: perisian tegar arm64 dan GSI, berjalan secara natif pada telefon.\n\nFormat:\n• ZIP pemulihan CWM/TWRP (MIUI, CyanogenMod, port, kebanyakan ROM tersuai);\n• Samsung: Odin .tar / .tar.md5 atau ZIP dengan AP_*.tar.md5;\n• imej kilang Google (.tgz / .zip);\n• system.img (ext4, sparse, YAFFS2), sandaran TWRP system.ext4.win;\n• OTA dengan system.new.dat(.br) + system.transfer.list;\n• Juga: 7z, RAR, LG .kdz, Sony .ftf, Huawei UPDATE.APP, Qualcomm EDL, payload.bin, super.img, EROFS, Android-x86 ISO.\n\nPaling baik jika arkib mengandungi boot.img: susunan permulaan perkhidmatan diambil daripadanya.</string>
     <string name="vs_screen">Skrin tetamu</string>
     <string name="vs_fixed_2x">Android 2.x menggunakan skrin tetap 480×800 pada 240 dpi.</string>
     <string name="vs_screen_hint">Skrin yang lebih kecil menjadikan sistem lebih pantas.</string>
@@ -45,6 +45,13 @@
     <string name="vs_legacy_sub">Enjin Desire HD yang lebih lama: GLES 1.x sahaja, skrin 480×800. Gunakannya jika enjin utama gagal.</string>
     <string name="vs_lowram">Mod memori rendah</string>
     <string name="vs_lowram_sub">ro.config.low_ram — sistem menjimatkan memori.</string>
+    <string name="vs_memory_mode">Pengurusan memori</string>
+    <string name="vs_memory_light">Ringan</string>
+    <string name="vs_memory_medium">Sederhana</string>
+    <string name="vs_memory_aggressive">Agresif</string>
+    <string name="vs_memory_light_sub">Apl latar belakang hanya dihentikan apabila memori telefon itu sendiri hampir habis. Paling sedikit mula semula; menggunakan paling banyak memori. Berkuat kuasa selepas VM dimulakan semula sepenuhnya.</string>
+    <string name="vs_memory_medium_sub">Seimbang: mengekalkan bilangan sederhana apl latar belakang dan menghentikan selebihnya apabila memori bebas semakin berkurangan. Berkuat kuasa selepas VM dimulakan semula sepenuhnya.</string>
+    <string name="vs_memory_aggressive_sub">Mengekalkan beberapa apl latar belakang sahaja dan menyemak dengan kerap, jadi memori dibebaskan awal. Menggunakan paling sedikit memori, tetapi apl lebih kerap dimulakan semula. Berkuat kuasa selepas VM dimulakan semula sepenuhnya.</string>
     <string name="vs_proxy">Proksi TLS moden</string>
     <string name="vs_proxy_sub">Membolehkan pelayar dan aplikasi lama membuka laman HTTPS masa kini.</string>
     <string name="vs_controls">Kawalan</string>
@@ -136,7 +143,7 @@
     <string name="vs_strace">Jejak panggilan sistem perkhidmatan</string>
     <string name="vs_strace_sub">Nama perkhidmatan dipisahkan dengan koma, cth. mediaserver,zygote. Memperlahankan perkhidmatan tersebut dan menulis jejak ke log mereka. Berkuat kuasa pada but seterusnya.</string>
     <string name="vs_wifi">Rangkaian Wi-Fi</string>
-    <string name="vs_wifi_sub">Menunjukkan internet hos kepada VM sebagai rangkaian Wi-Fi yang bersambung dan bukannya Ethernet. Android 2.3, 4.0–7.x. Berkuat kuasa pada but seterusnya.</string>
+    <string name="vs_wifi_sub">Menunjukkan internet hos kepada VM sebagai rangkaian Wi-Fi yang bersambung dan bukannya Ethernet. Android 2.3, 4.0–17 (8–17: eksperimen). Berkuat kuasa pada but seterusnya.</string>
     <string name="vs_wifi_ssid">Nama rangkaian (SSID)</string>
     <string name="vs_wifi_ssid_sub">Sehingga 32 bait</string>
     <string name="vs_wifi_ssid_error">Nama rangkaian tidak boleh kosong</string>
@@ -486,4 +493,34 @@
     <string name="m_reset_menu_pos">Tetapkan semula butang menu</string>
     <string name="as_led">Lampu pemberitahuan</string>
     <string name="as_led_sub">Tunjukkan LED telefon tetamu di atas skrinnya</string>
+    <string name="vs_guest_nav">Dayakan bar navigasi / bar tugas</string>
+    <string name="vs_guest_nav_sub">Membenarkan tetamu melukis bar navigasinya sendiri, atau bar tugas binaan desktop Android (menetapkan qemu.hw.mainkeys=0). Hidupkan semasa import hanya untuk binaan desktop, matikan untuk semua imej lain. Berkuat kuasa pada but penuh seterusnya.</string>
+    <string name="th_group_plain">Tema biasa</string>
+    <string name="th_group_skins">Tema kulit peranti (oleh @regectt)</string>
+    <string name="th_group_custom">Tema tersuai</string>
+    <string name="th_custom_empty">Belum ada tema tersuai. Ketik “Tema baharu” untuk mencipta satu, atau import fail .aetheme. Tema biasa dan kulit peranti tidak boleh diubah: duplikasi satu untuk menyuntingnya.</string>
+    <string name="th_expand">Kembangkan senarai</string>
+    <string name="th_collapse">Runtuhkan senarai</string>
+    <string name="vs_art_boot_image">Guna imej but ART (Android 14+)</string>
+    <string name="vs_art_boot_image_sub">Mati: tetamu berjalan tanpa imej but. Permulaan lebih perlahan, tetapi tiada apa-apa tentang imej yang boleh gagal. Hidup: emulator menyediakan imej but untuk masa jalan ini (dibina sekali pada permulaan seterusnya, yang mengambil sedikit masa).</string>
+    <string name="vs_no_watchdog">Lumpuhkan watchdog sistem (Android 14+)</string>
+    <string name="vs_no_watchdog_sub">Untuk but yang lebih perlahan daripada had watchdog Android selama 60 s, yang mematikan system_server berulang kali. Menampal services.jar perisian tegar supaya thread watchdog tamat serta-merta; kebuntuan sistem sebenar tidak lagi dipulihkan melalui mula semula. Kod jar yang telah dikompil lebih awal diabaikan, yang boleh menjadikan but pertama lebih perlahan. Mematikannya memulihkan jar asal. Berkuat kuasa pada but penuh seterusnya.</string>
+    <string name="folder_new">Folder baharu</string>
+    <string name="folder_new_dots">Folder baharu…</string>
+    <string name="folder_rename">Namakan semula folder</string>
+    <string name="folder_delete">Padam folder (ROM dikekalkan)</string>
+    <string name="folder_move">Alih ke folder</string>
+    <string name="folder_none">Tidak dalam folder</string>
+    <string name="folder_default_name">Folder</string>
+    <string name="folder_empty">Kosong — lepaskan ROM di sini</string>
+    <string name="folder_open">Buka folder</string>
+    <string name="folder_close">Tutup folder</string>
+    <plurals name="folder_roms">
+        <item quantity="other">%1$d ROM</item>
+    </plurals>
+    <string name="phantom_title">Pembunuh proses hantu</string>
+    <string name="phantom_msg">Peranti anda tidak mendayakan pilihan “Lumpuhkan sekatan proses anak” dalam Pilihan Pembangun. Ini bermakna zygote akan dimatikan semasa permulaan emulator, menyebabkan emulator tidak dapat but. Oleh itu, SANGAT DISYORKAN untuk mendayakannya.</string>
+    <string name="phantom_open_dev">Buka Pilihan Pembangun</string>
+    <string name="phantom_ignore">Abaikan</string>
+    <string name="phantom_never">Jangan ingatkan lagi</string>
 </resources>

@@ -17,7 +17,7 @@
     <string name="storage_text">Lejoni qasjen te të gjithë skedarët: kështu karta e kujtesës e çdo sistemi ndodhet në dosjen AEmulator të hapësirës së brendshme — e volitshme për APK, muzikë dhe foto.</string>
     <string name="allow">Lejo</string>
     <string name="empty_title">Ende nuk ka sisteme</string>
-    <string name="empty_text">Shtoni një firmware ARM për Android 2.2–6.0: një ZIP recovery, një arkiv Odin (.tar.md5), system.img ose një imazh fabrike.</string>
+    <string name="empty_text">Shtoni një firmware ARM për Android 1.0–17: një ZIP recovery, një arkiv Odin (.tar.md5), system.img ose një imazh fabrike.</string>
     <string name="empty_help">Cilët skedarë funksionojnë?</string>
     <string name="import_failed">Importimi dështoi</string>
     <string name="import_running">Po importohet firmware-i</string>
@@ -29,7 +29,7 @@
     <string name="start">Nis</string>
     <string name="rename">Riemërto</string>
     <string name="help_title">Firmware-i i mbështetur</string>
-    <string name="help_text">• Android 2.2 dhe 4.0–4.4: mbështetja kryesore; 5.x–6.x: eksperimentale.\n• Vetëm firmware ARM 32-bit (armeabi / armeabi-v7a).\n\nFormatet:\n• ZIP recovery CWM/TWRP (MIUI, CyanogenMod, porte, shumica e ROM-eve të personalizuara);\n• Samsung: Odin .tar / .tar.md5 ose një ZIP me AP_*.tar.md5;\n• imazhet e fabrikës së Google (.tgz / .zip);\n• system.img (ext4, sparse, YAFFS2), kopja rezervë e TWRP system.ext4.win;\n• OTA me system.new.dat(.br) + system.transfer.list.\n\nMë mirë është nëse arkivi përmban boot.img: nga ai merret radha e nisjes së shërbimeve.</string>
+    <string name="help_text">• Android 2.2–4.4: firmware ARM 32-bit, funksionon përmes QEMU (para 2.2: eksperimentale).\n• Android 5.0–17: firmware arm64 dhe GSI, funksionojnë në mënyrë native në telefon.\n\nFormatet:\n• ZIP recovery CWM/TWRP (MIUI, CyanogenMod, porte, shumica e ROM-eve të personalizuara);\n• Samsung: Odin .tar / .tar.md5 ose një ZIP me AP_*.tar.md5;\n• imazhet e fabrikës së Google (.tgz / .zip);\n• system.img (ext4, sparse, YAFFS2), kopja rezervë e TWRP system.ext4.win;\n• OTA me system.new.dat(.br) + system.transfer.list;\n• Gjithashtu: 7z, RAR, LG .kdz, Sony .ftf, Huawei UPDATE.APP, Qualcomm EDL, payload.bin, super.img, EROFS, Android-x86 ISO.\n\nMë mirë është nëse arkivi përmban boot.img: nga ai merret radha e nisjes së shërbimeve.</string>
     <string name="vs_screen">Ekrani i mysafirit</string>
     <string name="vs_fixed_2x">Android 2.x përdor një ekran të fiksuar 480×800 me 240 dpi.</string>
     <string name="vs_screen_hint">Një ekran më i vogël e bën sistemin më të shpejtë.</string>
@@ -44,6 +44,13 @@
     <string name="vs_legacy_sub">Motori më i vjetër Desire HD: vetëm GLES 1.x, ekran 480×800. Përdoreni nëse motori kryesor dështon.</string>
     <string name="vs_lowram">Modaliteti i kujtesës së ulët</string>
     <string name="vs_lowram_sub">ro.config.low_ram — sistemi kursen kujtesë.</string>
+    <string name="vs_memory_mode">Menaxhimi i kujtesës</string>
+    <string name="vs_memory_light">I lehtë</string>
+    <string name="vs_memory_medium">Mesatar</string>
+    <string name="vs_memory_aggressive">Agresiv</string>
+    <string name="vs_memory_light_sub">Aplikacionet në sfond ndalohen vetëm kur vetë telefonit i mbaron pothuajse kujtesa. Rinisjet më të paktat; përdor më shumë kujtesë. Hyn në fuqi pas rinisjes së plotë të VM-së.</string>
+    <string name="vs_memory_medium_sub">I ekuilibruar: mban një numër të moderuar aplikacionesh në sfond dhe ndalon të tjerat kur kujtesa e lirë pakësohet. Hyn në fuqi pas rinisjes së plotë të VM-së.</string>
+    <string name="vs_memory_aggressive_sub">Mban pak aplikacione në sfond dhe kontrollon shpesh, ndaj kujtesa lirohet herët. Përdor më pak kujtesë, por aplikacionet riniten më shpesh. Hyn në fuqi pas rinisjes së plotë të VM-së.</string>
     <string name="vs_proxy">Proxy modern TLS</string>
     <string name="vs_proxy_sub">I lejon shfletuesit dhe aplikacionet e vjetra të hapin faqet HTTPS të sotme.</string>
     <string name="vs_controls">Kontrollet</string>
@@ -135,7 +142,7 @@
     <string name="vs_strace">Gjurmo thirrjet e sistemit të shërbimeve</string>
     <string name="vs_strace_sub">Emra shërbimesh të ndarë me presje, p.sh. mediaserver,zygote. I ngadalëson ato shërbime dhe e shkruan gjurmën në regjistrat e tyre. Aplikohet në nisjen e radhës.</string>
     <string name="vs_wifi">Rrjeti Wi-Fi</string>
-    <string name="vs_wifi_sub">E shfaq internetin e pritësit te VM-ja si rrjet Wi-Fi të lidhur në vend të Ethernet-it. Android 2.3, 4.0–7.x. Aplikohet në nisjen e radhës.</string>
+    <string name="vs_wifi_sub">E shfaq internetin e pritësit te VM-ja si rrjet Wi-Fi të lidhur në vend të Ethernet-it. Android 2.3, 4.0–17 (8–17: eksperimentale). Aplikohet në nisjen e radhës.</string>
     <string name="vs_wifi_ssid">Emri i rrjetit (SSID)</string>
     <string name="vs_wifi_ssid_sub">Deri në 32 bajt</string>
     <string name="vs_wifi_ssid_error">Emri i rrjetit nuk mund të jetë bosh</string>
@@ -487,4 +494,35 @@
     <string name="m_reset_menu_pos">Rivendos butonin e menysë</string>
     <string name="as_led">Drita e njoftimeve</string>
     <string name="as_led_sub">Shfaq LED-in e telefonit mysafir mbi ekran</string>
+    <string name="vs_guest_nav">Aktivizo shiritin e navigimit / shiritin e detyrave</string>
+    <string name="vs_guest_nav_sub">Lejon që i ftuari të vizatojë shiritin e vet të navigimit ose shiritin e detyrave të ndërtimeve desktop të Android-it (cakton qemu.hw.mainkeys=0). Aktivizoje gjatë importimit vetëm për ndërtimet desktop dhe lëre të çaktivizuar për të gjitha imazhet e tjera. Hyn në fuqi në nisjen e plotë të radhës.</string>
+    <string name="th_group_plain">Tema të thjeshta</string>
+    <string name="th_group_skins">Tema me pamjen e pajisjes (nga @regectt)</string>
+    <string name="th_group_custom">Tema të personalizuara</string>
+    <string name="th_custom_empty">Ende nuk ka tema të personalizuara. Prek “Temë e re” për të krijuar një ose importo një skedar .aetheme. Temat e thjeshta dhe pamjet e pajisjeve nuk mund të ndryshohen: dupliko një për ta modifikuar.</string>
+    <string name="th_expand">Zgjero listën</string>
+    <string name="th_collapse">Palos listën</string>
+    <string name="vs_art_boot_image">Përdor imazhin e nisjes ART (Android 14+)</string>
+    <string name="vs_art_boot_image_sub">Joaktiv: i ftuari funksionon pa imazh nisjeje. Nisja është më e ngadaltë, por asgjë nga imazhi nuk mund të dështojë. Aktiv: emulatori përgatit një imazh nisjeje për këtë mjedis ekzekutimi (krijohet një herë në nisjen e radhës, gjë që kërkon kohë).</string>
+    <string name="vs_no_watchdog">Çaktivizo watchdog-un e sistemit (Android 14+)</string>
+    <string name="vs_no_watchdog_sub">Për një nisje më të ngadaltë se kufiri 60 s i watchdog-ut të Android-it, i cili e mbyll system_server në cikël. Modifikon services.jar të firmuerit që fija e watchdog-ut të përfundojë menjëherë; një bllokim real i sistemit nuk zgjidhet më me rindezje. Kodi i prekompiluar i jar-it shpërfillet, çka mund ta ngadalësojë nisjen e parë. Çaktivizimi rikthen jar-in origjinal. Hyn në fuqi në nisjen e plotë të radhës.</string>
+    <string name="folder_new">Dosje e re</string>
+    <string name="folder_new_dots">Dosje e re…</string>
+    <string name="folder_rename">Riemërto dosjen</string>
+    <string name="folder_delete">Fshi dosjen (ROM-et ruhen)</string>
+    <string name="folder_move">Zhvendos te dosja</string>
+    <string name="folder_none">Jo në dosje</string>
+    <string name="folder_default_name">Dosje</string>
+    <string name="folder_empty">E zbrazët — hidhini ROM-et këtu</string>
+    <string name="folder_open">Hap dosjen</string>
+    <string name="folder_close">Mbyll dosjen</string>
+    <plurals name="folder_roms">
+        <item quantity="one">%1$d ROM</item>
+        <item quantity="other">%1$d ROM</item>
+    </plurals>
+    <string name="phantom_title">Vrasësi i proceseve fantazmë</string>
+    <string name="phantom_msg">Pajisja jote nuk e ka të aktivizuar opsionin “Çaktivizo kufizimet e proceseve fëmijë” te Opsionet e zhvilluesit. Kjo do të thotë që zygote do të mbyllet gjatë nisjes së emulatorit, duke e bërë të pamundur nisjen e emulatorit. Prandaj REKOMANDOHET SHUMË ta aktivizosh.</string>
+    <string name="phantom_open_dev">Hap Opsionet e zhvilluesit</string>
+    <string name="phantom_ignore">Shpërfill</string>
+    <string name="phantom_never">Mos ma kujto më</string>
 </resources>

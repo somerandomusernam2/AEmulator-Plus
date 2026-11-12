@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Added for AEmulator Plus, 2026-11-10: tabs and several machines at once -->
+<resources>
+    <string name="tab_home">Kirjasto</string>
+    <string name="tab_close">Sulje välilehti</string>
+    <string name="tab_close_title">Suljetaanko %1$s?</string>
+    <string name="tab_close_text">”Pienennä” sulkee välilehden, mutta kone jatkaa toimintaa taustalla; avaa se uudelleen kirjastosta. ”Sammuta” sammuttaa koneen.</string>
+    <string name="tab_minimize">Pienennä</string>
+    <string name="tab_shutdown">Sammuta</string>
+    <string name="vm_slots_full">Kaikki %1$d konepaikkaa ovat käytössä. Sammuta ensin yksi.</string>
+</resources>

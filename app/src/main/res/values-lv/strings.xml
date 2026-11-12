@@ -17,7 +17,7 @@
     <string name="storage_text">Atļaujiet piekļuvi visiem failiem: tad katras sistēmas atmiņas karte atradīsies iekšējās krātuves mapē AEmulator — ērti APK failiem, mūzikai un fotoattēliem.</string>
     <string name="allow">Atļaut</string>
     <string name="empty_title">Sistēmu vēl nav</string>
-    <string name="empty_text">Pievienojiet ARM aparātprogrammatūru Android 1.0–7.x versijām: atkopšanas ZIP, Odin arhīvu (.tar.md5), system.img vai rūpnīcas attēlu.</string>
+    <string name="empty_text">Pievienojiet ARM aparātprogrammatūru Android 1.0–17 versijām: atkopšanas ZIP, Odin arhīvu (.tar.md5), system.img vai rūpnīcas attēlu.</string>
     <string name="empty_help">Kuri faili der?</string>
     <string name="import_failed">Importēšana neizdevās</string>
     <string name="import_running">Aparātprogrammatūras importēšana</string>
@@ -29,7 +29,7 @@
     <string name="start">Palaist</string>
     <string name="rename">Pārsaukt</string>
     <string name="help_title">Atbalstītā aparātprogrammatūra</string>
-    <string name="help_text">• Android 2.2–4.4: 32 bitu ARM aparātprogrammatūra, darbojas ar QEMU (vecāka par 2.2: eksperimentāli).\n• Android 5.0–17: arm64 aparātprogrammatūra un GSI, darbojas tieši tālrunī.\n\nFormāti:\n• CWM/TWRP atkopšanas ZIP (MIUI, CyanogenMod, portētie un lielākā daļa pielāgoto ROM);\n• Samsung: Odin .tar / .tar.md5 vai ZIP ar AP_*.tar.md5;\n• Google rūpnīcas attēli (.tgz / .zip);\n• system.img (ext4, sparse, YAFFS2), TWRP dublējums system.ext4.win;\n• OTA ar system.new.dat(.br) + system.transfer.list.\n\nLabāk, ja arhīvā ir boot.img: no tā tiek ņemta pakalpojumu palaišanas secība.</string>
+    <string name="help_text">• Android 2.2–4.4: 32 bitu ARM aparātprogrammatūra, darbojas ar QEMU (vecāka par 2.2: eksperimentāli).\n• Android 5.0–17: arm64 aparātprogrammatūra un GSI, darbojas tieši tālrunī.\n\nFormāti:\n• CWM/TWRP atkopšanas ZIP (MIUI, CyanogenMod, portētie un lielākā daļa pielāgoto ROM);\n• Samsung: Odin .tar / .tar.md5 vai ZIP ar AP_*.tar.md5;\n• Google rūpnīcas attēli (.tgz / .zip);\n• system.img (ext4, sparse, YAFFS2), TWRP dublējums system.ext4.win;\n• OTA ar system.new.dat(.br) + system.transfer.list;\n• Arī: 7z, RAR, LG .kdz, Sony .ftf, Huawei UPDATE.APP, Qualcomm EDL, payload.bin, super.img, EROFS, Android-x86 ISO.\n\nLabāk, ja arhīvā ir boot.img: no tā tiek ņemta pakalpojumu palaišanas secība.</string>
     <string name="vs_screen">Viesa ekrāns</string>
     <string name="vs_fixed_2x">Desire HD dzinējs izmanto fiksētu 480×800 ekrānu ar 240 dpi.</string>
     <string name="vs_screen_hint">Zemāka izšķirtspēja padara sistēmu ātrāku.</string>
@@ -44,6 +44,13 @@
     <string name="vs_legacy_sub">Vecākais Desire HD dzinējs: tikai GLES 1.x, 480×800 ekrāns. Izmantojiet, ja galvenais dzinējs nedarbojas.</string>
     <string name="vs_lowram">Zemas atmiņas režīms</string>
     <string name="vs_lowram_sub">ro.config.low_ram — sistēma taupa atmiņu.</string>
+    <string name="vs_memory_mode">Atmiņas pārvaldība</string>
+    <string name="vs_memory_light">Viegla</string>
+    <string name="vs_memory_medium">Vidēja</string>
+    <string name="vs_memory_aggressive">Agresīva</string>
+    <string name="vs_memory_light_sub">Fona lietotnes tiek apturētas tikai tad, kad pašam tālrunim gandrīz beigusies atmiņa. Vismazāk atkārtotu palaišanu; izmanto visvairāk atmiņas. Stājas spēkā pēc pilnīgas virtuālās mašīnas restartēšanas.</string>
+    <string name="vs_memory_medium_sub">Līdzsvarota: patur mērenu skaitu fona lietotņu un aptur pārējās, kad brīvās atmiņas kļūst maz. Stājas spēkā pēc pilnīgas virtuālās mašīnas restartēšanas.</string>
+    <string name="vs_memory_aggressive_sub">Patur nedaudz fona lietotņu un bieži pārbauda, tāpēc atmiņa tiek atbrīvota agri. Izmanto vismazāk atmiņas, bet lietotnes restartējas biežāk. Stājas spēkā pēc pilnīgas virtuālās mašīnas restartēšanas.</string>
     <string name="vs_proxy">Moderns TLS starpniekserveris</string>
     <string name="vs_proxy_sub">Ļauj vecām pārlūkprogrammām un lietotnēm atvērt mūsdienu HTTPS vietnes.</string>
     <string name="vs_controls">Vadība</string>
@@ -146,7 +153,7 @@
     <string name="vs_strace">Izsekot pakalpojumu sistēmas izsaukumus</string>
     <string name="vs_strace_sub">Pakalpojumu nosaukumi, atdalīti ar komatiem, piem., mediaserver,zygote. Palēnina šos pakalpojumus un ieraksta izsekošanu to žurnālos. Tiek lietots nākamajā palaišanā.</string>
     <string name="vs_wifi">Wi-Fi tīkls</string>
-    <string name="vs_wifi_sub">Rāda saimnieka internetu virtuālajai mašīnai kā pievienotu Wi-Fi tīklu Ethernet vietā. Android 2.3, 4.0–7.x. Tiek lietots nākamajā palaišanā.</string>
+    <string name="vs_wifi_sub">Rāda saimnieka internetu virtuālajai mašīnai kā pievienotu Wi-Fi tīklu Ethernet vietā. Android 2.3, 4.0–17 (8–17: eksperimentāli). Tiek lietots nākamajā palaišanā.</string>
     <string name="vs_wifi_ssid">Tīkla nosaukums (SSID)</string>
     <string name="vs_wifi_ssid_sub">Līdz 32 baitiem</string>
     <string name="vs_wifi_ssid_error">Tīkla nosaukums nedrīkst būt tukšs</string>
@@ -488,4 +495,36 @@
     <string name="thermal_invalid">Ievadiet vērtību no -40 līdz 150.</string>
     <string name="thermal_apply">Lietot</string>
     <string name="thermal_reset">Izmantot noklusējumu</string>
+    <string name="vs_guest_nav">Iespējot navigācijas joslu / uzdevumjoslu</string>
+    <string name="vs_guest_nav_sub">Ļauj viesim uzzīmēt savu navigācijas joslu vai Android darbvirsmas būvējumu uzdevumjoslu (iestata qemu.hw.mainkeys=0). Importējot ieslēdziet tikai darbvirsmas būvējumiem, visiem pārējiem attēliem atstājiet izslēgtu. Stājas spēkā nākamajā pilnajā startēšanā.</string>
+    <string name="th_group_plain">Vienkāršas tēmas</string>
+    <string name="th_group_skins">Ierīces izskata tēmas (autors @regectt)</string>
+    <string name="th_group_custom">Pielāgotas tēmas</string>
+    <string name="th_custom_empty">Pielāgotu tēmu vēl nav. Pieskarieties “Jauna tēma”, lai izveidotu, vai importējiet .aetheme failu. Vienkāršas tēmas un ierīču izskatus nevar mainīt: dublējiet vienu, lai to rediģētu.</string>
+    <string name="th_expand">Izvērst sarakstu</string>
+    <string name="th_collapse">Sakļaut sarakstu</string>
+    <string name="vs_art_boot_image">Izmantot ART sāknēšanas attēlu (Android 14+)</string>
+    <string name="vs_art_boot_image_sub">Izslēgts: viesis darbojas bez sāknēšanas attēla. Palaišana ir lēnāka, taču ar attēlu nekas nevar neizdoties. Ieslēgts: emulators sagatavo sāknēšanas attēlu šai izpildvidei (tiek izveidots vienu reizi nākamajā palaišanā, un tas aizņem laiku).</string>
+    <string name="vs_no_watchdog">Atspējot sistēmas watchdog (Android 14+)</string>
+    <string name="vs_no_watchdog_sub">Sāknēšanai, kas ir lēnāka par Android 60 s watchdog ierobežojumu, kura dēļ system_server tiek pārtraukts cikliski. Izlabo programmaparatūras services.jar, lai watchdog pavediens beigtos nekavējoties; īsta sistēmas strupceļa situācija pēc tam vairs netiek atrisināta ar pārstartēšanu. Jar iepriekš kompilētais kods tiek ignorēts, kas var palēnināt pirmo sāknēšanu. Izslēdzot tiek atjaunots oriģinālais jar. Stājas spēkā nākamajā pilnajā startēšanā.</string>
+    <string name="folder_new">Jauna mape</string>
+    <string name="folder_new_dots">Jauna mape…</string>
+    <string name="folder_rename">Pārdēvēt mapi</string>
+    <string name="folder_delete">Dzēst mapi (ROM tiek saglabāti)</string>
+    <string name="folder_move">Pārvietot uz mapi</string>
+    <string name="folder_none">Nav mapē</string>
+    <string name="folder_default_name">Mape</string>
+    <string name="folder_empty">Tukša — velciet ROM šeit</string>
+    <string name="folder_open">Atvērt mapi</string>
+    <string name="folder_close">Aizvērt mapi</string>
+    <plurals name="folder_roms">
+        <item quantity="zero">%1$d ROM</item>
+        <item quantity="one">%1$d ROM</item>
+        <item quantity="other">%1$d ROM</item>
+    </plurals>
+    <string name="phantom_title">Fantomprocesu iznīcinātājs</string>
+    <string name="phantom_msg">Jūsu ierīces izstrādātāju opcijās nav ieslēgta opcija “Atspējot pakārtoto procesu ierobežojumus”. Tas nozīmē, ka emulatora startēšanas laikā zygote tiks apturēts, un emulators nevarēs sāknēties. Tāpēc to IESPĒJOT IR STINGRI IETEICAMS.</string>
+    <string name="phantom_open_dev">Atvērt izstrādātāju opcijas</string>
+    <string name="phantom_ignore">Ignorēt</string>
+    <string name="phantom_never">Vairs nepatādināt</string>
 </resources>

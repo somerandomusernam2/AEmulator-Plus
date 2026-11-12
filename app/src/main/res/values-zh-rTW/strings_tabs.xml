@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Added for AEmulator Plus, 2026-11-10: tabs and several machines at once -->
+<resources>
+    <string name="tab_home">資料庫</string>
+    <string name="tab_close">關閉分頁</string>
+    <string name="tab_close_title">要關閉「%1$s」嗎？</string>
+    <string name="tab_close_text">「最小化」會關閉分頁，但虛擬機仍在背景執行，可從資料庫重新開啟；「關機」會關閉虛擬機。</string>
+    <string name="tab_minimize">最小化</string>
+    <string name="tab_shutdown">關機</string>
+    <string name="vm_slots_full">%1$d 個虛擬機位置已全部使用，請先關閉其中一個。</string>
+</resources>

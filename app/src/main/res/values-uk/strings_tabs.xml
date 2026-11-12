@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Added for AEmulator Plus, 2026-11-10: tabs and several machines at once -->
+<resources>
+    <string name="tab_home">Бібліотека</string>
+    <string name="tab_close">Закрити вкладку</string>
+    <string name="tab_close_title">Закрити «%1$s»?</string>
+    <string name="tab_close_text">«Згорнути» закриває вкладку, а машина продовжує працювати у фоні; відкрийте її знову з бібліотеки. «Вимкнути» вимикає машину.</string>
+    <string name="tab_minimize">Згорнути</string>
+    <string name="tab_shutdown">Вимкнути</string>
+    <string name="vm_slots_full">Усі слоти машин (%1$d) зайняті. Спершу вимкніть одну.</string>
+</resources>

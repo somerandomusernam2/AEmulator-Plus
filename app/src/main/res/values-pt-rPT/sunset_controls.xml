@@ -30,4 +30,17 @@
     <string name="bluetooth_permission_denied">Permissão de Bluetooth recusada: o convidado arrancará sem o Bluetooth do anfitrião.</string>
     <string name="vs_sf_tombstone">Tombstone de falha do SurfaceFlinger (depuração)</string>
     <string name="vs_sf_tombstone_sub">Se o SurfaceFlinger falhar, deixa o firmware escrever um tombstone normal no registo (com a função que falhou) em vez de um relatório curto. Use ao enviar um relatório de erro. Aplica-se no próximo arranque completo da VM.</string>
+    <string name="vi_mouse_keyboard">Entrada: rato e teclado</string>
+    <string name="vi_mouse_keyboard_sub">Regista um touchpad e um teclado no convidado e remove o respetivo ecrã tátil. O ecrã passa a ser um touchpad (toque para clicar, dois dedos para deslocar) e surge um botão de teclado na barra de navegação. Requer o motor QEMU (não o nativo de 64 bits) e um reinício completo da VM.</string>
+    <string name="vi_keypad">Entrada: teclado numérico</string>
+    <string name="vi_keypad_sub">Adiciona um botão de teclado numérico à barra de navegação: teclas de seta, OK, teclas de função, Chamar/Terminar e 0–9 * # como num telemóvel de teclas. O toque continua a funcionar e o teclado numérico pode ser combinado com rato e teclado.</string>
+    <string name="vi_keyboard">Teclado</string>
+    <string name="vi_keypad_title">Teclado numérico</string>
+    <string name="vi_close">Fechar</string>
+    <string name="vi_open_keyboard">Teclado</string>
+    <string name="vi_open_keypad">Teclado numérico</string>
+    <string name="m_resize_screen">Redimensionar ecrã</string>
+    <string name="m_resize_done">Redimensionamento concluído</string>
+    <string name="m_resize_reset">Repor tamanho do ecrã</string>
+    <string name="vi_resize_hint">Arraste um canto do ecrã para o redimensionar. Quando terminar, abra o menu e toque em “Redimensionamento concluído”.</string>
 </resources>

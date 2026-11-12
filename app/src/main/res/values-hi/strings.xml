@@ -18,7 +18,7 @@
     <string name="storage_text">सभी फ़ाइलों की अनुमति दें: हर सिस्टम का मेमोरी कार्ड आंतरिक स्टोरेज के AEmulator फ़ोल्डर में रहेगा — APK, संगीत और फ़ोटो रखने में आसान।</string>
     <string name="allow">अनुमति दें</string>
     <string name="empty_title">अभी कोई सिस्टम नहीं</string>
-    <string name="empty_text">Android 2.2–6.0 का ARM फ़र्मवेयर जोड़ें: रिकवरी ZIP, Odin आर्काइव (.tar.md5), system.img या फ़ैक्टरी इमेज।</string>
+    <string name="empty_text">Android 1.0–17 का ARM फ़र्मवेयर जोड़ें: रिकवरी ZIP, Odin आर्काइव (.tar.md5), system.img या फ़ैक्टरी इमेज।</string>
     <string name="empty_help">कौन-सी फ़ाइलें चलेंगी?</string>
     <string name="import_failed">आयात विफल</string>
     <string name="import_running">फ़र्मवेयर आयात हो रहा है</string>
@@ -30,7 +30,7 @@
     <string name="start">चलाएँ</string>
     <string name="rename">नाम बदलें</string>
     <string name="help_title">समर्थित फ़र्मवेयर</string>
-    <string name="help_text">• Android 2.3–4.4: 32-बिट ARM फ़र्मवेयर, QEMU के ज़रिए।\n• Android 5.0–17: arm64 फ़र्मवेयर और GSI, सीधे फ़ोन पर।\n\nफ़ॉर्मेट:\n• CWM/TWRP रिकवरी ZIP (MIUI, CyanogenMod, पोर्ट, अधिकांश कस्टम ROM);\n• Samsung: Odin .tar / .tar.md5 या AP_*.tar.md5 वाला ZIP;\n• Google फ़ैक्टरी इमेज (.tgz / .zip);\n• system.img (ext4, sparse), TWRP बैकअप system.ext4.win;\n• system.new.dat(.br) + system.transfer.list वाला OTA।\n\nबेहतर है कि आर्काइव में boot.img हो: सेवाओं का बूट क्रम उसी से लिया जाता है।</string>
+    <string name="help_text">• Android 2.3–4.4: 32-बिट ARM फ़र्मवेयर, QEMU के ज़रिए।\n• Android 5.0–17: arm64 फ़र्मवेयर और GSI, सीधे फ़ोन पर।\n\nफ़ॉर्मेट:\n• CWM/TWRP रिकवरी ZIP (MIUI, CyanogenMod, पोर्ट, अधिकांश कस्टम ROM);\n• Samsung: Odin .tar / .tar.md5 या AP_*.tar.md5 वाला ZIP;\n• Google फ़ैक्टरी इमेज (.tgz / .zip);\n• system.img (ext4, sparse), TWRP बैकअप system.ext4.win;\n• system.new.dat(.br) + system.transfer.list वाला OTA;\n• इसके अलावा: 7z, RAR, LG .kdz, Sony .ftf, Huawei UPDATE.APP, Qualcomm EDL, payload.bin, super.img, EROFS, Android-x86 ISO।\n\nबेहतर है कि आर्काइव में boot.img हो: सेवाओं का बूट क्रम उसी से लिया जाता है।</string>
     <string name="vs_screen">गेस्ट स्क्रीन</string>
     <string name="vs_fixed_2x">Android 2.x में स्क्रीन तय है: 480×800, 240 dpi।</string>
     <string name="vs_screen_hint">छोटी स्क्रीन पर सिस्टम तेज़ चलता है।</string>
@@ -45,6 +45,13 @@
     <string name="vs_legacy_sub">पुराना Desire HD इंजन: केवल GLES 1.x, 480×800 स्क्रीन। मुख्य इंजन विफल हो तो इस्तेमाल करें।</string>
     <string name="vs_lowram">कम मेमोरी मोड</string>
     <string name="vs_lowram_sub">ro.config.low_ram — सिस्टम मेमोरी बचाता है।</string>
+    <string name="vs_memory_mode">मेमोरी प्रबंधन</string>
+    <string name="vs_memory_light">हल्का</string>
+    <string name="vs_memory_medium">मध्यम</string>
+    <string name="vs_memory_aggressive">आक्रामक</string>
+    <string name="vs_memory_light_sub">बैकग्राउंड ऐप्स तभी बंद किए जाते हैं जब फ़ोन की अपनी मेमोरी लगभग खत्म हो जाए। सबसे कम रीस्टार्ट; सबसे ज़्यादा मेमोरी इस्तेमाल होती है। VM को पूरी तरह रीस्टार्ट करने के बाद लागू होता है।</string>
+    <string name="vs_memory_medium_sub">संतुलित: बैकग्राउंड में सीमित संख्या में ऐप्स रखता है और खाली मेमोरी कम होने पर बाकी को बंद कर देता है। VM को पूरी तरह रीस्टार्ट करने के बाद लागू होता है।</string>
+    <string name="vs_memory_aggressive_sub">बैकग्राउंड में कम ऐप्स रखता है और अक्सर जाँच करता है, इसलिए मेमोरी जल्दी खाली हो जाती है। सबसे कम मेमोरी इस्तेमाल होती है, लेकिन ऐप्स ज़्यादा बार रीस्टार्ट होते हैं। VM को पूरी तरह रीस्टार्ट करने के बाद लागू होता है।</string>
     <string name="vs_proxy">आधुनिक TLS प्रॉक्सी</string>
     <string name="vs_proxy_sub">पुराने ब्राउज़र और ऐप आज की HTTPS साइटें खोलते हैं।</string>
     <string name="vs_controls">नियंत्रण</string>
@@ -322,7 +329,7 @@
     <string name="vs_strace">सेवाओं की सिस्टम कॉल ट्रेस करें</string>
     <string name="vs_strace_sub">सेवाओं के नाम अल्पविराम से अलग करके, जैसे mediaserver,zygote। इन सेवाओं को धीमा करता है और ट्रेस को उनके लॉग में लिखता है। अगले बूट पर लागू होता है।</string>
     <string name="vs_wifi">Wi-Fi नेटवर्क</string>
-    <string name="vs_wifi_sub">होस्ट के इंटरनेट को VM को Ethernet के बजाय जुड़े हुए Wi-Fi नेटवर्क के रूप में दिखाता है। Android 2.3, 4.0–7.x। अगले बूट पर लागू होता है।</string>
+    <string name="vs_wifi_sub">होस्ट के इंटरनेट को VM को Ethernet के बजाय जुड़े हुए Wi-Fi नेटवर्क के रूप में दिखाता है। Android 2.3, 4.0–17 (8–17: प्रायोगिक)। अगले बूट पर लागू होता है।</string>
     <string name="vs_wifi_ssid">नेटवर्क का नाम (SSID)</string>
     <string name="vs_wifi_ssid_sub">अधिकतम 32 बाइट</string>
     <string name="vs_wifi_ssid_error">नेटवर्क का नाम खाली नहीं हो सकता</string>
@@ -487,4 +494,35 @@
     <string name="thermal_invalid">-40 से 150 के बीच कोई मान दर्ज करें।</string>
     <string name="thermal_apply">लागू करें</string>
     <string name="thermal_reset">डिफ़ॉल्ट इस्तेमाल करें</string>
+    <string name="vs_guest_nav">नेविगेशन बार / टास्कबार सक्षम करें</string>
+    <string name="vs_guest_nav_sub">गेस्ट को अपना नेविगेशन बार, या Android डेस्कटॉप बिल्ड का टास्कबार बनाने देता है (qemu.hw.mainkeys=0 सेट करता है)। इंपोर्ट के समय केवल डेस्कटॉप बिल्ड के लिए चालू करें, बाकी सभी इमेज के लिए बंद रखें। अगले पूर्ण बूट पर लागू होगा।</string>
+    <string name="th_group_plain">सादे थीम</string>
+    <string name="th_group_skins">डिवाइस स्किन थीम (@regectt द्वारा)</string>
+    <string name="th_group_custom">कस्टम थीम</string>
+    <string name="th_custom_empty">अभी कोई कस्टम थीम नहीं है। नई थीम बनाने के लिए “नई थीम” पर टैप करें, या .aetheme फ़ाइल इंपोर्ट करें। सादे थीम और डिवाइस स्किन बदले नहीं जा सकते: संपादित करने के लिए किसी की प्रतिलिपि बनाएँ।</string>
+    <string name="th_expand">सूची फैलाएँ</string>
+    <string name="th_collapse">सूची समेटें</string>
+    <string name="vs_art_boot_image">ART बूट इमेज का उपयोग करें (Android 14+)</string>
+    <string name="vs_art_boot_image_sub">बंद: गेस्ट बिना बूट इमेज के चलता है। स्टार्ट-अप धीमा होता है, लेकिन इमेज से जुड़ा कुछ भी विफल नहीं हो सकता। चालू: एमुलेटर इस रनटाइम के लिए बूट इमेज तैयार करता है (अगले स्टार्ट पर एक बार बनती है, जिसमें कुछ समय लगता है)।</string>
+    <string name="vs_no_watchdog">सिस्टम वॉचडॉग अक्षम करें (Android 14+)</string>
+    <string name="vs_no_watchdog_sub">ऐसे बूट के लिए जो Android की 60 सेकंड की वॉचडॉग सीमा से धीमा है, जो system_server को लगातार बंद करती रहती है। फ़र्मवेयर की services.jar को पैच करता है ताकि वॉचडॉग थ्रेड तुरंत समाप्त हो जाए; इसके बाद सिस्टम का वास्तविक डेडलॉक रीस्टार्ट से ठीक नहीं होता। jar के पहले से कंपाइल किए गए कोड को अनदेखा किया जाता है, जिससे पहला बूट धीमा हो सकता है। इसे बंद करने से मूल jar बहाल हो जाती है। अगले पूर्ण बूट पर लागू होगा।</string>
+    <string name="folder_new">नया फ़ोल्डर</string>
+    <string name="folder_new_dots">नया फ़ोल्डर…</string>
+    <string name="folder_rename">फ़ोल्डर का नाम बदलें</string>
+    <string name="folder_delete">फ़ोल्डर हटाएँ (ROM सुरक्षित रहेंगे)</string>
+    <string name="folder_move">फ़ोल्डर में ले जाएँ</string>
+    <string name="folder_none">किसी फ़ोल्डर में नहीं</string>
+    <string name="folder_default_name">फ़ोल्डर</string>
+    <string name="folder_empty">खाली — ROM यहाँ छोड़ें</string>
+    <string name="folder_open">फ़ोल्डर खोलें</string>
+    <string name="folder_close">फ़ोल्डर बंद करें</string>
+    <plurals name="folder_roms">
+        <item quantity="one">%1$d ROM</item>
+        <item quantity="other">%1$d ROM</item>
+    </plurals>
+    <string name="phantom_title">फैंटम प्रोसेस किलर</string>
+    <string name="phantom_msg">आपके डिवाइस में डेवलपर विकल्प में “चाइल्ड प्रोसेस प्रतिबंध अक्षम करें” विकल्प चालू नहीं है। इसका मतलब है कि एमुलेटर के स्टार्टअप के दौरान zygote बंद कर दिया जाएगा, जिससे एमुलेटर बूट नहीं हो पाएगा। इसलिए इसे चालू करने की पुरज़ोर सलाह दी जाती है।</string>
+    <string name="phantom_open_dev">डेवलपर विकल्प खोलें</string>
+    <string name="phantom_ignore">अनदेखा करें</string>
+    <string name="phantom_never">दोबारा याद न दिलाएँ</string>
 </resources>

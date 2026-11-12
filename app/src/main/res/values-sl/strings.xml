@@ -17,7 +17,7 @@
     <string name="storage_text">Dovolite dostop do vseh datotek: pomnilniška kartica vsakega sistema bo nato v mapi AEmulator v notranjem pomnilniku – priročno za APK-je, glasbo in fotografije.</string>
     <string name="allow">Dovoli</string>
     <string name="empty_title">Še ni sistemov</string>
-    <string name="empty_text">Dodajte vdelano programsko opremo ARM za Android 1.0–7.x: recovery ZIP, arhiv Odin (.tar.md5), system.img ali tovarniško sliko.</string>
+    <string name="empty_text">Dodajte vdelano programsko opremo ARM za Android 1.0–17: recovery ZIP, arhiv Odin (.tar.md5), system.img ali tovarniško sliko.</string>
     <string name="empty_help">Katere datoteke delujejo?</string>
     <string name="import_failed">Uvoz ni uspel</string>
     <string name="import_running">Uvoz vdelane programske opreme</string>
@@ -29,7 +29,7 @@
     <string name="start">Zaženi</string>
     <string name="rename">Preimenuj</string>
     <string name="help_title">Podprta vdelana programska oprema</string>
-    <string name="help_text">• Android 2.2 in 4.0–4.4: glavna podpora; pred 2.2 in 5.x–7.x: poskusna.\n• Samo 32-bitna vdelana programska oprema ARM (armeabi / armeabi-v7a).\n\nOblike:\n• recovery ZIP za CWM/TWRP (MIUI, CyanogenMod, portacije, večina ROM-ov po meri);\n• Samsung: Odin .tar / .tar.md5 ali ZIP z AP_*.tar.md5;\n• tovarniške slike Google (.tgz / .zip);\n• system.img (ext4, sparse, YAFFS2), varnostna kopija TWRP system.ext4.win;\n• OTA s system.new.dat(.br) + system.transfer.list.\n\nNajbolje je, če arhiv vsebuje boot.img: vrstni red zagona storitev se prevzame iz njega.</string>
+    <string name="help_text">• Android 2.2–4.4: 32-bitna vdelana programska oprema ARM, deluje prek QEMU (starejše od 2.2: poskusno).\n• Android 5.0–17: vdelana programska oprema arm64 in GSI, delujeta izvorno v telefonu.\n\nOblike:\n• recovery ZIP za CWM/TWRP (MIUI, CyanogenMod, portacije, večina ROM-ov po meri);\n• Samsung: Odin .tar / .tar.md5 ali ZIP z AP_*.tar.md5;\n• tovarniške slike Google (.tgz / .zip);\n• system.img (ext4, sparse, YAFFS2), varnostna kopija TWRP system.ext4.win;\n• OTA s system.new.dat(.br) + system.transfer.list;\n• Tudi: 7z, RAR, LG .kdz, Sony .ftf, Huawei UPDATE.APP, Qualcomm EDL, payload.bin, super.img, EROFS, Android-x86 ISO.\n\nNajbolje je, če arhiv vsebuje boot.img: vrstni red zagona storitev se prevzame iz njega.</string>
     <string name="vs_screen">Zaslon gostujočega sistema</string>
     <string name="vs_fixed_2x">Pogon Desire HD uporablja fiksni zaslon 480×800 pri 240 dpi.</string>
     <string name="vs_screen_hint">Nižja ločljivost naredi sistem hitrejši.</string>
@@ -44,6 +44,13 @@
     <string name="vs_legacy_sub">Starejši pogon Desire HD: samo GLES 1.x, zaslon 480×800. Uporabite ga, če glavni pogon odpove.</string>
     <string name="vs_lowram">Način nizkega pomnilnika</string>
     <string name="vs_lowram_sub">ro.config.low_ram – sistem varčuje s pomnilnikom.</string>
+    <string name="vs_memory_mode">Upravljanje pomnilnika</string>
+    <string name="vs_memory_light">Lahko</string>
+    <string name="vs_memory_medium">Srednje</string>
+    <string name="vs_memory_aggressive">Agresivno</string>
+    <string name="vs_memory_light_sub">Aplikacije v ozadju se ustavijo šele, ko samemu telefonu skoraj zmanjka pomnilnika. Najmanj ponovnih zagonov; porabi največ pomnilnika. Začne veljati po popolnem ponovnem zagonu navideznega stroja.</string>
+    <string name="vs_memory_medium_sub">Uravnoteženo: ohrani zmerno število aplikacij v ozadju, preostale pa ustavi, ko je prostega pomnilnika malo. Začne veljati po popolnem ponovnem zagonu navideznega stroja.</string>
+    <string name="vs_memory_aggressive_sub">Ohrani malo aplikacij v ozadju in pogosto preverja, zato se pomnilnik sprosti zgodaj. Porabi najmanj pomnilnika, a se aplikacije pogosteje znova zaženejo. Začne veljati po popolnem ponovnem zagonu navideznega stroja.</string>
     <string name="vs_proxy">Sodobni posrednik TLS</string>
     <string name="vs_proxy_sub">Starim brskalnikom in aplikacijam omogoči odpiranje današnjih spletnih mest HTTPS.</string>
     <string name="vs_controls">Upravljanje</string>
@@ -146,7 +153,7 @@
     <string name="vs_strace">Sledenje sistemskim klicem storitev</string>
     <string name="vs_strace_sub">Imena storitev, ločena z vejicami, npr. mediaserver,zygote. Te storitve upočasni in sled zapiše v njihove dnevnike. Uporabi se ob naslednjem zagonu.</string>
     <string name="vs_wifi">Omrežje Wi-Fi</string>
-    <string name="vs_wifi_sub">Internet gostitelja prikaže navideznemu stroju kot povezano omrežje Wi-Fi namesto Etherneta. Android 2.3, 4.0–7.x. Uporabi se ob naslednjem zagonu.</string>
+    <string name="vs_wifi_sub">Internet gostitelja prikaže navideznemu stroju kot povezano omrežje Wi-Fi namesto Etherneta. Android 2.3, 4.0–17 (8–17: poskusno). Uporabi se ob naslednjem zagonu.</string>
     <string name="vs_wifi_ssid">Ime omrežja (SSID)</string>
     <string name="vs_wifi_ssid_sub">Do 32 bajtov</string>
     <string name="vs_wifi_ssid_error">Ime omrežja ne sme biti prazno</string>
@@ -489,4 +496,37 @@
     <string name="m_reset_menu_pos">Ponastavi gumb menija</string>
     <string name="as_led">Lučka obvestil</string>
     <string name="as_led_sub">Prikaži LED gostujočega telefona nad zaslonom</string>
+    <string name="vs_guest_nav">Omogoči navigacijsko vrstico / opravilno vrstico</string>
+    <string name="vs_guest_nav_sub">Gostu omogoči, da nariše lastno navigacijsko vrstico ali opravilno vrstico namiznih različic Androida (nastavi qemu.hw.mainkeys=0). Ob uvozu vklopite samo za namizne različice, pri vseh drugih slikah naj ostane izklopljeno. Začne veljati ob naslednjem popolnem zagonu.</string>
+    <string name="th_group_plain">Preproste teme</string>
+    <string name="th_group_skins">Teme z videzom naprav (avtor @regectt)</string>
+    <string name="th_group_custom">Teme po meri</string>
+    <string name="th_custom_empty">Še ni tem po meri. Tapnite »Nova tema«, da jo ustvarite, ali uvozite datoteko .aetheme. Preprostih tem in videzov naprav ni mogoče spreminjati: podvojite eno, da jo uredite.</string>
+    <string name="th_expand">Razširi seznam</string>
+    <string name="th_collapse">Strni seznam</string>
+    <string name="vs_art_boot_image">Uporabi zagonsko sliko ART (Android 14+)</string>
+    <string name="vs_art_boot_image_sub">Izklopljeno: gost deluje brez zagonske slike. Zagon je počasnejši, vendar se s sliko ne more nič zalomiti. Vklopljeno: emulator pripravi zagonsko sliko za to izvajalno okolje (ustvari se enkrat ob naslednjem zagonu, kar traja nekaj časa).</string>
+    <string name="vs_no_watchdog">Onemogoči sistemski watchdog (Android 14+)</string>
+    <string name="vs_no_watchdog_sub">Za zagon, ki je počasnejši od Androidove 60-sekundne omejitve watchdoga, zaradi katere se system_server v zanki ustavlja. Popravi datoteko services.jar vdelane programske opreme, tako da se nit watchdoga takoj konča; pravo zaklenitev sistema potem ponovni zagon ne odpravi več. Vnaprej prevedena koda datoteke jar se prezre, zaradi česar je lahko prvi zagon počasnejši. Z izklopom se obnovi izvirna datoteka jar. Začne veljati ob naslednjem popolnem zagonu.</string>
+    <string name="folder_new">Nova mapa</string>
+    <string name="folder_new_dots">Nova mapa …</string>
+    <string name="folder_rename">Preimenuj mapo</string>
+    <string name="folder_delete">Izbriši mapo (ROM-i se ohranijo)</string>
+    <string name="folder_move">Premakni v mapo</string>
+    <string name="folder_none">Ni v mapi</string>
+    <string name="folder_default_name">Mapa</string>
+    <string name="folder_empty">Prazno – spustite ROM-e sem</string>
+    <string name="folder_open">Odpri mapo</string>
+    <string name="folder_close">Zapri mapo</string>
+    <plurals name="folder_roms">
+        <item quantity="one">%1$d ROM</item>
+        <item quantity="two">%1$d ROM-a</item>
+        <item quantity="few">%1$d ROM-i</item>
+        <item quantity="other">%1$d ROM-ov</item>
+    </plurals>
+    <string name="phantom_title">Ubijalec fantomskih procesov</string>
+    <string name="phantom_msg">V napravi ni vklopljena možnost »Onemogoči omejitve podrejenih procesov« v možnostih za razvijalce. To pomeni, da se bo zygote med zagonom emulatorja ustavil, zato se emulator ne more zagnati. Zato vam njen vklop ZELO PRIPOROČAMO.</string>
+    <string name="phantom_open_dev">Odpri možnosti za razvijalce</string>
+    <string name="phantom_ignore">Prezri</string>
+    <string name="phantom_never">Ne opominjaj več</string>
 </resources>

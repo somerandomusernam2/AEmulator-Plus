@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Added for AEmulator Plus, 2026-11-10: tabs and several machines at once -->
+<resources>
+    <string name="tab_home">Biblioteca</string>
+    <string name="tab_close">Fechar guia</string>
+    <string name="tab_close_title">Fechar %1$s?</string>
+    <string name="tab_close_text">“Minimizar” fecha a guia e mantém a máquina em execução em segundo plano; abra-a de novo pela biblioteca. “Desligar” desliga a máquina.</string>
+    <string name="tab_minimize">Minimizar</string>
+    <string name="tab_shutdown">Desligar</string>
+    <string name="vm_slots_full">Todos os %1$d slots de máquina estão em uso. Desligue um primeiro.</string>
+</resources>

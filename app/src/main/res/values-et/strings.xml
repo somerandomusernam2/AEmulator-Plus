@@ -17,7 +17,7 @@
     <string name="storage_text">Lubage juurdepääs kõigile failidele: siis asub iga süsteemi mälukaart sisemälu kaustas AEmulator – mugav APK-de, muusika ja fotode jaoks.</string>
     <string name="allow">Luba</string>
     <string name="empty_title">Süsteeme veel pole</string>
-    <string name="empty_text">Lisage ARM-püsivara Androidi versioonidele 1.0–7.x: taasterežiimi ZIP, Odini arhiiv (.tar.md5), system.img või tehasekujutis.</string>
+    <string name="empty_text">Lisage ARM-püsivara Androidi versioonidele 1.0–17: taasterežiimi ZIP, Odini arhiiv (.tar.md5), system.img või tehasekujutis.</string>
     <string name="empty_help">Millised failid sobivad?</string>
     <string name="import_failed">Importimine ebaõnnestus</string>
     <string name="import_running">Püsivara importimine</string>
@@ -29,7 +29,7 @@
     <string name="start">Käivita</string>
     <string name="rename">Nimeta ümber</string>
     <string name="help_title">Toetatud püsivara</string>
-    <string name="help_text">• Android 2.2–4.4: 32-bitine ARM-püsivara, töötab QEMU abil (vanem kui 2.2: katseline).\n• Android 5.0–17: arm64 püsivara ja GSI, töötab otse telefonis.\n\nVormingud:\n• CWM/TWRP taasterežiimi ZIP (MIUI, CyanogenMod, portitud ja enamik kohandatud ROM-e);\n• Samsung: Odin .tar / .tar.md5 või ZIP failiga AP_*.tar.md5;\n• Google’i tehasekujutised (.tgz / .zip);\n• system.img (ext4, sparse, YAFFS2), TWRP varukoopia system.ext4.win;\n• OTA failidega system.new.dat(.br) + system.transfer.list.\n\nParim on, kui arhiivis on boot.img: sellest võetakse teenuste käivitusjärjekord.</string>
+    <string name="help_text">• Android 2.2–4.4: 32-bitine ARM-püsivara, töötab QEMU abil (vanem kui 2.2: katseline).\n• Android 5.0–17: arm64 püsivara ja GSI, töötab otse telefonis.\n\nVormingud:\n• CWM/TWRP taasterežiimi ZIP (MIUI, CyanogenMod, portitud ja enamik kohandatud ROM-e);\n• Samsung: Odin .tar / .tar.md5 või ZIP failiga AP_*.tar.md5;\n• Google’i tehasekujutised (.tgz / .zip);\n• system.img (ext4, sparse, YAFFS2), TWRP varukoopia system.ext4.win;\n• OTA failidega system.new.dat(.br) + system.transfer.list;\n• Samuti: 7z, RAR, LG .kdz, Sony .ftf, Huawei UPDATE.APP, Qualcomm EDL, payload.bin, super.img, EROFS, Android-x86 ISO.\n\nParim on, kui arhiivis on boot.img: sellest võetakse teenuste käivitusjärjekord.</string>
     <string name="vs_screen">Külalise ekraan</string>
     <string name="vs_fixed_2x">Desire HD mootor kasutab fikseeritud 480×800 ekraani 240 dpi juures.</string>
     <string name="vs_screen_hint">Madalam eraldusvõime muudab süsteemi kiiremaks.</string>
@@ -44,6 +44,13 @@
     <string name="vs_legacy_sub">Vanem Desire HD mootor: ainult GLES 1.x, 480×800 ekraan. Kasutage, kui põhimootor ei tööta.</string>
     <string name="vs_lowram">Vähese mälu režiim</string>
     <string name="vs_lowram_sub">ro.config.low_ram – süsteem säästab mälu.</string>
+    <string name="vs_memory_mode">Mälu haldus</string>
+    <string name="vs_memory_light">Kerge</string>
+    <string name="vs_memory_medium">Keskmine</string>
+    <string name="vs_memory_aggressive">Agressiivne</string>
+    <string name="vs_memory_light_sub">Taustarakendused peatatakse ainult siis, kui telefonil endal on mälu peaaegu otsas. Kõige vähem taaskäivitusi; kasutab kõige rohkem mälu. Jõustub virtuaalmasina täieliku taaskäivitamise järel.</string>
+    <string name="vs_memory_medium_sub">Tasakaalustatud: hoiab mõõduka arvu taustarakendusi ja peatab ülejäänud, kui vaba mälu väheneb. Jõustub virtuaalmasina täieliku taaskäivitamise järel.</string>
+    <string name="vs_memory_aggressive_sub">Hoiab vähe taustarakendusi ja kontrollib sageli, nii et mälu vabastatakse varakult. Kasutab kõige vähem mälu, kuid rakendused käivituvad sagedamini uuesti. Jõustub virtuaalmasina täieliku taaskäivitamise järel.</string>
     <string name="vs_proxy">Kaasaegne TLS-puhverserver</string>
     <string name="vs_proxy_sub">Võimaldab vanadel brauseritel ja rakendustel avada tänapäeva HTTPS-saite.</string>
     <string name="vs_controls">Juhtimine</string>
@@ -146,7 +153,7 @@
     <string name="vs_strace">Jälgi teenuste süsteemikutseid</string>
     <string name="vs_strace_sub">Komadega eraldatud teenuste nimed, nt mediaserver,zygote. Aeglustab neid teenuseid ja kirjutab jälje nende logidesse. Rakendub järgmisel käivitusel.</string>
     <string name="vs_wifi">Wi-Fi võrk</string>
-    <string name="vs_wifi_sub">Näitab hosti internetti virtuaalmasinale ühendatud Wi-Fi võrguna Etherneti asemel. Android 2.3, 4.0–7.x. Rakendub järgmisel käivitusel.</string>
+    <string name="vs_wifi_sub">Näitab hosti internetti virtuaalmasinale ühendatud Wi-Fi võrguna Etherneti asemel. Android 2.3, 4.0–17 (8–17: katseline). Rakendub järgmisel käivitusel.</string>
     <string name="vs_wifi_ssid">Võrgu nimi (SSID)</string>
     <string name="vs_wifi_ssid_sub">Kuni 32 baiti</string>
     <string name="vs_wifi_ssid_error">Võrgu nimi ei tohi olla tühi</string>
@@ -487,4 +494,35 @@
     <string name="thermal_invalid">Sisestage väärtus vahemikus -40 kuni 150.</string>
     <string name="thermal_apply">Rakenda</string>
     <string name="thermal_reset">Kasuta vaikeväärtust</string>
+    <string name="vs_guest_nav">Luba navigeerimisriba / tegumiriba</string>
+    <string name="vs_guest_nav_sub">Lubab külalisel joonistada oma navigeerimisriba või Androidi töölauaversioonide tegumiriba (määrab qemu.hw.mainkeys=0). Lülita importimisel sisse ainult töölauaversioonide jaoks ja jäta kõigi muude tõmmiste jaoks välja. Jõustub järgmisel täielikul käivitamisel.</string>
+    <string name="th_group_plain">Lihtsad teemad</string>
+    <string name="th_group_skins">Seadme kujundusega teemad (autor @regectt)</string>
+    <string name="th_group_custom">Kohandatud teemad</string>
+    <string name="th_custom_empty">Kohandatud teemasid veel pole. Puuduta valikut „Uus teema“, et luua üks, või impordi .aetheme fail. Lihtsaid teemasid ja seadme kujundusi ei saa muuta: dubleeri üks, et seda redigeerida.</string>
+    <string name="th_expand">Laienda loend</string>
+    <string name="th_collapse">Ahenda loend</string>
+    <string name="vs_art_boot_image">Kasuta ART-i käivituskujutist (Android 14+)</string>
+    <string name="vs_art_boot_image_sub">Väljas: külaline töötab ilma käivituskujutiseta. Käivitamine on aeglasem, kuid kujutisega ei saa midagi untsu minna. Sees: emulaator valmistab selle täitmiskeskkonna jaoks ette käivituskujutise (luuakse ühe korra järgmisel käivitamisel, mis võtab aega).</string>
+    <string name="vs_no_watchdog">Keela süsteemi watchdog (Android 14+)</string>
+    <string name="vs_no_watchdog_sub">Käivitamiseks, mis on aeglasem kui Androidi 60 s watchdogi piir, mis lõpetab system_serveri tsüklis. Muudab püsivara faili services.jar nii, et watchdogi lõim lõpeb kohe; päris süsteemi ummistust ei lahenda pärast seda enam taaskäivitus. Jar-faili eelkompileeritud koodi eiratakse, mis võib esimest käivitamist aeglustada. Väljalülitamine taastab algse jar-faili. Jõustub järgmisel täielikul käivitamisel.</string>
+    <string name="folder_new">Uus kaust</string>
+    <string name="folder_new_dots">Uus kaust…</string>
+    <string name="folder_rename">Nimeta kaust ümber</string>
+    <string name="folder_delete">Kustuta kaust (ROM-id säilivad)</string>
+    <string name="folder_move">Teisalda kausta</string>
+    <string name="folder_none">Pole kaustas</string>
+    <string name="folder_default_name">Kaust</string>
+    <string name="folder_empty">Tühi – lohista ROM-id siia</string>
+    <string name="folder_open">Ava kaust</string>
+    <string name="folder_close">Sulge kaust</string>
+    <plurals name="folder_roms">
+        <item quantity="one">%1$d ROM</item>
+        <item quantity="other">%1$d ROM-i</item>
+    </plurals>
+    <string name="phantom_title">Fantomprotsesside tapja</string>
+    <string name="phantom_msg">Su seadme arendaja valikutes pole sisse lülitatud valikut „Keela alamprotsesside piirangud“. See tähendab, et zygote lõpetatakse emulaatori käivitamise ajal ja emulaator ei saa käivituda. Seetõttu on TUGEVASTI SOOVITATAV see sisse lülitada.</string>
+    <string name="phantom_open_dev">Ava arendaja valikud</string>
+    <string name="phantom_ignore">Ignoreeri</string>
+    <string name="phantom_never">Ära enam meenuta</string>
 </resources>

@@ -10,8 +10,17 @@ import android.os.Build
 import android.provider.Settings
 import androidx.core.content.FileProvider
 import app.aemu.BuildConfig
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.awaitCancellation
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.withContext
+import java.io.IOException
+import java.util.concurrent.atomic.AtomicReference
 import org.json.JSONArray
 import java.io.File
 import java.io.FileOutputStream
@@ -143,52 +152,79 @@ object AppUpdateManager {
 
         val targetFile = File(updatesDir, "aemulator-plus-${release.versionName}.apk")
 
-        var currentUrl = release.downloadUrl
-        var conn: HttpURLConnection
-        var redirects = 0
-        while (true) {
-            val url = URL(currentUrl)
-            conn = url.openConnection() as HttpURLConnection
-            conn.connectTimeout = 15000
-            conn.readTimeout = 30000
-            conn.instanceFollowRedirects = true
-            conn.setRequestProperty("User-Agent", "AEmulator-Plus-App")
+        // Fix: cancelling the coroutine did not stop the download. Reads on HttpURLConnection block and ignore
+        // coroutine cancellation, so the transfer ran to the end and its progress callbacks flipped the UI back to
+        // "Downloading". Now a watcher child coroutine closes the socket the moment the job is cancelled (which
+        // unblocks connect/read), the loop checks for cancellation on every chunk, and the partial file is removed.
+        val active = AtomicReference<HttpURLConnection?>(null)
+        var finished = false
+        try {
+            coroutineScope {
+                val watcher = launch {
+                    try { awaitCancellation() } finally { runCatching { active.get()?.disconnect() } }
+                }
+                try {
+                    var currentUrl = release.downloadUrl
+                    var redirects = 0
+                    var conn: HttpURLConnection
+                    while (true) {
+                        currentCoroutineContext().ensureActive()
+                        val url = URL(currentUrl)
+                        conn = url.openConnection() as HttpURLConnection
+                        active.set(conn)
+                        conn.connectTimeout = 15000
+                        conn.readTimeout = 30000
+                        conn.instanceFollowRedirects = true
+                        conn.setRequestProperty("User-Agent", "AEmulator-Plus-App")
 
-            val code = conn.responseCode
-            if (code in listOf(HttpURLConnection.HTTP_MOVED_PERM, HttpURLConnection.HTTP_MOVED_TEMP, 307, 308)) {
-                val newUrl = conn.getHeaderField("Location")
-                conn.disconnect()
-                if (newUrl != null && redirects < 5) {
-                    currentUrl = newUrl
-                    redirects++
-                    continue
+                        val code = conn.responseCode
+                        if (code in listOf(HttpURLConnection.HTTP_MOVED_PERM, HttpURLConnection.HTTP_MOVED_TEMP, 307, 308)) {
+                            val newUrl = conn.getHeaderField("Location")
+                            conn.disconnect()
+                            if (newUrl != null && redirects < 5) {
+                                currentUrl = newUrl
+                                redirects++
+                                continue
+                            }
+                        }
+                        break
+                    }
+
+                    if (conn.responseCode != HttpURLConnection.HTTP_OK) {
+                        throw Exception("HTTP ${conn.responseCode}: ${conn.responseMessage}")
+                    }
+
+                    val totalLength = conn.contentLengthLong.takeIf { it > 0 } ?: release.sizeBytes
+                    var downloadedBytes = 0L
+
+                    conn.inputStream.use { input ->
+                        FileOutputStream(targetFile).use { output ->
+                            val buffer = ByteArray(16 * 1024)
+                            var bytesRead: Int
+                            while (input.read(buffer).also { bytesRead = it } != -1) {
+                                currentCoroutineContext().ensureActive()
+                                output.write(buffer, 0, bytesRead)
+                                downloadedBytes += bytesRead
+                                val progress = if (totalLength > 0) downloadedBytes.toFloat() / totalLength else 0f
+                                onProgress(progress.coerceIn(0f, 1f), downloadedBytes, totalLength)
+                            }
+                            output.flush()
+                        }
+                    }
+                    finished = true
+                } finally {
+                    watcher.cancel()
                 }
             }
-            break
+        } catch (e: IOException) {
+            // A socket closed by the cancel hook surfaces as an IOException; report it as a cancellation, not an error.
+            if (!currentCoroutineContext().isActive) throw CancellationException("Update download cancelled").also { it.initCause(e) }
+            throw e
+        } finally {
+            runCatching { active.get()?.disconnect() }
+            if (!finished) targetFile.delete()
         }
 
-        if (conn.responseCode != HttpURLConnection.HTTP_OK) {
-            throw Exception("HTTP ${conn.responseCode}: ${conn.responseMessage}")
-        }
-
-        val totalLength = conn.contentLengthLong.takeIf { it > 0 } ?: release.sizeBytes
-        var downloadedBytes = 0L
-
-        conn.inputStream.use { input ->
-            FileOutputStream(targetFile).use { output ->
-                val buffer = ByteArray(16 * 1024)
-                var bytesRead: Int
-                while (input.read(buffer).also { bytesRead = it } != -1) {
-                    output.write(buffer, 0, bytesRead)
-                    downloadedBytes += bytesRead
-                    val progress = if (totalLength > 0) downloadedBytes.toFloat() / totalLength else 0f
-                    onProgress(progress.coerceIn(0f, 1f), downloadedBytes, totalLength)
-                }
-                output.flush()
-            }
-        }
-
-        conn.disconnect()
         if (context.packageManager.getPackageArchiveInfo(targetFile.absolutePath, 0)?.packageName != context.packageName) {
             targetFile.delete()
             throw LocalizedIOException("Downloaded APK has the wrong application package", R.string.update_err_wrong_package)

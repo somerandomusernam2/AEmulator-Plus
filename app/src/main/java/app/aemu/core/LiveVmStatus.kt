@@ -1,4 +1,4 @@
-/* AEmulator Sunset addition, 2026-10-02. GPL-3.0; see LICENSE and NOTICE.md. */
+/* AEmulator Sunset addition, 2026-10-02. Modified for AEmulator Plus, 2026-11-09: one lease per VM slot. GPL-3.0; see LICENSE and NOTICE.md. */
 package app.aemu.core
 
 import java.io.File
@@ -8,9 +8,9 @@ import java.nio.channels.OverlappingFileLockException
 
 /** Advisory lease shared by :vm and the library. Kernel releases it on process death.
  * A leftover ID file alone never means that a guest is running. */
-internal class LiveVmStatus(private val directory: File) {
-    private val lockFile get() = File(directory, "live-vm.lock")
-    private val idFile get() = File(directory, "live-vm.id")
+internal class LiveVmStatus(private val directory: File, private val slot: Int = 0) {
+    private val lockFile get() = file(directory, slot, "lock")
+    private val idFile get() = file(directory, slot, "id")
     private var handle: RandomAccessFile? = null
     private var lease: FileLock? = null
 
@@ -30,7 +30,13 @@ internal class LiveVmStatus(private val directory: File) {
         try { lease?.release() } finally { lease = null; handle?.close(); handle = null }
     }
 
-    fun activeId(): String? = runCatching {
+    fun activeId(): String? = activeId(lockFile, idFile)
+
+    companion object {
+        /** slot 0 keeps the original file names */
+        private fun file(directory: File, slot: Int, ext: String) = File(directory, if (slot <= 0) "live-vm.$ext" else "live-vm-$slot.$ext")
+
+        private fun activeId(lockFile: File, idFile: File): String? = runCatching {
         if (!lockFile.isFile) return@runCatching null
         RandomAccessFile(lockFile, "rw").use { reader ->
             val probe = try { reader.channel.tryLock() } catch (_: OverlappingFileLockException) { null }
@@ -38,4 +44,5 @@ internal class LiveVmStatus(private val directory: File) {
             else idFile.readText().trim().takeIf { it.matches(Regex("[a-z0-9]{6}")) }
         }
     }.getOrNull()
+    }
 }

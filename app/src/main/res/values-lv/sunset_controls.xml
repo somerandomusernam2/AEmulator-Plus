@@ -30,4 +30,17 @@
     <string name="vs_sf_tombstone">SurfaceFlinger avārijas tombstone (atkļūdošana)</string>
     <string name="vs_sf_tombstone_sub">Ja SurfaceFlinger avarē, aparātprogrammatūra ieraksta žurnālā parastu tombstone (ar avarējušo funkciju) īsa ziņojuma vietā. Izmantojiet, sūtot kļūdas ziņojumu. Tiek lietots nākamajā pilnajā virtuālās mašīnas palaišanā.</string>
     <string name="bluetooth_permission_denied">Bluetooth atļauja liegta: viesis tiks palaists bez saimnieka Bluetooth.</string>
+    <string name="vi_mouse_keyboard">Ievade: pele un tastatūra</string>
+    <string name="vi_mouse_keyboard_sub">Reģistrē viesim skārienpaliktni un tastatūru un noņem tā skārienekrānu. Ekrāns kļūst par skārienpaliktni (pieskarieties, lai noklikšķinātu, divi pirksti ritināšanai), un navigācijas joslā parādās tastatūras poga. Nepieciešams QEMU dzinējs (nevis vietējais 64 bitu) un pilnīga virtuālās mašīnas pārstartēšana.</string>
+    <string name="vi_keypad">Ievade: taustiņu tastatūra</string>
+    <string name="vi_keypad_sub">Pievieno navigācijas joslai taustiņu tastatūras pogu: bultiņu taustiņi, Labi, programmatūras taustiņi, Zvanīt/Beigt un 0–9 * # kā taustiņtālrunī. Pieskaršanās turpina darboties, un taustiņu tastatūru var kombinēt ar peli un tastatūru.</string>
+    <string name="vi_keyboard">Tastatūra</string>
+    <string name="vi_keypad_title">Taustiņu tastatūra</string>
+    <string name="vi_close">Aizvērt</string>
+    <string name="vi_open_keyboard">Tastatūra</string>
+    <string name="vi_open_keypad">Taustiņu tastatūra</string>
+    <string name="m_resize_screen">Mainīt ekrāna izmēru</string>
+    <string name="m_resize_done">Izmēra maiņa pabeigta</string>
+    <string name="m_resize_reset">Atiestatīt ekrāna izmēru</string>
+    <string name="vi_resize_hint">Velciet ekrāna stūri, lai mainītu tā izmēru. Kad esat pabeidzis, atveriet izvēlni un pieskarieties “Izmēra maiņa pabeigta”.</string>
 </resources>

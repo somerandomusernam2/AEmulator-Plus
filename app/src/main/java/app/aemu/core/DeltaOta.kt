@@ -436,6 +436,13 @@ object DeltaOta {
         """((?:\s*ui_print\s*\($Q\)\s*;)*)\s*else((?:\s*(?:ui_print|check_first_block)\s*\($Q\)\s*;)*)""" +
         """\s*ifelse\s*\(\s*(block_image_recover\s*\(\s*"[^"]+"\s*,\s*"[^"]+"\s*\))\s*&&\s*($VERIFY_CALL)\s*,\s*ui_print\s*\($Q\)\s*,""" +
         """\s*abort\s*\(\s*($Q)\s*\)\s*\)\s*;\s*endif\s*;""")
+    // Android 5.1 / 6.0: the same check without the recover step, the else branch is just the abort:
+    //   if (range_sha1(dev, ranges) == sha || block_image_verify(…)) then ui_print(…); else abort("…"); endif;
+    // (the parentheses around the condition are optional). groups: 1 range check, 2 verify, 3/4 bodies of then / else, 5 abort message
+    private val GATE_PLAIN = Regex(
+        """\bif\s*\(?\s*(range_sha1\s*\(\s*"[^"]+"\s*,\s*"[^"]+"\s*\)\s*==\s*"[0-9a-fA-F]{40}\x22)\s*\|\|\s*($VERIFY_CALL)\s*\)?\s*then""" +
+        """((?:\s*ui_print\s*\($Q\)\s*;)*)\s*else((?:\s*(?:ui_print|check_first_block)\s*\($Q\)\s*;)*)""" +
+        """\s*abort\s*\(\s*($Q)\s*\)\s*;\s*endif\s*;""")
     private const val NO_LAYOUT = "This OTA updates the whole system partition as a disk image. The app can only apply that to a VM " +
         "whose system layout (ext4) or stock image (SquashFS) it recorded while the firmware was imported; this VM has " +
         "neither (it was imported before this was supported, imported from something other than a full block OTA, or its " +
@@ -635,31 +642,35 @@ object DeltaOta {
      * i.e. the image is the expected one if the hash of the ranges matches or, failing that, if every block the transfer
      * list reads has the hash it expects; otherwise the script tries to repair the image from its error-correction data
      * and aborts if that fails. A VM's image is rebuilt from files and has no such data, so "recover" is taken to fail.
-     * Only this exact shape, about the one partition the script updates, is accepted; any other if / ifelse stays refused
+     * Android 5.1 / 6.0 scripts have the same check with a plain "else abort(…)" and no recover step ([GATE_PLAIN]).
+     * Only these exact shapes, about the one partition the script updates, are accepted; any other if / ifelse stays refused
      * (the whole block is cut out of the text, so whatever is left of them is reported as an unknown command).
      */
     private fun findGates(text: String): List<Gate> {
-        val ms = GATE.findAll(text).toList()
+        val ms = (GATE.findAll(text).map { it to false } + GATE_PLAIN.findAll(text).map { it to true })
+            .sortedBy { it.first.range.first }.toList()
         if (ms.isEmpty()) return emptyList()
         val updates = BLOCK_UPDATE.findAll(text).toList()
         val out = ArrayList<Gate>()
         val seen = HashSet<String>()
-        for (m in ms) {
+        for ((m, plain) in ms) {
             val g = m.groupValues
             val rc = RANGE_CHECK.find(g[1])
             val v1 = BLOCK_VERIFY.find(g[2])
-            val rec = BLOCK_RECOVER.find(g[5])
-            val v2 = BLOCK_VERIFY.find(g[6])
-            if (rc == null || v1 == null || rec == null || v2 == null) throw OtaException("the updater-script verifies the system image in a way this app cannot read", R.string.ota_the_updater_script_verifies_the_system_2)
+            // the plain form has no recover step and no second verify
+            val rec = if (plain) null else BLOCK_RECOVER.find(g[5])
+            val v2 = if (plain) null else BLOCK_VERIFY.find(g[6])
+            if (rc == null || v1 == null || (!plain && (rec == null || v2 == null))) throw OtaException("the updater-script verifies the system image in a way this app cannot read", R.string.ota_the_updater_script_verifies_the_system_2)
             val upd = updates.firstOrNull { it.groupValues[1] == rc.groupValues[1] } ?: throw OtaException("the updater-script verifies a partition image it never updates", R.string.ota_the_updater_script_verifies_a_partition)
             if (m.range.last > upd.range.first) throw OtaException("the updater-script verifies the partition image after updating it", R.string.ota_the_updater_script_verifies_the_partition)
             if (!seen.add(rc.groupValues[1])) throw OtaException("the updater-script verifies the system image more than once, which this app cannot read", R.string.ota_the_updater_script_verifies_the_system)
             val want = upd.groupValues.drop(1) // device, transfer list, new data, patch data
-            if (v1.groupValues.drop(1) != want || v2.groupValues.drop(1) != want || rc.groupValues[1] != want[0] || rec.groupValues[1] != want[0])
+            if (v1.groupValues.drop(1) != want || rc.groupValues[1] != want[0] ||
+                (rec != null && v2 != null && (v2.groupValues.drop(1) != want || rec.groupValues[1] != want[0])))
                 throw OtaException("the updater-script verifies something other than the partition image it updates", R.string.ota_the_updater_script_verifies_something_other)
-            if (!BlockOta.ranges(rc.groupValues[2]).contentEquals(BlockOta.ranges(rec.groupValues[2])))
+            if (rec != null && !BlockOta.ranges(rc.groupValues[2]).contentEquals(BlockOta.ranges(rec.groupValues[2])))
                 throw OtaException("the updater-script recovers other blocks than it checks", R.string.ota_the_updater_script_recovers_other_blocks)
-            val msg = g[7].trim().removeSurrounding("\"").replace("\\\"", "\"")
+            val msg = (if (plain) g[5] else g[7]).trim().removeSurrounding("\"").replace("\\\"", "\"")
             out.add(Gate(m.range, RangeCheck(rc.groupValues[1], rc.groupValues[2], rc.groupValues[3].lowercase(), false, msg)))
         }
         return out

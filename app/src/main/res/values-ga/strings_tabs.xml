@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Added for AEmulator Plus, 2026-11-10: tabs and several machines at once -->
+<resources>
+    <string name="tab_home">Leabharlann</string>
+    <string name="tab_close">Dún an cluaisín</string>
+    <string name="tab_close_title">Dún %1$s?</string>
+    <string name="tab_close_text">Dúnann “Íosmhéadaigh” an cluaisín agus coinníonn sé an meaisín ag rith sa chúlra; oscail arís é ón leabharlann. Múchann “Múch” an meaisín.</string>
+    <string name="tab_minimize">Íosmhéadaigh</string>
+    <string name="tab_shutdown">Múch</string>
+    <string name="vm_slots_full">Tá na %1$d sliotán meaisín in úsáid. Múch ceann acu ar dtús.</string>
+</resources>

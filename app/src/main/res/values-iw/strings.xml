@@ -17,7 +17,7 @@
     <string name="storage_text">אפשר גישה לכל הקבצים: כך כרטיס הזיכרון של כל מערכת יימצא בתיקיית AEmulator באחסון הפנימי — נוח לקובצי APK, מוזיקה ותמונות.</string>
     <string name="allow">אפשר</string>
     <string name="empty_title">עדיין אין מערכות</string>
-    <string name="empty_text">הוסף קושחת ARM עבור Android 2.2–6.0: קובץ ZIP של recovery, ארכיון Odin ‏(.tar.md5), ‏system.img או תמונת יצרן.</string>
+    <string name="empty_text">הוסף קושחת ARM עבור Android 1.0–17: קובץ ZIP של recovery, ארכיון Odin ‏(.tar.md5), ‏system.img או תמונת יצרן.</string>
     <string name="empty_help">אילו קבצים מתאימים?</string>
     <string name="import_failed">הייבוא נכשל</string>
     <string name="import_running">מייבא קושחה</string>
@@ -29,7 +29,7 @@
     <string name="start">הפעל</string>
     <string name="rename">שנה שם</string>
     <string name="help_title">קושחות נתמכות</string>
-    <string name="help_text">• Android 2.2 ו-4.0–4.4: תמיכה עיקרית; 5.x–6.x: ניסיונית.\n• קושחות ARM של 32 סיביות בלבד (armeabi / armeabi-v7a).\n\nפורמטים:\n• קובץ ZIP של recovery מסוג CWM/TWRP ‏(MIUI, CyanogenMod, פורטים, רוב ה-ROMs המותאמים);\n• Samsung: ‏Odin ‏.tar / ‏.tar.md5 או ZIP עם AP_*.tar.md5;\n• תמונות יצרן של Google ‏(.tgz / ‏.zip);\n• ‏system.img ‏(ext4, sparse, YAFFS2), גיבוי TWRP בשם system.ext4.win;\n• OTA עם system.new.dat(.br)‎ + system.transfer.list.\n\nעדיף שהארכיון יכלול boot.img: ממנו נלקח סדר הפעלת השירותים.</string>
+    <string name="help_text">• Android 2.2–4.4: קושחת ARM של 32 סיביות, פועלת דרך QEMU (לפני 2.2: ניסיונית).\n• Android 5.0–17: קושחת arm64 ו-GSI, פועלות באופן מקורי בטלפון.\n\nפורמטים:\n• קובץ ZIP של recovery מסוג CWM/TWRP ‏(MIUI, CyanogenMod, פורטים, רוב ה-ROMs המותאמים);\n• Samsung: ‏Odin ‏.tar / ‏.tar.md5 או ZIP עם AP_*.tar.md5;\n• תמונות יצרן של Google ‏(.tgz / ‏.zip);\n• ‏system.img ‏(ext4, sparse, YAFFS2), גיבוי TWRP בשם system.ext4.win;\n• OTA עם system.new.dat(.br)‎ + system.transfer.list;\n• וכן: 7z, RAR, LG .kdz, Sony .ftf, Huawei UPDATE.APP, Qualcomm EDL, payload.bin, super.img, EROFS, Android-x86 ISO.\n\nעדיף שהארכיון יכלול boot.img: ממנו נלקח סדר הפעלת השירותים.</string>
     <string name="vs_screen">מסך האורח</string>
     <string name="vs_fixed_2x">ב-Android 2.x המסך קבוע: 480×800 ב-240 dpi.</string>
     <string name="vs_screen_hint">מסך קטן יותר מאיץ את המערכת.</string>
@@ -44,6 +44,13 @@
     <string name="vs_legacy_sub">המנוע הישן של Desire HD: ‏GLES 1.x בלבד, מסך 480×800. השתמש בו אם המנוע הראשי נכשל.</string>
     <string name="vs_lowram">מצב זיכרון נמוך</string>
     <string name="vs_lowram_sub">‏ro.config.low_ram — המערכת חוסכת בזיכרון.</string>
+    <string name="vs_memory_mode">ניהול זיכרון</string>
+    <string name="vs_memory_light">קל</string>
+    <string name="vs_memory_medium">בינוני</string>
+    <string name="vs_memory_aggressive">אגרסיבי</string>
+    <string name="vs_memory_light_sub">אפליקציות רקע נעצרות רק כשהזיכרון של הטלפון עצמו כמעט נגמר. מספר האתחולים הנמוך ביותר; צורך הכי הרבה זיכרון. נכנס לתוקף לאחר הפעלה מחדש מלאה של המכונה הווירטואלית.</string>
+    <string name="vs_memory_medium_sub">מאוזן: שומר על מספר מתון של אפליקציות רקע ועוצר את השאר כשהזיכרון הפנוי הולך ופוחת. נכנס לתוקף לאחר הפעלה מחדש מלאה של המכונה הווירטואלית.</string>
+    <string name="vs_memory_aggressive_sub">שומר על מעט אפליקציות רקע ובודק לעיתים קרובות, כך שהזיכרון מתפנה מוקדם. צורך הכי מעט זיכרון, אבל אפליקציות מופעלות מחדש לעיתים קרובות יותר. נכנס לתוקף לאחר הפעלה מחדש מלאה של המכונה הווירטואלית.</string>
     <string name="vs_proxy">פרוקסי TLS מודרני</string>
     <string name="vs_proxy_sub">מאפשר לדפדפנים ולאפליקציות ישנים לפתוח אתרי HTTPS של היום.</string>
     <string name="vs_controls">בקרה</string>
@@ -135,7 +142,7 @@
     <string name="vs_strace">עקוב אחר קריאות מערכת של שירותים</string>
     <string name="vs_strace_sub">שמות שירותים מופרדים בפסיקים, למשל mediaserver,zygote. מאט את השירותים האלה וכותב את המעקב ליומנים שלהם. מוחל באתחול הבא.</string>
     <string name="vs_wifi">רשת Wi-Fi</string>
-    <string name="vs_wifi_sub">מציג את האינטרנט של המארח למכונה הווירטואלית כרשת Wi-Fi מחוברת במקום Ethernet. ‏Android 2.3, 4.0–7.x. מוחל באתחול הבא.</string>
+    <string name="vs_wifi_sub">מציג את האינטרנט של המארח למכונה הווירטואלית כרשת Wi-Fi מחוברת במקום Ethernet. ‏Android 2.3, 4.0–17 (8–17: ניסיוני). מוחל באתחול הבא.</string>
     <string name="vs_wifi_ssid">שם הרשת (SSID)</string>
     <string name="vs_wifi_ssid_sub">עד 32 בייטים</string>
     <string name="vs_wifi_ssid_error">שם הרשת לא יכול להיות ריק</string>
@@ -488,4 +495,36 @@
     <string name="m_reset_menu_pos">אפס את כפתור התפריט</string>
     <string name="as_led">נורית התראות</string>
     <string name="as_led_sub">הצג את נורית ה-LED של טלפון האורח מעל המסך שלו</string>
+    <string name="vs_guest_nav">הפעלת סרגל הניווט / שורת המשימות</string>
+    <string name="vs_guest_nav_sub">מאפשר למערכת האורחת לצייר סרגל ניווט משלה, או את שורת המשימות של גרסאות Android למחשב (מגדיר qemu.hw.mainkeys=0). יש להפעיל בעת הייבוא רק עבור גרסאות למחשב, ולהשאיר כבוי בכל שאר האימג׳ים. ייכנס לתוקף באתחול המלא הבא.</string>
+    <string name="th_group_plain">ערכות נושא פשוטות</string>
+    <string name="th_group_skins">ערכות נושא בעיצוב מכשיר (מאת @regectt)</string>
+    <string name="th_group_custom">ערכות נושא מותאמות אישית</string>
+    <string name="th_custom_empty">עדיין אין ערכות נושא מותאמות אישית. הקש על ״ערכת נושא חדשה״ כדי ליצור אחת, או ייבא קובץ .aetheme. אי אפשר לשנות ערכות נושא פשוטות ועיצובי מכשירים: שכפל אחד מהם כדי לערוך אותו.</string>
+    <string name="th_expand">הרחבת הרשימה</string>
+    <string name="th_collapse">כיווץ הרשימה</string>
+    <string name="vs_art_boot_image">שימוש באימג׳ אתחול של ART (Android 14 ומעלה)</string>
+    <string name="vs_art_boot_image_sub">כבוי: המערכת האורחת פועלת ללא אימג׳ אתחול. ההפעלה איטית יותר, אבל שום דבר באימג׳ לא יכול להיכשל. מופעל: האמולטור מכין אימג׳ אתחול לסביבת הריצה הזו (נוצר פעם אחת בהפעלה הבאה, וזה לוקח זמן).</string>
+    <string name="vs_no_watchdog">השבתת ה-watchdog של המערכת (Android 14 ומעלה)</string>
+    <string name="vs_no_watchdog_sub">עבור אתחול שאיטי יותר ממגבלת ה-watchdog של Android, בת 60 שניות, שהורגת את system_server בלולאה. מתקן את services.jar של הקושחה כך שתהליכון ה-watchdog מסתיים מיד; קיפאון אמיתי של המערכת כבר לא יטופל באמצעות הפעלה מחדש. הקוד המהודר מראש של ה-jar מתעלמים ממנו, מה שעלול להאט את האתחול הראשון. כיבוי האפשרות משחזר את ה-jar המקורי. ייכנס לתוקף באתחול המלא הבא.</string>
+    <string name="folder_new">תיקייה חדשה</string>
+    <string name="folder_new_dots">תיקייה חדשה…</string>
+    <string name="folder_rename">שינוי שם התיקייה</string>
+    <string name="folder_delete">מחיקת התיקייה (ה-ROM-ים יישמרו)</string>
+    <string name="folder_move">העברה לתיקייה</string>
+    <string name="folder_none">לא בתיקייה</string>
+    <string name="folder_default_name">תיקייה</string>
+    <string name="folder_empty">ריקה — גרור לכאן ROM-ים</string>
+    <string name="folder_open">פתיחת התיקייה</string>
+    <string name="folder_close">סגירת התיקייה</string>
+    <plurals name="folder_roms">
+        <item quantity="one">ROM אחד</item>
+        <item quantity="two">שני ROM-ים</item>
+        <item quantity="other">%1$d ROM-ים</item>
+    </plurals>
+    <string name="phantom_title">רוצח תהליכי רפאים</string>
+    <string name="phantom_msg">במכשיר שלך האפשרות ״השבתת מגבלות תהליכי משנה״ באפשרויות למפתחים אינה מופעלת. המשמעות היא ש-zygote ייהרג במהלך הפעלת האמולטור, ולא ניתן יהיה לאתחל את האמולטור. לכן מומלץ בחום להפעיל אותה.</string>
+    <string name="phantom_open_dev">פתיחת אפשרויות למפתחים</string>
+    <string name="phantom_ignore">התעלמות</string>
+    <string name="phantom_never">אל תזכיר שוב</string>
 </resources>

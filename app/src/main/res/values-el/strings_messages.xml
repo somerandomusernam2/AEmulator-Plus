@@ -225,4 +225,11 @@
     <string name="update_err_wrong_package">Το APK που λήφθηκε έχει λάθος πακέτο εφαρμογής</string>
     <string name="catalog_err_too_many_lines">Ο κατάλογος υπερβαίνει τις 10000 γραμμές</string>
     <string name="imp_iso_no_system">Δεν βρέθηκε σύστημα Android στην εικόνα ISO (αναμενόταν system.sfs ή system.img)</string>
+    <string name="imp_inspecting">Έλεγχος του %1$s</string>
+    <string name="imp_choice_api">Επίπεδο API %1$s</string>
+    <string name="imp_choice_build">αριθμός έκδοσης %1$s</string>
+    <string name="imp_choice_title">Ποιο %1$s να εισαχθεί;</string>
+    <string name="imp_choice_text">Αυτό το πακέτο περιέχει περισσότερα από ένα %1$s (%2$d από %3$d). Επιλέξτε αυτό που θα εισαχθεί.</string>
+    <string name="imp_choice_ok">Εισαγωγή</string>
+    <string name="imp_choice_cancel">Ακύρωση εισαγωγής</string>
 </resources>

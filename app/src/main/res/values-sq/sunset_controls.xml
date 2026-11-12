@@ -30,4 +30,17 @@
     <string name="bluetooth_permission_denied">Leja e Bluetooth u refuzua: mysafiri do të niset pa Bluetooth të pritësit.</string>
     <string name="vs_sf_tombstone">Tombstone i rrëzimit të SurfaceFlinger (korrigjim)</string>
     <string name="vs_sf_tombstone_sub">Nëse SurfaceFlinger rrëzohet, lëre firmuerin të shkruajë në regjistër një tombstone normal (me funksionin që u rrëzua) në vend të një raporti të shkurtër. Përdore kur dërgon një raport gabimi. Zbatohet në nisjen e plotë të radhës të VM-së.</string>
+    <string name="vi_mouse_keyboard">Hyrja: miu dhe tastiera</string>
+    <string name="vi_mouse_keyboard_sub">Regjistron një touchpad dhe një tastierë te i ftuari dhe heq ekranin e tij me prekje. Ekrani bëhet touchpad (prek për të klikuar, dy gishta për të lëvizur) dhe në shiritin e navigimit shfaqet një buton tastiere. Kërkon motorin QEMU (jo atë 64-bit vendas) dhe rinisje të plotë të VM-së.</string>
+    <string name="vi_keypad">Hyrja: tastiera me butona</string>
+    <string name="vi_keypad_sub">Shton një buton tastiere me butona te shiriti i navigimit: tastet me shigjeta, OK, tastet softuerike, Thirr/Mbyll dhe 0–9 * # si në telefonat me butona. Prekja vazhdon të funksionojë dhe mund të kombinohet me miun dhe tastierën.</string>
+    <string name="vi_keyboard">Tastiera</string>
+    <string name="vi_keypad_title">Tastiera me butona</string>
+    <string name="vi_close">Mbyll</string>
+    <string name="vi_open_keyboard">Tastiera</string>
+    <string name="vi_open_keypad">Tastiera me butona</string>
+    <string name="m_resize_screen">Ndrysho madhësinë e ekranit</string>
+    <string name="m_resize_done">Ndryshimi i madhësisë u krye</string>
+    <string name="m_resize_reset">Rivendos madhësinë e ekranit</string>
+    <string name="vi_resize_hint">Tërhiq një cep të ekranit për të ndryshuar madhësinë. Kur të mbarosh, hap menunë dhe prek “Ndryshimi i madhësisë u krye”.</string>
 </resources>

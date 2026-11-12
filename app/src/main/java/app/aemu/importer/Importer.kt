@@ -520,6 +520,28 @@ class Importer(
         } finally { deleteTree(t.parentFile ?: t) }
     }
 
+    /**
+     * A whole-disk image (GPT) inside a zip. Stored: read in place from the archive, like a plain file, so a "super" partition
+     * anywhere on the disk works. Deflated: streamed, which only reaches a super partition near the start of the disk
+     * ([importGptStream] gives up past that); then the entry is copied to a temp file and read like a plain file.
+     */
+    private fun importZipGptDisk(zip: ZipFile, e: ZipArchiveEntry, base: String) {
+        val ch = zipChannel
+        if (e.method == ZipArchiveEntry.STORED && ch != null) {
+            runCatching { zip.getRawInputStream(e).close() } // computes dataOffset
+            if (e.dataOffset > 0) { importGptDisk(ChannelSource(ch, e.dataOffset, e.size), base); return }
+        }
+        if (zip.getInputStream(e).use { importGptStream(it, base) }) return
+        log("$base: not readable as a stream, copying it out first")
+        val t = spillEntry(zip, e)
+        try {
+            FileChannel.open(t.toPath(), StandardOpenOption.READ).use { c -> importGptDisk(ChannelSource(c), base) }
+        } catch (ex: IOException) {
+            if (cancelled) throw ex
+            log("$base: partition table unreadable, skipped (${ex.message})")
+        } finally { t.delete() }
+    }
+
     /** First [n] bytes of a zip entry (fewer if it is shorter). */
     private fun zipEntryHead(zip: ZipFile, e: ZipArchiveEntry, n: Int): ByteArray = zip.getInputStream(e).use { s ->
         val b = ByteArray(n)
@@ -855,10 +877,9 @@ class Importer(
                 }
                 // whole-disk image with a GPT inside the archive (Android Things iot_rpi3.img: 4.5 GB, deflated):
                 // read once as a stream, only the boot / oem / system / gapps slots are kept
-                base.endsWith(".img", true) && e.size > (16L shl 20) && GptDisk.probe(zipEntryHead(zip, e, 4104)) -> {
-                    val ok = zip.getInputStream(e).use { importGptStream(it, base) }
-                    if (!ok) log("$base: partition table unreadable, skipped")
-                }
+                // (a Googlebook / Chrome OS style recovery zip names the disk "*_recovery_*.bin", so not only "*.img")
+                PartitionNames.isDiskImageName(base) && e.size > (16L shl 20) && GptDisk.probe(zipEntryHead(zip, e, 4104)) ->
+                    importZipGptDisk(zip, e, base)
                 // stock OTA: no recovery.img, the recovery is boot.img + recovery-from-boot.p (see rebuildRecoveryFromBoot)
                 RecoveryFromBoot.isPatchFile(base) && e.size in 1..(32L shl 20) -> zip.getInputStream(e).use { rfbPatch = it.readBytes() }
                 RecoveryFromBoot.isScriptFile(base) && e.size in 1..(1L shl 20) ->
@@ -2316,8 +2337,16 @@ class Importer(
             else -> null
         }
         val dropSystem = plan?.dropSystemFolder == true
+        // a system.tar / system.tgz made from /system itself ("build.prop", "app/", "etc/" ... with no system/ folder around them): the
+        // chooser offers it (it reads a top-level build.prop), so its files are filed under system/ here. Without this none of its
+        // entries matched a rule below (etc/ and vendor/ were even dropped as the files of a root file system) and the import ended
+        // with "no Android system partition found in file".
+        val systemTar = partGroup == null && !name.endsWith(".win", true) &&
+            PartitionChoice.tarGroup(name.substringAfterLast('/').substringAfterLast('\\')) == "system"
         val tar = TarArchiveInputStream(s, "UTF-8")
         var fullRoot: Boolean? = null
+        // set by the first entry filed under system/ here; fullRoot cannot tell, it turns true for any "system/..." name, including these
+        var topLevelTar = false
         while (true) {
             if (cancelled) throw IOException("cancelled")
             val e: TarArchiveEntry = tar.nextEntry ?: break
@@ -2326,6 +2355,10 @@ class Importer(
             // an image, tar or folder the person did not pick for its partition
             if (plan != null && n in plan.skip) continue
             if (dropSystem && n.startsWith("system/")) continue
+            // (a tar that already showed a system/ folder is a whole root file system, whose etc/, data/ ... stay where they are)
+            val topLevel = systemTar && (topLevelTar || fullRoot != true) &&
+                PartitionChoice.isSystemTarTopLevel(n, e.isFile && !e.isSymbolicLink && !e.isLink, e.size)
+            if (topLevel) { n = "system/$n"; topLevelTar = true }
             // Odin names members "system.img.md5", "boot.img.md5", ...: match on the real image name
             // (a picked "system_b.img" / "boot_b.img" is imported under the plain name, which the matchers below know)
             val base = PartitionNames.stripOdinMd5(plan?.canonical?.get(n) ?: n.substringAfterLast('/'))
@@ -2403,7 +2436,7 @@ class Importer(
                     when {
                         e.isDirectory -> FirmwareContainers.destination(root, n).mkdirs()
                         e.isSymbolicLink -> symlinks.add(e.linkName to "/$n")
-                        e.isLink -> hardlink(n, e.linkName)
+                        e.isLink -> hardlink(n, if (topLevel) "system/" + e.linkName.removePrefix("./").trimStart('/') else e.linkName)
                         e.isFile -> {
                             writeFile(n, tar.nonClosing(), e.mode)
                             if (n.startsWith("system/")) gotSystem = true

@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Added for AEmulator Plus, 2026-11-10: tabs and several machines at once -->
+<resources>
+    <string name="tab_home">Βιβλιοθήκη</string>
+    <string name="tab_close">Κλείσιμο καρτέλας</string>
+    <string name="tab_close_title">Κλείσιμο του %1$s;</string>
+    <string name="tab_close_text">Η «Ελαχιστοποίηση» κλείνει την καρτέλα και αφήνει το μηχάνημα να συνεχίσει να λειτουργεί στο παρασκήνιο· ανοίξτε το ξανά από τη βιβλιοθήκη. Ο «Τερματισμός» απενεργοποιεί το μηχάνημα.</string>
+    <string name="tab_minimize">Ελαχιστοποίηση</string>
+    <string name="tab_shutdown">Τερματισμός</string>
+    <string name="vm_slots_full">Και οι %1$d θέσεις μηχανημάτων χρησιμοποιούνται. Τερματίστε πρώτα ένα.</string>
+</resources>

@@ -30,4 +30,17 @@
     <string name="bluetooth_permission_denied">Bluetooth-Berechtigung verweigert: Der Gast startet ohne Host-Bluetooth.</string>
     <string name="vs_sf_tombstone">SurfaceFlinger-Absturz-Tombstone (Debug)</string>
     <string name="vs_sf_tombstone_sub">Wenn SurfaceFlinger abstürzt, schreibt die Firmware einen normalen Tombstone (mit der abstürzenden Funktion) ins Protokoll statt eines kurzen Berichts. Nutze dies, wenn du einen Fehlerbericht sendest. Wird beim nächsten vollständigen VM-Start wirksam.</string>
+    <string name="vi_mouse_keyboard">Eingabe: Maus und Tastatur</string>
+    <string name="vi_mouse_keyboard_sub">Registriert ein Touchpad und eine Tastatur im Gastsystem und entfernt dessen Touchscreen. Der Bildschirm wird zum Touchpad (Tippen zum Klicken, zwei Finger zum Scrollen) und in der Navigationsleiste erscheint eine Tastaturtaste. Erfordert die QEMU-Engine (nicht die native 64-Bit-Engine) und einen vollständigen Neustart der VM.</string>
+    <string name="vi_keypad">Eingabe: Tastenfeld</string>
+    <string name="vi_keypad_sub">Fügt der Navigationsleiste eine Tastenfeld-Taste hinzu: Pfeiltasten, OK, Softkeys, Anrufen/Beenden und 0–9 * # wie bei einem Tastenhandy. Die Touch-Bedienung funktioniert weiterhin, und das Tastenfeld lässt sich mit Maus und Tastatur kombinieren.</string>
+    <string name="vi_keyboard">Tastatur</string>
+    <string name="vi_keypad_title">Tastenfeld</string>
+    <string name="vi_close">Schließen</string>
+    <string name="vi_open_keyboard">Tastatur</string>
+    <string name="vi_open_keypad">Tastenfeld</string>
+    <string name="m_resize_screen">Bildschirmgröße ändern</string>
+    <string name="m_resize_done">Größenänderung abschließen</string>
+    <string name="m_resize_reset">Bildschirmgröße zurücksetzen</string>
+    <string name="vi_resize_hint">Ziehe an einer Ecke des Bildschirms, um die Größe zu ändern. Öffne danach das Menü und tippe auf „Größenänderung abschließen“.</string>
 </resources>

@@ -18,7 +18,7 @@
     <string name="storage_text">Permite accesul la toate fișierele: cardul de memorie al fiecărui sistem va fi în folderul AEmulator din stocarea internă — practic pentru APK-uri, muzică și fotografii.</string>
     <string name="allow">Permite</string>
     <string name="empty_title">Niciun sistem încă</string>
-    <string name="empty_text">Adaugă un firmware ARM pentru Android 2.2–6.0: un ZIP de recovery, o arhivă Odin (.tar.md5), system.img sau o imagine din fabrică.</string>
+    <string name="empty_text">Adaugă un firmware ARM pentru Android 1.0–17: un ZIP de recovery, o arhivă Odin (.tar.md5), system.img sau o imagine din fabrică.</string>
     <string name="empty_help">Ce fișiere funcționează?</string>
     <string name="import_failed">Importul a eșuat</string>
     <string name="import_running">Se importă firmware-ul</string>
@@ -30,7 +30,7 @@
     <string name="start">Pornește</string>
     <string name="rename">Redenumește</string>
     <string name="help_title">Firmware acceptat</string>
-    <string name="help_text">• Android 2.2 și 4.0–4.4: suport principal; 5.x–6.x: experimental.\n• Doar firmware ARM pe 32 de biți (armeabi / armeabi-v7a).\n\nFormate:\n• ZIP de recovery CWM/TWRP (MIUI, CyanogenMod, porturi, majoritatea ROM-urilor personalizate);\n• Samsung: Odin .tar / .tar.md5 sau un ZIP cu AP_*.tar.md5;\n• imagini din fabrică Google (.tgz / .zip);\n• system.img (ext4, sparse, YAFFS2), copie de rezervă TWRP system.ext4.win;\n• OTA cu system.new.dat(.br) + system.transfer.list.\n\nCel mai bine este ca arhiva să conțină boot.img: ordinea de pornire a serviciilor se preia din el.</string>
+    <string name="help_text">• Android 2.2–4.4: firmware ARM pe 32 de biți, rulează prin QEMU (mai vechi de 2.2: experimental).\n• Android 5.0–17: firmware arm64 și GSI-uri, rulează nativ pe telefon.\n\nFormate:\n• ZIP de recovery CWM/TWRP (MIUI, CyanogenMod, porturi, majoritatea ROM-urilor personalizate);\n• Samsung: Odin .tar / .tar.md5 sau un ZIP cu AP_*.tar.md5;\n• imagini din fabrică Google (.tgz / .zip);\n• system.img (ext4, sparse, YAFFS2), copie de rezervă TWRP system.ext4.win;\n• OTA cu system.new.dat(.br) + system.transfer.list;\n• De asemenea: 7z, RAR, LG .kdz, Sony .ftf, Huawei UPDATE.APP, Qualcomm EDL, payload.bin, super.img, EROFS, Android-x86 ISO.\n\nCel mai bine este ca arhiva să conțină boot.img: ordinea de pornire a serviciilor se preia din el.</string>
     <string name="vs_screen">Ecranul sistemului invitat</string>
     <string name="vs_fixed_2x">Android 2.x folosește un ecran fix de 480×800 la 240 dpi.</string>
     <string name="vs_screen_hint">Un ecran mai mic face sistemul mai rapid.</string>
@@ -45,6 +45,13 @@
     <string name="vs_legacy_sub">Motorul mai vechi Desire HD: doar GLES 1.x, ecran 480×800. Folosește-l dacă motorul principal eșuează.</string>
     <string name="vs_lowram">Mod memorie redusă</string>
     <string name="vs_lowram_sub">ro.config.low_ram — sistemul economisește memorie.</string>
+    <string name="vs_memory_mode">Gestionarea memoriei</string>
+    <string name="vs_memory_light">Ușoară</string>
+    <string name="vs_memory_medium">Medie</string>
+    <string name="vs_memory_aggressive">Agresivă</string>
+    <string name="vs_memory_light_sub">Aplicațiile din fundal sunt oprite doar când telefonul însuși rămâne aproape fără memorie. Cele mai puține reporniri; folosește cea mai multă memorie. Se aplică după o repornire completă a mașinii virtuale.</string>
+    <string name="vs_memory_medium_sub">Echilibrată: păstrează un număr moderat de aplicații în fundal și le oprește pe celelalte când memoria liberă scade. Se aplică după o repornire completă a mașinii virtuale.</string>
+    <string name="vs_memory_aggressive_sub">Păstrează puține aplicații în fundal și verifică des, astfel încât memoria este eliberată devreme. Folosește cea mai puțină memorie, dar aplicațiile repornesc mai des. Se aplică după o repornire completă a mașinii virtuale.</string>
     <string name="vs_proxy">Proxy TLS modern</string>
     <string name="vs_proxy_sub">Permite browserelor și aplicațiilor vechi să deschidă site-urile HTTPS de azi.</string>
     <string name="vs_controls">Comenzi</string>
@@ -136,7 +143,7 @@
     <string name="vs_strace">Urmărește apelurile de sistem ale serviciilor</string>
     <string name="vs_strace_sub">Numele serviciilor separate prin virgulă, de ex. mediaserver,zygote. Încetinește aceste servicii și scrie urmărirea în jurnalele lor. Se aplică la următoarea pornire.</string>
     <string name="vs_wifi">Rețea Wi-Fi</string>
-    <string name="vs_wifi_sub">Arată internetul gazdei către VM ca pe o rețea Wi-Fi conectată, în loc de Ethernet. Android 2.3, 4.0–7.x. Se aplică la următoarea pornire.</string>
+    <string name="vs_wifi_sub">Arată internetul gazdei către VM ca pe o rețea Wi-Fi conectată, în loc de Ethernet. Android 2.3, 4.0–17 (8–17: experimental). Se aplică la următoarea pornire.</string>
     <string name="vs_wifi_ssid">Numele rețelei (SSID)</string>
     <string name="vs_wifi_ssid_sub">Până la 32 de octeți</string>
     <string name="vs_wifi_ssid_error">Numele rețelei nu poate fi gol</string>
@@ -489,4 +496,36 @@
     <string name="m_reset_menu_pos">Resetează butonul de meniu</string>
     <string name="as_led">Lumină de notificare</string>
     <string name="as_led_sub">Afișează LED-ul telefonului invitat deasupra ecranului</string>
+    <string name="vs_guest_nav">Activează bara de navigare / bara de activități</string>
+    <string name="vs_guest_nav_sub">Permite invitatului să-și deseneze propria bară de navigare sau bara de activități a versiunilor Android pentru desktop (setează qemu.hw.mainkeys=0). Activează la import doar pentru versiunile pentru desktop; pentru toate celelalte imagini las-o dezactivată. Se aplică la următoarea pornire completă.</string>
+    <string name="th_group_plain">Teme simple</string>
+    <string name="th_group_skins">Teme cu aspectul dispozitivului (de @regectt)</string>
+    <string name="th_group_custom">Teme personalizate</string>
+    <string name="th_custom_empty">Încă nu există teme personalizate. Atinge „Temă nouă” pentru a crea una sau importă un fișier .aetheme. Temele simple și aspectele dispozitivelor nu pot fi modificate: duplică una pentru a o edita.</string>
+    <string name="th_expand">Extinde lista</string>
+    <string name="th_collapse">Restrânge lista</string>
+    <string name="vs_art_boot_image">Folosește imaginea de boot ART (Android 14+)</string>
+    <string name="vs_art_boot_image_sub">Dezactivat: invitatul rulează fără imagine de boot. Pornirea este mai lentă, dar nimic legat de imagine nu poate eșua. Activat: emulatorul pregătește o imagine de boot pentru acest mediu de execuție (se creează o singură dată la următoarea pornire, ceea ce durează un timp).</string>
+    <string name="vs_no_watchdog">Dezactivează watchdog-ul sistemului (Android 14+)</string>
+    <string name="vs_no_watchdog_sub">Pentru o pornire mai lentă decât limita de 60 s a watchdog-ului Android, care oprește system_server în buclă. Modifică services.jar al firmware-ului astfel încât firul watchdog să se încheie imediat; o blocare reală a sistemului nu mai este remediată printr-o repornire. Codul precompilat al fișierului jar este ignorat, ceea ce poate încetini prima pornire. Dezactivarea restaurează jar-ul original. Se aplică la următoarea pornire completă.</string>
+    <string name="folder_new">Dosar nou</string>
+    <string name="folder_new_dots">Dosar nou…</string>
+    <string name="folder_rename">Redenumește dosarul</string>
+    <string name="folder_delete">Șterge dosarul (ROM-urile sunt păstrate)</string>
+    <string name="folder_move">Mută în dosar</string>
+    <string name="folder_none">Nu este într-un dosar</string>
+    <string name="folder_default_name">Dosar</string>
+    <string name="folder_empty">Gol — trage ROM-uri aici</string>
+    <string name="folder_open">Deschide dosarul</string>
+    <string name="folder_close">Închide dosarul</string>
+    <plurals name="folder_roms">
+        <item quantity="one">%1$d ROM</item>
+        <item quantity="few">%1$d ROM-uri</item>
+        <item quantity="other">%1$d de ROM-uri</item>
+    </plurals>
+    <string name="phantom_title">Ucigaș de procese fantomă</string>
+    <string name="phantom_msg">Pe dispozitivul tău nu este activată opțiunea „Dezactivează restricțiile pentru procesele-copil” din Opțiunile pentru dezvoltatori. Asta înseamnă că zygote va fi oprit în timpul pornirii emulatorului, făcând imposibilă pornirea acestuia. Prin urmare, îți RECOMANDĂM INSISTENT să o activezi.</string>
+    <string name="phantom_open_dev">Deschide Opțiunile pentru dezvoltatori</string>
+    <string name="phantom_ignore">Ignoră</string>
+    <string name="phantom_never">Nu mai reaminti</string>
 </resources>

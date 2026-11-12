@@ -30,4 +30,17 @@
     <string name="bluetooth_permission_denied">Tinanggihan ang pahintulot sa Bluetooth: magbo-boot ang guest nang walang Bluetooth ng host.</string>
     <string name="vs_sf_tombstone">Tombstone ng pag-crash ng SurfaceFlinger (debug)</string>
     <string name="vs_sf_tombstone_sub">Kung mag-crash ang SurfaceFlinger, hayaang magsulat ang firmware ng normal na tombstone sa log (kasama ang function na nag-crash) sa halip na maikling ulat. Gamitin ito kapag magpapadala ng bug report. Ilalapat sa susunod na buong boot ng VM.</string>
+    <string name="vi_mouse_keyboard">Input: mouse at keyboard</string>
+    <string name="vi_mouse_keyboard_sub">Nagrerehistro ng touchpad at keyboard sa guest at inaalis ang touch screen nito. Nagiging touchpad ang screen (i-tap para mag-click, dalawang daliri para mag-scroll) at may lalabas na button ng keyboard sa navigation bar. Kailangan ang QEMU engine (hindi ang native na 64-bit) at buong restart ng VM.</string>
+    <string name="vi_keypad">Input: keypad</string>
+    <string name="vi_keypad_sub">Nagdaragdag ng button ng keypad sa navigation bar: mga arrow key, OK, mga soft key, Tawag/Tapusin, at 0–9 * # tulad ng feature phone. Gumagana pa rin ang touch at maaari itong isama sa mouse at keyboard.</string>
+    <string name="vi_keyboard">Keyboard</string>
+    <string name="vi_keypad_title">Keypad</string>
+    <string name="vi_close">Isara</string>
+    <string name="vi_open_keyboard">Keyboard</string>
+    <string name="vi_open_keypad">Keypad</string>
+    <string name="m_resize_screen">Baguhin ang laki ng screen</string>
+    <string name="m_resize_done">Tapos na ang pagbabago ng laki</string>
+    <string name="m_resize_reset">I-reset ang laki ng screen</string>
+    <string name="vi_resize_hint">I-drag ang sulok ng screen para baguhin ang laki nito. Kapag tapos na, buksan ang menu at i-tap ang “Tapos na ang pagbabago ng laki”.</string>
 </resources>

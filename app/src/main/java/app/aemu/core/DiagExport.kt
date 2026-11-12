@@ -34,6 +34,8 @@ object DiagExport {
                 zip.setLevel(6)
                 entry(zip, "diag.txt") { it.write(diag(ctx, vm).toByteArray()) }
                 entry(zip, "guest-data-perms.txt") { it.write(runCatching { dataPerms(vm.paths.root, vm.paths.owners) }.getOrElse { "[failed: $it]" }.toByteArray()) }
+                // Added for AEmulator Plus (2026-11-11): the whole guest tree as a recursive file list (no contents)
+                entry(zip, "guest-file-list.txt") { o -> guestFileList(vm.paths.root, o) }
                 entry(zip, "ui-log.txt") { o -> vm.lines().forEach { o.write((it + "\n").toByteArray()) } }
                 entry(zip, "input-events.txt") { o ->
                     o.write("last events sent to the guest (uptime ms, type: 0=SYN 1=KEY 3=ABS, code, value)\n".toByteArray())
@@ -103,10 +105,15 @@ object DiagExport {
                 }
                 entry(zip, "guest-sms-db.txt") { it.write(smsDb(ctx, vm).toByteArray()) }
                 vm.paths.bin.listFiles()?.filter { it.isFile }?.sortedBy { it.name }?.forEach { f -> addFile(zip, "run/${f.name}", f) }
-                // fatal-signal reports of the native runner (pc, lr, fault address, registers): where a native service died
-                listOf("dev/aemu_crash.log", "dev/.aemu_crash.log", "dev/.aemu-trace.log").forEach { rel ->
+                // fatal-signal reports of the native runner (pc, lr, fault address, registers): where a native service died;
+                // aemu-xattr.log is the runner's debug trace (failing /proc/self path calls, "proc-trace nr=N path ret=-errno")
+                listOf("dev/aemu_crash.log", "dev/.aemu_crash.log", "dev/.aemu-trace.log", "dev/aemu-xattr.log").forEach { rel ->
                     val f = File(vm.paths.root, rel)
-                    if (f.isFile) addFile(zip, "guest/$rel", f)
+                    // Modified for AEmulator Plus (2026-11-11): the syscall trace goes in whole up to 50 MiB (addFile would cut out
+                    // the middle, which is where hyos_spawner's lines are); bigger than that it is cut like any big file
+                    if (f.isFile && rel == "dev/.aemu-trace.log" && f.length() <= (50L shl 20))
+                        entry(zip, "guest/$rel") { o -> RandomAccessFile(f, "r").use { r -> copyRange(r, 0, f.length(), o) } }
+                    else if (f.isFile) addFile(zip, "guest/$rel", f)
                 }
                 // files the factory test program writes itself
                 listOf("cache/tki/tki.log", "data/mmi_ip.png", "data/local/tmp/mmi.log").forEach { rel ->
@@ -190,8 +197,12 @@ object DiagExport {
             // and has no image root in it, so the marker never matched: "SIGQUIT sent to 0 processes", no stack dump of a
             // system_server that hangs (Android 12 / 13 stop right after StartFontManagerService) and no word about it anywhere.
             val native = vm.engine == Engine.N64 && cmd.contains("libaemu64_")
-            if (!(cmd.contains(marker) || native) || !cmd.contains("/system/bin/app_process") || cmd.contains("aemu-stubs.jar") ||
-                cmd.contains("aemu-bt.jar") || cmd.contains(WifiEmu.JAR_NAME) || cmd.contains("aemu-sensorhub.jar")) return@forEach
+            // Modified for AEmulator Plus (2026-11-10): the zygote renames a forked system_server's command line to just
+            // "system_server" (no app_process path, no image root), so the filter below never matched it: the dump went to the
+            // secondary zygote only and a system_server hung in StartFontManagerService left no stack at all. Match it by name.
+            val systemServer = cmd.substringBefore('\u0000') == "system_server"
+            if (!systemServer && (!(cmd.contains(marker) || native) || !cmd.contains("/system/bin/app_process") || cmd.contains("aemu-stubs.jar") ||
+                cmd.contains("aemu-bt.jar") || cmd.contains(WifiEmu.JAR_NAME) || cmd.contains("aemu-sensorhub.jar"))) return@forEach
             val comm = runCatching { File(d, "comm").readText().trim() }.getOrDefault("?")
             val threads = runCatching {
                 File(d, "task").listFiles()?.sortedBy { it.name.toIntOrNull() ?: 0 }?.joinToString(" ") { t ->
@@ -400,6 +411,69 @@ object DiagExport {
             }
         }.onFailure { appendLine("[fb0 read failed: $it]") }
         appendLine()
+        appendLine("-- hwui renderer properties (the guest's live property area) --")
+        runCatching {
+            val a = PropArea.open(p.props)
+            if (a == null) appendLine("[property area not recognized]")
+            else {
+                for (k in listOf("debug.hwui.renderer", "ro.hwui.use_vulkan", "debug.renderengine.backend", "ro.hardware.vulkan",
+                    "ro.kernel.qemu", "ro.kernel.qemu.gles", "qemu.gles", "ro.hardware.egl",
+                    "persist.sys.background_blur_supported", "persist.sys.rust_runtime_active", "rust.runtime_active", "init.svc.hyos_spawner"))
+                    appendLine("$k=${a.get(k) ?: "<unset>"}")
+                a.close()
+            }
+        }.onFailure { appendLine("[property read failed: $it]") }
+        appendLine()
+        appendLine("-- hwui: property names read by the guest's libhwui.so --")
+        runCatching {
+            val rx = Regex("[a-z][a-z0-9_]*(\\.[a-z0-9_]+){1,6}")
+            val want = Regex("(hwui|vulkan|renderer|skia|graphite|pipeline|gpu)", RegexOption.IGNORE_CASE)
+            val roots = Regex("^(debug|ro|persist|sys|vendor|dalvik|ctl|init)\\.")
+            for (path in listOf("system/lib64/libhwui.so", "system/lib64/libhwui_miui.so")) {
+                val f = File(p.root, path)
+                if (!f.isFile) { appendLine("$path: missing"); continue }
+                val found = java.util.TreeSet<String>()
+                val cur = StringBuilder()
+                f.inputStream().buffered(1 shl 16).use { ins ->
+                    while (true) {
+                        val c = ins.read(); if (c < 0) break
+                        if (c in 0x21..0x7e) cur.append(c.toChar())
+                        else {
+                            if (cur.length in 8..80) { val t = cur.toString(); if (roots.containsMatchIn(t) && want.containsMatchIn(t) && rx.matches(t)) found.add(t) }
+                            cur.setLength(0)
+                        }
+                    }
+                }
+                appendLine("$path: ${f.length()} bytes, ${found.size} names")
+                found.forEach { appendLine("  $it") }
+            }
+        }.onFailure { appendLine("[libhwui scan failed: $it]") }
+        appendLine()
+        appendLine("-- HyperOS Rust runtime (config, init services, files) --")
+        runCatching {
+            val dirs = listOf("product/etc/permissions", "system/product/etc/permissions", "system_ext/etc/permissions", "system/system_ext/etc/permissions", "system/etc/permissions", "vendor/etc/permissions")
+            val seen = HashSet<String>()
+            for (d in dirs) File(p.root, d).listFiles().orEmpty().filter { it.name.contains("rust", true) }.forEach {
+                if (seen.add(it.canonicalPath)) { appendLine("== ${it.relativeTo(p.root).path} (${it.length()} bytes)"); appendLine(it.readText().take(4000)) }
+            }
+            File(p.root, "system/.aemu-parked").listFiles().orEmpty().filter { it.name.contains("rust", true) }.forEach { appendLine("parked: ${it.name} (${it.length()} bytes)") }
+            val rcDirs = listOf("system/etc/init", "system/system/etc/init", "system_ext/etc/init", "system/system_ext/etc/init", "product/etc/init", "system/product/etc/init", "vendor/etc/init", "system/vendor/etc/init", "odm/etc/init")
+            for (d in rcDirs) File(p.root, d).listFiles().orEmpty().filter { it.isFile && it.name.endsWith(".rc") }.forEach { rc ->
+                val txt = runCatching { rc.readText() }.getOrDefault("")
+                if (txt.contains("rust", true)) {
+                    appendLine("== ${rc.relativeTo(p.root).path}")
+                    // the service blocks that mention rust
+                    txt.split(Regex("(?m)^(?=service )")).filter { it.contains("rust", true) }.forEach { appendLine(it.trim().take(1200)) }
+                }
+            }
+            val hits = ArrayList<String>()
+            for (top in listOf("system/bin", "system/system/bin", "system_ext/bin", "system/system_ext/bin", "product/bin", "vendor/bin", "system/framework", "system_ext/framework", "system/system_ext/framework", "system/lib64", "system_ext/lib64", "system/system_ext/lib64", "system/priv-app", "system_ext/priv-app", "product/priv-app", "product/app", "system_ext/app"))
+                File(p.root, top).listFiles().orEmpty().filter { it.name.contains("rust", true) }.forEach { hits += "${it.relativeTo(p.root).path} (${if (it.isDirectory) "dir" else "${it.length()} bytes"})" }
+            appendLine("files named *rust*: ${hits.size}")
+            hits.sorted().take(80).forEach { appendLine("  $it") }
+            appendLine("sockets in dev/socket: " + (File(p.root, "dev/socket").list()?.sorted()?.joinToString(", ") ?: "none"))
+        }.onFailure { appendLine("[rust runtime scan failed: $it]") }
+        appendLine()
         appendLine("-- guest shim --")
         val shim = File(p.root, "system/lib/libaemushim.so")
         if (shim.isFile) {
@@ -411,6 +485,14 @@ object DiagExport {
             val xa = File(p.root, path.removePrefix("/"))
             appendLine("$path: " + (if (xa.isFile) "${xa.length()} bytes" else "missing in the guest tree") +
                 ", 32-bit-only tree=${isPure32Tree(p.root)}")
+        }
+        run {
+            val g = File(p.root, GuestPreload.GUARD.removePrefix("/"))
+            val st = BinderGuard.state(p.bin)
+            appendLine("${GuestPreload.GUARD}: " + (if (g.isFile) "${g.length()} bytes" else "missing in the guest tree") +
+                ", record: " + (st?.let { "armed=${it.armed} ineffective=${it.ineffective} daemon=${it.binderd} since=${it.since} bare=${it.bare}" } ?: "none (not armed)") +
+                ", events this run: ${BinderGuard.events(p.bin)}")
+            File(p.bin, BinderGuard.LOG).takeIf { it.isFile }?.useLines { ls -> ls.take(40).forEach { appendLine("  $it") } }
         }
         appendLine()
         // "No original dex files found" for services.jar and the other system_server jars means the precompiled code of the
@@ -464,6 +546,14 @@ object DiagExport {
             }
         }
         appendLine()
+        appendLine("-- hwcomposer (SurfaceFlinger's vsync comes from it; none = it fakes the vsync, \"Timed out waiting for hw vsync\") --")
+        for (d in listOf("system/lib/hw", "vendor/lib/hw", "system/vendor/lib/hw", "vendor/lib64/hw", "system/lib64/hw")) {
+            File(p.root, "$d").listFiles()?.filter { it.name.startsWith("hwcomposer.") }?.sortedBy { it.name }?.forEach { f ->
+                val ours = runCatching { String(f.readBytes(), Charsets.ISO_8859_1).contains("AEmulator framebuffer hwcomposer") }.getOrDefault(false)
+                appendLine("$d/${f.name}: ${f.length()} bytes" + if (ours) " (the engine's stand-in, native/hwc1fb)" else "")
+            }
+        }
+        appendLine()
         appendLine("-- HALs: what the manifest promises vs what the tree can start --")
         runCatching { append(halReport(p.root)) }.onFailure { appendLine("[failed: $it]") }
         appendLine()
@@ -472,6 +562,54 @@ object DiagExport {
         appendLine()
         appendLine("-- guest data permissions (mode, host uid, owners-table row) --")
         runCatching { dataPerms(p.root, p.owners) }.onSuccess { append(it) }.onFailure { appendLine("[failed: $it]") }
+    }
+
+    /**
+     * Recursive listing of the whole guest tree (names only, never contents): one line per entry with type, octal mode,
+     * host uid, size, mtime and path (symlinks show their target). The tree holds every partition that was imported
+     * (system, vendor, product, system_ext, odm, data, cache, ...) merged under one root; the boot partition is not part of
+     * it (boot.img and the recovery live next to the tree, not in it). Symlinks are never followed, so loops cannot
+     * trap the walk. Written straight to the zip, so a huge /data does not have to fit in memory.
+     */
+    private fun guestFileList(root: File, out: OutputStream) {
+        val w = out.bufferedWriter(Charsets.UTF_8)
+        val fmt = java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss", java.util.Locale.US)
+        var files = 0L; var dirs = 0L; var links = 0L; var other = 0L; var bytes = 0L
+        w.write("# type(d dir, f file, l symlink, p fifo, s socket, o other) mode hostUid size mtime path\n")
+        w.write("# every partition of the guest tree except boot; contents are not included; symlinks are not followed\n")
+        // explicit stack: a deep tree must not overflow the thread's stack
+        val stack = ArrayDeque<String>()
+        stack.addLast("")
+        while (stack.isNotEmpty()) {
+            val rel = stack.removeLast()
+            val dir = if (rel.isEmpty()) root else File(root, rel)
+            val names = runCatching { dir.list() }.getOrNull()
+            if (names == null) { w.write("# [cannot list /$rel]\n"); continue }
+            names.sort()
+            val subdirs = ArrayList<String>()
+            for (n in names) {
+                val path = if (rel.isEmpty()) n else "$rel/$n"
+                val f = File(dir, n)
+                val st = runCatching { android.system.Os.lstat(f.path) }.getOrNull()
+                if (st == null) { w.write("? - - - - /$path\n"); continue }
+                val fmtBits = st.st_mode and android.system.OsConstants.S_IFMT
+                val t = when (fmtBits) {
+                    android.system.OsConstants.S_IFDIR -> { dirs++; subdirs += path; 'd' }
+                    android.system.OsConstants.S_IFREG -> { files++; bytes += st.st_size; 'f' }
+                    android.system.OsConstants.S_IFLNK -> { links++; 'l' }
+                    android.system.OsConstants.S_IFIFO -> { other++; 'p' }
+                    android.system.OsConstants.S_IFSOCK -> { other++; 's' }
+                    else -> { other++; 'o' }
+                }
+                w.write("$t ${Integer.toOctalString(st.st_mode and 0xFFF)} ${st.st_uid} ${st.st_size} ${fmt.format(java.util.Date(st.st_mtime * 1000))} /$path")
+                if (t == 'l') w.write(" -> " + (runCatching { android.system.Os.readlink(f.path) }.getOrNull() ?: "?"))
+                w.write("\n")
+            }
+            // depth-first in name order: push in reverse so the first folder is listed first
+            for (i in subdirs.indices.reversed()) stack.addLast(subdirs[i])
+        }
+        w.write("# total: $files files ($bytes bytes), $dirs directories, $links symlinks, $other other\n")
+        w.flush()
     }
 
     /** Mode / owners-table state of the directories behind the acore / gapps / dialer "Could not open database" crashes. */

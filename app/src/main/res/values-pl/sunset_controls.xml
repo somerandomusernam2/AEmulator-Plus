@@ -30,4 +30,17 @@
     <string name="bluetooth_permission_denied">Odmówiono uprawnienia Bluetooth: gość uruchomi się bez Bluetooth hosta.</string>
     <string name="vs_sf_tombstone">Tombstone awarii SurfaceFlinger (debugowanie)</string>
     <string name="vs_sf_tombstone_sub">Gdy SurfaceFlinger ulegnie awarii, firmware zapisze w logu zwykły tombstone (z funkcją, która uległa awarii) zamiast krótkiego raportu. Użyj tego przy wysyłaniu zgłoszenia błędu. Zadziała przy następnym pełnym uruchomieniu maszyny wirtualnej.</string>
+    <string name="vi_mouse_keyboard">Wejście: mysz i klawiatura</string>
+    <string name="vi_mouse_keyboard_sub">Rejestruje w systemie gościa panel dotykowy i klawiaturę oraz usuwa jego ekran dotykowy. Ekran staje się panelem dotykowym (dotknięcie to kliknięcie, dwa palce przewijają), a na pasku nawigacji pojawia się przycisk klawiatury. Wymaga silnika QEMU (nie natywnego 64-bitowego) i pełnego ponownego uruchomienia maszyny wirtualnej.</string>
+    <string name="vi_keypad">Wejście: klawiatura numeryczna</string>
+    <string name="vi_keypad_sub">Dodaje do paska nawigacji przycisk klawiatury numerycznej: strzałki, OK, klawisze programowe, Połącz/Zakończ oraz 0–9 * # jak w telefonie z klawiszami. Dotyk nadal działa, a klawiaturę numeryczną można łączyć z myszą i klawiaturą.</string>
+    <string name="vi_keyboard">Klawiatura</string>
+    <string name="vi_keypad_title">Klawiatura numeryczna</string>
+    <string name="vi_close">Zamknij</string>
+    <string name="vi_open_keyboard">Klawiatura</string>
+    <string name="vi_open_keypad">Klawiatura numeryczna</string>
+    <string name="m_resize_screen">Zmień rozmiar ekranu</string>
+    <string name="m_resize_done">Zakończ zmianę rozmiaru</string>
+    <string name="m_resize_reset">Zresetuj rozmiar ekranu</string>
+    <string name="vi_resize_hint">Przeciągnij róg ekranu, aby zmienić jego rozmiar. Na koniec otwórz menu i dotknij „Zakończ zmianę rozmiaru”.</string>
 </resources>

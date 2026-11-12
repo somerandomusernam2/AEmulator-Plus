@@ -225,4 +225,11 @@
     <string name="update_err_wrong_package">다운로드한 APK의 앱 패키지가 올바르지 않습니다</string>
     <string name="catalog_err_too_many_lines">카탈로그가 10000줄을 초과합니다</string>
     <string name="imp_iso_no_system">ISO 이미지에서 Android 시스템을 찾을 수 없습니다(system.sfs 또는 system.img 필요)</string>
+    <string name="imp_inspecting">%1$s 검사 중</string>
+    <string name="imp_choice_api">API 레벨 %1$s</string>
+    <string name="imp_choice_build">빌드 번호 %1$s</string>
+    <string name="imp_choice_title">가져올 %1$s을(를) 선택하세요</string>
+    <string name="imp_choice_text">이 패키지에는 %1$s이(가) 둘 이상 있습니다(%3$d개 중 %2$d번째). 가져올 항목을 선택하세요.</string>
+    <string name="imp_choice_ok">가져오기</string>
+    <string name="imp_choice_cancel">가져오기 취소</string>
 </resources>

@@ -225,4 +225,11 @@
     <string name="update_err_wrong_package">APK yang diunduh memiliki paket aplikasi yang salah</string>
     <string name="catalog_err_too_many_lines">Katalog melebihi 10000 baris</string>
     <string name="imp_iso_no_system">Sistem Android tidak ditemukan di image ISO (diharapkan system.sfs atau system.img)</string>
+    <string name="imp_inspecting">Memeriksa %1$s</string>
+    <string name="imp_choice_api">Level API %1$s</string>
+    <string name="imp_choice_build">nomor build %1$s</string>
+    <string name="imp_choice_title">%1$s mana yang akan diimpor?</string>
+    <string name="imp_choice_text">Paket ini memiliki lebih dari satu %1$s (%2$d dari %3$d). Pilih yang akan diimpor.</string>
+    <string name="imp_choice_ok">Impor</string>
+    <string name="imp_choice_cancel">Batalkan impor</string>
 </resources>

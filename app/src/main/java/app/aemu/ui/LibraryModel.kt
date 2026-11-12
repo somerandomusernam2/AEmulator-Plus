@@ -125,12 +125,8 @@ class LibraryModel(app: Application) : AndroidViewModel(app) {
 
     fun cancelImport() { importer?.cancelled = true; cloneCancelled = true; pendingChoice?.complete(PartitionChooser.CANCEL) }
 
-    /** A machine is running (they live in the :vm process); its files must not be changed under it. */
-    fun vmRunning(): Boolean {
-        val ctx = getApplication<Application>()
-        val am = ctx.getSystemService(android.app.ActivityManager::class.java)
-        return am.runningAppProcesses.orEmpty().any { it.processName == ctx.packageName + ":vm" }
-    }
+    /** A machine is running (each lives in a process of its own, see VmSlots); its files must not be changed under it. */
+    fun vmRunning(): Boolean = app.aemu.core.VmSlots.anyAlive(getApplication<Application>())
 
     fun resetData(img: GuestImage) {
         viewModelScope.launch(Dispatchers.IO) {

@@ -17,7 +17,7 @@
     <string name="storage_text">Dozvolite pristup svim fajlovima: tada memorijska kartica svakog sistema živi u folderu AEmulator u internoj memoriji — zgodno za APK-ove, muziku i fotografije.</string>
     <string name="allow">Dozvoli</string>
     <string name="empty_title">Još nema sistema</string>
-    <string name="empty_text">Dodajte ARM firmver za Android 1.0–7.x: recovery ZIP, Odin arhivu (.tar.md5), system.img ili fabričku sliku.</string>
+    <string name="empty_text">Dodajte ARM firmver za Android 1.0–17: recovery ZIP, Odin arhivu (.tar.md5), system.img ili fabričku sliku.</string>
     <string name="empty_help">Koji fajlovi rade?</string>
     <string name="import_failed">Uvoz nije uspio</string>
     <string name="import_running">Uvoz firmvera</string>
@@ -29,7 +29,7 @@
     <string name="start">Pokreni</string>
     <string name="rename">Preimenuj</string>
     <string name="help_title">Podržani firmver</string>
-    <string name="help_text">• Android 2.2–4.4: 32-bitni ARM firmver, radi preko QEMU-a (stariji od 2.2: eksperimentalno).\n• Android 5.0–17: arm64 firmver i GSI-jevi, rade izvorno na telefonu.\n\nFormati:\n• CWM/TWRP recovery ZIP (MIUI, CyanogenMod, portovi, većina prilagođenih ROM-ova);\n• Samsung: Odin .tar / .tar.md5 ili ZIP sa AP_*.tar.md5;\n• Google fabričke slike (.tgz / .zip);\n• system.img (ext4, sparse, YAFFS2), TWRP rezervna kopija system.ext4.win;\n• OTA sa system.new.dat(.br) + system.transfer.list.\n\nNajbolje je ako arhiva sadrži boot.img: redoslijed pokretanja servisa uzima se iz njega.</string>
+    <string name="help_text">• Android 2.2–4.4: 32-bitni ARM firmver, radi preko QEMU-a (stariji od 2.2: eksperimentalno).\n• Android 5.0–17: arm64 firmver i GSI-jevi, rade izvorno na telefonu.\n\nFormati:\n• CWM/TWRP recovery ZIP (MIUI, CyanogenMod, portovi, većina prilagođenih ROM-ova);\n• Samsung: Odin .tar / .tar.md5 ili ZIP sa AP_*.tar.md5;\n• Google fabričke slike (.tgz / .zip);\n• system.img (ext4, sparse, YAFFS2), TWRP rezervna kopija system.ext4.win;\n• OTA sa system.new.dat(.br) + system.transfer.list;\n• Takođe: 7z, RAR, LG .kdz, Sony .ftf, Huawei UPDATE.APP, Qualcomm EDL, payload.bin, super.img, EROFS, Android-x86 ISO.\n\nNajbolje je ako arhiva sadrži boot.img: redoslijed pokretanja servisa uzima se iz njega.</string>
     <string name="vs_screen">Ekran gosta</string>
     <string name="vs_fixed_2x">Desire HD mehanizam koristi fiksni ekran 480×800 pri 240 dpi.</string>
     <string name="vs_screen_hint">Niža rezolucija ubrzava sistem.</string>
@@ -44,6 +44,13 @@
     <string name="vs_legacy_sub">Stariji Desire HD mehanizam: samo GLES 1.x, ekran 480×800. Koristite ga ako glavni mehanizam ne radi.</string>
     <string name="vs_lowram">Režim male memorije</string>
     <string name="vs_lowram_sub">ro.config.low_ram — sistem štedi memoriju.</string>
+    <string name="vs_memory_mode">Upravljanje memorijom</string>
+    <string name="vs_memory_light">Lagano</string>
+    <string name="vs_memory_medium">Srednje</string>
+    <string name="vs_memory_aggressive">Agresivno</string>
+    <string name="vs_memory_light_sub">Aplikacije u pozadini se zaustavljaju samo kada samom telefonu ponestaje memorije. Najmanje ponovnih pokretanja; troši najviše memorije. Stupa na snagu nakon potpunog restarta virtuelne mašine.</string>
+    <string name="vs_memory_medium_sub">Uravnoteženo: čuva umjeren broj aplikacija u pozadini, a ostale zaustavlja kada slobodne memorije ponestane. Stupa na snagu nakon potpunog restarta virtuelne mašine.</string>
+    <string name="vs_memory_aggressive_sub">Čuva malo aplikacija u pozadini i često provjerava, pa se memorija oslobađa rano. Troši najmanje memorije, ali se aplikacije češće ponovo pokreću. Stupa na snagu nakon potpunog restarta virtuelne mašine.</string>
     <string name="vs_proxy">Moderni TLS proksi</string>
     <string name="vs_proxy_sub">Omogućava starim preglednicima i aplikacijama da otvore današnje HTTPS sajtove.</string>
     <string name="vs_controls">Kontrole</string>
@@ -146,7 +153,7 @@
     <string name="vs_strace">Prati sistemske pozive servisa</string>
     <string name="vs_strace_sub">Nazivi servisa razdvojeni zarezima, npr. mediaserver,zygote. Usporava te servise i upisuje trag u njihove dnevnike. Primjenjuje se pri sljedećem pokretanju.</string>
     <string name="vs_wifi">Wi-Fi mreža</string>
-    <string name="vs_wifi_sub">Prikazuje internet domaćina virtuelnoj mašini kao povezanu Wi-Fi mrežu umjesto Etherneta. Android 2.3, 4.0–7.x. Primjenjuje se pri sljedećem pokretanju.</string>
+    <string name="vs_wifi_sub">Prikazuje internet domaćina virtuelnoj mašini kao povezanu Wi-Fi mrežu umjesto Etherneta. Android 2.3, 4.0–17 (8–17: eksperimentalno). Primjenjuje se pri sljedećem pokretanju.</string>
     <string name="vs_wifi_ssid">Naziv mreže (SSID)</string>
     <string name="vs_wifi_ssid_sub">Do 32 bajta</string>
     <string name="vs_wifi_ssid_error">Naziv mreže ne može biti prazan</string>
@@ -491,4 +498,32 @@
     <string name="thermal_invalid">Unesite vrijednost od -40 do 150.</string>
     <string name="thermal_apply">Primijeni</string>
     <string name="thermal_reset">Koristi podrazumijevano</string>
+    <string name="th_group_plain">Jednostavne teme</string>
+    <string name="th_group_skins">Teme s izgledom uređaja (autor @regectt)</string>
+    <string name="th_group_custom">Prilagođene teme</string>
+    <string name="th_custom_empty">Još nema prilagođenih tema. Dodirnite „Nova tema” da je napravite ili uvezite .aetheme datoteku. Jednostavne teme i izgledi uređaja ne mogu se mijenjati: dupliciraj jednu da je urediš.</string>
+    <string name="th_expand">Proširi listu</string>
+    <string name="th_collapse">Sažmi listu</string>
+    <string name="vs_art_boot_image">Koristi ART boot sliku (Android 14+)</string>
+    <string name="vs_art_boot_image_sub">Isključeno: gost radi bez boot slike. Pokretanje je sporije, ali ništa u vezi sa slikom ne može zakazati. Uključeno: emulator priprema boot sliku za ovo izvršno okruženje (pravi se jednom pri sljedećem pokretanju, što potraje).</string>
+    <string name="folder_new">Nova fascikla</string>
+    <string name="folder_new_dots">Nova fascikla…</string>
+    <string name="folder_rename">Preimenuj fasciklu</string>
+    <string name="folder_delete">Obriši fasciklu (ROM-ovi ostaju sačuvani)</string>
+    <string name="folder_move">Premjesti u fasciklu</string>
+    <string name="folder_none">Nije u fascikli</string>
+    <string name="folder_default_name">Fascikla</string>
+    <string name="folder_empty">Prazno — ovdje ispustite ROM-ove</string>
+    <string name="folder_open">Otvori fasciklu</string>
+    <string name="folder_close">Zatvori fasciklu</string>
+    <plurals name="folder_roms">
+        <item quantity="one">%1$d ROM</item>
+        <item quantity="few">%1$d ROM-a</item>
+        <item quantity="other">%1$d ROM-ova</item>
+    </plurals>
+    <string name="phantom_title">Ubica fantomskih procesa</string>
+    <string name="phantom_msg">Na vašem uređaju nije uključena opcija „Onemogući ograničenja podređenih procesa” u Opcijama za programere. To znači da će se zygote prekinuti tokom pokretanja emulatora, zbog čega se emulator ne može pokrenuti. Zato se UPORNO PREPORUČUJE da je uključite.</string>
+    <string name="phantom_open_dev">Otvori Opcije za programere</string>
+    <string name="phantom_ignore">Zanemari</string>
+    <string name="phantom_never">Ne podsjećaj više</string>
 </resources>

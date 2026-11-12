@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Added for AEmulator Plus, 2026-11-10: tabs and several machines at once -->
+<resources>
+    <string name="tab_home">Biblioteka</string>
+    <string name="tab_close">Zamknij kartę</string>
+    <string name="tab_close_title">Zamknąć %1$s?</string>
+    <string name="tab_close_text">„Minimalizuj” zamyka kartę, ale maszyna działa dalej w tle; otwórz ją ponownie z biblioteki. „Wyłącz” wyłącza maszynę.</string>
+    <string name="tab_minimize">Minimalizuj</string>
+    <string name="tab_shutdown">Wyłącz</string>
+    <string name="vm_slots_full">Wszystkie sloty maszyn (%1$d) są zajęte. Najpierw wyłącz jedną.</string>
+</resources>

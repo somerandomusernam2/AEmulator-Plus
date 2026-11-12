@@ -17,7 +17,7 @@
     <string name="storage_text">Povolte přístup ke všem souborům: paměťová karta každého systému pak bude ve složce AEmulator ve vnitřním úložišti – vhodné pro APK, hudbu a fotky.</string>
     <string name="allow">Povolit</string>
     <string name="empty_title">Zatím žádné systémy</string>
-    <string name="empty_text">Přidejte firmware ARM pro Android 2.3–6.0: recovery ZIP, archiv Odin (.tar.md5), system.img nebo tovární image.</string>
+    <string name="empty_text">Přidejte firmware ARM pro Android 1.0–17: recovery ZIP, archiv Odin (.tar.md5), system.img nebo tovární image.</string>
     <string name="empty_help">Které soubory fungují?</string>
     <string name="import_failed">Import se nezdařil</string>
     <string name="import_running">Importuje se firmware</string>
@@ -29,7 +29,7 @@
     <string name="start">Spustit</string>
     <string name="rename">Přejmenovat</string>
     <string name="help_title">Podporovaný firmware</string>
-    <string name="help_text">• Android 2.3 a 4.0–4.4: hlavní podpora; 5.x–6.x: experimentální.\n• Pouze 32bitový firmware ARM (armeabi / armeabi-v7a).\n\nFormáty:\n• recovery ZIP pro CWM/TWRP (MIUI, CyanogenMod, porty, většina vlastních ROM);\n• Samsung: Odin .tar / .tar.md5 nebo ZIP s AP_*.tar.md5;\n• tovární image Google (.tgz / .zip);\n• system.img (ext4, sparse), záloha TWRP system.ext4.win;\n• OTA se system.new.dat(.br) + system.transfer.list.\n\nNejlepší je, když archiv obsahuje boot.img: pořadí spouštění služeb se bere z něj.</string>
+    <string name="help_text">• Android 2.2–4.4: 32bitový firmware ARM, běží přes QEMU (starší než 2.2: experimentální).\n• Android 5.0–17: firmware arm64 a GSI, běží nativně v telefonu.\n\nFormáty:\n• recovery ZIP pro CWM/TWRP (MIUI, CyanogenMod, porty, většina vlastních ROM);\n• Samsung: Odin .tar / .tar.md5 nebo ZIP s AP_*.tar.md5;\n• tovární image Google (.tgz / .zip);\n• system.img (ext4, sparse), záloha TWRP system.ext4.win;\n• OTA se system.new.dat(.br) + system.transfer.list;\n• Dále: 7z, RAR, LG .kdz, Sony .ftf, Huawei UPDATE.APP, Qualcomm EDL, payload.bin, super.img, EROFS, Android-x86 ISO.\n\nNejlepší je, když archiv obsahuje boot.img: pořadí spouštění služeb se bere z něj.</string>
     <string name="vs_screen">Obrazovka hostovaného systému</string>
     <string name="vs_fixed_2x">Android 2.x používá pevnou obrazovku 480×800 při 240 dpi.</string>
     <string name="vs_screen_hint">Menší obrazovka zrychlí systém.</string>
@@ -44,6 +44,13 @@
     <string name="vs_legacy_sub">Starší engine Desire HD: pouze GLES 1.x, obrazovka 480×800. Použijte jej, pokud hlavní engine selže.</string>
     <string name="vs_lowram">Režim nízké paměti</string>
     <string name="vs_lowram_sub">ro.config.low_ram – systém šetří paměť.</string>
+    <string name="vs_memory_mode">Správa paměti</string>
+    <string name="vs_memory_light">Lehká</string>
+    <string name="vs_memory_medium">Střední</string>
+    <string name="vs_memory_aggressive">Agresivní</string>
+    <string name="vs_memory_light_sub">Aplikace na pozadí se zastavují, až když samotnému telefonu téměř dochází paměť. Nejméně restartů; spotřebuje nejvíc paměti. Projeví se po úplném restartu virtuálního stroje.</string>
+    <string name="vs_memory_medium_sub">Vyvážená: ponechá střední počet aplikací na pozadí a ostatní zastaví, když volné paměti ubývá. Projeví se po úplném restartu virtuálního stroje.</string>
+    <string name="vs_memory_aggressive_sub">Ponechá jen málo aplikací na pozadí a kontroluje často, takže se paměť uvolňuje brzy. Spotřebuje nejméně paměti, ale aplikace se restartují častěji. Projeví se po úplném restartu virtuálního stroje.</string>
     <string name="vs_proxy">Moderní proxy TLS</string>
     <string name="vs_proxy_sub">Umožní starým prohlížečům a aplikacím otevírat dnešní weby HTTPS.</string>
     <string name="vs_controls">Ovládání</string>
@@ -135,7 +142,7 @@
     <string name="vs_strace">Sledovat systémová volání služeb</string>
     <string name="vs_strace_sub">Názvy služeb oddělené čárkami, např. mediaserver,zygote. Tyto služby zpomalí a záznam zapíše do jejich protokolů. Použije se při příštím spuštění.</string>
     <string name="vs_wifi">Síť Wi-Fi</string>
-    <string name="vs_wifi_sub">Zobrazí internet hostitele ve VM jako připojenou síť Wi-Fi místo Ethernetu. Android 2.3, 4.0–7.x. Použije se při příštím spuštění.</string>
+    <string name="vs_wifi_sub">Zobrazí internet hostitele ve VM jako připojenou síť Wi-Fi místo Ethernetu. Android 2.3, 4.0–17 (8–17: experimentální). Použije se při příštím spuštění.</string>
     <string name="vs_wifi_ssid">Název sítě (SSID)</string>
     <string name="vs_wifi_ssid_sub">Až 32 bajtů</string>
     <string name="vs_wifi_ssid_error">Název sítě nesmí být prázdný</string>
@@ -487,4 +494,35 @@
     <string name="m_reset_menu_pos">Obnovit tlačítko nabídky</string>
     <string name="as_led">Oznamovací dioda</string>
     <string name="as_led_sub">Zobrazit LED hostujícího telefonu nad jeho obrazovkou</string>
+    <string name="vs_guest_nav">Povolit navigační lištu / hlavní panel</string>
+    <string name="vs_guest_nav_sub">Umožní hostu vykreslit vlastní navigační lištu nebo hlavní panel desktopových sestavení Androidu (nastaví qemu.hw.mainkeys=0). Při importu zapněte jen pro desktopová sestavení, u všech ostatních obrazů nechte vypnuto. Projeví se při příštím úplném spuštění.</string>
+    <string name="th_group_plain">Jednoduché motivy</string>
+    <string name="th_group_skins">Motivy s vzhledem zařízení (autor @regectt)</string>
+    <string name="th_group_custom">Vlastní motivy</string>
+    <string name="th_custom_empty">Zatím žádné vlastní motivy. Klepnutím na „Nový motiv“ jej vytvoříte, nebo importujte soubor .aetheme. Jednoduché motivy a vzhledy zařízení nelze měnit: chcete-li je upravit, nejprve je zduplikujte.</string>
+    <string name="th_expand">Rozbalit seznam</string>
+    <string name="th_collapse">Sbalit seznam</string>
+    <string name="vs_art_boot_image">Použít spouštěcí obraz ART (Android 14+)</string>
+    <string name="vs_art_boot_image_sub">Vypnuto: host běží bez spouštěcího obrazu. Spuštění je pomalejší, ale s obrazem nemůže nic selhat. Zapnuto: emulátor pro toto běhové prostředí připraví spouštěcí obraz (vytvoří se jednou při příštím spuštění, což chvíli trvá).</string>
+    <string name="vs_no_watchdog">Zakázat systémový watchdog (Android 14+)</string>
+    <string name="vs_no_watchdog_sub">Pro spuštění, které trvá déle než 60sekundový limit watchdogu Androidu, jenž v cyklu ukončuje system_server. Upraví soubor services.jar firmwaru tak, aby vlákno watchdogu skončilo okamžitě; skutečné zablokování systému se pak už restartem neřeší. Předkompilovaný kód souboru jar se ignoruje, což může zpomalit první spuštění. Vypnutím se obnoví původní jar. Projeví se při příštím úplném spuštění.</string>
+    <string name="folder_new">Nová složka</string>
+    <string name="folder_new_dots">Nová složka…</string>
+    <string name="folder_rename">Přejmenovat složku</string>
+    <string name="folder_delete">Smazat složku (ROM zůstanou zachovány)</string>
+    <string name="folder_move">Přesunout do složky</string>
+    <string name="folder_none">Není ve složce</string>
+    <string name="folder_default_name">Složka</string>
+    <string name="folder_empty">Prázdné – přetáhněte sem ROM</string>
+    <string name="folder_open">Otevřít složku</string>
+    <string name="folder_close">Zavřít složku</string>
+    <plurals name="folder_roms">
+        <item quantity="one">%1$d ROM</item>
+        <item quantity="other">%1$d ROMs</item>
+    </plurals>
+    <string name="phantom_title">Zabiják fantomových procesů</string>
+    <string name="phantom_msg">Ve vašem zařízení není v možnostech pro vývojáře zapnuta volba „Zakázat omezení podřízených procesů“. To znamená, že se při spuštění emulátoru ukončí proces zygote, takže se emulátor nemůže spustit. Proto její zapnutí DŮRAZNĚ DOPORUČUJEME.</string>
+    <string name="phantom_open_dev">Otevřít možnosti pro vývojáře</string>
+    <string name="phantom_ignore">Ignorovat</string>
+    <string name="phantom_never">Už nepřipomínat</string>
 </resources>

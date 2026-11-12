@@ -30,4 +30,17 @@
     <string name="bluetooth_permission_denied">Bluetooth-toestemming geweigerd: de gast start op zonder host-bluetooth.</string>
     <string name="vs_sf_tombstone">SurfaceFlinger-crash-tombstone (debug)</string>
     <string name="vs_sf_tombstone_sub">Als SurfaceFlinger crasht, laat de firmware een gewone tombstone naar het logboek schrijven (met de crashende functie) in plaats van een kort rapport. Gebruik dit bij het insturen van een bugrapport. Geldt bij de volgende volledige VM-start.</string>
+    <string name="vi_mouse_keyboard">Invoer: muis en toetsenbord</string>
+    <string name="vi_mouse_keyboard_sub">Registreert een touchpad en een toetsenbord in de gast en verwijdert het touchscreen ervan. Het scherm wordt een touchpad (tik om te klikken, twee vingers om te scrollen) en in de navigatiebalk verschijnt een toetsenbordknop. Vereist de QEMU-engine (niet de native 64-bits engine) en een volledige herstart van de VM.</string>
+    <string name="vi_keypad">Invoer: toetsenblok</string>
+    <string name="vi_keypad_sub">Voegt een toetsenblokknop toe aan de navigatiebalk: pijltoetsen, OK, softkeys, Bellen/Ophangen en 0–9 * # zoals op een toetsentelefoon. Aanraken blijft werken en het toetsenblok kan worden gecombineerd met muis en toetsenbord.</string>
+    <string name="vi_keyboard">Toetsenbord</string>
+    <string name="vi_keypad_title">Toetsenblok</string>
+    <string name="vi_close">Sluiten</string>
+    <string name="vi_open_keyboard">Toetsenbord</string>
+    <string name="vi_open_keypad">Toetsenblok</string>
+    <string name="m_resize_screen">Schermgrootte aanpassen</string>
+    <string name="m_resize_done">Aanpassen klaar</string>
+    <string name="m_resize_reset">Schermgrootte herstellen</string>
+    <string name="vi_resize_hint">Sleep een hoek van het scherm om het formaat te wijzigen. Open daarna het menu en tik op “Aanpassen klaar”.</string>
 </resources>

@@ -17,7 +17,7 @@
     <string name="storage_text">Bütün fayllara girişə icazə verin: onda hər sistemin yaddaş kartı daxili yaddaşdakı AEmulator qovluğunda yerləşir — APK-lar, musiqi və fotolar üçün əlverişlidir.</string>
     <string name="allow">İcazə ver</string>
     <string name="empty_title">Hələ sistem yoxdur</string>
-    <string name="empty_text">Android 1.0–7.x üçün ARM mikroproqramı əlavə edin: recovery ZIP, Odin arxivi (.tar.md5), system.img və ya zavod təsviri.</string>
+    <string name="empty_text">Android 1.0–17 üçün ARM mikroproqramı əlavə edin: recovery ZIP, Odin arxivi (.tar.md5), system.img və ya zavod təsviri.</string>
     <string name="empty_help">Hansı fayllar işləyir?</string>
     <string name="import_failed">İdxal alınmadı</string>
     <string name="import_running">Mikroproqram idxal edilir</string>
@@ -29,7 +29,7 @@
     <string name="start">Başlat</string>
     <string name="rename">Adını dəyiş</string>
     <string name="help_title">Dəstəklənən mikroproqram</string>
-    <string name="help_text">• Android 2.2–4.4: 32-bit ARM mikroproqramı, QEMU vasitəsilə işləyir (2.2-dən əvvəlkilər: eksperimental).\n• Android 5.0–17: arm64 mikroproqramı və GSI-lər, telefonda yerli işləyir.\n\nFormatlar:\n• CWM/TWRP recovery ZIP (MIUI, CyanogenMod, portlar, əksər fərdi ROM-lar);\n• Samsung: Odin .tar / .tar.md5 və ya AP_*.tar.md5 olan ZIP;\n• Google zavod təsvirləri (.tgz / .zip);\n• system.img (ext4, sparse, YAFFS2), TWRP ehtiyat nüsxəsi system.ext4.win;\n• system.new.dat(.br) + system.transfer.list olan OTA.\n\nArxivdə boot.img olarsa ən yaxşısıdır: xidmətlərin başlama ardıcıllığı ondan götürülür.</string>
+    <string name="help_text">• Android 2.2–4.4: 32-bit ARM mikroproqramı, QEMU vasitəsilə işləyir (2.2-dən əvvəlkilər: eksperimental).\n• Android 5.0–17: arm64 mikroproqramı və GSI-lər, telefonda yerli işləyir.\n\nFormatlar:\n• CWM/TWRP recovery ZIP (MIUI, CyanogenMod, portlar, əksər fərdi ROM-lar);\n• Samsung: Odin .tar / .tar.md5 və ya AP_*.tar.md5 olan ZIP;\n• Google zavod təsvirləri (.tgz / .zip);\n• system.img (ext4, sparse, YAFFS2), TWRP ehtiyat nüsxəsi system.ext4.win;\n• system.new.dat(.br) + system.transfer.list olan OTA;\n• Həmçinin: 7z, RAR, LG .kdz, Sony .ftf, Huawei UPDATE.APP, Qualcomm EDL, payload.bin, super.img, EROFS, Android-x86 ISO.\n\nArxivdə boot.img olarsa ən yaxşısıdır: xidmətlərin başlama ardıcıllığı ondan götürülür.</string>
     <string name="vs_screen">Qonaq ekranı</string>
     <string name="vs_fixed_2x">Desire HD mühərriki 240 dpi ilə sabit 480×800 ekrandan istifadə edir.</string>
     <string name="vs_screen_hint">Aşağı ayırdetmə sistemi sürətləndirir.</string>
@@ -44,6 +44,13 @@
     <string name="vs_legacy_sub">Köhnə Desire HD mühərriki: yalnız GLES 1.x, 480×800 ekran. Əsas mühərrik işləməsə, ondan istifadə edin.</string>
     <string name="vs_lowram">Aşağı yaddaş rejimi</string>
     <string name="vs_lowram_sub">ro.config.low_ram — sistem yaddaşa qənaət edir.</string>
+    <string name="vs_memory_mode">Yaddaş idarəsi</string>
+    <string name="vs_memory_light">Yüngül</string>
+    <string name="vs_memory_medium">Orta</string>
+    <string name="vs_memory_aggressive">Aqressiv</string>
+    <string name="vs_memory_light_sub">Fon tətbiqləri yalnız telefonun özünün yaddaşı bitməyə yaxın olduqda dayandırılır. Ən az yenidən başlatma; ən çox yaddaş sərf edir. Virtual maşın tam yenidən başladıqdan sonra qüvvəyə minir.</string>
+    <string name="vs_memory_medium_sub">Balanslı: orta sayda fon tətbiqini saxlayır, boş yaddaş azaldıqda qalanlarını dayandırır. Virtual maşın tam yenidən başladıqdan sonra qüvvəyə minir.</string>
+    <string name="vs_memory_aggressive_sub">Az sayda fon tətbiqini saxlayır və tez-tez yoxlayır, buna görə yaddaş erkən boşaldılır. Ən az yaddaş sərf edir, lakin tətbiqlər daha tez-tez yenidən başlayır. Virtual maşın tam yenidən başladıqdan sonra qüvvəyə minir.</string>
     <string name="vs_proxy">Müasir TLS proksisi</string>
     <string name="vs_proxy_sub">Köhnə brauzer və tətbiqlərə bugünkü HTTPS saytlarını açmağa imkan verir.</string>
     <string name="vs_controls">İdarəetmə</string>
@@ -146,7 +153,7 @@
     <string name="vs_strace">Xidmətlərin sistem çağırışlarını izlə</string>
     <string name="vs_strace_sub">Vergüllə ayrılmış xidmət adları, məs. mediaserver,zygote. Bu xidmətləri yavaşladır və izi onların jurnallarına yazır. Növbəti yükləmədə tətbiq olunur.</string>
     <string name="vs_wifi">Wi-Fi şəbəkəsi</string>
-    <string name="vs_wifi_sub">Hostun internetini virtual maşına Ethernet əvəzinə qoşulmuş Wi-Fi şəbəkəsi kimi göstərir. Android 2.3, 4.0–7.x. Növbəti yükləmədə tətbiq olunur.</string>
+    <string name="vs_wifi_sub">Hostun internetini virtual maşına Ethernet əvəzinə qoşulmuş Wi-Fi şəbəkəsi kimi göstərir. Android 2.3, 4.0–17 (8–17: eksperimental). Növbəti yükləmədə tətbiq olunur.</string>
     <string name="vs_wifi_ssid">Şəbəkə adı (SSID)</string>
     <string name="vs_wifi_ssid_sub">32 bayta qədər</string>
     <string name="vs_wifi_ssid_error">Şəbəkə adı boş ola bilməz</string>
@@ -490,4 +497,31 @@
     <string name="thermal_invalid">-40-dan 150-yə qədər dəyər daxil edin.</string>
     <string name="thermal_apply">Tətbiq et</string>
     <string name="thermal_reset">Defoltdan istifadə et</string>
+    <string name="th_group_plain">Sadə mövzular</string>
+    <string name="th_group_skins">Cihaz görünüşü mövzuları (müəllif: @regectt)</string>
+    <string name="th_group_custom">Fərdi mövzular</string>
+    <string name="th_custom_empty">Hələ fərdi mövzu yoxdur. Yaratmaq üçün “Yeni mövzu” üzərinə toxunun və ya .aetheme faylını idxal edin. Sadə mövzuları və cihaz görünüşlərini dəyişmək olmaz: redaktə üçün birini dublikat edin.</string>
+    <string name="th_expand">Siyahını genişləndir</string>
+    <string name="th_collapse">Siyahını yığ</string>
+    <string name="vs_art_boot_image">ART yükləmə obrazından istifadə et (Android 14+)</string>
+    <string name="vs_art_boot_image_sub">Sönülü: qonaq yükləmə obrazı olmadan işləyir. Başlanğıc daha yavaşdır, lakin obrazla bağlı heç nə uğursuz ola bilməz. Aktiv: emulyator bu icra mühiti üçün yükləmə obrazı hazırlayır (növbəti başlanğıcda bir dəfə yaradılır, bu müəyyən vaxt aparır).</string>
+    <string name="folder_new">Yeni qovluq</string>
+    <string name="folder_new_dots">Yeni qovluq…</string>
+    <string name="folder_rename">Qovluğun adını dəyiş</string>
+    <string name="folder_delete">Qovluğu sil (ROM-lar saxlanılır)</string>
+    <string name="folder_move">Qovluğa köçür</string>
+    <string name="folder_none">Qovluqda deyil</string>
+    <string name="folder_default_name">Qovluq</string>
+    <string name="folder_empty">Boşdur — ROM-ları bura buraxın</string>
+    <string name="folder_open">Qovluğu aç</string>
+    <string name="folder_close">Qovluğu bağla</string>
+    <plurals name="folder_roms">
+        <item quantity="one">%1$d ROM</item>
+        <item quantity="other">%1$d ROM</item>
+    </plurals>
+    <string name="phantom_title">Fantom proses qatili</string>
+    <string name="phantom_msg">Cihazınızda Developer Options-da “Uşaq proses məhdudiyyətlərini söndür” seçimi aktiv deyil. Bu o deməkdir ki, emulyatorun başlanğıcı zamanı zygote dayandırılacaq və emulyator yüklənə bilməyəcək. Buna görə də onu aktiv etmək TÖVSİYƏ OLUNUR.</string>
+    <string name="phantom_open_dev">Developer Options-u aç</string>
+    <string name="phantom_ignore">Nəzərə alma</string>
+    <string name="phantom_never">Bir daha xatırlatma</string>
 </resources>

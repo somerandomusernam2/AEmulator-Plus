@@ -125,7 +125,7 @@ import kotlin.math.sin
 @Composable
 internal fun Library3D(
     images: List<GuestImage>,
-    activeVmId: String?,
+    activeVmIds: Set<String>,
     baseNameOf: (GuestImage) -> String?,
     onStart: (GuestImage, Boolean) -> Unit,
     onSettings: (GuestImage) -> Unit,
@@ -205,7 +205,7 @@ internal fun Library3D(
                         Phone3D(
                             img, phoneW,
                             thumb = rememberThumbnail(img, refresh),
-                            running = img.id == activeVmId,
+                            running = img.id in activeVmIds,
                             isContainer = img.baseId.isNotEmpty(),
                             rotationY = offset * 38f + tilt.y * front + flip,
                             rotationX = tilt.x * front,
@@ -220,7 +220,7 @@ internal fun Library3D(
                 }
             }
             PageDots(images.size, pager.currentPage)
-            Details(current, current.id == activeVmId, baseNameOf(current), ::start, onSettings, onRename, onDelete)
+            Details(current, current.id in activeVmIds, baseNameOf(current), ::start, onSettings, onRename, onDelete)
         }
     }
 }

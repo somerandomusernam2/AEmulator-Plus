@@ -30,4 +30,17 @@
     <string name="bluetooth_permission_denied">مجوز بلوتوث رد شد: مهمان بدون بلوتوث میزبان بوت می‌شود.</string>
     <string name="vs_sf_tombstone">tombstone خرابی SurfaceFlinger (اشکال‌زدایی)</string>
     <string name="vs_sf_tombstone_sub">اگر SurfaceFlinger از کار بیفتد، سفت‌افزار به‌جای گزارش کوتاه یک tombstone معمولی (همراه با تابع خراب‌شده) در گزارش می‌نویسد. هنگام ارسال گزارش اشکال از آن استفاده کنید. در بوت کامل بعدی ماشین مجازی اعمال می‌شود.</string>
+    <string name="vi_mouse_keyboard">ورودی: ماوس و صفحه‌کلید</string>
+    <string name="vi_mouse_keyboard_sub">یک تاچ‌پد و یک صفحه‌کلید در سیستم مهمان ثبت می‌کند و صفحه لمسی آن را حذف می‌کند. صفحه نمایش به تاچ‌پد تبدیل می‌شود (برای کلیک ضربه بزنید، با دو انگشت پیمایش کنید) و دکمه صفحه‌کلید در نوار ناوبری ظاهر می‌شود. به موتور QEMU (نه موتور بومی ۶۴ بیتی) و راه‌اندازی مجدد کامل ماشین مجازی نیاز دارد.</string>
+    <string name="vi_keypad">ورودی: صفحه‌کلید دکمه‌ای</string>
+    <string name="vi_keypad_sub">یک دکمه صفحه‌کلید دکمه‌ای به نوار ناوبری اضافه می‌کند: کلیدهای جهت‌دار، تأیید، کلیدهای نرم، تماس/پایان و 0–9 * # مثل تلفن‌های دکمه‌ای. لمس همچنان کار می‌کند و می‌توان آن را با ماوس و صفحه‌کلید ترکیب کرد.</string>
+    <string name="vi_keyboard">صفحه‌کلید</string>
+    <string name="vi_keypad_title">صفحه‌کلید دکمه‌ای</string>
+    <string name="vi_close">بستن</string>
+    <string name="vi_open_keyboard">صفحه‌کلید</string>
+    <string name="vi_open_keypad">صفحه‌کلید دکمه‌ای</string>
+    <string name="m_resize_screen">تغییر اندازه صفحه</string>
+    <string name="m_resize_done">تغییر اندازه تمام شد</string>
+    <string name="m_resize_reset">بازنشانی اندازه صفحه</string>
+    <string name="vi_resize_hint">برای تغییر اندازه، گوشه صفحه را بکشید. پس از پایان، منو را باز کنید و روی «تغییر اندازه تمام شد» بزنید.</string>
 </resources>

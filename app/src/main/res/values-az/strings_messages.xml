@@ -224,4 +224,11 @@
     <string name="update_err_wrong_variant">Yeniləmə APK-sı bu tətbiq variantına uyğun gəlmir</string>
     <string name="update_err_wrong_package">Endirilmiş APK-nın tətbiq paketi yanlışdır</string>
     <string name="catalog_err_too_many_lines">Kataloq 10000 sətirdən çoxdur</string>
+    <string name="imp_inspecting">%1$s yoxlanılır</string>
+    <string name="imp_choice_api">API səviyyəsi %1$s</string>
+    <string name="imp_choice_build">quruluş nömrəsi %1$s</string>
+    <string name="imp_choice_title">Hansı %1$s idxal edilsin?</string>
+    <string name="imp_choice_text">Bu paketdə birdən çox %1$s var (%3$d içindən %2$d). İdxal ediləcək olanı seçin.</string>
+    <string name="imp_choice_ok">İdxal et</string>
+    <string name="imp_choice_cancel">İdxalı ləğv et</string>
 </resources>

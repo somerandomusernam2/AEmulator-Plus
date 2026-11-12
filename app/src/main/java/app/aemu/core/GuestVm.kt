@@ -1,4 +1,5 @@
-/* Modified for AEmulator Sunset through 2026-10-03: motion and boot-media bridges,
+/* Modified for AEmulator Plus, 2026-11-09: per-slot process (several machines at once), scoped killLeftovers.
+ * Modified for AEmulator Sunset through 2026-10-03: motion and boot-media bridges,
  * live library status; 2026-10-04: native boot of framework-less MMI/FTM builds.
  * GPL-3.0; upstream attribution retained in NOTICE.md. */
 package app.aemu.core
@@ -8,8 +9,6 @@ import android.content.Context
 import android.os.Process as AProcess
 import android.os.SystemClock
 import android.view.Surface
-import dev.lk.dhd.BinderSlot
-import dev.lk.dhd.GlSlot
 import dev.lk.dhd.Slot
 import dev.lk.m7sense.GlBridge
 import java.io.File
@@ -58,6 +57,8 @@ class GuestVm(val ctx: Context, val img: GuestImage, val lowPowerBoot: Boolean =
     enum class State { STOPPED, PREPARING, BOOTING, RUNNING, FAILED, STOPPING }
 
     val paths = VmPaths(ctx, img.id)
+    /** Added for AEmulator Plus (2026-11-09): the process slot this machine runs in (several machines run at once, one process each) */
+    val slot = VmSlots.current()
     val kernel: Kernel64 get() = Kernel64.forApi(img.api)
     /**
      * The firmware's settings as this boot uses them. An x86 guest has no GPU bridge until the x86 build of the guest-side
@@ -122,7 +123,10 @@ class GuestVm(val ctx: Context, val img: GuestImage, val lowPowerBoot: Boolean =
     fun lines(): List<String> = lines.toList()
     fun onLog(l: (String) -> Unit) { listeners.add(l) }
     fun onState(l: (State) -> Unit) { stateListeners.add(l) }
-    private val liveStatus = LiveVmStatus(ctx.filesDir)
+    // a window that closes (tab minimized) takes its listeners off: the machine goes on without it
+    fun removeOnLog(l: (String) -> Unit) { listeners.remove(l) }
+    fun removeOnState(l: (State) -> Unit) { stateListeners.remove(l) }
+    private val liveStatus = LiveVmStatus(ctx.filesDir, slot)
     private fun setState(s: State) {
         state = s
         runCatching { liveStatus.publish(img.id, VmUiPolicy.active(s.name)) }
@@ -675,6 +679,7 @@ class GuestVm(val ctx: Context, val img: GuestImage, val lowPowerBoot: Boolean =
 
     private fun doBoot() {
         paths.bin.mkdirs()
+        x86Proto8AtBoot = BinderProtocol.x86Learned8(paths.bin)
         runCatching { logFile.writeText("") }
         log("image \"${img.name}\": ${img.displayVersion}, ${img.skin}, engine ${engine.title}")
         if (img.arch != GuestArch.ARM && engine == Engine.N64)
@@ -875,10 +880,30 @@ class GuestVm(val ctx: Context, val img: GuestImage, val lowPowerBoot: Boolean =
         // CDMA off: lteOnCdmaDevice stays 0 even if a guest init script sets it
         props.pinned = props.pinned + CdmaMode.pinnedProps(cdmaPlan, img.api)
         overrides.putAll(CdmaMode.propOverrides(cdmaPlan, img.api, ril.operatorNumeric, ril.operatorName) { CdmaMode.firmwareProp(paths, it) })
-        if (!s.hwui) overrides["debug.hwui.renderer"] = "skia"
+        // Modified for AEmulator Plus (2026-11-10): on 10+ the 64-bit engine ALWAYS gets Skia over GL, with the hardware UI
+        // option on or off ("skia" is not a name the Android 17 hwui knows: it falls back to its default, Vulkan), and
+        // ro.hwui.use_vulkan=false removes that default. The property is pinned: a firmware's init script or system
+        // service can setprop over a debug.* name (only ro.* is protected), which put SystemUI's RenderThread back on
+        // Vulkan: "Assertion failed: !gpuCount" in VulkanManager::initialize(), SystemUI aborts in a loop and the
+        // launcher never gets a window.
+        if (engine == Engine.N64 && img.api >= 29) {
+            overrides["debug.hwui.renderer"] = "skiagl"
+            overrides["ro.hwui.use_vulkan"] = "false"
+            props.pinned = props.pinned + "debug.hwui.renderer"
+        }
+        else if (!s.hwui) overrides["debug.hwui.renderer"] = "skia"
         // the 64-bit engine has GLES only (bridge or SwiftShader), no Vulkan device: hwui of firmwares that default to
         // Vulkan (HyperOS 2, MediaTek) aborts "Assertion failed: !gpuCount" in system_server's RenderThread
         else if (engine == Engine.N64) overrides["debug.hwui.renderer"] = "skiagl"
+        // Added for AEmulator Plus (2026-11-10): MIUI / HyperOS SystemUI + launcher (Xiaomi blur crash in libhwui, Rust runtime
+        // spawner that is never started). Pinned: the firmware's init scripts set these again. See HyperOsCompat.
+        HyperOsCompat.overrides(paths.root, img.api, engine == Engine.N64).let { hy ->
+            if (hy.isNotEmpty()) {
+                overrides.putAll(hy)
+                props.pinned = props.pinned + hy.keys
+                log("MIUI/HyperOS: background blur off and the Rust runtime not used (${hy.size} properties pinned), SystemUI and the launcher start through zygote")
+            }
+        }
         // PBO для текстур шрифтов (hwui 4.4+ на GLES3) ломают часть драйверов (Mali) — грузим текстуры напрямую
         if (HostInfo.gpu().contains("mali")) overrides["ro.hwui.use_gpu_pixel_buffers"] = "false"
         if (img.api in 19..20 && !isLpw39) overrides["persist.sys.dalvik.vm.lib"] = "libdvm.so"
@@ -938,10 +963,11 @@ class GuestVm(val ctx: Context, val img: GuestImage, val lowPowerBoot: Boolean =
                 overrides["dalvik.vm.extra-opts"] = "-Xnorelocate"
                 // installd's dex2oat starts its own runtime: without this it tries patchoat too and fails every app
                 overrides["dalvik.vm.dex2oat-flags"] = overrides["dalvik.vm.dex2oat-flags"] + " --runtime-arg -Xnorelocate"
-                // Samsung 5.x/6.0 installd hands the whole property to dex2oat as one argument, which then fails to parse
-                // ("-j" value '4 --runtime-arg -Xnorelocate'): split it in a dex2oat wrapper. Other devices are untouched.
-                if (isSamsungImage && img.api in 21..23 && Dex2oatArgSplit.install(paths.root))
-                    log("dex2oat: wrapper splits the combined dex2oat-flags argument (Samsung installd)")
+                // The stock 5.x/6.0 installd (Samsung's, and AOSP's L/M builds such as Wear 1.x) hands the whole property to
+                // dex2oat as one argument, which then fails to parse ("-j" value '4 --runtime-arg -Xnorelocate'): split it in a
+                // dex2oat wrapper. This used to be limited to Samsung images, which left e.g. Android Wear 5.1.1 without dexopt.
+                if (img.api in 21..23 && Dex2oatArgSplit.install(paths.root))
+                    log("dex2oat: wrapper splits the combined dex2oat-flags argument (API 21-23 installd)")
             }
         }
         // Modified for AEmulator Plus (2026-10-29): 14+ firmware whose boot.oat was built for the userfaultfd collector (oat
@@ -1214,7 +1240,7 @@ class GuestVm(val ctx: Context, val img: GuestImage, val lowPowerBoot: Boolean =
             val f = File(paths.root, "dev/.aemu-ram")
             if (kernel.ramBudget) f.writeText((GuestRunner.guestRamMb(img.api, s.ramMb) * 1024L).toString()) else f.delete()
         }
-        lmk = GuestLmk(paths.root, s.lowRam, ::log, RamChoice.resolve(s.ramMb)).also { it.start() }
+        lmk = GuestLmk(paths.root, s.lowRam, ::log, RamChoice.resolve(s.ramMb), MemoryMode.parse(s.memoryMode)).also { it.start() }
         val netCfg = if (s.netProxy) net.start() else GuestRunner.NetConfig()
         runner.sdcardHost = sd
         val r = GuestRunner(paths, img.copy(settings = settings), netCfg.copy(glPath = if (s.gpu) "/dev/socket/gl" else null)).also {
@@ -1448,6 +1474,11 @@ class GuestVm(val ctx: Context, val img: GuestImage, val lowPowerBoot: Boolean =
                     "-Djava.class.path=/system/framework/aemu-stubs.jar", "/system/bin", "app.aemu.stub.BatteryStub"), optional = true))
             }
             if (svc.name == BootMediaServices.LEGACY_LOGO) { LegacyLogoPatch.apply(paths.root, ::log); LegacyLogoPatch.provideHeadsetState(paths.root, ::log) }
+            // Samsung 2.x libaudiopolicy runs the same boot-sound thread inside mediaserver and, when
+            // /sys/class/switch/h2w/state cannot be opened, calls fclose(NULL) -> SIGSEGV on every start (mediaserver
+            // exit 139, restarted 12 times). playlogos1 may not exist or run on a given firmware, so the headset state
+            // must be provided before mediaserver starts too, not only with the boot logo.
+            if (svc.name == "mediaserver" && img.api < 16) LegacyLogoPatch.provideHeadsetState(paths.root, ::log)
             if (svc.name == "zygote" && needsBatteryPropertiesGuard) ensureBatteryProperties(plan)
             startService(svc)
             svc.waitSocket?.let { sock -> waitFor("socket $sock", 20_000) { paths.socket(sock).exists() } }
@@ -1469,6 +1500,17 @@ class GuestVm(val ctx: Context, val img: GuestImage, val lowPowerBoot: Boolean =
                         "app.aemu.setup.SetupCtl", if (settings.skipSetupWizard) "skip" else "restore"), 180_000,
                         mapOf("DHD_UID" to "1000", "DHD_GID" to "1000"))
                     log("setup option: exit=$code ${output.trim()}")
+                    // Wear OS 1.x: Clockwork Home throws "Bluetooth mode should not be unknown" on userdebug builds when the
+                    // settings provider's bluetooth_mode is still 0 and setup_skipped is not set. The skip above never touches that
+                    // provider, so seed non-alt mode (1; 2 = alt/iOS) once the system can serve it. Clockwork images only.
+                    if (settings.skipSetupWizard) {
+                        val seeded = guestShell(
+                            "if [ -f /system/priv-app/ClockworkSettings/ClockworkSettings.apk ]; then " +
+                                "content update --uri content://com.google.android.wearable.settings/bluetooth_mode --bind bluetooth_mode:i:1 2>&1; " +
+                                "content query --uri content://com.google.android.wearable.settings/bluetooth_mode 2>&1; " +
+                                "else echo not-a-clockwork-image; fi", 180_000)
+                        log("wear: bluetooth_mode seed (non-alt=1): $seeded")
+                    }
                 }.onFailure { log("setup option failed: ${it.message}") }
             }, "setup-option").start()
         }
@@ -1575,7 +1617,64 @@ class GuestVm(val ctx: Context, val img: GuestImage, val lowPowerBoot: Boolean =
             "minfree ${get("dalvik.vm.heapminfree")}, maxfree ${get("dalvik.vm.heapmaxfree")})")
     }
 
+    /** the binder guard's decision is tied to the build of the binder daemon this engine runs (see [BinderGuard]) */
+    private val binderdId: String by lazy { BinderGuard.binderdId(paths.nativeBin(img.engine.binderd)) }
+    private val binderGuardDone = java.util.concurrent.atomic.AtomicBoolean(false)
+    @Volatile private var binderGuardAtBoot = false
+    private var binderdLogLen = -1L
+
+    /** once per boot, before any guest program starts: is the guard to be preloaded into this boot? */
+    private fun prepareBinderGuard() {
+        if (engine == Engine.N64 || img.engine.binderd.isEmpty()) return
+        BinderGuard.resetLog(paths.bin)
+        binderGuardDone.set(false); binderdLogLen = -1L
+        val on = BinderGuard.armed(paths.bin, binderdId)
+        binderGuardAtBoot = on
+        runner.guardArmed = on
+        runnerRef?.guardArmed = on
+        if (on) {
+            val st = BinderGuard.state(paths.bin)
+            log("· binder guard on: this firmware's binder daemon (${binderdId}) delivered bare objects before (since ${st?.since ?: "?"}), libaemubinderguard.so contains them")
+        }
+    }
+
+    /**
+     * Reads the daemon's own log (the daemon is a binary without source, its fault report is the only evidence): a bare-object
+     * reply together with a hung transaction in the current run means this VM runs into the fault. The first time that is
+     * remembered and the system is started once more with the guard preloaded; if the guard was already on and never fired,
+     * it is not what is missing: it is marked ineffective and left off for this daemon build.
+     */
+    private fun checkBinderGuard() {
+        if (engine == Engine.N64 || img.engine.binderd.isEmpty() || binderGuardDone.get()) return
+        val f = paths.log("binderd")
+        val len = f.length()
+        if (!f.isFile || len == binderdLogLen) return
+        binderdLogLen = len
+        val run = QemuFallback.lastRun(f.readText(), "binderd")
+        if (!BinderGuard.detect(run)) return
+        if (!binderGuardDone.compareAndSet(false, true)) return
+        val bare = BinderGuard.bareCount(run)
+        val since = java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss", java.util.Locale.US).format(java.util.Date())
+        val known = BinderGuard.known(paths.bin, binderdId)
+        when {
+            binderGuardAtBoot -> {
+                val ev = BinderGuard.events(paths.bin)
+                if (ev == 0) {
+                    BinderGuard.markIneffective(paths.bin, binderdId, since, bare)
+                    log("✖ binder: hung transaction again with the guard on, and the guard saw no foreign object (the daemon counts $bare bare replies): it is not the cause here, guard switched off for this daemon build")
+                } else log("✖ binder: hung transaction although the guard cleared $ev foreign object(s) (daemon: $bare bare replies); see run/${BinderGuard.LOG}")
+            }
+            known != null -> log("✖ binder: bare-object replies and a hung transaction, but the guard was already ${if (known.ineffective) "found useless" else "tried"} for this daemon build (${binderdId}); not armed again")
+            else -> {
+                BinderGuard.arm(paths.bin, binderdId, since, bare)
+                log("✖ binder: the daemon reports bare-object replies ($bare) and a hung transaction; remembered for this firmware (run/binder.guard), starting the system again with the binder guard")
+                onPower?.invoke(true, "")
+            }
+        }
+    }
+
     private fun startBinder() {
+        prepareBinderGuard()
         val sock = paths.binderSock.absolutePath
         when (engine) {
             Engine.KK -> spawn("binderd", listOf(paths.nativeBin(engine.binderd).absolutePath, "-s", sock), emptyMap())
@@ -1596,7 +1695,7 @@ class GuestVm(val ctx: Context, val img: GuestImage, val lowPowerBoot: Boolean =
                 // эксперимент: более новый binderd движка KK
                 spawn("binderd", listOf(paths.nativeBin(Engine.KK.binderd).absolutePath, "-s", sock), emptyMap())
             } else {
-                Slot.start(ctx, BinderSlot::class.java, listOf("binderd", "-s", sock), emptyMap(), paths.log("binderd"))
+                Slot.start(ctx, VmSlots.binderSlotClass(slot), listOf("binderd", "-s", sock), emptyMap(), paths.log("binderd"))
                 log("· binderd started (:binder service)")
             }
         }
@@ -1618,7 +1717,7 @@ class GuestVm(val ctx: Context, val img: GuestImage, val lowPowerBoot: Boolean =
                 }
             }
             Engine.GB -> {
-                Slot.start(ctx, GlSlot::class.java,
+                Slot.start(ctx, VmSlots.glSlotClass(slot),
                     listOf("glserverd", "-s", paths.glSock.absolutePath, "-fb", paths.fb.absolutePath, "-w", "$w", "-h", "$h"),
                     emptyMap(), paths.log("glserverd"))
                 waitFor("GL bridge socket", 10_000) { paths.glSock.exists() }
@@ -1902,12 +2001,16 @@ class GuestVm(val ctx: Context, val img: GuestImage, val lowPowerBoot: Boolean =
         // debugging: an empty file AEmulator/trace-native on the phone's shared storage makes the native runner trace
         // zygote (and system_server, which inherits it) into dev/.aemu-trace.log of the guest root. The runner reads the
         // marker only when a process starts, so it is there for this one start and removed at once: the other services stay untraced.
-        val traceMarker = File(paths.root, "dev/.aemu-trace")
-        val traceZygote = name == "zygote" && engine == Engine.N64 &&
+        // Modified for AEmulator Plus (2026-11-11): hyos_spawner is traced the same way, but with EVERY syscall (marker
+        // dev/.aemu-trace-all), because its failure ("failed to own inherited FDs", ENOENT) comes from a call the runner
+        // does not handle itself; its lines are appended to the same log (each one names its program).
+        val traceSpawner = name == "hyos_spawner"
+        val traceMarker = File(paths.root, if (traceSpawner) "dev/.aemu-trace-all" else "dev/.aemu-trace")
+        val traceZygote = (name == "zygote" || traceSpawner) && engine == Engine.N64 &&
             runCatching { File(android.os.Environment.getExternalStorageDirectory(), "AEmulator/trace-native").exists() }.getOrDefault(false)
-        if (traceZygote) runCatching { File(paths.root, "dev/.aemu-trace.log").delete(); traceMarker.createNewFile() }
+        if (traceZygote) runCatching { if (!traceSpawner) File(paths.root, "dev/.aemu-trace.log").delete(); traceMarker.createNewFile() }
         val p = pb.start()
-        if (traceZygote) { runCatching { Thread.sleep(1500) }; runCatching { traceMarker.delete() }; log("native syscall trace of zygote on: dev/.aemu-trace.log") }
+        if (traceZygote) { runCatching { Thread.sleep(1500) }; runCatching { traceMarker.delete() }; log("native syscall trace of $name on: dev/.aemu-trace.log") }
         synchronized(procs) { procs[name] = p }
         pidOf(p)?.let { pgids.add(it) }
         log("· $name started")
@@ -1960,6 +2063,9 @@ class GuestVm(val ctx: Context, val img: GuestImage, val lowPowerBoot: Boolean =
         }
     }
 
+    /** run/binder.proto already said 8 when this boot began: a refusal now is not news, and restarting again would loop */
+    @Volatile private var x86Proto8AtBoot = false
+
     private val binderProtocolRetried = java.util.concurrent.atomic.AtomicBoolean(false)
 
     /**
@@ -1967,6 +2073,15 @@ class GuestVm(val ctx: Context, val img: GuestImage, val lowPowerBoot: Boolean =
      * firmware wants. Remember it and start the system again once, with the binder daemons answering that version.
      */
     private fun learnBinderProtocol(name: String, log: File) {
+        // x86 guest on the universal engine: the translator already wrote run/binder.proto itself when the guest refused
+        // protocol 7, but the programs that refused are gone. Start the system again once so they get 8 from the first call.
+        if (engine != Engine.N64 && img.arch == GuestArch.X86) {
+            if (!x86Proto8AtBoot && BinderProtocol.x86Learned8(paths.bin) && binderProtocolRetried.compareAndSet(false, true)) {
+                log("✖ $name: the x86 guest refused binder protocol 7; the translator remembered 8 (run/binder.proto), starting the system again")
+                onPower?.invoke(true, "")
+            }
+            return
+        }
         if (engine != Engine.N64) {
             // the universal engine's binder daemon speaks protocol 7; a 32-bit firmware built for the 64-bit binder structs
             // (protocol 8) cannot start on it. The native engine with qemu-arm can: remember it and start again on that.
@@ -2810,6 +2925,7 @@ class GuestVm(val ctx: Context, val img: GuestImage, val lowPowerBoot: Boolean =
                 Thread.sleep(3000)
                 if (power.length() > 0) { val v = runCatching { power.readText().trim() }.getOrDefault("reboot"); power.writeText(""); powerRequest(v) }
                 if (img.api >= 14) runCatching { dns.ensure() }
+                runCatching { checkBinderGuard() }
                 val dead = synchronized(procs) { procs.filter { !it.value.isAlive }.toList() }
                 for ((name, p) in dead) {
                     if (stopping) break
@@ -3386,16 +3502,28 @@ class GuestVm(val ctx: Context, val img: GuestImage, val lowPowerBoot: Boolean =
         killLeftovers()
     }
 
-    /** Добивает процессы гостя, оставшиеся от прошлых запусков (qemu, binderd, dhdrun). */
+    /**
+     * Добивает процессы гостя, оставшиеся от прошлых запусков (qemu, binderd, dhdrun).
+     * Modified for AEmulator Plus (2026-11-09): only this machine's own. Other machines run at the same time in their own
+     * processes and must be left alone: a process counts if its command line or its AEMU64_ROOT is this machine's
+     * directory, or if it is this slot's :binder / :gl helper.
+     */
     fun killLeftovers(): Int {
         val mine = AProcess.myPid()
+        val marker = "/images/${img.id}/"
+        val roots = setOf("AEMU64_ROOT=${paths.root.absolutePath}", "AEMU64_ROOT=${paths.root.canonicalPath}")
+        val helpers = setOf(VmSlots.binderProcessName(ctx, slot), VmSlots.glProcessName(ctx, slot))
         var n = 0
         File("/proc").listFiles()?.forEach { d ->
             val pid = d.name.toIntOrNull() ?: return@forEach
             if (pid == mine) return@forEach
             val cmd = runCatching { String(File(d, "cmdline").readBytes(), Charsets.ISO_8859_1).replace('\u0000', ' ') }.getOrNull() ?: return@forEach
-            val ours = cmd.contains("libaemu64") || cmd.contains("libbinderd64") || (cmd.contains("/images/") && (cmd.contains("libqemu") || cmd.contains("libbinderd") || cmd.contains("libdhdrun") || cmd.contains("libglserverd"))) ||
-                cmd.startsWith("${ctx.packageName}:binder") || cmd.startsWith("${ctx.packageName}:gl")
+            val helper = cmd.trim() in helpers
+            val engine = cmd.contains("libaemu64") || cmd.contains("libbinderd64") ||
+                (cmd.contains("/images/") && (cmd.contains("libqemu") || cmd.contains("libbinderd") || cmd.contains("libdhdrun") || cmd.contains("libglserverd")))
+            val ours = helper || (engine && (cmd.contains(marker) || runCatching {
+                String(File(d, "environ").readBytes(), Charsets.ISO_8859_1).split(0.toChar()).any { it in roots }
+            }.getOrDefault(false)))
             if (ours) { runCatching { AProcess.sendSignal(pid, 9) }; n++ }
         }
         if (n > 0) log("cleaned up processes from previous run: $n")

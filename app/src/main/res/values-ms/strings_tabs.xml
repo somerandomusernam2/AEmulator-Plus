@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Added for AEmulator Plus, 2026-11-10: tabs and several machines at once -->
+<resources>
+    <string name="tab_home">Perpustakaan</string>
+    <string name="tab_close">Tutup tab</string>
+    <string name="tab_close_title">Tutup %1$s?</string>
+    <string name="tab_close_text">“Kecilkan” menutup tab dan membiarkan mesin terus berjalan di latar belakang; buka semula dari perpustakaan. “Matikan” mematikan mesin.</string>
+    <string name="tab_minimize">Kecilkan</string>
+    <string name="tab_shutdown">Matikan</string>
+    <string name="vm_slots_full">Semua %1$d slot mesin sedang digunakan. Matikan satu dahulu.</string>
+</resources>

@@ -36,6 +36,16 @@ object BinderProtocol {
 
     fun save(bin: File, version: Int) { runCatching { File(bin, FILE).writeText(version.toString()) } }
 
+    /**
+     * The x86 translator (libqemu_i386.so) negotiates by itself: it first answers BINDER_VERSION with 7 and, when a guest
+     * program refuses it, writes run/binder.proto ("8" on the first line) and answers 8 to every program started after that.
+     * Programs that already refused (servicemanager, surfaceflinger of Android 5+ x86 images) are dead by then and nothing
+     * brought them back: servicemanager's complaint carries no version numbers, so [parseMismatch] cannot see it.
+     */
+    fun x86Learned8(bin: File): Boolean = runCatching { File(bin, X86_RECORD).useLines { it.firstOrNull() }?.trim() == "8" }.getOrDefault(false)
+
+    private const val X86_RECORD = "binder.proto"
+
     fun forget(bin: File) { runCatching { File(bin, FILE).delete() } }
 
     /** BINDER_WRITE_READ = _IOWR('b', 1, struct binder_write_read): 24-byte struct (32-bit binder, protocol 7) / 48-byte struct (64-bit binder, protocol 8) */

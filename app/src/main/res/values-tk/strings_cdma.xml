@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- put into app/src/main/res/values/ (other languages fall back to these) -->
+<resources>
+    <string name="vs_cdma">CDMA modem</string>
+    <string name="vs_cdma_sub">CDMA modemi emulýasiýa edýär: 1xRTT / EV-DO hasaba alyş, MEID, CDMA ýazylyşygy we CDMA tekst habarlary. Indiki doly ýüklenmede ulanylýar.</string>
+    <string name="vs_cdma_fw_yes">Bu proşiwka CDMA üstündäki LTE (telephony.lteOnCdmaDevice=1): adaty ýagdaýda açyk.</string>
+    <string name="vs_cdma_fw_no">Bu proşiwka CDMA üstündäki LTE däl: adaty ýagdaýda öçük.</string>
+</resources>

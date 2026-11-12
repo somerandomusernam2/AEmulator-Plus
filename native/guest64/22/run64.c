@@ -170,8 +170,10 @@ static const char *xl(const char *p, char *buf, int *err) {
     if (pre(n, g_root) && (n[g_rootlen] == '/' || !n[g_rootlen])) return p;   // already a host path (our own argv)
     if (g_sdlen) {
         // the guest's card: plain directories for it, the shared folder of the phone underneath
+        // Modified for AEmulator Plus (2026-11-11): /storage/sdcard is one more mirror of the shared folder (the path an APK
+        // installer / file picker of the guest hands to `pm install`; /storage/sdcard0 alone was not enough)
         static const char *const sd[] = { "/storage/emulated/0", "/storage/emulated/legacy", "/storage/self/primary", "/sdcard",
-                                          "/mnt/sdcard", "/mnt/user/0/primary", "/mnt/shell/emulated/0", "/storage/sdcard0", 0 };
+                                          "/mnt/sdcard", "/mnt/user/0/primary", "/mnt/shell/emulated/0", "/storage/sdcard0", "/storage/sdcard", 0 };
         for (int i = 0; sd[i]; i++) {
             u64 l = slen(sd[i]);
             if (!pre(n, sd[i]) || (n[l] != '/' && n[l])) continue;
@@ -624,10 +626,43 @@ static int in_system(long dirfd, const char *h, char *t) {
 
 static long trap2(long nr, long *a, void *uc, char **pbp);
 
+// Added for AEmulator Plus (2026-11-11): hyos_spawner dies in rustutils inherited_fd::init_once (canonicalize + read_dir +
+// read_link over /proc/self/fd) with ENOENT. Every failing path call on /proc/self (and every failing path call of hyos_spawner itself) is appended as "proc-trace nr=N <path> ret=-errno" to
+// <root>/dev/aemu-xattr.log (at most 400 lines), so the exact call and descriptor are on record.
+// Added for AEmulator Plus (2026-11-11): "/proc/<pid>/fd" is what an O_PATH descriptor of /proc/self/fd reads as. bionic's realpath()
+// (std::fs::canonicalize, hyos_spawner's inherited_fd::init_once) opens the path that way, reads the descriptor's link and then
+// checks that the answer is the same file (fstat of the descriptor against stat of the answer): with "/dev/null" for the answer
+// it never is, and realpath fails with ENOENT.
+static int is_proc_fddir(const char *t) {
+    if (!pre(t, "/proc/") || t[6] < '0' || t[6] > '9') return 0;
+    const char *q = t + 6;
+    while (*q >= '0' && *q <= '9') q++;
+    return seq(q, "/fd");
+}
+static int is_spawner(void) { u64 n = slen(g_exe); return n >= 12 && seq(g_exe + n - 12, "hyos_spawner"); }
+static void dbg_proc(long nr, const char *p, long r) {
+    static int cnt;
+    if (!g_rootlen || cnt >= 400) return;
+    cnt++;
+    char f[600], l[1100]; u64 o = 0; char d[24], *s;
+    memcpy(f, g_root, g_rootlen); memcpy(f + g_rootlen, "/dev/aemu-xattr.log", 20);
+    long fd = S4(NR_openat, AT_FDCWD, f, 02101 /*O_WRONLY|O_CREAT|O_APPEND*/, 0666);
+    if (fd < 0) return;
+    memcpy(l, "proc-trace nr=", 14); o = 14; s = utoa((u64)nr, d + sizeof d); memcpy(l + o, s, slen(s)); o += slen(s);
+    l[o++] = ' '; { u64 n = slen(p); if (n > 800) n = 800; memcpy(l + o, p, n); o += n; }
+    memcpy(l + o, " ret=-", 6); o += 6;
+    s = utoa((u64)(-r), d + sizeof d); memcpy(l + o, s, slen(s)); o += slen(s); memcpy(l + o, " exe=", 5); o += 5; { u64 n = slen(g_exe); if (n > 150) n = 150; memcpy(l + o, g_exe, n); o += n; }
+    l[o++] = '\n';
+    S3(NR_write, fd, l, o); S1(NR_close, fd);
+}
+
 static long trap(long nr, long *a, void *uc) {
     char *pb = 0;
     long r = trap2(nr, a, uc, &pb);
     if (pb) pb_put(pb);
+    if (r < 0 && r > -4096 && a[1] && (nr == NR_openat || nr == NR_newfstatat || nr == NR_statx || nr == NR_faccessat || nr == NR_readlinkat) &&
+        (pre((const char *)a[1], "/proc/self") || is_spawner()))
+        dbg_proc(nr, (const char *)a[1], r);
     return r;
 }
 
@@ -792,7 +827,7 @@ static long trap2(long nr, long *a, void *uc, char **pbp) {
             if (pre(q, "/fd/")) {
                 if (pre(t, "/memfd:aemu-ashmem")) memcpy(t, "/dev/ashmem", 12);
                 else if (!(pre(t, g_root) && (t[g_rootlen] == '/' || !t[g_rootlen])) && !pre(t, "/dev/") &&
-                         !(g_sdlen && pre(t, g_sd))) memcpy(t, "/dev/null", 10);
+                         !(g_sdlen && pre(t, g_sd)) && !is_proc_fddir(t)) memcpy(t, "/dev/null", 10);
             }
         }
         unxl(t);
@@ -896,6 +931,21 @@ static long trap2(long nr, long *a, void *uc, char **pbp) {
     }
     case NR_execve:
         return do_exec(P(0), (char *const *)a[1], (char *const *)a[2]);
+    case 281 /* execveat(dirfd, path, argv, envp, flags) */: {
+        const char *pp = P(1);
+        if (pp && pp[0] == '/') return do_exec(pp, (char *const *)a[2], (char *const *)a[3]);   // absolute: the dirfd does not matter
+        if ((a[4] & 0x1000 /*AT_EMPTY_PATH*/) && (!pp || !pp[0])) {                         // fexecve(): the file by its descriptor
+            static char fl[40], ft[PATH_MAX]; char t[24];
+            const char *d = utoa((u64)(u32)a[0], t + sizeof t);
+            memcpy(fl, "/proc/self/fd/", 14); memcpy(fl + 14, d, slen(d) + 1);
+            long n = S4(NR_readlinkat, AT_FDCWD, fl, ft, PATH_MAX - 1);
+            if (n < 2 || ft[0] != '/') return -ENOENT;
+            ft[n] = 0;
+            return do_exec(ft, (char *const *)a[2], (char *const *)a[3]);                    // (a host path: xl leaves it as it is)
+        }
+        if (pp && (int)a[0] == -100 /*AT_FDCWD: arrives zero-extended from 32 bits*/) return do_exec(pp, (char *const *)a[2], (char *const *)a[3]);
+        return -ENOSYS;                                                                        // relative to another directory: not supported
+    }
     case NR_ioctl:
         if (((a[1] >> 8) & 0xff) == ASHMEM_MAGIC) return ashmem_ioctl((int)a[0], (u32)a[1], (u64)a[2]);
         if (((a[1] >> 8) & 0xff) == 'E' && is_input_fd((int)a[0])) return input_ioctl(input_kind((int)a[0]) - 1, (u32)a[1], (u64)a[2]);
@@ -1221,6 +1271,10 @@ static void install_filter(void) {
     // a phone kernel has it (5.8+), so without this entry every access() of a 32-bit guest went to the kernel with the
     // GUEST path, i.e. to the phone's own /system, /vendor... (EACCES for an app), never into the image.
     f[n++] = JEQ(NR_faccessat2, L_TRAP, 0);
+    // Added for AEmulator Plus (2026-11-12): bionic of 17 starts programs with execveat(AT_FDCWD, path, ...). Not trapped, the
+    // phone's kernel got the GUEST path ("/system/bin/idmap2" is the phone's own /system: EACCES for an app), so zygote's
+    // ExecuteBinary of idmap2 failed, OverlayConfig loaded no overlay and system_server died. Every kernel traps it.
+    f[n++] = JEQ(281 /* execveat */, L_TRAP, 0);
     f[n++] = JEQ(NR_rt_sigprocmask, L_SIG, 0);
     f[n++] = JEQ(NR_prctl, L_PRCTL, 0);
     f[n++] = JEQ(NR_mmap, L_MMAP, L_ALLOW);

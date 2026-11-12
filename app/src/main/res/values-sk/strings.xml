@@ -17,7 +17,7 @@
     <string name="storage_text">Povoľte prístup ku všetkým súborom: pamäťová karta každého systému bude potom v priečinku AEmulator vo vnútornom úložisku – vhodné pre APK, hudbu a fotografie.</string>
     <string name="allow">Povoliť</string>
     <string name="empty_title">Zatiaľ žiadne systémy</string>
-    <string name="empty_text">Pridajte firmvér ARM pre Android 1.0–7.x: recovery ZIP, archív Odin (.tar.md5), system.img alebo továrenský obraz.</string>
+    <string name="empty_text">Pridajte firmvér ARM pre Android 1.0–17: recovery ZIP, archív Odin (.tar.md5), system.img alebo továrenský obraz.</string>
     <string name="empty_help">Ktoré súbory fungujú?</string>
     <string name="import_failed">Import zlyhal</string>
     <string name="import_running">Importuje sa firmvér</string>
@@ -29,7 +29,7 @@
     <string name="start">Spustiť</string>
     <string name="rename">Premenovať</string>
     <string name="help_title">Podporovaný firmvér</string>
-    <string name="help_text">• Android 2.2 a 4.0–4.4: hlavná podpora; pred 2.2 a 5.x–7.x: experimentálna.\n• Iba 32-bitový firmvér ARM (armeabi / armeabi-v7a).\n\nFormáty:\n• recovery ZIP pre CWM/TWRP (MIUI, CyanogenMod, porty, väčšina vlastných ROM);\n• Samsung: Odin .tar / .tar.md5 alebo ZIP s AP_*.tar.md5;\n• továrenské obrazy Google (.tgz / .zip);\n• system.img (ext4, sparse, YAFFS2), záloha TWRP system.ext4.win;\n• OTA so system.new.dat(.br) + system.transfer.list.\n\nNajlepšie je, ak archív obsahuje boot.img: poradie spúšťania služieb sa preberá z neho.</string>
+    <string name="help_text">• Android 2.2–4.4: 32-bitový firmvér ARM, beží cez QEMU (staršie ako 2.2: experimentálne).\n• Android 5.0–17: firmvér arm64 a GSI, bežia natívne v telefóne.\n\nFormáty:\n• recovery ZIP pre CWM/TWRP (MIUI, CyanogenMod, porty, väčšina vlastných ROM);\n• Samsung: Odin .tar / .tar.md5 alebo ZIP s AP_*.tar.md5;\n• továrenské obrazy Google (.tgz / .zip);\n• system.img (ext4, sparse, YAFFS2), záloha TWRP system.ext4.win;\n• OTA so system.new.dat(.br) + system.transfer.list;\n• Ďalej: 7z, RAR, LG .kdz, Sony .ftf, Huawei UPDATE.APP, Qualcomm EDL, payload.bin, super.img, EROFS, Android-x86 ISO.\n\nNajlepšie je, ak archív obsahuje boot.img: poradie spúšťania služieb sa preberá z neho.</string>
     <string name="vs_screen">Obrazovka hosťovaného systému</string>
     <string name="vs_fixed_2x">Engine Desire HD používa pevnú obrazovku 480×800 pri 240 dpi.</string>
     <string name="vs_screen_hint">Nižšie rozlíšenie zrýchli systém.</string>
@@ -44,6 +44,13 @@
     <string name="vs_legacy_sub">Starší engine Desire HD: iba GLES 1.x, obrazovka 480×800. Použite ho, ak hlavný engine zlyhá.</string>
     <string name="vs_lowram">Režim nízkej pamäte</string>
     <string name="vs_lowram_sub">ro.config.low_ram – systém šetrí pamäť.</string>
+    <string name="vs_memory_mode">Správa pamäte</string>
+    <string name="vs_memory_light">Ľahká</string>
+    <string name="vs_memory_medium">Stredná</string>
+    <string name="vs_memory_aggressive">Agresívna</string>
+    <string name="vs_memory_light_sub">Aplikácie na pozadí sa zastavia, až keď samotnému telefónu takmer dochádza pamäť. Najmenej reštartov; spotrebuje najviac pamäte. Prejaví sa po úplnom reštarte virtuálneho stroja.</string>
+    <string name="vs_memory_medium_sub">Vyvážená: ponechá stredný počet aplikácií na pozadí a ostatné zastaví, keď voľnej pamäte ubúda. Prejaví sa po úplnom reštarte virtuálneho stroja.</string>
+    <string name="vs_memory_aggressive_sub">Ponechá len málo aplikácií na pozadí a kontroluje často, takže sa pamäť uvoľňuje skoro. Spotrebuje najmenej pamäte, ale aplikácie sa reštartujú častejšie. Prejaví sa po úplnom reštarte virtuálneho stroja.</string>
     <string name="vs_proxy">Moderný proxy TLS</string>
     <string name="vs_proxy_sub">Umožní starým prehliadačom a aplikáciám otvárať dnešné weby HTTPS.</string>
     <string name="vs_controls">Ovládanie</string>
@@ -146,7 +153,7 @@
     <string name="vs_strace">Sledovať systémové volania služieb</string>
     <string name="vs_strace_sub">Názvy služieb oddelené čiarkami, napr. mediaserver,zygote. Tieto služby spomalí a záznam zapíše do ich záznamov. Použije sa pri ďalšom spustení.</string>
     <string name="vs_wifi">Sieť Wi-Fi</string>
-    <string name="vs_wifi_sub">Zobrazí internet hostiteľa vo VM ako pripojenú sieť Wi-Fi namiesto Ethernetu. Android 2.3, 4.0–7.x. Použije sa pri ďalšom spustení.</string>
+    <string name="vs_wifi_sub">Zobrazí internet hostiteľa vo VM ako pripojenú sieť Wi-Fi namiesto Ethernetu. Android 2.3, 4.0–17 (8–17: experimentálne). Použije sa pri ďalšom spustení.</string>
     <string name="vs_wifi_ssid">Názov siete (SSID)</string>
     <string name="vs_wifi_ssid_sub">Až 32 bajtov</string>
     <string name="vs_wifi_ssid_error">Názov siete nesmie byť prázdny</string>
@@ -489,4 +496,37 @@
     <string name="m_reset_menu_pos">Obnoviť tlačidlo ponuky</string>
     <string name="as_led">Oznamovacia dióda</string>
     <string name="as_led_sub">Zobraziť LED hosťujúceho telefónu nad jeho obrazovkou</string>
+    <string name="vs_guest_nav">Povoliť navigačný panel / panel úloh</string>
+    <string name="vs_guest_nav_sub">Umožní hosťovi vykresliť vlastný navigačný panel alebo panel úloh desktopových zostavení Androidu (nastaví qemu.hw.mainkeys=0). Pri importe zapnite iba pre desktopové zostavenia, pri všetkých ostatných obrazoch nechajte vypnuté. Prejaví sa pri ďalšom úplnom spustení.</string>
+    <string name="th_group_plain">Jednoduché témy</string>
+    <string name="th_group_skins">Témy s vzhľadom zariadení (autor @regectt)</string>
+    <string name="th_group_custom">Vlastné témy</string>
+    <string name="th_custom_empty">Zatiaľ žiadne vlastné témy. Ťuknutím na „Nová téma“ ju vytvoríte alebo importujte súbor .aetheme. Jednoduché témy a vzhľady zariadení sa nedajú meniť: ak ich chcete upraviť, najprv ich duplikujte.</string>
+    <string name="th_expand">Rozbaliť zoznam</string>
+    <string name="th_collapse">Zbaliť zoznam</string>
+    <string name="vs_art_boot_image">Použiť spúšťací obraz ART (Android 14+)</string>
+    <string name="vs_art_boot_image_sub">Vypnuté: hosť beží bez spúšťacieho obrazu. Spustenie je pomalšie, ale s obrazom nemôže nič zlyhať. Zapnuté: emulátor pripraví spúšťací obraz pre toto behové prostredie (vytvorí sa raz pri ďalšom spustení, čo chvíľu trvá).</string>
+    <string name="vs_no_watchdog">Zakázať systémový watchdog (Android 14+)</string>
+    <string name="vs_no_watchdog_sub">Pre spustenie, ktoré trvá dlhšie ako 60-sekundový limit watchdogu Androidu, ktorý v slučke ukončuje system_server. Upraví súbor services.jar firmvéru tak, aby vlákno watchdogu skončilo okamžite; skutočné zablokovanie systému sa potom už reštartom nerieši. Predkompilovaný kód súboru jar sa ignoruje, čo môže spomaliť prvé spustenie. Vypnutím sa obnoví pôvodný jar. Prejaví sa pri ďalšom úplnom spustení.</string>
+    <string name="folder_new">Nový priečinok</string>
+    <string name="folder_new_dots">Nový priečinok…</string>
+    <string name="folder_rename">Premenovať priečinok</string>
+    <string name="folder_delete">Odstrániť priečinok (ROM-ky ostanú zachované)</string>
+    <string name="folder_move">Presunúť do priečinka</string>
+    <string name="folder_none">Nie je v priečinku</string>
+    <string name="folder_default_name">Priečinok</string>
+    <string name="folder_empty">Prázdne – presuňte sem ROM-ky</string>
+    <string name="folder_open">Otvoriť priečinok</string>
+    <string name="folder_close">Zavrieť priečinok</string>
+    <plurals name="folder_roms">
+        <item quantity="one">%1$d ROM</item>
+        <item quantity="few">%1$d ROM</item>
+        <item quantity="many">%1$d ROM</item>
+        <item quantity="other">%1$d ROM</item>
+    </plurals>
+    <string name="phantom_title">Zabijak fantómových procesov</string>
+    <string name="phantom_msg">Vo vašom zariadení nie je v možnostiach pre vývojárov zapnutá voľba „Zakázať obmedzenia podriadených procesov“. To znamená, že sa pri spustení emulátora ukončí proces zygote, takže sa emulátor nemôže spustiť. Preto jej zapnutie DÔRAZNE ODPORÚČAME.</string>
+    <string name="phantom_open_dev">Otvoriť možnosti pre vývojárov</string>
+    <string name="phantom_ignore">Ignorovať</string>
+    <string name="phantom_never">Už nepripomínať</string>
 </resources>

@@ -30,4 +30,17 @@
     <string name="bluetooth_permission_denied">Kebenaran Bluetooth ditolak: tetamu akan but tanpa Bluetooth hos.</string>
     <string name="vs_sf_tombstone">Tombstone ranap SurfaceFlinger (nyahpepijat)</string>
     <string name="vs_sf_tombstone_sub">Jika SurfaceFlinger ranap, biarkan perisian tegar menulis tombstone biasa ke log (bersama fungsi yang ranap) dan bukannya laporan ringkas. Gunakan semasa menghantar laporan pepijat. Berkuat kuasa pada but penuh VM seterusnya.</string>
+    <string name="vi_mouse_keyboard">Input: tetikus dan papan kekunci</string>
+    <string name="vi_mouse_keyboard_sub">Mendaftarkan pad sentuh dan papan kekunci dalam tetamu dan mengalih keluar skrin sentuhnya. Skrin menjadi pad sentuh (ketik untuk klik, dua jari untuk tatal) dan butang papan kekunci muncul dalam bar navigasi. Memerlukan enjin QEMU (bukan enjin 64-bit asli) dan mula semula VM sepenuhnya.</string>
+    <string name="vi_keypad">Input: pad kekunci</string>
+    <string name="vi_keypad_sub">Menambah butang pad kekunci pada bar navigasi: kekunci anak panah, OK, kekunci lembut, Panggil/Tamat dan 0–9 * # seperti telefon berbutang. Sentuhan terus berfungsi dan boleh digabungkan dengan tetikus dan papan kekunci.</string>
+    <string name="vi_keyboard">Papan kekunci</string>
+    <string name="vi_keypad_title">Pad kekunci</string>
+    <string name="vi_close">Tutup</string>
+    <string name="vi_open_keyboard">Papan kekunci</string>
+    <string name="vi_open_keypad">Pad kekunci</string>
+    <string name="m_resize_screen">Ubah saiz skrin</string>
+    <string name="m_resize_done">Selesai mengubah saiz</string>
+    <string name="m_resize_reset">Tetapkan semula saiz skrin</string>
+    <string name="vi_resize_hint">Seret sudut skrin untuk mengubah saiznya. Apabila selesai, buka menu dan ketik “Selesai mengubah saiz”.</string>
 </resources>

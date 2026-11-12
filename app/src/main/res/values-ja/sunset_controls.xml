@@ -30,4 +30,17 @@
     <string name="bluetooth_permission_denied">Bluetoothの権限が拒否されました。ゲストはホストのBluetoothなしで起動します。</string>
     <string name="vs_sf_tombstone">SurfaceFlinger クラッシュトゥームストーン（デバッグ）</string>
     <string name="vs_sf_tombstone_sub">SurfaceFlinger がクラッシュしたとき、短いレポートの代わりに、通常のトゥームストーン（クラッシュした関数を含む）をファームウェアにログへ書き込ませます。バグレポートを送るときに使用してください。次回の VM 完全起動時に適用されます。</string>
+    <string name="vi_mouse_keyboard">入力: マウスとキーボード</string>
+    <string name="vi_mouse_keyboard_sub">ゲストにタッチパッドとキーボードを登録し、タッチスクリーンを削除します。画面がタッチパッドになり(タップでクリック、2 本指でスクロール)、ナビゲーションバーにキーボードボタンが表示されます。QEMU エンジン(ネイティブ 64 ビットは不可)と VM の完全な再起動が必要です。</string>
+    <string name="vi_keypad">入力: キーパッド</string>
+    <string name="vi_keypad_sub">ナビゲーションバーにキーパッドボタンを追加します。矢印キー、OK、ソフトキー、通話/終了、フィーチャーフォンのような 0~9 * # が使えます。タッチ操作も引き続き使え、マウスやキーボードと併用できます。</string>
+    <string name="vi_keyboard">キーボード</string>
+    <string name="vi_keypad_title">キーパッド</string>
+    <string name="vi_close">閉じる</string>
+    <string name="vi_open_keyboard">キーボード</string>
+    <string name="vi_open_keypad">キーパッド</string>
+    <string name="m_resize_screen">画面サイズを変更</string>
+    <string name="m_resize_done">サイズ変更を完了</string>
+    <string name="m_resize_reset">画面サイズをリセット</string>
+    <string name="vi_resize_hint">画面の角をドラッグしてサイズを変更します。終わったらメニューを開き、「サイズ変更を完了」をタップしてください。</string>
 </resources>

@@ -109,6 +109,32 @@ internal object PartitionChoice {
         return mount + "/" + (if (prefix != null) p.removePrefix(prefix) else p)
     }
 
+    /**
+     * Whether the entry [n] of a system tar (system.tar, system.tgz, system.tar.md5) is a file of the partition's own top level
+     * ("build.prop", "app/x.apk", "etc/...", "vendor/..."), which belongs under system/ in the tree. The chooser already takes such a
+     * tar for a system partition ([BUILD_PROP_PATHS] has a top-level build.prop), so the import has to read it the same way.
+     * False for what the other rules own: the system/ folder itself, the files of a whole root file system tree (init.rc, sbin/, data/ ...)
+     * and the images, containers and archives a package keeps next to its files (system.img, system.sin, a nested .tar).
+     */
+    fun isSystemTarTopLevel(n: String, regularFile: Boolean, size: Long): Boolean {
+        val p = n.removePrefix("./").trimStart('/')
+        if (p.isEmpty() || p == "system" || p.startsWith("system/")) return false
+        // a whole root file system (the existing rules take it); the top level of /system has none of these
+        if (p == "init" || p.startsWith("init.") || p.startsWith("default.prop") || p.startsWith("dhd.") || p.matches(ROOT_RC)) return false
+        if (ROOT_ONLY_DIRS.any { p == it || p.startsWith("$it/") }) return false
+        if (regularFile && '/' !in p) {
+            val base = p
+            if (imageGroup(base, PartitionNames.bareOk(p, size), lz4Names = true) != null) return false
+            if (base.endsWith(".sin", true) || base.endsWith(".ftf", true) || base.endsWith(".yaffs2.img", true)) return false
+            if (ARCHIVE_EXT.matches(base)) return false
+        }
+        return true
+    }
+
+    private val ROOT_RC = Regex("^[^/]+\\.rc$")
+    private val ROOT_ONLY_DIRS = listOf("data", "dev", "sbin", "oem", "proc", "sys")
+    private val ARCHIVE_EXT = Regex("(?i).+\\.(tar|tar\\.md5|tar\\.gz|tgz|zip|7z|rar)")
+
     /** Where the importer files a partition's contents: product and system_ext live under system/. */
     fun mountOf(group: String): String = if (group == "product" || group == "system_ext") "system/$group" else group
 

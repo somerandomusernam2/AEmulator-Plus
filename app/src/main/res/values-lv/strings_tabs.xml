@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Added for AEmulator Plus, 2026-11-10: tabs and several machines at once -->
+<resources>
+    <string name="tab_home">Bibliotēka</string>
+    <string name="tab_close">Aizvērt cilni</string>
+    <string name="tab_close_title">Vai aizvērt „%1$s”?</string>
+    <string name="tab_close_text">„Sakļaut” aizver cilni, bet mašīna turpina darboties fonā; atveriet to vēlreiz no bibliotēkas. „Izslēgt” izslēdz mašīnu.</string>
+    <string name="tab_minimize">Sakļaut</string>
+    <string name="tab_shutdown">Izslēgt</string>
+    <string name="vm_slots_full">Visas %1$d mašīnu vietas ir aizņemtas. Vispirms izslēdziet kādu.</string>
+</resources>

@@ -18,7 +18,7 @@
     <string name="storage_text">อนุญาตให้เข้าถึงไฟล์ทั้งหมด: การ์ดหน่วยความจำของแต่ละระบบจะอยู่ในโฟลเดอร์ AEmulator ของที่เก็บข้อมูลภายใน สะดวกสำหรับ APK เพลง และรูปภาพ</string>
     <string name="allow">อนุญาต</string>
     <string name="empty_title">ยังไม่มีระบบ</string>
-    <string name="empty_text">เพิ่มเฟิร์มแวร์ ARM สำหรับ Android 2.2–6.0: ไฟล์ ZIP รีคัฟเวอรี, ไฟล์เก็บถาวร Odin (.tar.md5), system.img หรืออิมเมจจากโรงงาน</string>
+    <string name="empty_text">เพิ่มเฟิร์มแวร์ ARM สำหรับ Android 1.0–17: ไฟล์ ZIP รีคัฟเวอรี, ไฟล์เก็บถาวร Odin (.tar.md5), system.img หรืออิมเมจจากโรงงาน</string>
     <string name="empty_help">ไฟล์แบบไหนใช้ได้บ้าง</string>
     <string name="import_failed">นำเข้าไม่สำเร็จ</string>
     <string name="import_running">กำลังนำเข้าเฟิร์มแวร์</string>
@@ -30,7 +30,7 @@
     <string name="start">เริ่ม</string>
     <string name="rename">เปลี่ยนชื่อ</string>
     <string name="help_title">เฟิร์มแวร์ที่รองรับ</string>
-    <string name="help_text">• Android 2.2 และ 4.0–4.4: รองรับเป็นหลัก; 5.x–6.x: ทดลอง\n• เฉพาะเฟิร์มแวร์ ARM 32 บิต (armeabi / armeabi-v7a)\n\nรูปแบบไฟล์:\n• ไฟล์ ZIP รีคัฟเวอรี CWM/TWRP (MIUI, CyanogenMod, พอร์ต, รอมแต่งส่วนใหญ่);\n• Samsung: Odin .tar / .tar.md5 หรือ ZIP ที่มี AP_*.tar.md5;\n• อิมเมจจากโรงงานของ Google (.tgz / .zip);\n• system.img (ext4, sparse, YAFFS2), ข้อมูลสำรอง TWRP system.ext4.win;\n• OTA ที่มี system.new.dat(.br) + system.transfer.list\n\nดีที่สุดหากไฟล์เก็บถาวรมี boot.img: ลำดับการเริ่มบริการจะอ่านมาจากไฟล์นี้</string>
+    <string name="help_text">• Android 2.2–4.4: เฟิร์มแวร์ ARM 32 บิต ทำงานผ่าน QEMU (ก่อน 2.2: ทดลอง)\n• Android 5.0–17: เฟิร์มแวร์ arm64 และ GSI ทำงานแบบเนทีฟบนโทรศัพท์\n\nรูปแบบไฟล์:\n• ไฟล์ ZIP รีคัฟเวอรี CWM/TWRP (MIUI, CyanogenMod, พอร์ต, รอมแต่งส่วนใหญ่);\n• Samsung: Odin .tar / .tar.md5 หรือ ZIP ที่มี AP_*.tar.md5;\n• อิมเมจจากโรงงานของ Google (.tgz / .zip);\n• system.img (ext4, sparse, YAFFS2), ข้อมูลสำรอง TWRP system.ext4.win;\n• OTA ที่มี system.new.dat(.br) + system.transfer.list;\n• รวมถึง: 7z, RAR, LG .kdz, Sony .ftf, Huawei UPDATE.APP, Qualcomm EDL, payload.bin, super.img, EROFS, Android-x86 ISO\n\nดีที่สุดหากไฟล์เก็บถาวรมี boot.img: ลำดับการเริ่มบริการจะอ่านมาจากไฟล์นี้</string>
     <string name="vs_screen">หน้าจอเกสต์</string>
     <string name="vs_fixed_2x">Android 2.x ใช้หน้าจอขนาดคงที่ 480×800 ที่ 240 dpi</string>
     <string name="vs_screen_hint">หน้าจอที่เล็กลงทำให้ระบบเร็วขึ้น</string>
@@ -45,6 +45,13 @@
     <string name="vs_legacy_sub">เอนจิน Desire HD รุ่นเก่า: รองรับ GLES 1.x เท่านั้น หน้าจอ 480×800 ใช้เมื่อเอนจินหลักล้มเหลว</string>
     <string name="vs_lowram">โหมดหน่วยความจำต่ำ</string>
     <string name="vs_lowram_sub">ro.config.low_ram — ระบบประหยัดหน่วยความจำ</string>
+    <string name="vs_memory_mode">การจัดการหน่วยความจำ</string>
+    <string name="vs_memory_light">เบา</string>
+    <string name="vs_memory_medium">ปานกลาง</string>
+    <string name="vs_memory_aggressive">เข้มงวด</string>
+    <string name="vs_memory_light_sub">แอปเบื้องหลังจะถูกหยุดเฉพาะเมื่อหน่วยความจำของโทรศัพท์เองเหลือน้อยมาก รีสตาร์ตน้อยที่สุด แต่ใช้หน่วยความจำมากที่สุด มีผลหลังจากรีสตาร์ต VM ทั้งหมด</string>
+    <string name="vs_memory_medium_sub">สมดุล: เก็บแอปเบื้องหลังไว้ในจำนวนปานกลาง และหยุดแอปที่เหลือเมื่อหน่วยความจำว่างลดลง มีผลหลังจากรีสตาร์ต VM ทั้งหมด</string>
+    <string name="vs_memory_aggressive_sub">เก็บแอปเบื้องหลังไว้น้อยและตรวจสอบบ่อย จึงคืนหน่วยความจำเร็ว ใช้หน่วยความจำน้อยที่สุด แต่แอปจะรีสตาร์ตบ่อยขึ้น มีผลหลังจากรีสตาร์ต VM ทั้งหมด</string>
     <string name="vs_proxy">พร็อกซี TLS สมัยใหม่</string>
     <string name="vs_proxy_sub">ช่วยให้เบราว์เซอร์และแอปรุ่นเก่าเปิดเว็บไซต์ HTTPS ในปัจจุบันได้</string>
     <string name="vs_controls">การควบคุม</string>
@@ -136,7 +143,7 @@
     <string name="vs_strace">ติดตามการเรียกระบบของบริการ</string>
     <string name="vs_strace_sub">ชื่อบริการคั่นด้วยจุลภาค เช่น mediaserver,zygote ทำให้บริการเหล่านั้นช้าลงและเขียนผลการติดตามลงในล็อกของบริการ มีผลเมื่อบูตครั้งถัดไป</string>
     <string name="vs_wifi">เครือข่าย Wi-Fi</string>
-    <string name="vs_wifi_sub">แสดงอินเทอร์เน็ตของโฮสต์ให้ VM เห็นเป็นเครือข่าย Wi-Fi ที่เชื่อมต่ออยู่ แทนที่จะเป็นอีเทอร์เน็ต Android 2.3, 4.0–7.x มีผลเมื่อบูตครั้งถัดไป</string>
+    <string name="vs_wifi_sub">แสดงอินเทอร์เน็ตของโฮสต์ให้ VM เห็นเป็นเครือข่าย Wi-Fi ที่เชื่อมต่ออยู่ แทนที่จะเป็นอีเทอร์เน็ต Android 2.3, 4.0–17 (8–17: ทดลอง) มีผลเมื่อบูตครั้งถัดไป</string>
     <string name="vs_wifi_ssid">ชื่อเครือข่าย (SSID)</string>
     <string name="vs_wifi_ssid_sub">ไม่เกิน 32 ไบต์</string>
     <string name="vs_wifi_ssid_error">ชื่อเครือข่ายต้องไม่ว่างเปล่า</string>
@@ -486,4 +493,34 @@
     <string name="m_reset_menu_pos">รีเซ็ตปุ่มเมนู</string>
     <string name="as_led">ไฟแจ้งเตือน</string>
     <string name="as_led_sub">แสดง LED ของโทรศัพท์เครื่องแขกเหนือหน้าจอ</string>
+    <string name="vs_guest_nav">เปิดใช้แถบนำทาง / แถบงาน</string>
+    <string name="vs_guest_nav_sub">ให้ระบบ Guest วาดแถบนำทางของตัวเอง หรือแถบงานของ Android เวอร์ชันเดสก์ท็อป (ตั้งค่า qemu.hw.mainkeys=0) เปิดตอนนำเข้าเฉพาะเวอร์ชันเดสก์ท็อปเท่านั้น และปิดไว้สำหรับอิมเมจอื่นทั้งหมด มีผลในการบูตเต็มรูปแบบครั้งถัดไป</string>
+    <string name="th_group_plain">ธีมแบบเรียบ</string>
+    <string name="th_group_skins">ธีมสกินอุปกรณ์ (โดย @regectt)</string>
+    <string name="th_group_custom">ธีมที่กำหนดเอง</string>
+    <string name="th_custom_empty">ยังไม่มีธีมที่กำหนดเอง แตะ “ธีมใหม่” เพื่อสร้าง หรือนำเข้าไฟล์ .aetheme ธีมแบบเรียบและสกินอุปกรณ์แก้ไขไม่ได้: ให้ทำสำเนาก่อนแล้วจึงแก้ไข</string>
+    <string name="th_expand">ขยายรายการ</string>
+    <string name="th_collapse">ย่อรายการ</string>
+    <string name="vs_art_boot_image">ใช้ ART boot image (Android 14 ขึ้นไป)</string>
+    <string name="vs_art_boot_image_sub">ปิด: Guest ทำงานโดยไม่มี boot image การเริ่มต้นจะช้ากว่า แต่ไม่มีอะไรเกี่ยวกับอิมเมจที่จะล้มเหลวได้ เปิด: อีมูเลเตอร์จะเตรียม boot image สำหรับรันไทม์นี้ (สร้างครั้งเดียวในการเริ่มครั้งถัดไป ซึ่งใช้เวลาสักครู่)</string>
+    <string name="vs_no_watchdog">ปิดใช้งาน watchdog ของระบบ (Android 14 ขึ้นไป)</string>
+    <string name="vs_no_watchdog_sub">สำหรับการบูตที่ช้ากว่าขีดจำกัด watchdog 60 วินาทีของ Android ซึ่งจะปิด system_server วนซ้ำ แพตช์ services.jar ของเฟิร์มแวร์เพื่อให้เธรด watchdog จบทันที หลังจากนั้นหากระบบเกิดเดดล็อกจริงจะไม่สามารถกู้คืนด้วยการรีสตาร์ตได้อีก โค้ดที่คอมไพล์ไว้ล่วงหน้าของ jar จะถูกละเลย ซึ่งอาจทำให้การบูตครั้งแรกช้าลง การปิดจะคืนค่า jar ดั้งเดิม มีผลในการบูตเต็มรูปแบบครั้งถัดไป</string>
+    <string name="folder_new">โฟลเดอร์ใหม่</string>
+    <string name="folder_new_dots">โฟลเดอร์ใหม่…</string>
+    <string name="folder_rename">เปลี่ยนชื่อโฟลเดอร์</string>
+    <string name="folder_delete">ลบโฟลเดอร์ (เก็บรอมไว้)</string>
+    <string name="folder_move">ย้ายไปยังโฟลเดอร์</string>
+    <string name="folder_none">ไม่อยู่ในโฟลเดอร์</string>
+    <string name="folder_default_name">โฟลเดอร์</string>
+    <string name="folder_empty">ว่างเปล่า — ลากรอมมาวางที่นี่</string>
+    <string name="folder_open">เปิดโฟลเดอร์</string>
+    <string name="folder_close">ปิดโฟลเดอร์</string>
+    <plurals name="folder_roms">
+        <item quantity="other">%1$d รอม</item>
+    </plurals>
+    <string name="phantom_title">ตัวฆ่ากระบวนการแฝง</string>
+    <string name="phantom_msg">อุปกรณ์ของคุณยังไม่ได้เปิดตัวเลือก “ปิดใช้งานข้อจำกัดกระบวนการย่อย” ในตัวเลือกสำหรับนักพัฒนา ซึ่งหมายความว่า zygote จะถูกปิดระหว่างการเริ่มต้นอีมูเลเตอร์ ทำให้อีมูเลเตอร์บูตไม่ได้ จึงขอแนะนำอย่างยิ่งให้เปิดใช้งาน</string>
+    <string name="phantom_open_dev">เปิดตัวเลือกสำหรับนักพัฒนา</string>
+    <string name="phantom_ignore">ละเว้น</string>
+    <string name="phantom_never">ไม่ต้องเตือนอีก</string>
 </resources>

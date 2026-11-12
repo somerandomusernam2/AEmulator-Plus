@@ -17,7 +17,7 @@
     <string name="storage_text">Ceadaigh rochtain ar gach comhad: ansin tá cárta cuimhne gach córais i bhfillteán AEmulator sa stóras inmheánach — áisiúil d’APKanna, do cheol agus do ghrianghraif.</string>
     <string name="allow">Ceadaigh</string>
     <string name="empty_title">Níl aon chóras ann go fóill</string>
-    <string name="empty_text">Cuir dochtearraí ARM le haghaidh Android 1.0–7.x leis: ZIP aisghabhála, cartlann Odin (.tar.md5), system.img nó íomhá monarchan.</string>
+    <string name="empty_text">Cuir dochtearraí ARM le haghaidh Android 1.0–17 leis: ZIP aisghabhála, cartlann Odin (.tar.md5), system.img nó íomhá monarchan.</string>
     <string name="empty_help">Cé acu comhaid a oibríonn?</string>
     <string name="import_failed">Theip ar an allmhairiú</string>
     <string name="import_running">Dochtearraí á n-allmhairiú</string>
@@ -29,7 +29,7 @@
     <string name="start">Tosaigh</string>
     <string name="rename">Athainmnigh</string>
     <string name="help_title">Dochtearraí tacaithe</string>
-    <string name="help_text">• Android 2.2–4.4: dochtearraí ARM 32-giotán, ag rith trí QEMU (níos luaithe ná 2.2: turgnamhach).\n• Android 5.0–17: dochtearraí arm64 agus GSInna, ag rith go dúchasach ar an nguthán.\n\nFormáidí:\n• ZIP aisghabhála CWM/TWRP (MIUI, CyanogenMod, calafoirt, formhór na ROManna saincheaptha);\n• Samsung: Odin .tar / .tar.md5 nó ZIP le AP_*.tar.md5;\n• íomhánna monarchan Google (.tgz / .zip);\n• system.img (ext4, sparse, YAFFS2), cúltaca TWRP system.ext4.win;\n• OTA le system.new.dat(.br) + system.transfer.list.\n\nIs fearr má tá boot.img sa chartlann: tógtar ord tosaithe na seirbhísí uaidh.</string>
+    <string name="help_text">• Android 2.2–4.4: dochtearraí ARM 32-giotán, ag rith trí QEMU (níos luaithe ná 2.2: turgnamhach).\n• Android 5.0–17: dochtearraí arm64 agus GSInna, ag rith go dúchasach ar an nguthán.\n\nFormáidí:\n• ZIP aisghabhála CWM/TWRP (MIUI, CyanogenMod, calafoirt, formhór na ROManna saincheaptha);\n• Samsung: Odin .tar / .tar.md5 nó ZIP le AP_*.tar.md5;\n• íomhánna monarchan Google (.tgz / .zip);\n• system.img (ext4, sparse, YAFFS2), cúltaca TWRP system.ext4.win;\n• OTA le system.new.dat(.br) + system.transfer.list;\n• Freisin: 7z, RAR, LG .kdz, Sony .ftf, Huawei UPDATE.APP, Qualcomm EDL, payload.bin, super.img, EROFS, Android-x86 ISO.\n\nIs fearr má tá boot.img sa chartlann: tógtar ord tosaithe na seirbhísí uaidh.</string>
     <string name="vs_screen">Scáileán an aoi</string>
     <string name="vs_fixed_2x">Úsáideann inneall Desire HD scáileán seasta 480×800 ag 240 dpi.</string>
     <string name="vs_screen_hint">Déanann taifeach níos ísle an córas níos tapúla.</string>
@@ -44,6 +44,13 @@
     <string name="vs_legacy_sub">An seaninneall Desire HD: GLES 1.x amháin, scáileán 480×800. Úsáid é mura n-oibríonn an príomhinneall.</string>
     <string name="vs_lowram">Mód cuimhne íseal</string>
     <string name="vs_lowram_sub">ro.config.low_ram — sábhálann an córas cuimhne.</string>
+    <string name="vs_memory_mode">Bainistiú cuimhne</string>
+    <string name="vs_memory_light">Éadrom</string>
+    <string name="vs_memory_medium">Meánach</string>
+    <string name="vs_memory_aggressive">Ionsaitheach</string>
+    <string name="vs_memory_light_sub">Ní stoptar aipeanna cúlra ach amháin nuair a bhíonn an fón féin beagnach as cuimhne. Na hatosuithe is lú; úsáideann sé an chuimhne is mó. Tagann sé i bhfeidhm tar éis atosú iomlán an mheaisín fhíorúil.</string>
+    <string name="vs_memory_medium_sub">Cothrom: coinníonn sé líon measartha aipeanna cúlra agus stopann sé an chuid eile nuair a thiteann an chuimhne shaor íseal. Tagann sé i bhfeidhm tar éis atosú iomlán an mheaisín fhíorúil.</string>
+    <string name="vs_memory_aggressive_sub">Coinníonn sé cúpla aip cúlra agus seiceálann sé go minic, mar sin saorfar cuimhne go luath. Úsáideann sé an chuimhne is lú, ach atosaíonn aipeanna níos minice. Tagann sé i bhfeidhm tar éis atosú iomlán an mheaisín fhíorúil.</string>
     <string name="vs_proxy">Seachfhreastalaí TLS nua-aimseartha</string>
     <string name="vs_proxy_sub">Ligeann sé do sheanbhrabhsálaithe agus d’aipeanna suíomhanna HTTPS an lae inniu a oscailt.</string>
     <string name="vs_controls">Rialtáin</string>
@@ -146,7 +153,7 @@
     <string name="vs_strace">Lorg glaonna córais seirbhísí</string>
     <string name="vs_strace_sub">Ainmneacha seirbhísí scartha le camóga, m.sh. mediaserver,zygote. Moilleoidh sé na seirbhísí sin agus scríobhfaidh sé an lorg ina logchomhaid. Cuirtear i bhfeidhm ag an gcéad tosú eile.</string>
     <string name="vs_wifi">Líonra Wi-Fi</string>
-    <string name="vs_wifi_sub">Taispeánann sé idirlíon an óstríomhaire don mheaisín fíorúil mar líonra Wi-Fi ceangailte in ionad Ethernet. Android 2.3, 4.0–7.x. Cuirtear i bhfeidhm ag an gcéad tosú eile.</string>
+    <string name="vs_wifi_sub">Taispeánann sé idirlíon an óstríomhaire don mheaisín fíorúil mar líonra Wi-Fi ceangailte in ionad Ethernet. Android 2.3, 4.0–17 (8–17: turgnamhach). Cuirtear i bhfeidhm ag an gcéad tosú eile.</string>
     <string name="vs_wifi_ssid">Ainm an líonra (SSID)</string>
     <string name="vs_wifi_ssid_sub">Suas le 32 bheart</string>
     <string name="vs_wifi_ssid_error">Ní féidir ainm an líonra a fhágáil folamh</string>
@@ -493,4 +500,34 @@
     <string name="thermal_invalid">Cuir isteach luach ó -40 go 150.</string>
     <string name="thermal_apply">Cuir i bhfeidhm</string>
     <string name="thermal_reset">Úsáid an réamhshocrú</string>
+    <string name="th_group_plain">Téamaí simplí</string>
+    <string name="th_group_skins">Téamaí craicinn feiste (le @regectt)</string>
+    <string name="th_group_custom">Téamaí saincheaptha</string>
+    <string name="th_custom_empty">Níl aon téamaí saincheaptha ann fós. Tapáil “Téama nua” chun ceann a dhéanamh, nó iompórtáil comhad .aetheme. Ní féidir téamaí simplí ná craicne feistí a athrú: dúbail ceann chun é a chur in eagar.</string>
+    <string name="th_expand">Leathnaigh an liosta</string>
+    <string name="th_collapse">Laghdaigh an liosta</string>
+    <string name="vs_art_boot_image">Úsáid íomhá tosaithe ART (Android 14+)</string>
+    <string name="vs_art_boot_image_sub">As: ritheann an t-aoi gan íomhá tosaithe. Tá an tosú níos moille, ach ní féidir le haon rud den íomhá teip. Air: ullmhaíonn an t-aithriseoir íomhá tosaithe don rúnaimseartha seo (déantar é uair amháin ag an gcéad tosú eile, rud a thógann tamall).</string>
+    <string name="folder_new">Fillteán nua</string>
+    <string name="folder_new_dots">Fillteán nua…</string>
+    <string name="folder_rename">Athainmnigh an fillteán</string>
+    <string name="folder_delete">Scrios an fillteán (coimeádtar na ROManna)</string>
+    <string name="folder_move">Bog go fillteán</string>
+    <string name="folder_none">Ní i bhfillteán</string>
+    <string name="folder_default_name">Fillteán</string>
+    <string name="folder_empty">Folamh — scaoil ROManna anseo</string>
+    <string name="folder_open">Oscail an fillteán</string>
+    <string name="folder_close">Dún an fillteán</string>
+    <plurals name="folder_roms">
+        <item quantity="one">%1$d ROM</item>
+        <item quantity="two">%1$d ROM</item>
+        <item quantity="few">%1$d ROM</item>
+        <item quantity="many">%1$d ROM</item>
+        <item quantity="other">%1$d ROM</item>
+    </plurals>
+    <string name="phantom_title">Marú próiseas taibhsiúil</string>
+    <string name="phantom_msg">Níl an rogha “Díchumasaigh srianta na bpróiseas leanbh” cumasaithe i Roghanna Forbróra do ghléis. Ciallaíonn sé sin go múchfar zygote le linn thosú an aithriseora, rud a fhágann nach féidir leis an aithriseoir tosú. Dá bhrí sin, moltar go láidir í a chumasú.</string>
+    <string name="phantom_open_dev">Oscail Roghanna Forbróra</string>
+    <string name="phantom_ignore">Déan neamhaird</string>
+    <string name="phantom_never">Ná cuir i gcuimhne arís</string>
 </resources>

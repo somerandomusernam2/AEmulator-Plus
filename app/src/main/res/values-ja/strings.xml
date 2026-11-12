@@ -18,7 +18,7 @@
     <string name="storage_text">すべてのファイルへのアクセスを許可すると、各システムのメモリーカードが内部ストレージの AEmulator フォルダーに置かれ、APK や音楽、写真を入れやすくなります。</string>
     <string name="allow">許可</string>
     <string name="empty_title">まだシステムがありません</string>
-    <string name="empty_text">Android 2.2〜6.0 の ARM ファームウェアを追加してください：リカバリー用 ZIP、Odin アーカイブ（.tar.md5）、system.img、またはファクトリーイメージ。</string>
+    <string name="empty_text">Android 1.0〜17 の ARM ファームウェアを追加してください：リカバリー用 ZIP、Odin アーカイブ（.tar.md5）、system.img、またはファクトリーイメージ。</string>
     <string name="empty_help">どのファイルが使えますか？</string>
     <string name="import_failed">インポートに失敗しました</string>
     <string name="import_running">ファームウェアをインポート中</string>
@@ -30,7 +30,7 @@
     <string name="start">起動</string>
     <string name="rename">名前を変更</string>
     <string name="help_title">対応ファームウェア</string>
-    <string name="help_text">• Android 2.3〜4.4：32 ビット ARM ファームウェア、QEMU で動作。\n• Android 5.0〜17：arm64 ファームウェアと GSI、スマホ上でネイティブ動作。\n\n形式：\n• CWM/TWRP リカバリー ZIP（MIUI、CyanogenMod、移植版、多くのカスタム ROM）\n• Samsung：Odin の .tar / .tar.md5、または AP_*.tar.md5 を含む ZIP\n• Google ファクトリーイメージ（.tgz / .zip）\n• system.img（ext4、sparse）、TWRP バックアップ system.ext4.win\n• system.new.dat(.br) + system.transfer.list を含む OTA\n\nアーカイブに boot.img があると最適です。サービスの起動順序はそこから読み取ります。</string>
+    <string name="help_text">• Android 2.3〜4.4：32 ビット ARM ファームウェア、QEMU で動作。\n• Android 5.0〜17：arm64 ファームウェアと GSI、スマホ上でネイティブ動作。\n\n形式：\n• CWM/TWRP リカバリー ZIP（MIUI、CyanogenMod、移植版、多くのカスタム ROM）\n• Samsung：Odin の .tar / .tar.md5、または AP_*.tar.md5 を含む ZIP\n• Google ファクトリーイメージ（.tgz / .zip）\n• system.img（ext4、sparse）、TWRP バックアップ system.ext4.win\n• system.new.dat(.br) + system.transfer.list を含む OTA\n• その他：7z, RAR, LG .kdz, Sony .ftf, Huawei UPDATE.APP, Qualcomm EDL, payload.bin, super.img, EROFS, Android-x86 ISO\n\nアーカイブに boot.img があると最適です。サービスの起動順序はそこから読み取ります。</string>
     <string name="vs_screen">ゲスト画面</string>
     <string name="vs_fixed_2x">Android 2.x は 480×800・240 dpi の固定画面です。</string>
     <string name="vs_screen_hint">画面が小さいほどシステムが速くなります。</string>
@@ -45,6 +45,13 @@
     <string name="vs_legacy_sub">旧 Desire HD エンジン：GLES 1.x のみ、480×800 画面。メインエンジンで失敗した場合に。</string>
     <string name="vs_lowram">低メモリーモード</string>
     <string name="vs_lowram_sub">ro.config.low_ram — システムがメモリーを節約します。</string>
+    <string name="vs_memory_mode">メモリー管理</string>
+    <string name="vs_memory_light">軽量</string>
+    <string name="vs_memory_medium">標準</string>
+    <string name="vs_memory_aggressive">積極的</string>
+    <string name="vs_memory_light_sub">バックグラウンドのアプリは、スマートフォン本体のメモリーがほぼ尽きたときにだけ停止されます。再起動は最も少なく、メモリーは最も多く使います。VM を完全に再起動すると反映されます。</string>
+    <string name="vs_memory_medium_sub">バランス型：バックグラウンドのアプリを適度な数だけ残し、空きメモリーが少なくなると残りを停止します。VM を完全に再起動すると反映されます。</string>
+    <string name="vs_memory_aggressive_sub">バックグラウンドのアプリを少数だけ残し、頻繁にチェックして早めにメモリーを解放します。メモリー使用量は最小ですが、アプリの再起動は増えます。VM を完全に再起動すると反映されます。</string>
     <string name="vs_proxy">最新 TLS プロキシ</string>
     <string name="vs_proxy_sub">古いブラウザーやアプリで現在の HTTPS サイトを開けます。</string>
     <string name="vs_controls">操作</string>
@@ -321,7 +328,7 @@
     <string name="vs_strace">サービスのシステムコールをトレース</string>
     <string name="vs_strace_sub">サービス名をカンマで区切って指定します(例: mediaserver,zygote)。これらのサービスは遅くなり、トレースがそのログに書き込まれます。次回の起動時に適用されます。</string>
     <string name="vs_wifi">Wi-Fiネットワーク</string>
-    <string name="vs_wifi_sub">ホストのインターネットを、イーサネットではなく接続済みのWi-FiネットワークとしてVMに見せます。Android 4.0〜7.x。次回の起動時に適用されます。</string>
+    <string name="vs_wifi_sub">ホストのインターネットを、イーサネットではなく接続済みのWi-FiネットワークとしてVMに見せます。Android 2.3、4.0〜17（8〜17：実験的）。次回の起動時に適用されます。</string>
     <string name="vs_wifi_ssid">ネットワーク名(SSID)</string>
     <string name="vs_wifi_ssid_sub">最大32バイト</string>
     <string name="vs_wifi_ssid_error">ネットワーク名は空にできません</string>
@@ -486,4 +493,34 @@
     <string name="thermal_invalid">-40～150 の値を入力してください。</string>
     <string name="thermal_apply">適用</string>
     <string name="thermal_reset">デフォルトを使用</string>
+    <string name="vs_guest_nav">ナビゲーションバー/タスクバーを有効にする</string>
+    <string name="vs_guest_nav_sub">ゲストが独自のナビゲーションバー、または Android デスクトップ版ビルドのタスクバーを描画できるようにします(qemu.hw.mainkeys=0 を設定)。インポート時にデスクトップ版ビルドの場合のみオンにし、それ以外のイメージではオフのままにしてください。次回のフル起動から有効になります。</string>
+    <string name="th_group_plain">シンプルテーマ</string>
+    <string name="th_group_skins">デバイススキンテーマ(作者: @regectt)</string>
+    <string name="th_group_custom">カスタムテーマ</string>
+    <string name="th_custom_empty">カスタムテーマはまだありません。「新しいテーマ」をタップして作成するか、.aetheme ファイルをインポートしてください。シンプルテーマとデバイススキンは変更できません。編集するには複製してください。</string>
+    <string name="th_expand">リストを展開</string>
+    <string name="th_collapse">リストを折りたたむ</string>
+    <string name="vs_art_boot_image">ART ブートイメージを使用(Android 14 以降)</string>
+    <string name="vs_art_boot_image_sub">オフ: ゲストはブートイメージなしで動作します。起動は遅くなりますが、イメージに関する不具合は起きません。オン: エミュレーターがこのランタイム用のブートイメージを準備します(次回の起動時に一度だけ作成され、時間がかかります)。</string>
+    <string name="vs_no_watchdog">システムウォッチドッグを無効にする(Android 14 以降)</string>
+    <string name="vs_no_watchdog_sub">起動が Android の 60 秒のウォッチドッグ制限より遅く、system_server が繰り返し強制終了される場合に使用します。ファームウェアの services.jar にパッチを当て、ウォッチドッグスレッドをすぐに終了させます。その後は、システムの実際のデッドロックを再起動で回復できなくなります。jar のプリコンパイル済みコードは無視されるため、初回の起動が遅くなる場合があります。オフにすると元の jar に戻ります。次回のフル起動から有効になります。</string>
+    <string name="folder_new">新しいフォルダ</string>
+    <string name="folder_new_dots">新しいフォルダ…</string>
+    <string name="folder_rename">フォルダ名を変更</string>
+    <string name="folder_delete">フォルダを削除(ROM は残ります)</string>
+    <string name="folder_move">フォルダに移動</string>
+    <string name="folder_none">フォルダに入っていません</string>
+    <string name="folder_default_name">フォルダ</string>
+    <string name="folder_empty">空です — ここに ROM をドロップ</string>
+    <string name="folder_open">フォルダを開く</string>
+    <string name="folder_close">フォルダを閉じる</string>
+    <plurals name="folder_roms">
+        <item quantity="other">ROM %1$d件</item>
+    </plurals>
+    <string name="phantom_title">ファントムプロセスキラー</string>
+    <string name="phantom_msg">お使いのデバイスでは、開発者向けオプションの「子プロセスの制限を無効にする」が有効になっていません。このため、エミュレーターの起動中に zygote が強制終了され、エミュレーターを起動できなくなります。有効にすることを強くおすすめします。</string>
+    <string name="phantom_open_dev">開発者向けオプションを開く</string>
+    <string name="phantom_ignore">無視</string>
+    <string name="phantom_never">今後は通知しない</string>
 </resources>

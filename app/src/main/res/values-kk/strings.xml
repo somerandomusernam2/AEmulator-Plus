@@ -18,7 +18,7 @@
     <string name="storage_text">Барлық файлдарға рұқсат беріңіз: сонда әр жүйенің жад картасы ішкі жадтағы AEmulator қалтасында орналасады — APK файлдары, музыка және фотосуреттер үшін ыңғайлы.</string>
     <string name="allow">Рұқсат беру</string>
     <string name="empty_title">Әзірге жүйелер жоқ</string>
-    <string name="empty_text">Android 2.2–6.0 үшін ARM микробағдарламасын қосыңыз: recovery ZIP, Odin мұрағаты (.tar.md5), system.img немесе зауыттық образ.</string>
+    <string name="empty_text">Android 1.0–17 үшін ARM микробағдарламасын қосыңыз: recovery ZIP, Odin мұрағаты (.tar.md5), system.img немесе зауыттық образ.</string>
     <string name="empty_help">Қандай файлдар жарайды?</string>
     <string name="import_failed">Импорттау сәтсіз аяқталды</string>
     <string name="import_running">Микробағдарлама импортталуда</string>
@@ -30,7 +30,7 @@
     <string name="start">Іске қосу</string>
     <string name="rename">Атын өзгерту</string>
     <string name="help_title">Қолдау көрсетілетін микробағдарлама</string>
-    <string name="help_text">• Android 2.2 және 4.0–4.4: негізгі қолдау; 5.x–6.x: эксперименттік.\n• Тек 32 биттік ARM микробағдарламасы (armeabi / armeabi-v7a).\n\nФорматтар:\n• CWM/TWRP recovery ZIP (MIUI, CyanogenMod, порттар, көптеген баптамалы ROM);\n• Samsung: Odin .tar / .tar.md5 немесе AP_*.tar.md5 бар ZIP;\n• Google зауыттық образдары (.tgz / .zip);\n• system.img (ext4, sparse, YAFFS2), TWRP сақтық көшірмесі system.ext4.win;\n• system.new.dat(.br) + system.transfer.list бар OTA.\n\nМұрағатта boot.img болса, жақсы: қызметтердің іске қосылу реті сол файлдан алынады.</string>
+    <string name="help_text">• Android 2.2–4.4: 32 биттік ARM микробағдарламасы, QEMU арқылы жұмыс істейді (2.2-ден бұрын: эксперименттік).\n• Android 5.0–17: arm64 микробағдарламасы және GSI, телефонда тікелей жұмыс істейді.\n\nФорматтар:\n• CWM/TWRP recovery ZIP (MIUI, CyanogenMod, порттар, көптеген баптамалы ROM);\n• Samsung: Odin .tar / .tar.md5 немесе AP_*.tar.md5 бар ZIP;\n• Google зауыттық образдары (.tgz / .zip);\n• system.img (ext4, sparse, YAFFS2), TWRP сақтық көшірмесі system.ext4.win;\n• system.new.dat(.br) + system.transfer.list бар OTA;\n• Сондай-ақ: 7z, RAR, LG .kdz, Sony .ftf, Huawei UPDATE.APP, Qualcomm EDL, payload.bin, super.img, EROFS, Android-x86 ISO.\n\nМұрағатта boot.img болса, жақсы: қызметтердің іске қосылу реті сол файлдан алынады.</string>
     <string name="vs_screen">Қонақ экраны</string>
     <string name="vs_fixed_2x">Android 2.x 240 dpi кезінде тіркелген 480×800 экранды пайдаланады.</string>
     <string name="vs_screen_hint">Экран кішірек болса, жүйе жылдамырақ жұмыс істейді.</string>
@@ -45,6 +45,13 @@
     <string name="vs_legacy_sub">Ескі Desire HD қозғалтқышы: тек GLES 1.x, экран 480×800. Негізгі қозғалтқыш жұмыс істемесе, соны пайдаланыңыз.</string>
     <string name="vs_lowram">Төмен жад режимі</string>
     <string name="vs_lowram_sub">ro.config.low_ram — жүйе жадты үнемдейді.</string>
+    <string name="vs_memory_mode">Жадты басқару</string>
+    <string name="vs_memory_light">Жеңіл</string>
+    <string name="vs_memory_medium">Орташа</string>
+    <string name="vs_memory_aggressive">Агрессивті</string>
+    <string name="vs_memory_light_sub">Фондық қолданбалар телефонның өзінің жады таусылуға жақындағанда ғана тоқтатылады. Ең аз қайта іске қосу; ең көп жадты пайдаланады. Виртуалды машина толық қайта іске қосылғаннан кейін күшіне енеді.</string>
+    <string name="vs_memory_medium_sub">Теңгерімді: фондық қолданбалардың орташа санын сақтайды, бос жад азайғанда қалғандарын тоқтатады. Виртуалды машина толық қайта іске қосылғаннан кейін күшіне енеді.</string>
+    <string name="vs_memory_aggressive_sub">Фондық қолданбаларды аз сақтайды және жиі тексереді, сондықтан жад ерте босатылады. Ең аз жадты пайдаланады, бірақ қолданбалар жиірек қайта іске қосылады. Виртуалды машина толық қайта іске қосылғаннан кейін күшіне енеді.</string>
     <string name="vs_proxy">Заманауи TLS проксиі</string>
     <string name="vs_proxy_sub">Ескі браузерлер мен қолданбаларға бүгінгі HTTPS сайттарын ашуға мүмкіндік береді.</string>
     <string name="vs_controls">Басқару</string>
@@ -136,7 +143,7 @@
     <string name="vs_strace">Қызметтердің жүйелік шақыруларын трассалау</string>
     <string name="vs_strace_sub">Үтірмен бөлінген қызмет атаулары, мысалы mediaserver,zygote. Бұл қызметтерді баяулатады және трассаны олардың журналдарына жазады. Келесі жүктелуде қолданылады.</string>
     <string name="vs_wifi">Wi-Fi желісі</string>
-    <string name="vs_wifi_sub">Хосттың интернетін VM-ге Ethernet орнына қосылған Wi-Fi желісі ретінде көрсетеді. Android 2.3, 4.0–7.x. Келесі жүктелуде қолданылады.</string>
+    <string name="vs_wifi_sub">Хосттың интернетін VM-ге Ethernet орнына қосылған Wi-Fi желісі ретінде көрсетеді. Android 2.3, 4.0–17 (8–17: эксперименттік). Келесі жүктелуде қолданылады.</string>
     <string name="vs_wifi_ssid">Желі атауы (SSID)</string>
     <string name="vs_wifi_ssid_sub">32 байтқа дейін</string>
     <string name="vs_wifi_ssid_error">Желі атауы бос болмауы керек</string>
@@ -488,4 +495,35 @@
     <string name="m_reset_menu_pos">Мәзір түймесін қалпына келтіру</string>
     <string name="as_led">Хабарландыру индикаторы</string>
     <string name="as_led_sub">Қонақ телефонының LED индикаторын экранның үстінде көрсету</string>
+    <string name="vs_guest_nav">Навигация жолағын / тапсырмалар тақтасын қосу</string>
+    <string name="vs_guest_nav_sub">Қонаққа өзінің навигация жолағын немесе Android жұмыс үстелі құрастыруларының тапсырмалар тақтасын салуға мүмкіндік береді (qemu.hw.mainkeys=0 орнатады). Импорттау кезінде тек жұмыс үстелі құрастырулары үшін қосыңыз, барлық басқа бейнелер үшін өшірулі қалдырыңыз. Келесі толық жүктеуде күшіне енеді.</string>
+    <string name="th_group_plain">Қарапайым тақырыптар</string>
+    <string name="th_group_skins">Құрылғы көрінісі тақырыптары (авторы: @regectt)</string>
+    <string name="th_group_custom">Пайдаланушы тақырыптары</string>
+    <string name="th_custom_empty">Пайдаланушы тақырыптары әлі жоқ. Жасау үшін «Жаңа тақырып» түймесін түртіңіз немесе .aetheme файлын импорттаңыз. Қарапайым тақырыптар мен құрылғы көріністерін өзгертуге болмайды: өңдеу үшін біреуінің көшірмесін жасаңыз.</string>
+    <string name="th_expand">Тізімді жаю</string>
+    <string name="th_collapse">Тізімді жию</string>
+    <string name="vs_art_boot_image">ART жүктеу бейнесін пайдалану (Android 14+)</string>
+    <string name="vs_art_boot_image_sub">Өшірулі: қонақ жүктеу бейнесінсіз жұмыс істейді. Іске қосу баяуырақ, бірақ бейнеге қатысты ештеңе бұзылмайды. Қосулы: эмулятор осы орындалу ортасы үшін жүктеу бейнесін дайындайды (келесі іске қосуда бір рет жасалады, бұл біраз уақыт алады).</string>
+    <string name="vs_no_watchdog">Жүйелік watchdog-ты өшіру (Android 14+)</string>
+    <string name="vs_no_watchdog_sub">Android-тың 60 секундтық watchdog шегінен баяу жүктелуге арналған, бұл system_server-ді циклде тоқтатады. Микробағдарламаның services.jar файлын түзетеді, сонда watchdog ағыны бірден аяқталады; жүйенің нақты құрсауланып қалуы енді қайта іске қосумен түзетілмейді. jar-дың алдын ала құрастырылған коды еленбейді, бұл бірінші жүктеуді баяулатуы мүмкін. Өшіру түпнұсқа jar файлын қалпына келтіреді. Келесі толық жүктеуде күшіне енеді.</string>
+    <string name="folder_new">Жаңа қалта</string>
+    <string name="folder_new_dots">Жаңа қалта…</string>
+    <string name="folder_rename">Қалтаның атын өзгерту</string>
+    <string name="folder_delete">Қалтаны жою (ROM-дар сақталады)</string>
+    <string name="folder_move">Қалтаға жылжыту</string>
+    <string name="folder_none">Қалтада емес</string>
+    <string name="folder_default_name">Қалта</string>
+    <string name="folder_empty">Бос — ROM-дарды осында тастаңыз</string>
+    <string name="folder_open">Қалтаны ашу</string>
+    <string name="folder_close">Қалтаны жабу</string>
+    <plurals name="folder_roms">
+        <item quantity="one">%1$d ROM</item>
+        <item quantity="other">%1$d ROM</item>
+    </plurals>
+    <string name="phantom_title">Елес процестерді өлтіруші</string>
+    <string name="phantom_msg">Құрылғыңыздың әзірлеуші опцияларында «Еншілес процестердің шектеулерін өшіру» опциясы қосылмаған. Бұл эмулятор іске қосылғанда zygote тоқтатылатынын және эмулятор жүктеле алмайтынын білдіреді. Сондықтан оны қосу ӨТЕ ҰСЫНЫЛАДЫ.</string>
+    <string name="phantom_open_dev">Әзірлеуші опцияларын ашу</string>
+    <string name="phantom_ignore">Елемеу</string>
+    <string name="phantom_never">Енді еске салмау</string>
 </resources>

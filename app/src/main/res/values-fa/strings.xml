@@ -18,7 +18,7 @@
     <string name="storage_text">دسترسی به همهٔ فایل‌ها را مجاز کنید: کارت حافظهٔ هر سیستم در پوشهٔ AEmulator حافظهٔ داخلی قرار می‌گیرد که برای APK، موسیقی و عکس مناسب است.</string>
     <string name="allow">اجازه</string>
     <string name="empty_title">هنوز سیستمی نیست</string>
-    <string name="empty_text">یک فرم‌ویر ARM برای اندروید 2.2 تا 6.0 اضافه کنید: ZIP ریکاوری، آرشیو Odin ‏(.tar.md5)، system.img یا ایمیج کارخانه.</string>
+    <string name="empty_text">یک فرم‌ویر ARM برای اندروید 1.0 تا 17 اضافه کنید: ZIP ریکاوری، آرشیو Odin ‏(.tar.md5)، system.img یا ایمیج کارخانه.</string>
     <string name="empty_help">چه فایل‌هایی مناسب‌اند؟</string>
     <string name="import_failed">درون‌ریزی ناموفق بود</string>
     <string name="import_running">درون‌ریزی فرم‌ویر</string>
@@ -30,7 +30,7 @@
     <string name="start">اجرا</string>
     <string name="rename">تغییر نام</string>
     <string name="help_title">فرم‌ویرهای پشتیبانی‌شده</string>
-    <string name="help_text">• اندروید 2.3 تا 4.4: فرم‌ویرهای ARM ‏32 بیتی، از طریق QEMU.\n• اندروید 5.0 تا 17: فرم‌ویرهای arm64 و GSI، مستقیم روی گوشی.\n\nقالب‌ها:\n• ‏ZIP ریکاوری CWM/TWRP (MIUI، CyanogenMod، پورت‌ها، بیشتر رام‌های سفارشی)؛\n• سامسونگ: ‎.tar / .tar.md5 از Odin یا ZIP حاوی AP_*.tar.md5؛\n• ایمیج‌های کارخانهٔ گوگل (.tgz / .zip)؛\n• ‏system.img ‏(ext4، sparse)، پشتیبان TWRP ‏system.ext4.win؛\n• ‏OTA با system.new.dat(.br) و system.transfer.list.\n\nبهتر است آرشیو شامل boot.img باشد: ترتیب اجرای سرویس‌ها از آن خوانده می‌شود.</string>
+    <string name="help_text">• اندروید 2.3 تا 4.4: فرم‌ویرهای ARM ‏32 بیتی، از طریق QEMU.\n• اندروید 5.0 تا 17: فرم‌ویرهای arm64 و GSI، مستقیم روی گوشی.\n\nقالب‌ها:\n• ‏ZIP ریکاوری CWM/TWRP (MIUI، CyanogenMod، پورت‌ها، بیشتر رام‌های سفارشی)؛\n• سامسونگ: ‎.tar / .tar.md5 از Odin یا ZIP حاوی AP_*.tar.md5؛\n• ایمیج‌های کارخانهٔ گوگل (.tgz / .zip)؛\n• ‏system.img ‏(ext4، sparse)، پشتیبان TWRP ‏system.ext4.win؛\n• ‏OTA با system.new.dat(.br) و system.transfer.list؛\n• همچنین: 7z, RAR, LG .kdz, Sony .ftf, Huawei UPDATE.APP, Qualcomm EDL, payload.bin, super.img, EROFS, Android-x86 ISO.\n\nبهتر است آرشیو شامل boot.img باشد: ترتیب اجرای سرویس‌ها از آن خوانده می‌شود.</string>
     <string name="vs_screen">صفحهٔ مهمان</string>
     <string name="vs_fixed_2x">اندروید 2.x صفحهٔ ثابت 480×800 با 240 dpi دارد.</string>
     <string name="vs_screen_hint">هرچه صفحه کوچک‌تر، سیستم سریع‌تر.</string>
@@ -45,6 +45,13 @@
     <string name="vs_legacy_sub">موتور قدیمی Desire HD: فقط GLES 1.x، صفحهٔ 480×800. اگر موتور اصلی شکست خورد استفاده کنید.</string>
     <string name="vs_lowram">حالت حافظهٔ کم</string>
     <string name="vs_lowram_sub">ro.config.low_ram — سیستم در حافظه صرفه‌جویی می‌کند.</string>
+    <string name="vs_memory_mode">مدیریت حافظه</string>
+    <string name="vs_memory_light">سبک</string>
+    <string name="vs_memory_medium">متوسط</string>
+    <string name="vs_memory_aggressive">تهاجمی</string>
+    <string name="vs_memory_light_sub">برنامه‌های پس‌زمینه فقط زمانی متوقف می‌شوند که حافظهٔ خود گوشی رو به اتمام باشد. کمترین راه‌اندازی مجدد؛ بیشترین مصرف حافظه. پس از راه‌اندازی مجدد کامل ماشین مجازی اعمال می‌شود.</string>
+    <string name="vs_memory_medium_sub">متعادل: تعداد متوسطی برنامهٔ پس‌زمینه را نگه می‌دارد و وقتی حافظهٔ آزاد کم شود بقیه را متوقف می‌کند. پس از راه‌اندازی مجدد کامل ماشین مجازی اعمال می‌شود.</string>
+    <string name="vs_memory_aggressive_sub">تعداد کمی برنامهٔ پس‌زمینه را نگه می‌دارد و مکرر بررسی می‌کند، بنابراین حافظه زود آزاد می‌شود. کمترین مصرف حافظه، اما برنامه‌ها بیشتر دوباره راه‌اندازی می‌شوند. پس از راه‌اندازی مجدد کامل ماشین مجازی اعمال می‌شود.</string>
     <string name="vs_proxy">پراکسی TLS مدرن</string>
     <string name="vs_proxy_sub">مرورگرها و برنامه‌های قدیمی سایت‌های HTTPS امروزی را باز می‌کنند.</string>
     <string name="vs_controls">کنترل‌ها</string>
@@ -322,7 +329,7 @@
     <string name="vs_strace">ردیابی فراخوانی‌های سیستمی سرویس‌ها</string>
     <string name="vs_strace_sub">نام سرویس‌ها با ویرگول جدا شوند، مثلاً mediaserver,zygote. این سرویس‌ها را کند می‌کند و ردیابی را در گزارش‌هایشان می‌نویسد. از بوت بعدی اعمال می‌شود.</string>
     <string name="vs_wifi">شبکهٔ Wi-Fi</string>
-    <string name="vs_wifi_sub">اینترنت میزبان را به‌جای اترنت، به‌صورت یک شبکهٔ Wi-Fi متصل به ماشین مجازی نشان می‌دهد. Android 2.3, 4.0–7.x. از بوت بعدی اعمال می‌شود.</string>
+    <string name="vs_wifi_sub">اینترنت میزبان را به‌جای اترنت، به‌صورت یک شبکهٔ Wi-Fi متصل به ماشین مجازی نشان می‌دهد. Android 2.3, 4.0–17 (8–17: آزمایشی). از بوت بعدی اعمال می‌شود.</string>
     <string name="vs_wifi_ssid">نام شبکه (SSID)</string>
     <string name="vs_wifi_ssid_sub">حداکثر 32 بایت</string>
     <string name="vs_wifi_ssid_error">نام شبکه نمی‌تواند خالی باشد</string>
@@ -487,4 +494,35 @@
     <string name="thermal_invalid">مقداری بین -40 تا 150 وارد کنید.</string>
     <string name="thermal_apply">اعمال</string>
     <string name="thermal_reset">استفاده از پیش‌فرض</string>
+    <string name="vs_guest_nav">فعال‌سازی نوار ناوبری / نوار وظیفه</string>
+    <string name="vs_guest_nav_sub">به سیستم مهمان اجازه می‌دهد نوار ناوبری خودش یا نوار وظیفه نسخه‌های دسکتاپ اندروید را رسم کند (qemu.hw.mainkeys=0 را تنظیم می‌کند). هنگام درون‌ریزی فقط برای نسخه‌های دسکتاپ روشن کنید و برای سایر ایمیج‌ها خاموش بگذارید. در راه‌اندازی کامل بعدی اعمال می‌شود.</string>
+    <string name="th_group_plain">تم‌های ساده</string>
+    <string name="th_group_skins">تم‌های قاب دستگاه (از @regectt)</string>
+    <string name="th_group_custom">تم‌های سفارشی</string>
+    <string name="th_custom_empty">هنوز تم سفارشی‌ای وجود ندارد. برای ساخت تم روی «تم جدید» بزنید یا فایل .aetheme را درون‌ریزی کنید. تم‌های ساده و قاب‌های دستگاه قابل تغییر نیستند: برای ویرایش، یکی را تکثیر کنید.</string>
+    <string name="th_expand">باز کردن فهرست</string>
+    <string name="th_collapse">بستن فهرست</string>
+    <string name="vs_art_boot_image">استفاده از ایمیج بوت ART (اندروید ۱۴+)</string>
+    <string name="vs_art_boot_image_sub">خاموش: سیستم مهمان بدون ایمیج بوت اجرا می‌شود. راه‌اندازی کندتر است اما هیچ مشکلی از سمت ایمیج پیش نمی‌آید. روشن: شبیه‌ساز یک ایمیج بوت برای این محیط اجرا آماده می‌کند (یک بار در راه‌اندازی بعدی ساخته می‌شود که کمی زمان می‌برد).</string>
+    <string name="vs_no_watchdog">غیرفعال کردن واچ‌داگ سیستم (اندروید ۱۴+)</string>
+    <string name="vs_no_watchdog_sub">برای بوتی که کندتر از محدودیت ۶۰ ثانیه‌ای واچ‌داگ اندروید است و system_server را در یک حلقه می‌کشد. فایل services.jar سیستم‌افزار را وصله می‌کند تا ریسه واچ‌داگ بلافاصله پایان یابد؛ پس از آن قفل‌شدگی واقعی سیستم دیگر با راه‌اندازی مجدد برطرف نمی‌شود. کد از پیش کامپایل‌شده jar نادیده گرفته می‌شود و ممکن است نخستین بوت را کندتر کند. خاموش کردن آن jar اصلی را بازیابی می‌کند. در راه‌اندازی کامل بعدی اعمال می‌شود.</string>
+    <string name="folder_new">پوشه جدید</string>
+    <string name="folder_new_dots">پوشه جدید…</string>
+    <string name="folder_rename">تغییر نام پوشه</string>
+    <string name="folder_delete">حذف پوشه (رام‌ها حفظ می‌شوند)</string>
+    <string name="folder_move">انتقال به پوشه</string>
+    <string name="folder_none">در هیچ پوشه‌ای نیست</string>
+    <string name="folder_default_name">پوشه</string>
+    <string name="folder_empty">خالی — رام‌ها را اینجا رها کنید</string>
+    <string name="folder_open">باز کردن پوشه</string>
+    <string name="folder_close">بستن پوشه</string>
+    <plurals name="folder_roms">
+        <item quantity="one">%1$d رام</item>
+        <item quantity="other">%1$d رام</item>
+    </plurals>
+    <string name="phantom_title">کشنده فرایندهای شبح</string>
+    <string name="phantom_msg">گزینه «غیرفعال کردن محدودیت‌های فرایندهای فرزند» در گزینه‌های توسعه‌دهنده دستگاه شما روشن نیست. این یعنی zygote هنگام راه‌اندازی شبیه‌ساز کشته می‌شود و بوت شدن شبیه‌ساز ناممکن می‌شود. بنابراین روشن کردن آن به‌شدت توصیه می‌شود.</string>
+    <string name="phantom_open_dev">باز کردن گزینه‌های توسعه‌دهنده</string>
+    <string name="phantom_ignore">نادیده گرفتن</string>
+    <string name="phantom_never">دیگر یادآوری نکن</string>
 </resources>

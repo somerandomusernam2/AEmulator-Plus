@@ -225,4 +225,11 @@
     <string name="update_err_wrong_package">A letöltött APK alkalmazáscsomagja hibás</string>
     <string name="catalog_err_too_many_lines">A katalógus meghaladja a 10000 sort</string>
     <string name="imp_iso_no_system">Az ISO-képfájlban nem található Android-rendszer (system.sfs vagy system.img várható)</string>
+    <string name="imp_inspecting">%1$s vizsgálata</string>
+    <string name="imp_choice_api">API-szint: %1$s</string>
+    <string name="imp_choice_build">buildszám: %1$s</string>
+    <string name="imp_choice_title">Melyik %1$s legyen importálva?</string>
+    <string name="imp_choice_text">Ez a csomag több %1$s elemet tartalmaz (%2$d / %3$d). Válaszd ki az importálandót.</string>
+    <string name="imp_choice_ok">Importálás</string>
+    <string name="imp_choice_cancel">Importálás megszakítása</string>
 </resources>

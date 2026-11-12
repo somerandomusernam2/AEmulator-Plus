@@ -30,4 +30,17 @@
     <string name="bluetooth_permission_denied">Autorizzazione Bluetooth negata: l’ospite si avvierà senza Bluetooth dell’host.</string>
     <string name="vs_sf_tombstone">Tombstone di crash di SurfaceFlinger (debug)</string>
     <string name="vs_sf_tombstone_sub">Se SurfaceFlinger va in crash, lascia che il firmware scriva un tombstone normale nel log (con la funzione che va in crash) invece di un breve rapporto. Usalo quando invii una segnalazione di bug. Si applica al prossimo avvio completo della VM.</string>
+    <string name="vi_mouse_keyboard">Input: mouse e tastiera</string>
+    <string name="vi_mouse_keyboard_sub">Registra un touchpad e una tastiera nel guest e ne rimuove il touchscreen. Lo schermo diventa un touchpad (tocca per fare clic, due dita per scorrere) e nella barra di navigazione compare un pulsante tastiera. Richiede il motore QEMU (non quello nativo a 64 bit) e un riavvio completo della VM.</string>
+    <string name="vi_keypad">Input: tastierino</string>
+    <string name="vi_keypad_sub">Aggiunge alla barra di navigazione un pulsante tastierino: tasti freccia, OK, tasti funzione, Chiama/Termina e 0–9 * # come su un telefono a tasti. Il tocco continua a funzionare e il tastierino può essere combinato con mouse e tastiera.</string>
+    <string name="vi_keyboard">Tastiera</string>
+    <string name="vi_keypad_title">Tastierino</string>
+    <string name="vi_close">Chiudi</string>
+    <string name="vi_open_keyboard">Tastiera</string>
+    <string name="vi_open_keypad">Tastierino</string>
+    <string name="m_resize_screen">Ridimensiona schermo</string>
+    <string name="m_resize_done">Ridimensionamento completato</string>
+    <string name="m_resize_reset">Ripristina dimensione schermo</string>
+    <string name="vi_resize_hint">Trascina un angolo dello schermo per ridimensionarlo. Al termine apri il menu e tocca «Ridimensionamento completato».</string>
 </resources>

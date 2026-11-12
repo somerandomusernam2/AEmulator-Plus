@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Added for AEmulator Plus, 2026-11-10: tabs and several machines at once -->
+<resources>
+    <string name="tab_home">Bibliotecă</string>
+    <string name="tab_close">Închide fila</string>
+    <string name="tab_close_title">Închizi %1$s?</string>
+    <string name="tab_close_text">„Minimizează” închide fila, iar mașina continuă să ruleze în fundal; deschide-o din nou din bibliotecă. „Oprește” oprește mașina.</string>
+    <string name="tab_minimize">Minimizează</string>
+    <string name="tab_shutdown">Oprește</string>
+    <string name="vm_slots_full">Toate cele %1$d sloturi pentru mașini sunt ocupate. Oprește mai întâi una.</string>
+</resources>

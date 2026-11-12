@@ -31,4 +31,17 @@
     <string name="vs_sf_tombstone">SurfaceFlinger-ის ავარიის tombstone (გამართვა)</string>
     <string name="vs_sf_tombstone_sub">თუ SurfaceFlinger ავარიულად შეწყდება, ფირმვერი ჟურნალში ჩაწერს ჩვეულებრივ tombstone-ს (ავარიული ფუნქციის მითითებით) მოკლე ანგარიშის ნაცვლად. გამოიყენეთ შეცდომის ანგარიშის გაგზავნისას. ძალაში შედის შემდეგი სრული VM ჩატვირთვისას.</string>
     <string name="bluetooth_permission_denied">Bluetooth-ის ნებართვა უარყოფილია: სტუმარი ჰოსტის Bluetooth-ის გარეშე ჩაიტვირთება.</string>
+    <string name="vi_mouse_keyboard">შეყვანა: მაუსი და კლავიატურა</string>
+    <string name="vi_mouse_keyboard_sub">სტუმარში არეგისტრირებს ტაჩპადსა და კლავიატურას და აშორებს მის სენსორულ ეკრანს. ეკრანი ხდება ტაჩპადი (შეხება — დაწკაპუნებისთვის, ორი თითი — გადასაადგილებლად), ხოლო ნავიგაციის ზოლში ჩნდება კლავიატურის ღილაკი. საჭიროა QEMU-ს ძრავა (არა ნატიური 64-ბიტიანი) და ვირტუალური მანქანის სრული გადატვირთვა.</string>
+    <string name="vi_keypad">შეყვანა: ღილაკებიანი კლავიატურა</string>
+    <string name="vi_keypad_sub">ნავიგაციის ზოლს ამატებს ღილაკებიანი კლავიატურის ღილაკს: ისრები, OK, პროგრამული ღილაკები, ზარი/დასრულება და 0–9 * # ღილაკებიანი ტელეფონის მსგავსად. შეხება კვლავ მუშაობს და მისი გაერთიანება შეიძლება მაუსსა და კლავიატურასთან.</string>
+    <string name="vi_keyboard">კლავიატურა</string>
+    <string name="vi_keypad_title">ღილაკებიანი კლავიატურა</string>
+    <string name="vi_close">დახურვა</string>
+    <string name="vi_open_keyboard">კლავიატურა</string>
+    <string name="vi_open_keypad">ღილაკებიანი კლავიატურა</string>
+    <string name="m_resize_screen">ეკრანის ზომის შეცვლა</string>
+    <string name="m_resize_done">ზომის შეცვლა დასრულდა</string>
+    <string name="m_resize_reset">ეკრანის ზომის გადაყენება</string>
+    <string name="vi_resize_hint">ზომის შესაცვლელად გადაათრიეთ ეკრანის კუთხე. დასრულების შემდეგ გახსენით მენიუ და შეეხეთ „ზომის შეცვლა დასრულდა“-ს.</string>
 </resources>

@@ -225,4 +225,11 @@
     <string name="update_err_wrong_variant">Atjauninājuma APK neatbilst šim lietotnes variantam</string>
     <string name="update_err_wrong_package">Lejupielādētajam APK ir nepareiza lietotnes pakotne</string>
     <string name="catalog_err_too_many_lines">Katalogs pārsniedz 10000 rindu</string>
+    <string name="imp_inspecting">Pārbauda: %1$s</string>
+    <string name="imp_choice_api">API līmenis %1$s</string>
+    <string name="imp_choice_build">būvējuma numurs %1$s</string>
+    <string name="imp_choice_title">Kuru vienumu (%1$s) importēt?</string>
+    <string name="imp_choice_text">Šajā pakotnē ir vairāk nekā viens vienums (%1$s): %2$d no %3$d. Izvēlieties to, ko importēt.</string>
+    <string name="imp_choice_ok">Importēt</string>
+    <string name="imp_choice_cancel">Atcelt importēšanu</string>
 </resources>

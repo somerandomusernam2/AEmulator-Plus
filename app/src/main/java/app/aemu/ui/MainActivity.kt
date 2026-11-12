@@ -44,6 +44,9 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.material.icons.rounded.FileOpen
 import androidx.compose.material.icons.rounded.ContentCopy
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.consumeWindowInsets
+import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
@@ -86,7 +89,6 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.repeatOnLifecycle
-import app.aemu.core.LiveVmStatus
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
@@ -143,7 +145,14 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         askPermissions()
         handleView(intent)
-        setContent { AemuTheme { Library(model) } }
+        // Back in the library with machines running sends the app to the background instead of closing the window
+        onBackPressedDispatcher.addCallback(this, object : androidx.activity.OnBackPressedCallback(true) {
+            override fun handleOnBackPressed() {
+                if (app.aemu.core.TabRegistry.live(applicationContext).isNotEmpty()) moveTaskToBack(true)
+                else { isEnabled = false; onBackPressedDispatcher.onBackPressed() }
+            }
+        })
+        setContent { AemuTheme { HomeWithTabs(model) } }
     }
 
     override fun onNewIntent(intent: Intent) {
@@ -185,18 +194,29 @@ class MainActivity : ComponentActivity() {
     }
 }
 
+/** The library with the tab bar above it (the bar is only there while a machine is open). */
+@Composable
+private fun HomeWithTabs(model: LibraryModel) {
+    val tabs by rememberVmTabs()
+    val bar = tabs.isNotEmpty()
+    Column(Modifier.fillMaxSize()) {
+        if (bar) VmTabStrip(tabs = tabs, current = null, topInset = true)
+        Box(Modifier.weight(1f).fillMaxWidth()
+            .then(if (bar) Modifier.consumeWindowInsets(WindowInsets.statusBars) else Modifier)) { Library(model) }
+    }
+}
+
 @Composable
 fun Library(model: LibraryModel) {
     val images by model.images.collectAsState()
     val imp by model.import.collectAsState()
     val ctx = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
-    var activeVmId by remember { mutableStateOf<String?>(null) }
+    var activeVmIds by remember { mutableStateOf<Set<String>>(emptySet()) }
     LaunchedEffect(lifecycleOwner) {
-        val status = LiveVmStatus(ctx.filesDir)
         lifecycleOwner.lifecycle.repeatOnLifecycle(Lifecycle.State.RESUMED) {
             while (true) {
-                activeVmId = withContext(Dispatchers.IO) { status.activeId() }
+                activeVmIds = withContext(Dispatchers.IO) { app.aemu.core.VmSlots.snapshot(ctx).ids }
                 delay(1000)
             }
         }
@@ -347,6 +367,7 @@ fun Library(model: LibraryModel) {
                                 modifier = (if (drag.key == img.id) Modifier else Modifier.animateItem())
                                     .libraryDragVisual(controller, img.id, lockX = false)
                                     .then(if (row.folderId != null) Modifier.border(2.dp, folderEdge, MaterialTheme.shapes.extraLarge) else Modifier),
+                                active = img.id in activeVmIds,
                                 onStart = { VmActivity.start(ctx, img.id) },
                                 onSettings = { settingsFor = img },
                                 onRename = { renameFor = img },
@@ -376,7 +397,7 @@ fun Library(model: LibraryModel) {
                     val ordered = remember(images) { images.filter { it.baseId.isEmpty() } + images.filter { it.baseId.isNotEmpty() } }
                     Library3D(
                         ordered,
-                        activeVmId,
+                        activeVmIds,
                         baseNameOf = { img -> images.firstOrNull { it.id == img.baseId }?.name },
                         onStart = { img, lowPower -> VmActivity.start(ctx, img.id, lowPower = lowPower) },
                         onSettings = { settingsFor = it },
@@ -441,7 +462,7 @@ fun Library(model: LibraryModel) {
                                             onDelete = { deleteFor = img },
                                             onMoveToFolder = { moveFor = img },
                                             baseName = images.firstOrNull { it.id == img.baseId }?.name,
-                                            active = activeVmId == img.id,
+                                            active = img.id in activeVmIds,
                                             modifier = if (row.folderId != null) Modifier.border(2.dp, folderEdge, MaterialTheme.shapes.large) else Modifier,
                                         )
                                     }
@@ -529,6 +550,8 @@ fun Library(model: LibraryModel) {
         onNewMachine = { library = false; containerFrom = it })
     containerFrom?.let { src -> ContainerDialog(src, images, onDismiss = { containerFrom = null },
         onCreate = { from, name, copy, settings -> containerFrom = null; model.clone(from, name, copy, settings) }) }
+
+    PhantomProcessWarning()
 
     UpdateDialog(
         state = updateState,

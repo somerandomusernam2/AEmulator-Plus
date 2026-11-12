@@ -225,4 +225,11 @@
     <string name="update_err_wrong_package">ဒေါင်းလုဒ်လုပ်ထားသော APK ၏ အက်ပ်ပက်ကေ့ဂျ် မှားနေသည်</string>
     <string name="catalog_err_too_many_lines">ကတ်တလော့ခ်သည် စာကြောင်း 10000 ကျော်နေသည်</string>
     <string name="imp_iso_no_system">ISO ပုံတွင် Android စနစ် မတွေ့ပါ (system.sfs သို့မဟုတ် system.img ကို မျှော်လင့်ထားသည်)</string>
+    <string name="imp_inspecting">%1$s ကို စစ်ဆေးနေသည်</string>
+    <string name="imp_choice_api">API အဆင့် %1$s</string>
+    <string name="imp_choice_build">ဘီလ်ဒ်နံပါတ် %1$s</string>
+    <string name="imp_choice_title">မည်သည့် %1$s ကို တင်သွင်းမလဲ။</string>
+    <string name="imp_choice_text">ဤပက်ကေ့ချ်တွင် %1$s တစ်ခုထက်ပိုပါသည် (%3$d ခုအနက် %2$d)။ တင်သွင်းမည့်တစ်ခုကို ရွေးပါ။</string>
+    <string name="imp_choice_ok">တင်သွင်းရန်</string>
+    <string name="imp_choice_cancel">တင်သွင်းမှု ပယ်ဖျက်ရန်</string>
 </resources>

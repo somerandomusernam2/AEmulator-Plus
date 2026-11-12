@@ -225,4 +225,11 @@
     <string name="update_err_wrong_package">APK-ul descărcat are pachetul de aplicație greșit</string>
     <string name="catalog_err_too_many_lines">Catalogul depășește 10000 de linii</string>
     <string name="imp_iso_no_system">Nu s-a găsit niciun sistem Android în imaginea ISO (se aștepta system.sfs sau system.img)</string>
+    <string name="imp_inspecting">Se inspectează %1$s</string>
+    <string name="imp_choice_api">Nivel API %1$s</string>
+    <string name="imp_choice_build">număr de build %1$s</string>
+    <string name="imp_choice_title">Care %1$s să fie importat?</string>
+    <string name="imp_choice_text">Acest pachet conține mai mult de un %1$s (%2$d din %3$d). Alege-l pe cel de importat.</string>
+    <string name="imp_choice_ok">Importă</string>
+    <string name="imp_choice_cancel">Anulează importul</string>
 </resources>

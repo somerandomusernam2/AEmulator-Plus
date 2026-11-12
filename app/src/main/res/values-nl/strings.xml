@@ -18,7 +18,7 @@
     <string name="storage_text">Sta toegang tot alle bestanden toe: dan staat de geheugenkaart van elk systeem in de map AEmulator van de interne opslag — handig voor apk’s, muziek en foto’s.</string>
     <string name="allow">Toestaan</string>
     <string name="empty_title">Nog geen systemen</string>
-    <string name="empty_text">Voeg een ARM-firmware voor Android 2.2–6.0 toe: een recovery-zip, een Odin-archief (.tar.md5), system.img of een factory image.</string>
+    <string name="empty_text">Voeg een ARM-firmware voor Android 1.0–17 toe: een recovery-zip, een Odin-archief (.tar.md5), system.img of een factory image.</string>
     <string name="empty_help">Welke bestanden werken?</string>
     <string name="import_failed">Importeren mislukt</string>
     <string name="import_running">Firmware wordt geïmporteerd</string>
@@ -30,7 +30,7 @@
     <string name="start">Starten</string>
     <string name="rename">Hernoemen</string>
     <string name="help_title">Ondersteunde firmware</string>
-    <string name="help_text">• Android 2.2 en 4.0–4.4: hoofdondersteuning; 5.x–6.x: experimenteel.\n• Alleen 32-bits ARM-firmware (armeabi / armeabi-v7a).\n\nFormaten:\n• CWM/TWRP-recovery-zip (MIUI, CyanogenMod, ports, de meeste custom-ROM’s);\n• Samsung: Odin .tar / .tar.md5 of een zip met AP_*.tar.md5;\n• Google factory images (.tgz / .zip);\n• system.img (ext4, sparse, YAFFS2), TWRP-back-up system.ext4.win;\n• OTA met system.new.dat(.br) + system.transfer.list.\n\nHet beste is als het archief boot.img bevat: de opstartvolgorde van de services wordt daaruit overgenomen.</string>
+    <string name="help_text">• Android 2.2–4.4: 32-bits ARM-firmware, draait via QEMU (ouder dan 2.2: experimenteel).\n• Android 5.0–17: arm64-firmware en GSI’s, draaien native op de telefoon.\n\nFormaten:\n• CWM/TWRP-recovery-zip (MIUI, CyanogenMod, ports, de meeste custom-ROM’s);\n• Samsung: Odin .tar / .tar.md5 of een zip met AP_*.tar.md5;\n• Google factory images (.tgz / .zip);\n• system.img (ext4, sparse, YAFFS2), TWRP-back-up system.ext4.win;\n• OTA met system.new.dat(.br) + system.transfer.list;\n• Ook: 7z, RAR, LG .kdz, Sony .ftf, Huawei UPDATE.APP, Qualcomm EDL, payload.bin, super.img, EROFS, Android-x86 ISO.\n\nHet beste is als het archief boot.img bevat: de opstartvolgorde van de services wordt daaruit overgenomen.</string>
     <string name="vs_screen">Gastscherm</string>
     <string name="vs_fixed_2x">Android 2.x gebruikt een vast scherm van 480×800 bij 240 dpi.</string>
     <string name="vs_screen_hint">Een kleiner scherm maakt het systeem sneller.</string>
@@ -45,6 +45,13 @@
     <string name="vs_legacy_sub">De oudere Desire HD-engine: alleen GLES 1.x, scherm van 480×800. Gebruik deze als de hoofdengine faalt.</string>
     <string name="vs_lowram">Modus voor weinig geheugen</string>
     <string name="vs_lowram_sub">ro.config.low_ram — het systeem bespaart geheugen.</string>
+    <string name="vs_memory_mode">Geheugenbeheer</string>
+    <string name="vs_memory_light">Licht</string>
+    <string name="vs_memory_medium">Gemiddeld</string>
+    <string name="vs_memory_aggressive">Agressief</string>
+    <string name="vs_memory_light_sub">Achtergrond-apps worden alleen gestopt als de telefoon zelf bijna geen geheugen meer heeft. Minste aantal herstarts; gebruikt het meeste geheugen. Gaat in na een volledige herstart van de VM.</string>
+    <string name="vs_memory_medium_sub">Gebalanceerd: houdt een gematigd aantal achtergrond-apps aan en stopt de rest als het vrije geheugen opraakt. Gaat in na een volledige herstart van de VM.</string>
+    <string name="vs_memory_aggressive_sub">Houdt weinig achtergrond-apps aan en controleert vaak, zodat geheugen snel vrijkomt. Gebruikt het minste geheugen, maar apps herstarten vaker. Gaat in na een volledige herstart van de VM.</string>
     <string name="vs_proxy">Moderne TLS-proxy</string>
     <string name="vs_proxy_sub">Laat oude browsers en apps de HTTPS-sites van tegenwoordig openen.</string>
     <string name="vs_controls">Bediening</string>
@@ -136,7 +143,7 @@
     <string name="vs_strace">Systeemaanroepen van services traceren</string>
     <string name="vs_strace_sub">Servicenamen gescheiden door komma’s, bijv. mediaserver,zygote. Vertraagt die services en schrijft de trace naar hun logs. Wordt toegepast bij de volgende start.</string>
     <string name="vs_wifi">Wifi-netwerk</string>
-    <string name="vs_wifi_sub">Toont het internet van de host aan de VM als een verbonden wifi-netwerk in plaats van Ethernet. Android 2.3, 4.0–7.x. Wordt toegepast bij de volgende start.</string>
+    <string name="vs_wifi_sub">Toont het internet van de host aan de VM als een verbonden wifi-netwerk in plaats van Ethernet. Android 2.3, 4.0–17 (8–17: experimenteel). Wordt toegepast bij de volgende start.</string>
     <string name="vs_wifi_ssid">Netwerknaam (SSID)</string>
     <string name="vs_wifi_ssid_sub">Maximaal 32 bytes</string>
     <string name="vs_wifi_ssid_error">De netwerknaam mag niet leeg zijn</string>
@@ -488,4 +495,35 @@
     <string name="m_reset_menu_pos">Menuknop resetten</string>
     <string name="as_led">Meldingslampje</string>
     <string name="as_led_sub">De LED van de gasttelefoon boven het scherm tonen</string>
+    <string name="vs_guest_nav">Navigatiebalk / taakbalk inschakelen</string>
+    <string name="vs_guest_nav_sub">Laat de gast zijn eigen navigatiebalk tekenen, of de taakbalk van Android-desktopbuilds (stelt qemu.hw.mainkeys=0 in). Zet dit bij het importeren alleen aan voor desktopbuilds en laat het uit voor alle andere images. Wordt actief bij de volgende volledige start.</string>
+    <string name="th_group_plain">Eenvoudige thema’s</string>
+    <string name="th_group_skins">Thema’s met apparaatskin (door @regectt)</string>
+    <string name="th_group_custom">Eigen thema’s</string>
+    <string name="th_custom_empty">Nog geen eigen thema’s. Tik op “Nieuw thema” om er een te maken, of importeer een .aetheme-bestand. Eenvoudige thema’s en apparaatskins kunnen niet worden gewijzigd: dupliceer er een om het te bewerken.</string>
+    <string name="th_expand">Lijst uitklappen</string>
+    <string name="th_collapse">Lijst samenvouwen</string>
+    <string name="vs_art_boot_image">ART-bootimage gebruiken (Android 14+)</string>
+    <string name="vs_art_boot_image_sub">Uit: de gast draait zonder bootimage. Het opstarten is trager, maar er kan niets van de image misgaan. Aan: de emulator maakt een bootimage voor deze runtime (eenmalig gemaakt bij de volgende start, wat even duurt).</string>
+    <string name="vs_no_watchdog">Systeemwatchdog uitschakelen (Android 14+)</string>
+    <string name="vs_no_watchdog_sub">Voor een start die langer duurt dan de watchdoglimiet van 60 s van Android, waardoor system_server in een lus wordt beëindigd. Patcht de services.jar van de firmware zodat de watchdogthread meteen stopt; een echte systeemdeadlock wordt daarna niet meer door een herstart opgelost. De vooraf gecompileerde code van de jar wordt genegeerd, waardoor de eerste start trager kan zijn. Uitschakelen herstelt de originele jar. Wordt actief bij de volgende volledige start.</string>
+    <string name="folder_new">Nieuwe map</string>
+    <string name="folder_new_dots">Nieuwe map…</string>
+    <string name="folder_rename">Map hernoemen</string>
+    <string name="folder_delete">Map verwijderen (ROM’s blijven behouden)</string>
+    <string name="folder_move">Naar map verplaatsen</string>
+    <string name="folder_none">Niet in een map</string>
+    <string name="folder_default_name">Map</string>
+    <string name="folder_empty">Leeg — sleep ROM’s hierheen</string>
+    <string name="folder_open">Map openen</string>
+    <string name="folder_close">Map sluiten</string>
+    <plurals name="folder_roms">
+        <item quantity="one">%1$d ROM</item>
+        <item quantity="other">%1$d ROM’s</item>
+    </plurals>
+    <string name="phantom_title">Fantoomprocessendoder</string>
+    <string name="phantom_msg">Op je apparaat is de optie “Beperkingen voor onderliggende processen uitschakelen” in de ontwikkelaarsopties niet ingeschakeld. Hierdoor wordt de zygote beëindigd tijdens het opstarten van de emulator, waardoor de emulator niet kan opstarten. Het wordt daarom STERK AANBEVOLEN om deze in te schakelen.</string>
+    <string name="phantom_open_dev">Ontwikkelaarsopties openen</string>
+    <string name="phantom_ignore">Negeren</string>
+    <string name="phantom_never">Niet meer herinneren</string>
 </resources>

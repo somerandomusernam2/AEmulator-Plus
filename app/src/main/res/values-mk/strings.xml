@@ -17,7 +17,7 @@
     <string name="storage_text">Дозволете пристап до сите датотеки: тогаш мемориската картичка на секој систем се наоѓа во папката AEmulator во внатрешната меморија – практично за APK-датотеки, музика и фотографии.</string>
     <string name="allow">Дозволи</string>
     <string name="empty_title">Сè уште нема системи</string>
-    <string name="empty_text">Додајте ARM фирмвер за Android 1.0–7.x: recovery ZIP, архива Odin (.tar.md5), system.img или фабричка слика.</string>
+    <string name="empty_text">Додајте ARM фирмвер за Android 1.0–17: recovery ZIP, архива Odin (.tar.md5), system.img или фабричка слика.</string>
     <string name="empty_help">Кои датотеки работат?</string>
     <string name="import_failed">Увозот не успеа</string>
     <string name="import_running">Се увезува фирмверот</string>
@@ -29,7 +29,7 @@
     <string name="start">Стартувај</string>
     <string name="rename">Преименувај</string>
     <string name="help_title">Поддржан фирмвер</string>
-    <string name="help_text">• Android 2.2 и 4.0–4.4: главна поддршка; пред 2.2 и 5.x–7.x: експериментална.\n• Само 32-битен ARM фирмвер (armeabi / armeabi-v7a).\n\nФормати:\n• recovery ZIP за CWM/TWRP (MIUI, CyanogenMod, портови, повеќето прилагодени ROM-ови);\n• Samsung: Odin .tar / .tar.md5 или ZIP со AP_*.tar.md5;\n• фабрички слики на Google (.tgz / .zip);\n• system.img (ext4, sparse, YAFFS2), резервна копија на TWRP system.ext4.win;\n• OTA со system.new.dat(.br) + system.transfer.list.\n\nНајдобро е ако архивата содржи boot.img: редоследот на стартување на услугите се презема од него.</string>
+    <string name="help_text">• Android 2.2–4.4: 32-битен ARM фирмвер, работи преку QEMU (пред 2.2: експериментално).\n• Android 5.0–17: arm64 фирмвер и GSI, работат природно на телефонот.\n\nФормати:\n• recovery ZIP за CWM/TWRP (MIUI, CyanogenMod, портови, повеќето прилагодени ROM-ови);\n• Samsung: Odin .tar / .tar.md5 или ZIP со AP_*.tar.md5;\n• фабрички слики на Google (.tgz / .zip);\n• system.img (ext4, sparse, YAFFS2), резервна копија на TWRP system.ext4.win;\n• OTA со system.new.dat(.br) + system.transfer.list;\n• Исто така: 7z, RAR, LG .kdz, Sony .ftf, Huawei UPDATE.APP, Qualcomm EDL, payload.bin, super.img, EROFS, Android-x86 ISO.\n\nНајдобро е ако архивата содржи boot.img: редоследот на стартување на услугите се презема од него.</string>
     <string name="vs_screen">Екран на гостинскиот систем</string>
     <string name="vs_fixed_2x">Моторот Desire HD користи фиксен екран 480×800 при 240 dpi.</string>
     <string name="vs_screen_hint">Пониската резолуција го прави системот побрз.</string>
@@ -44,6 +44,13 @@
     <string name="vs_legacy_sub">Постар мотор Desire HD: само GLES 1.x, екран 480×800. Користете го ако главниот мотор откаже.</string>
     <string name="vs_lowram">Режим на мала меморија</string>
     <string name="vs_lowram_sub">ro.config.low_ram – системот штеди меморија.</string>
+    <string name="vs_memory_mode">Управување со меморијата</string>
+    <string name="vs_memory_light">Лесно</string>
+    <string name="vs_memory_medium">Средно</string>
+    <string name="vs_memory_aggressive">Агресивно</string>
+    <string name="vs_memory_light_sub">Апликациите во заднина се запираат само кога на самиот телефон речиси му снемува меморија. Најмалку рестартирања; користи најмногу меморија. Важи по целосно рестартирање на виртуелната машина.</string>
+    <string name="vs_memory_medium_sub">Избалансирано: задржува умерен број апликации во заднина, а ги запира останатите кога слободната меморија ќе се намали. Важи по целосно рестартирање на виртуелната машина.</string>
+    <string name="vs_memory_aggressive_sub">Задржува малку апликации во заднина и проверува често, па меморијата се ослободува рано. Користи најмалку меморија, но апликациите се рестартираат почесто. Важи по целосно рестартирање на виртуелната машина.</string>
     <string name="vs_proxy">Модерен TLS прокси</string>
     <string name="vs_proxy_sub">Овозможува старите прелистувачи и апликации да отвораат денешни HTTPS-страници.</string>
     <string name="vs_controls">Контроли</string>
@@ -146,7 +153,7 @@
     <string name="vs_strace">Следи системски повици на услугите</string>
     <string name="vs_strace_sub">Имиња на услуги одделени со запирки, на пр. mediaserver,zygote. Ги забавува тие услуги и ги запишува трагите во нивните дневници. Се применува при следното стартување.</string>
     <string name="vs_wifi">Wi-Fi мрежа</string>
-    <string name="vs_wifi_sub">Го прикажува интернетот на домаќинот на виртуелната машина како поврзана Wi-Fi мрежа наместо Ethernet. Android 2.3, 4.0–7.x. Се применува при следното стартување.</string>
+    <string name="vs_wifi_sub">Го прикажува интернетот на домаќинот на виртуелната машина како поврзана Wi-Fi мрежа наместо Ethernet. Android 2.3, 4.0–17 (8–17: експериментално). Се применува при следното стартување.</string>
     <string name="vs_wifi_ssid">Име на мрежата (SSID)</string>
     <string name="vs_wifi_ssid_sub">До 32 бајти</string>
     <string name="vs_wifi_ssid_error">Името на мрежата не смее да биде празно</string>
@@ -487,4 +494,35 @@
     <string name="m_reset_menu_pos">Ресетирај го копчето за мени</string>
     <string name="as_led">Светло за известувања</string>
     <string name="as_led_sub">Прикажи го LED-от на гостинскиот телефон над екранот</string>
+    <string name="vs_guest_nav">Овозможи лента за навигација / лента со задачи</string>
+    <string name="vs_guest_nav_sub">Му дозволува на гостинот да ја исцрта сопствената лента за навигација или лентата со задачи на десктоп верзиите на Android (поставува qemu.hw.mainkeys=0). При увоз вклучете само за десктоп верзии, а за сите други слики оставете исклучено. Важи при следното целосно стартување.</string>
+    <string name="th_group_plain">Едноставни теми</string>
+    <string name="th_group_skins">Теми со изглед на уред (од @regectt)</string>
+    <string name="th_group_custom">Прилагодени теми</string>
+    <string name="th_custom_empty">Сè уште нема прилагодени теми. Допрете „Нова тема“ за да создадете или увезете датотека .aetheme. Едноставните теми и изгледите на уредите не можат да се менуваат: дуплирајте една за да ја уредите.</string>
+    <string name="th_expand">Прошири список</string>
+    <string name="th_collapse">Собери список</string>
+    <string name="vs_art_boot_image">Користи ART boot слика (Android 14+)</string>
+    <string name="vs_art_boot_image_sub">Исклучено: гостинот работи без boot слика. Стартувањето е побавно, но ништо во врска со сликата не може да откаже. Вклучено: емулаторот подготвува boot слика за оваа околина за извршување (се создава еднаш при следното стартување, што трае некое време).</string>
+    <string name="vs_no_watchdog">Оневозможи го системскиот watchdog (Android 14+)</string>
+    <string name="vs_no_watchdog_sub">За стартување побавно од ограничувањето на watchdog во Android од 60 s, кое го прекинува system_server во јамка. Го менува services.jar на фирмверот така што нишката на watchdog веднаш завршува; вистинско заглавување на системот потоа повеќе не се решава со рестартирање. Претходно компајлираниот код на jar се игнорира, што може да го забави првото стартување. Исклучувањето го враќа оригиналниот jar. Важи при следното целосно стартување.</string>
+    <string name="folder_new">Нова папка</string>
+    <string name="folder_new_dots">Нова папка…</string>
+    <string name="folder_rename">Преименувај папка</string>
+    <string name="folder_delete">Избриши папка (ROM-овите се задржуваат)</string>
+    <string name="folder_move">Премести во папка</string>
+    <string name="folder_none">Не е во папка</string>
+    <string name="folder_default_name">Папка</string>
+    <string name="folder_empty">Празно — спуштете ROM-ови овде</string>
+    <string name="folder_open">Отвори папка</string>
+    <string name="folder_close">Затвори папка</string>
+    <plurals name="folder_roms">
+        <item quantity="one">%1$d ROM</item>
+        <item quantity="other">%1$d ROM-ови</item>
+    </plurals>
+    <string name="phantom_title">Убиец на фантомски процеси</string>
+    <string name="phantom_msg">На вашиот уред не е вклучена опцијата „Оневозможи ограничувања на дете-процеси“ во Опции за програмери. Тоа значи дека zygote ќе биде прекинат при стартувањето на емулаторот, па емулаторот не може да се стартува. Затоа СИЛНО СЕ ПРЕПОРАЧУВА да ја вклучите.</string>
+    <string name="phantom_open_dev">Отвори Опции за програмери</string>
+    <string name="phantom_ignore">Игнорирај</string>
+    <string name="phantom_never">Не потсетувај повторно</string>
 </resources>

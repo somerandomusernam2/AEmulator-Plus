@@ -30,4 +30,17 @@
     <string name="bluetooth_permission_denied">Povolenie Bluetooth bolo zamietnuté: hosťovaný systém sa spustí bez Bluetooth hostiteľa.</string>
     <string name="vs_sf_tombstone">Tombstone pádu SurfaceFlingeru (ladenie)</string>
     <string name="vs_sf_tombstone_sub">Keď SurfaceFlinger spadne, firmvér zapíše do protokolu bežný tombstone (s funkciou, ktorá spadla) namiesto krátkej správy. Použite pri odosielaní hlásenia chyby. Použije sa pri ďalšom úplnom spustení VM.</string>
+    <string name="vi_mouse_keyboard">Vstup: myš a klávesnica</string>
+    <string name="vi_mouse_keyboard_sub">Zaregistruje v hosťovi touchpad a klávesnicu a odoberie jeho dotykovú obrazovku. Obrazovka sa zmení na touchpad (ťuknutím kliknete, dvoma prstami posúvate) a na navigačnom paneli sa zobrazí tlačidlo klávesnice. Vyžaduje jadro QEMU (nie natívne 64-bitové) a úplný reštart virtuálneho stroja.</string>
+    <string name="vi_keypad">Vstup: klávesnica s tlačidlami</string>
+    <string name="vi_keypad_sub">Pridá na navigačný panel tlačidlo klávesnice s tlačidlami: šípky, OK, softvérové tlačidlá, Volať/Zavesiť a 0–9 * # ako pri tlačidlovom telefóne. Dotyk naďalej funguje a klávesnicu s tlačidlami možno kombinovať s myšou a klávesnicou.</string>
+    <string name="vi_keyboard">Klávesnica</string>
+    <string name="vi_keypad_title">Klávesnica s tlačidlami</string>
+    <string name="vi_close">Zavrieť</string>
+    <string name="vi_open_keyboard">Klávesnica</string>
+    <string name="vi_open_keypad">Klávesnica s tlačidlami</string>
+    <string name="m_resize_screen">Zmeniť veľkosť obrazovky</string>
+    <string name="m_resize_done">Zmena veľkosti dokončená</string>
+    <string name="m_resize_reset">Obnoviť veľkosť obrazovky</string>
+    <string name="vi_resize_hint">Veľkosť obrazovky zmeníte potiahnutím za jej roh. Po dokončení otvorte ponuku a ťuknite na „Zmena veľkosti dokončená“.</string>
 </resources>

@@ -225,4 +225,11 @@
     <string name="update_err_wrong_package">Mali ang application package ng na-download na APK</string>
     <string name="catalog_err_too_many_lines">Lampas sa 10000 linya ang katalogo</string>
     <string name="imp_iso_no_system">Walang nakitang Android system sa ISO image (inaasahan ang system.sfs o system.img)</string>
+    <string name="imp_inspecting">Sinusuri ang %1$s</string>
+    <string name="imp_choice_api">API level %1$s</string>
+    <string name="imp_choice_build">build number %1$s</string>
+    <string name="imp_choice_title">Aling %1$s ang iimport?</string>
+    <string name="imp_choice_text">May higit sa isang %1$s ang package na ito (%2$d sa %3$d). Piliin ang iimport.</string>
+    <string name="imp_choice_ok">I-import</string>
+    <string name="imp_choice_cancel">Kanselahin ang pag-import</string>
 </resources>

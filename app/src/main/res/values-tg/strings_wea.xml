@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- put into app/src/main/res/values/ (other languages fall back to these) -->
+<resources>
+    <string name="m_wea">Огоҳии фавқулодаи сохта</string>
+    <string name="m_wea_type">Навъи огоҳӣ</string>
+    <string name="m_wea_sent">Огоҳии фавқулода фиристода шуд</string>
+    <string name="m_wea_failed">Фиристода нашуд: телефонияи телефон кор намекунад</string>
+    <string name="wea_presidential">Огоҳии президентӣ</string>
+    <string name="wea_extreme">Хатари шадид</string>
+    <string name="wea_severe">Хатари ҷиддӣ</string>
+    <string name="wea_amber">Огоҳии AMBER</string>
+    <string name="wea_test">Санҷиши ҳатмии моҳона</string>
+    <string name="wea_body_presidential">Огоҳии президентӣ: Ин санҷиши низоми огоҳии фавқулода аст. Ҳеҷ амале лозим нест.</string>
+    <string name="wea_body_extreme">Огоҳии шадид: Дар минтақаи шумо ҳушдори торнадо. Ҳозир паноҳгоҳ ҷӯед. Ин санҷиш аст.</string>
+    <string name="wea_body_severe">Огоҳии ҷиддӣ: Дар минтақаи шумо то соати 18:00 ҳушдори раъду барқ. Ин санҷиш аст.</string>
+    <string name="wea_body_amber">Огоҳии AMBER: Кӯдак гум шудааст, седани кабуд. Агар диданд, ба 911 занг занед. Ин санҷиш аст.</string>
+    <string name="wea_body_test">Ин санҷиши низоми огоҳии фавқулодаи беҳарорат аст. Ҳеҷ амале лозим нест.</string>
+</resources>

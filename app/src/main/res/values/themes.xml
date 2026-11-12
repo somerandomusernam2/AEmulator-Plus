@@ -11,4 +11,18 @@
         <item name="android:statusBarColor">@android:color/black</item>
         <item name="android:navigationBarColor">@android:color/black</item>
     </style>
+    <!-- Added for AEmulator Plus, 2026-11-09: the window on top in a tab of two machines; translucent, so the other
+         machine's window beneath it stays visible and running. It only covers its own half of the screen. -->
+    <style name="Theme.AEmulator.Vm.Overlay" parent="Theme.AEmulator.Vm">
+        <item name="android:windowIsTranslucent">true</item>
+        <item name="android:windowBackground">@android:color/transparent</item>
+        <item name="android:windowAnimationStyle">@null</item>
+    </style>
+    <!-- Added for AEmulator Plus, 2026-11-10: a transparent window for a dialog; what is beneath stays visible -->
+    <style name="Theme.AEmulator.TabDialog" parent="@android:style/Theme.Translucent.NoTitleBar">
+        <item name="android:windowAnimationStyle">@null</item>
+        <item name="android:windowBackground">@android:color/transparent</item>
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:navigationBarColor">@android:color/transparent</item>
+    </style>
 </resources>

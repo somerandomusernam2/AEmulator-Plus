@@ -18,7 +18,7 @@
     <string name="storage_text">Επιτρέψτε πρόσβαση σε όλα τα αρχεία: τότε η κάρτα μνήμης κάθε συστήματος βρίσκεται στον φάκελο AEmulator του εσωτερικού αποθηκευτικού χώρου — βολικό για APK, μουσική και φωτογραφίες.</string>
     <string name="allow">Να επιτρέπεται</string>
     <string name="empty_title">Δεν υπάρχουν ακόμη συστήματα</string>
-    <string name="empty_text">Προσθέστε firmware ARM για Android 2.2–6.0: ένα ZIP recovery, ένα αρχείο Odin (.tar.md5), system.img ή μια εικόνα εργοστασίου.</string>
+    <string name="empty_text">Προσθέστε firmware ARM για Android 1.0–17: ένα ZIP recovery, ένα αρχείο Odin (.tar.md5), system.img ή μια εικόνα εργοστασίου.</string>
     <string name="empty_help">Ποια αρχεία λειτουργούν;</string>
     <string name="import_failed">Η εισαγωγή απέτυχε</string>
     <string name="import_running">Εισαγωγή firmware</string>
@@ -30,7 +30,7 @@
     <string name="start">Εκκίνηση</string>
     <string name="rename">Μετονομασία</string>
     <string name="help_title">Υποστηριζόμενο firmware</string>
-    <string name="help_text">• Android 2.2 και 4.0–4.4: κύρια υποστήριξη· 5.x–6.x: πειραματική.\n• Μόνο firmware ARM 32 bit (armeabi / armeabi-v7a).\n\nΜορφές:\n• ZIP recovery CWM/TWRP (MIUI, CyanogenMod, ports, οι περισσότερες προσαρμοσμένες ROM)·\n• Samsung: Odin .tar / .tar.md5 ή ZIP με AP_*.tar.md5·\n• εικόνες εργοστασίου Google (.tgz / .zip)·\n• system.img (ext4, sparse, YAFFS2), αντίγραφο ασφαλείας TWRP system.ext4.win·\n• OTA με system.new.dat(.br) + system.transfer.list.\n\nΤο ιδανικό είναι το αρχείο να περιέχει boot.img: η σειρά εκκίνησης των υπηρεσιών λαμβάνεται από αυτό.</string>
+    <string name="help_text">• Android 2.2–4.4: firmware ARM 32 bit, εκτελείται μέσω QEMU (πριν από το 2.2: πειραματικά).\n• Android 5.0–17: firmware arm64 και GSI, εκτελούνται εγγενώς στο τηλέφωνο.\n\nΜορφές:\n• ZIP recovery CWM/TWRP (MIUI, CyanogenMod, ports, οι περισσότερες προσαρμοσμένες ROM)·\n• Samsung: Odin .tar / .tar.md5 ή ZIP με AP_*.tar.md5·\n• εικόνες εργοστασίου Google (.tgz / .zip)·\n• system.img (ext4, sparse, YAFFS2), αντίγραφο ασφαλείας TWRP system.ext4.win·\n• OTA με system.new.dat(.br) + system.transfer.list·\n• Επίσης: 7z, RAR, LG .kdz, Sony .ftf, Huawei UPDATE.APP, Qualcomm EDL, payload.bin, super.img, EROFS, Android-x86 ISO.\n\nΤο ιδανικό είναι το αρχείο να περιέχει boot.img: η σειρά εκκίνησης των υπηρεσιών λαμβάνεται από αυτό.</string>
     <string name="vs_screen">Οθόνη επισκέπτη</string>
     <string name="vs_fixed_2x">Το Android 2.x χρησιμοποιεί σταθερή οθόνη 480×800 στα 240 dpi.</string>
     <string name="vs_screen_hint">Μια μικρότερη οθόνη κάνει το σύστημα ταχύτερο.</string>
@@ -45,6 +45,13 @@
     <string name="vs_legacy_sub">Η παλαιότερη μηχανή Desire HD: μόνο GLES 1.x, οθόνη 480×800. Χρησιμοποιήστε την αν αποτύχει η κύρια μηχανή.</string>
     <string name="vs_lowram">Λειτουργία χαμηλής μνήμης</string>
     <string name="vs_lowram_sub">ro.config.low_ram — το σύστημα εξοικονομεί μνήμη.</string>
+    <string name="vs_memory_mode">Διαχείριση μνήμης</string>
+    <string name="vs_memory_light">Ελαφριά</string>
+    <string name="vs_memory_medium">Μέτρια</string>
+    <string name="vs_memory_aggressive">Επιθετική</string>
+    <string name="vs_memory_light_sub">Οι εφαρμογές παρασκηνίου διακόπτονται μόνο όταν το ίδιο το τηλέφωνο έχει σχεδόν εξαντλήσει τη μνήμη του. Λιγότερες επανεκκινήσεις· χρησιμοποιεί τη μεγαλύτερη ποσότητα μνήμης. Τίθεται σε ισχύ μετά από πλήρη επανεκκίνηση της εικονικής μηχανής.</string>
+    <string name="vs_memory_medium_sub">Ισορροπημένη: διατηρεί μέτριο αριθμό εφαρμογών παρασκηνίου και διακόπτει τις υπόλοιπες όταν η ελεύθερη μνήμη μειώνεται. Τίθεται σε ισχύ μετά από πλήρη επανεκκίνηση της εικονικής μηχανής.</string>
+    <string name="vs_memory_aggressive_sub">Διατηρεί λίγες εφαρμογές παρασκηνίου και ελέγχει συχνά, ώστε η μνήμη να ελευθερώνεται νωρίς. Χρησιμοποιεί τη λιγότερη μνήμη, αλλά οι εφαρμογές επανεκκινούνται συχνότερα. Τίθεται σε ισχύ μετά από πλήρη επανεκκίνηση της εικονικής μηχανής.</string>
     <string name="vs_proxy">Σύγχρονος διακομιστής μεσολάβησης TLS</string>
     <string name="vs_proxy_sub">Επιτρέπει σε παλιά προγράμματα περιήγησης και εφαρμογές να ανοίγουν τους σημερινούς ιστότοπους HTTPS.</string>
     <string name="vs_controls">Χειρισμός</string>
@@ -136,7 +143,7 @@
     <string name="vs_strace">Ανίχνευση κλήσεων συστήματος των υπηρεσιών</string>
     <string name="vs_strace_sub">Ονόματα υπηρεσιών χωρισμένα με κόμματα, π.χ. mediaserver,zygote. Επιβραδύνει αυτές τις υπηρεσίες και γράφει το ίχνος στα αρχεία καταγραφής τους. Εφαρμόζεται στην επόμενη εκκίνηση.</string>
     <string name="vs_wifi">Δίκτυο Wi-Fi</string>
-    <string name="vs_wifi_sub">Εμφανίζει το διαδίκτυο του κεντρικού υπολογιστή στο VM ως συνδεδεμένο δίκτυο Wi-Fi αντί για Ethernet. Android 2.3, 4.0–7.x. Εφαρμόζεται στην επόμενη εκκίνηση.</string>
+    <string name="vs_wifi_sub">Εμφανίζει το διαδίκτυο του κεντρικού υπολογιστή στο VM ως συνδεδεμένο δίκτυο Wi-Fi αντί για Ethernet. Android 2.3, 4.0–17 (8–17: πειραματική). Εφαρμόζεται στην επόμενη εκκίνηση.</string>
     <string name="vs_wifi_ssid">Όνομα δικτύου (SSID)</string>
     <string name="vs_wifi_ssid_sub">Έως 32 byte</string>
     <string name="vs_wifi_ssid_error">Το όνομα δικτύου δεν μπορεί να είναι κενό</string>
@@ -488,4 +495,35 @@
     <string name="m_reset_menu_pos">Επαναφορά κουμπιού μενού</string>
     <string name="as_led">Φωτεινή ένδειξη ειδοποιήσεων</string>
     <string name="as_led_sub">Εμφάνιση του LED του τηλεφώνου επισκέπτη πάνω από την οθόνη</string>
+    <string name="vs_guest_nav">Ενεργοποίηση γραμμής πλοήγησης / γραμμής εργασιών</string>
+    <string name="vs_guest_nav_sub">Επιτρέπει στο guest να σχεδιάσει τη δική του γραμμή πλοήγησης ή τη γραμμή εργασιών των εκδόσεων Android για υπολογιστές (ορίζει qemu.hw.mainkeys=0). Ενεργοποιήστε το κατά την εισαγωγή μόνο για εκδόσεις υπολογιστών και αφήστε το απενεργοποιημένο για όλες τις άλλες εικόνες. Εφαρμόζεται στην επόμενη πλήρη εκκίνηση.</string>
+    <string name="th_group_plain">Απλά θέματα</string>
+    <string name="th_group_skins">Θέματα με όψη συσκευής (από τον @regectt)</string>
+    <string name="th_group_custom">Προσαρμοσμένα θέματα</string>
+    <string name="th_custom_empty">Δεν υπάρχουν ακόμη προσαρμοσμένα θέματα. Πατήστε «Νέο θέμα» για να δημιουργήσετε ένα ή εισαγάγετε ένα αρχείο .aetheme. Τα απλά θέματα και οι όψεις συσκευών δεν αλλάζουν: αντιγράψτε ένα για να το επεξεργαστείτε.</string>
+    <string name="th_expand">Ανάπτυξη λίστας</string>
+    <string name="th_collapse">Σύμπτυξη λίστας</string>
+    <string name="vs_art_boot_image">Χρήση εικόνας εκκίνησης ART (Android 14+)</string>
+    <string name="vs_art_boot_image_sub">Ανενεργό: το guest εκτελείται χωρίς εικόνα εκκίνησης. Η εκκίνηση είναι πιο αργή, αλλά τίποτα σχετικό με την εικόνα δεν μπορεί να αποτύχει. Ενεργό: ο εξομοιωτής ετοιμάζει μια εικόνα εκκίνησης για αυτό το περιβάλλον εκτέλεσης (δημιουργείται μία φορά στην επόμενη εκκίνηση, κάτι που διαρκεί λίγο).</string>
+    <string name="vs_no_watchdog">Απενεργοποίηση του watchdog του συστήματος (Android 14+)</string>
+    <string name="vs_no_watchdog_sub">Για εκκίνηση πιο αργή από το όριο watchdog των 60 δευτ. του Android, που τερματίζει το system_server σε βρόχο. Τροποποιεί το services.jar του υλικολογισμικού ώστε το νήμα watchdog να τελειώνει αμέσως· ένα πραγματικό αδιέξοδο του συστήματος δεν αποκαθίσταται πλέον με επανεκκίνηση. Ο προμεταγλωττισμένος κώδικας του jar αγνοείται, κάτι που μπορεί να καθυστερήσει την πρώτη εκκίνηση. Η απενεργοποίηση επαναφέρει το αρχικό jar. Εφαρμόζεται στην επόμενη πλήρη εκκίνηση.</string>
+    <string name="folder_new">Νέος φάκελος</string>
+    <string name="folder_new_dots">Νέος φάκελος…</string>
+    <string name="folder_rename">Μετονομασία φακέλου</string>
+    <string name="folder_delete">Διαγραφή φακέλου (τα ROM διατηρούνται)</string>
+    <string name="folder_move">Μετακίνηση σε φάκελο</string>
+    <string name="folder_none">Όχι σε φάκελο</string>
+    <string name="folder_default_name">Φάκελος</string>
+    <string name="folder_empty">Κενός — αποθέστε ROM εδώ</string>
+    <string name="folder_open">Άνοιγμα φακέλου</string>
+    <string name="folder_close">Κλείσιμο φακέλου</string>
+    <plurals name="folder_roms">
+        <item quantity="one">%1$d ROM</item>
+        <item quantity="other">%1$d ROM</item>
+    </plurals>
+    <string name="phantom_title">Εξολοθρευτής διεργασιών-φαντασμάτων</string>
+    <string name="phantom_msg">Στη συσκευή σας δεν είναι ενεργοποιημένη η επιλογή «Απενεργοποίηση περιορισμών θυγατρικών διεργασιών» στις Επιλογές για προγραμματιστές. Αυτό σημαίνει ότι το zygote θα τερματιστεί κατά την εκκίνηση του εξομοιωτή, με αποτέλεσμα να μην μπορεί να γίνει εκκίνηση του εξομοιωτή. Επομένως, συνιστάται ΞΕΧΩΡΙΣΤΑ να την ενεργοποιήσετε.</string>
+    <string name="phantom_open_dev">Άνοιγμα Επιλογών για προγραμματιστές</string>
+    <string name="phantom_ignore">Παράβλεψη</string>
+    <string name="phantom_never">Να μην γίνει ξανά υπενθύμιση</string>
 </resources>

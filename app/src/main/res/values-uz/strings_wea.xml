@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- put into app/src/main/res/values/ (other languages fall back to these) -->
+<resources>
+    <string name="m_wea">Soxta favqulodda ogohlantirish</string>
+    <string name="m_wea_type">Ogohlantirish turi</string>
+    <string name="m_wea_sent">Favqulodda ogohlantirish yuborildi</string>
+    <string name="m_wea_failed">Yuborilmadi: telefonning telefoniya xizmati ishlamayapti</string>
+    <string name="wea_presidential">Prezident ogohlantirishi</string>
+    <string name="wea_extreme">Ekstremal xavf</string>
+    <string name="wea_severe">Jiddiy xavf</string>
+    <string name="wea_amber">AMBER ogohlantirishi</string>
+    <string name="wea_test">Majburiy oylik sinov</string>
+    <string name="wea_body_presidential">Prezident ogohlantirishi: Bu favqulodda ogohlantirish tizimining sinovi. Hech qanday harakat talab qilinmaydi.</string>
+    <string name="wea_body_extreme">Ekstremal ogohlantirish: Hududingizda tornado ogohlantirishi. Hoziroq boshpana oling. Bu sinov.</string>
+    <string name="wea_body_severe">Jiddiy ogohlantirish: Hududingizda soat 18:00 gacha momaqaldiroq ogohlantirishi. Bu sinov.</string>
+    <string name="wea_body_amber">AMBER ogohlantirishi: Bola yoʻqolgan, koʻk sedan. Koʻrsangiz, 911 ga qoʻngʻiroq qiling. Bu sinov.</string>
+    <string name="wea_body_test">Bu simsiz favqulodda ogohlantirish tizimining sinovi. Hech qanday harakat talab qilinmaydi.</string>
+</resources>

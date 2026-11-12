@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Added for AEmulator Plus, 2026-11-09: tabs and several machines at once (other languages fall back to these) -->
+<resources>
+    <string name="tab_home">Library</string>
+    <string name="tab_close">Close tab</string>
+    <string name="tab_close_title">Close %1$s?</string>
+    <string name="tab_close_text">Minimize closes the tab and keeps the machine running in the background; open it again from the library. Shut down turns the machine off.</string>
+    <string name="tab_minimize">Minimize</string>
+    <string name="tab_shutdown">Shut down</string>
+    <string name="vm_slots_full">All %1$d machine slots are in use. Shut one down first.</string>
+    <string name="tab_group_title">2 tabs</string>
+    <string name="tab_split_failed">That machine can no longer be added to this tab.</string>
+    <string name="tab_drag_label">Drag onto the screen to split</string>
+    <string name="tab_split_title">Split 2 tabs?</string>
+    <string name="tab_split_text">Each machine goes back to a tab of its own. Both keep running.</string>
+    <string name="tab_split_action">Split</string>
+</resources>

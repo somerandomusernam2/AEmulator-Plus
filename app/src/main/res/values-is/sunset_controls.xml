@@ -31,4 +31,17 @@
     <string name="vs_sf_tombstone">SurfaceFlinger-hrunsmerki (villuleit)</string>
     <string name="vs_sf_tombstone_sub">Ef SurfaceFlinger hrynur, láta fastbúnaðinn skrifa venjulegt tombstone í annálinn (með hrundu fallinu) í stað stuttrar skýrslu. Notaðu það þegar þú sendir villuskýrslu. Tekur gildi við næstu fullu ræsingu sýndarvélarinnar.</string>
     <string name="bluetooth_permission_denied">Bluetooth-heimild hafnað: gesturinn ræsist án Bluetooth hýsils.</string>
+    <string name="vi_mouse_keyboard">Inntak: mús og lyklaborð</string>
+    <string name="vi_mouse_keyboard_sub">Skráir snertiplötu og lyklaborð í gestinum og fjarlægir snertiskjá hans. Skjárinn verður að snertiplötu (ýttu til að smella, tveir fingur til að skruna) og lyklaborðshnappur birtist í leiðsögustikunni. Krefst QEMU-vélar (ekki 64 bita frumbyggjavélarinnar) og fullrar endurræsingar sýndarvélarinnar.</string>
+    <string name="vi_keypad">Inntak: takkaborð</string>
+    <string name="vi_keypad_sub">Bætir takkaborðshnappi við leiðsögustikuna: örvatakkar, Í lagi, hugbúnaðartakkar, Hringja/Hætta og 0–9 * # eins og á takkasíma. Snerting heldur áfram að virka og takkaborðið má nota með mús og lyklaborði.</string>
+    <string name="vi_keyboard">Lyklaborð</string>
+    <string name="vi_keypad_title">Takkaborð</string>
+    <string name="vi_close">Loka</string>
+    <string name="vi_open_keyboard">Lyklaborð</string>
+    <string name="vi_open_keypad">Takkaborð</string>
+    <string name="m_resize_screen">Breyta stærð skjás</string>
+    <string name="m_resize_done">Stærðarbreytingu lokið</string>
+    <string name="m_resize_reset">Endurstilla stærð skjás</string>
+    <string name="vi_resize_hint">Dragðu í horn skjásins til að breyta stærð hans. Þegar því er lokið skaltu opna valmyndina og ýta á „Stærðarbreytingu lokið“.</string>
 </resources>

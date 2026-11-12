@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Added for AEmulator Plus, 2026-11-10: tabs and several machines at once -->
+<resources>
+    <string name="tab_home">Kutubxona</string>
+    <string name="tab_close">Varaqni yopish</string>
+    <string name="tab_close_title">%1$s yopilsinmi?</string>
+    <string name="tab_close_text">“Kichraytirish” varaqni yopadi, mashina esa fonda ishlashda davom etadi; uni kutubxonadan qayta oching. “Oʻchirish” mashinani oʻchiradi.</string>
+    <string name="tab_minimize">Kichraytirish</string>
+    <string name="tab_shutdown">Oʻchirish</string>
+    <string name="vm_slots_full">Mashinaning barcha %1$d uyasi band. Avval bittasini oʻchiring.</string>
+</resources>

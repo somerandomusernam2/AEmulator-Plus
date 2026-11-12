@@ -290,7 +290,13 @@ enum class Kernel64(
         // state and system_server dies with "cannot interact with a closed instance", zygote 137 - seen on Android
         // Things 8.1. An empty table (only the header line the reader skips) means "no wakelocks" and no WTF.)
         procFiles = mapOf("tp_lockdown_info" to "4636320131320200\n",
-            "wakelocks" to "name\tcount\texpire_count\twake_count\tactive_since\ttotal_time\tsleep_time\tmax_time\tlast_change\n"),
+            // Modified for AEmulator Plus (2026-11-08): an EMPTY table is not "no wakelocks". Android Things / Glass
+            // 8.1 counts the rows with a non-zero total time and, with none, posts Slog.wtf "All kernel wakelocks had
+            // time of zero" from the ActivityManager thread; the WTF goes to the dropbox, which reads Settings.Global
+            // while SettingsProvider is being installed a second time, and system_server dies ("cannot interact with a
+            // closed instance", zygote 137). One idle row with a time and a count keeps the counter above zero.
+            "wakelocks" to "name\tcount\texpire_count\twake_count\tactive_since\ttotal_time\tsleep_time\tmax_time\tlast_change\n" +
+                "aemu-idle\t1\t0\t0\t0\t1000000\t0\t1000000\t0\n"),
         absentFeatures = listOf("consumerir", "fingerprint", "nfc", "nfc.hce", "nfc.hcef"), trafficAccounting = true, noQemuPipe = true,
         // The framework calls a Treble device consistent only after checking the running kernel (its SELinux policy
         // version, release and build options) against its certification list. There is no SELinux for the guest and
@@ -301,7 +307,14 @@ enum class Kernel64(
         // A vendor build's first boot compiles every app that came without compiled code (Google's ones on MIUI):
         // five minutes on the boot screen. They are only unpacked; ART verifies at run time.
         props = mapOf("ro.treble.enabled" to "false", "ro.property_service.version" to "2",
-            "pm.dexopt.first-boot" to "extract", "pm.dexopt.boot" to "extract")),
+            "pm.dexopt.first-boot" to "extract", "pm.dexopt.boot" to "extract"),
+        // Modified for AEmulator Plus (2026-11-08): a Qualcomm 8.1 firmware (Glass Enterprise Edition 2, sdm710) names its
+        // keymaster and gatekeeper passthrough "-impl-qti", which the HIDL loader tries before the plain -impl.so of the
+        // engine; it talks to the secure world (\"Failed to open /dev/qseecom device\"), the keymaster HAL never registers,
+        // keystore waits for IKeymasterDevice for ever and system_server dies at USER_STARTED (KeyStore.contains on a
+        // null IKeystoreService, zygote 137). As on 9 and later, they stay aside and the engine's software ones take over.
+        firmwareAside = listOf("vendor#lib64#hw#android.hardware.keymaster@3.0-impl-qti.so", "vendor#lib64#hw#android.hardware.gatekeeper@1.0-impl-qti.so",
+            "vendor#lib#hw#android.hardware.keymaster@3.0-impl-qti.so", "vendor#lib#hw#android.hardware.gatekeeper@1.0-impl-qti.so")),
     // Android 9 over the vendor side of 8.1, which is what a generic system image of 9 is made for: the HALs are the
     // ones of kernel 27 (copied, so that the two can part), and the system finds its copy of their libraries by the
     // VNDK version the vendor side declares.
@@ -412,6 +425,11 @@ enum class Kernel64(
         procFiles = mapOf("tp_lockdown_info" to "4636320131320200\n"),
         propDefaults = mapOf("ro.vndk.version" to "32", "ro.vendor.build.security_patch" to "2022-07-05"), ownVendorUnderGsi = true,
         sysFiles = mapOf("android_lcd/lcd_name" to "aemu\n"),
+        // Added for AEmulator Plus (2026-11-09): the audio HAL of 12 is the 7.0 one. A vendor's 12 (Huawei GLA-AL00 and others) ships
+        // libaudiohal.so with wrappers for 7.0, 6.0 and 5.0 only (no libaudiohal@4.0.so) and no check for "no HAL found": with the 4.0
+        // HAL of before, audioserver died in createPreferredImpl (strlen(NULL)) at every start. The service's libraries are the engine's
+        // over the firmware's own libhidlbase: not vendor/lib64/aemu-vndk, whose libhidlbase is the VNDK 28 one.
+        ownLibDirs = mapOf("vendor#bin#hw#android.hardware.audio.service" to "vendor/lib64/aemu-audio"),
         ownVndkDir = "vendor/lib64/aemu-vndk", manifestFragmentsAside = true, trebleLinkerConfig = true, propAreaSize = 512 * 1024, cgroup2Root = true, oneFingerprint = true, vendorHeapProps = true,
         firmwareOwn = listOf("vendor#bin#hw#android.hardware.media.omx@1.0-service", "vendor#etc#init#android.hardware.media.omx@1.0-service.rc",
             "vendor#lib#libavservices_minijail_vendor.so", "vendor#lib#libmediacodecservice.so", "vendor#lib#libminijail_vendor.so",

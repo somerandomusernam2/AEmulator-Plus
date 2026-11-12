@@ -102,4 +102,14 @@ internal object PartitionNames {
         }
         return false
     }
+
+    /**
+     * Names a whole-disk image (GPT at LBA 1) can have inside an archive. A Chrome OS style recovery zip ships the disk as
+     * "<board>_recovery_<channel>.bin", not "*.img". Only the name is checked here: the caller still looks for the "EFI PART" signature.
+     */
+    fun isDiskImageName(base: String): Boolean {
+        val b = base.replace('\\', '/').substringAfterLast('/').lowercase()
+        if (!b.contains('.')) return true
+        return b.substringAfterLast('.') in setOf("img", "bin", "raw", "disk", "dd")
+    }
 }

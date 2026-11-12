@@ -61,6 +61,7 @@ import app.aemu.core.CpuInfo
 import app.aemu.core.Engine
 import app.aemu.core.GuestImage
 import app.aemu.core.GyroLock
+import app.aemu.core.MemoryMode
 import app.aemu.core.NetworkType
 import app.aemu.core.RamChoice
 import kotlin.math.roundToInt
@@ -217,6 +218,7 @@ fun SettingsSheet(img: GuestImage, onDismiss: () -> Unit, onSave: (VmSettings, S
                 colors = ListItemDefaults.colors(containerColor = Color.Transparent),
             )
             Toggle(stringResource(R.string.vs_lowram), stringResource(R.string.vs_lowram_sub), s.lowRam) { s = s.copy(lowRam = it) }
+            MemoryModePicker(MemoryMode.parse(s.memoryMode)) { s = s.copy(memoryMode = it.id) }
             Toggle(stringResource(R.string.vs_proxy), stringResource(R.string.vs_proxy_sub), s.netProxy) { s = s.copy(netProxy = it) }
             Toggle(stringResource(R.string.vs_vibration), stringResource(R.string.vs_vibration_sub), s.vibration) { s = s.copy(vibration = it) }
             Toggle(stringResource(R.string.vs_host_battery), stringResource(R.string.vs_host_battery_sub), s.hostBattery) { s = s.copy(hostBattery = it) }
@@ -424,6 +426,39 @@ private fun WifiFields(s: VmSettings, set: (VmSettings) -> Unit) {
         modifier = Modifier.fillMaxWidth(),
     )
     Toggle(stringResource(R.string.vs_wifi_neighbors), stringResource(R.string.vs_wifi_neighbors_sub), s.wifiNeighbors) { set(s.copy(wifiNeighbors = it)) }
+}
+
+/** Light / medium / aggressive list for how eagerly the host stops cached guest processes. */
+@Composable
+private fun MemoryModePicker(mode: MemoryMode, set: (MemoryMode) -> Unit) {
+    var open by remember { mutableStateOf(false) }
+    fun label(m: MemoryMode) = when (m) {
+        MemoryMode.LIGHT -> R.string.vs_memory_light
+        MemoryMode.MEDIUM -> R.string.vs_memory_medium
+        MemoryMode.AGGRESSIVE -> R.string.vs_memory_aggressive
+    }
+    ListItem(
+        headlineContent = { Text(stringResource(R.string.vs_memory_mode)) },
+        supportingContent = {
+            Text(stringResource(when (mode) {
+                MemoryMode.LIGHT -> R.string.vs_memory_light_sub
+                MemoryMode.MEDIUM -> R.string.vs_memory_medium_sub
+                MemoryMode.AGGRESSIVE -> R.string.vs_memory_aggressive_sub
+            }))
+        },
+        trailingContent = {
+            Box {
+                TextButton(onClick = { open = true }) { Text(stringResource(label(mode))) }
+                DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
+                    MemoryMode.entries.forEach { m ->
+                        DropdownMenuItem(text = { Text(stringResource(label(m))) }, onClick = { open = false; set(m) })
+                    }
+                }
+            }
+        },
+        colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+        modifier = Modifier.fillMaxWidth(),
+    )
 }
 
 /** Disabled / 0° / 180° / no-gyroscope list for the host motion sensors. */

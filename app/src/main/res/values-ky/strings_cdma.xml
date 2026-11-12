@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- put into app/src/main/res/values/ (other languages fall back to these) -->
+<resources>
+    <string name="vs_cdma">CDMA модем</string>
+    <string name="vs_cdma_sub">CDMA модемди эмуляциялайт: 1xRTT / EV-DO каттоосу, MEID, CDMA жазылуусу жана CDMA тексттик билдирүүлөрү. Кийинки толук жүктөөдө колдонулат.</string>
+    <string name="vs_cdma_fw_yes">Бул прошивка CDMA үстүндөгү LTE (telephony.lteOnCdmaDevice=1): демейки боюнча күйүк.</string>
+    <string name="vs_cdma_fw_no">Бул прошивка CDMA үстүндөгү LTE эмес: демейки боюнча өчүк.</string>
+</resources>

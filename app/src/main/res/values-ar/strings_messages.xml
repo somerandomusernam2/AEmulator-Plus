@@ -225,4 +225,11 @@
     <string name="update_err_wrong_package">ملف APK الذي تم تنزيله يحمل حزمة تطبيق خاطئة</string>
     <string name="catalog_err_too_many_lines">الفهرس يتجاوز 10000 سطر</string>
     <string name="imp_iso_no_system">لم يُعثر على نظام Android في صورة ISO (المتوقع system.sfs أو system.img)</string>
+    <string name="imp_inspecting">جارٍ فحص %1$s</string>
+    <string name="imp_choice_api">مستوى API %1$s</string>
+    <string name="imp_choice_build">رقم الإصدار %1$s</string>
+    <string name="imp_choice_title">أي %1$s تريد استيراده؟</string>
+    <string name="imp_choice_text">تحتوي هذه الحزمة على أكثر من %1$s (%2$d من %3$d). اختر ما تريد استيراده.</string>
+    <string name="imp_choice_ok">استيراد</string>
+    <string name="imp_choice_cancel">إلغاء الاستيراد</string>
 </resources>

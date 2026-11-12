@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Added for AEmulator Plus, 2026-11-10: tabs and several machines at once -->
+<resources>
+    <string name="tab_home">Библиотека</string>
+    <string name="tab_close">Затвори картицу</string>
+    <string name="tab_close_title">Затворити %1$s?</string>
+    <string name="tab_close_text">„Умањи“ затвара картицу, а машина наставља да ради у позадини; поново је отворите из библиотеке. „Угаси“ искључује машину.</string>
+    <string name="tab_minimize">Умањи</string>
+    <string name="tab_shutdown">Угаси</string>
+    <string name="vm_slots_full">Сва %1$d места за машине су заузета. Прво угасите једну.</string>
+</resources>

@@ -18,7 +18,7 @@
     <string name="storage_text">Gi tilgang til alle filer: da ligger hvert systems minnekort i mappen AEmulator i internminnet – praktisk for APK-er, musikk og bilder.</string>
     <string name="allow">Tillat</string>
     <string name="empty_title">Ingen systemer ennå</string>
-    <string name="empty_text">Legg til en ARM-fastvare for Android 2.2–6.0: en recovery-ZIP, et Odin-arkiv (.tar.md5), system.img eller et fabrikkbilde.</string>
+    <string name="empty_text">Legg til en ARM-fastvare for Android 1.0–17: en recovery-ZIP, et Odin-arkiv (.tar.md5), system.img eller et fabrikkbilde.</string>
     <string name="empty_help">Hvilke filer fungerer?</string>
     <string name="import_failed">Importen mislyktes</string>
     <string name="import_running">Importerer fastvare</string>
@@ -30,7 +30,7 @@
     <string name="start">Start</string>
     <string name="rename">Gi nytt navn</string>
     <string name="help_title">Støttet fastvare</string>
-    <string name="help_text">• Android 2.2 og 4.0–4.4: hovedstøtte; 5.x–6.x: eksperimentell.\n• Kun 32-biters ARM-fastvare (armeabi / armeabi-v7a).\n\nFormater:\n• CWM/TWRP recovery-ZIP (MIUI, CyanogenMod, porter, de fleste egendefinerte ROM-er);\n• Samsung: Odin .tar / .tar.md5 eller en ZIP med AP_*.tar.md5;\n• Googles fabrikkbilder (.tgz / .zip);\n• system.img (ext4, sparse, YAFFS2), TWRP-sikkerhetskopi system.ext4.win;\n• OTA med system.new.dat(.br) + system.transfer.list.\n\nBest hvis arkivet inneholder boot.img: rekkefølgen for tjenesteoppstart hentes derfra.</string>
+    <string name="help_text">• Android 2.2–4.4: 32-biters ARM-fastvare, kjører via QEMU (eldre enn 2.2: eksperimentell).\n• Android 5.0–17: arm64-fastvare og GSI-er, kjører naturlig på telefonen.\n\nFormater:\n• CWM/TWRP recovery-ZIP (MIUI, CyanogenMod, porter, de fleste egendefinerte ROM-er);\n• Samsung: Odin .tar / .tar.md5 eller en ZIP med AP_*.tar.md5;\n• Googles fabrikkbilder (.tgz / .zip);\n• system.img (ext4, sparse, YAFFS2), TWRP-sikkerhetskopi system.ext4.win;\n• OTA med system.new.dat(.br) + system.transfer.list;\n• Også: 7z, RAR, LG .kdz, Sony .ftf, Huawei UPDATE.APP, Qualcomm EDL, payload.bin, super.img, EROFS, Android-x86 ISO.\n\nBest hvis arkivet inneholder boot.img: rekkefølgen for tjenesteoppstart hentes derfra.</string>
     <string name="vs_screen">Gjesteskjerm</string>
     <string name="vs_fixed_2x">Android 2.x bruker en fast skjerm på 480×800 med 240 dpi.</string>
     <string name="vs_screen_hint">En mindre skjerm gjør systemet raskere.</string>
@@ -45,6 +45,13 @@
     <string name="vs_legacy_sub">Den eldre Desire HD-motoren: kun GLES 1.x, skjerm på 480×800. Bruk den hvis hovedmotoren svikter.</string>
     <string name="vs_lowram">Modus for lite minne</string>
     <string name="vs_lowram_sub">ro.config.low_ram – systemet sparer minne.</string>
+    <string name="vs_memory_mode">Minnebehandling</string>
+    <string name="vs_memory_light">Lett</string>
+    <string name="vs_memory_medium">Middels</string>
+    <string name="vs_memory_aggressive">Aggressiv</string>
+    <string name="vs_memory_light_sub">Bakgrunnsapper stoppes bare når selve telefonen nesten går tom for minne. Færrest omstarter; bruker mest minne. Trer i kraft etter en full omstart av den virtuelle maskinen.</string>
+    <string name="vs_memory_medium_sub">Balansert: beholder et moderat antall bakgrunnsapper og stopper resten når ledig minne blir lavt. Trer i kraft etter en full omstart av den virtuelle maskinen.</string>
+    <string name="vs_memory_aggressive_sub">Beholder få bakgrunnsapper og sjekker ofte, slik at minne frigjøres tidlig. Bruker minst minne, men apper starter oftere på nytt. Trer i kraft etter en full omstart av den virtuelle maskinen.</string>
     <string name="vs_proxy">Moderne TLS-proxy</string>
     <string name="vs_proxy_sub">Lar gamle nettlesere og apper åpne dagens HTTPS-nettsteder.</string>
     <string name="vs_controls">Kontroller</string>
@@ -136,7 +143,7 @@
     <string name="vs_strace">Spor systemkall fra tjenester</string>
     <string name="vs_strace_sub">Tjenestenavn atskilt med komma, f.eks. mediaserver,zygote. Bremser disse tjenestene og skriver sporet til loggene deres. Gjelder ved neste oppstart.</string>
     <string name="vs_wifi">Wi-Fi-nettverk</string>
-    <string name="vs_wifi_sub">Viser vertens internett for VM-en som et tilkoblet Wi-Fi-nettverk i stedet for Ethernet. Android 2.3, 4.0–7.x. Gjelder ved neste oppstart.</string>
+    <string name="vs_wifi_sub">Viser vertens internett for VM-en som et tilkoblet Wi-Fi-nettverk i stedet for Ethernet. Android 2.3, 4.0–17 (8–17: eksperimentell). Gjelder ved neste oppstart.</string>
     <string name="vs_wifi_ssid">Nettverksnavn (SSID)</string>
     <string name="vs_wifi_ssid_sub">Opptil 32 byte</string>
     <string name="vs_wifi_ssid_error">Nettverksnavnet kan ikke være tomt</string>
@@ -488,4 +495,35 @@
     <string name="m_reset_menu_pos">Tilbakestill menyknappen</string>
     <string name="as_led">Varsellys</string>
     <string name="as_led_sub">Vis gjestetelefonens LED over skjermen</string>
+    <string name="vs_guest_nav">Aktiver navigasjonsfelt / oppgavelinje</string>
+    <string name="vs_guest_nav_sub">Lar gjesten tegne sitt eget navigasjonsfelt eller oppgavelinjen i Android-skrivebordsbygg (setter qemu.hw.mainkeys=0). Slå på ved import bare for skrivebordsbygg, og la det stå av for alle andre avbildninger. Trer i kraft ved neste fulle oppstart.</string>
+    <string name="th_group_plain">Enkle temaer</string>
+    <string name="th_group_skins">Temaer med enhetsskall (av @regectt)</string>
+    <string name="th_group_custom">Egne temaer</string>
+    <string name="th_custom_empty">Ingen egne temaer ennå. Trykk på «Nytt tema» for å lage ett, eller importer en .aetheme-fil. Enkle temaer og enhetsskall kan ikke endres: Dupliser ett for å redigere det.</string>
+    <string name="th_expand">Utvid liste</string>
+    <string name="th_collapse">Skjul liste</string>
+    <string name="vs_art_boot_image">Bruk ART-oppstartsavbildning (Android 14+)</string>
+    <string name="vs_art_boot_image_sub">Av: Gjesten kjører uten oppstartsavbildning. Oppstarten går tregere, men ingenting med avbildningen kan feile. På: Emulatoren forbereder en oppstartsavbildning for dette kjøremiljøet (lages én gang ved neste oppstart, noe som tar litt tid).</string>
+    <string name="vs_no_watchdog">Deaktiver systemets watchdog (Android 14+)</string>
+    <string name="vs_no_watchdog_sub">For en oppstart som tar lengre tid enn Androids watchdog-grense på 60 s, som dreper system_server i en løkke. Patcher firmwarens services.jar slik at watchdog-tråden avsluttes med en gang; et reelt systemlås rettes da ikke lenger opp av en omstart. Jar-filens forhåndskompilerte kode ignoreres, noe som kan gjøre den første oppstarten tregere. Hvis du slår det av, gjenopprettes den opprinnelige jar-filen. Trer i kraft ved neste fulle oppstart.</string>
+    <string name="folder_new">Ny mappe</string>
+    <string name="folder_new_dots">Ny mappe…</string>
+    <string name="folder_rename">Gi mappen nytt navn</string>
+    <string name="folder_delete">Slett mappe (ROM-ene beholdes)</string>
+    <string name="folder_move">Flytt til mappe</string>
+    <string name="folder_none">Ikke i en mappe</string>
+    <string name="folder_default_name">Mappe</string>
+    <string name="folder_empty">Tom – slipp ROM-er her</string>
+    <string name="folder_open">Åpne mappe</string>
+    <string name="folder_close">Lukk mappe</string>
+    <plurals name="folder_roms">
+        <item quantity="one">%1$d ROM</item>
+        <item quantity="other">%1$d ROM-er</item>
+    </plurals>
+    <string name="phantom_title">Drapsmann for fantomprosesser</string>
+    <string name="phantom_msg">På enheten din er alternativet «Deaktiver begrensninger for underprosesser» i Utvikleralternativer ikke slått på. Det betyr at zygote blir drept under oppstarten av emulatoren, slik at emulatoren ikke kan starte. Det anbefales derfor på det sterkeste å slå det på.</string>
+    <string name="phantom_open_dev">Åpne Utvikleralternativer</string>
+    <string name="phantom_ignore">Ignorer</string>
+    <string name="phantom_never">Aldri påminn igjen</string>
 </resources>

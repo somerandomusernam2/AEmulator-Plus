@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Added for AEmulator Plus, 2026-11-10: tabs and several machines at once -->
+<resources>
+    <string name="tab_home">Գրադարան</string>
+    <string name="tab_close">Փակել ներդիրը</string>
+    <string name="tab_close_title">Փակե՞լ %1$s-ը</string>
+    <string name="tab_close_text">«Ծալել»-ը փակում է ներդիրը, բայց մեքենան շարունակում է աշխատել ֆոնում․ նորից բացեք այն գրադարանից։ «Անջատել»-ը անջատում է մեքենան։</string>
+    <string name="tab_minimize">Ծալել</string>
+    <string name="tab_shutdown">Անջատել</string>
+    <string name="vm_slots_full">Մեքենաների բոլոր %1$d բնիկները զբաղված են։ Նախ անջատեք որևէ մեկը։</string>
+</resources>

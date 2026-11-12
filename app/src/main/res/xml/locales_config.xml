@@ -55,4 +55,8 @@
     <locale android:name="ga" />
     <locale android:name="cnr" />
     <locale android:name="az" />
+    <locale android:name="uz" />
+    <locale android:name="ky" />
+    <locale android:name="tg" />
+    <locale android:name="tk" />
 </locale-config>

@@ -30,4 +30,17 @@
     <string name="bluetooth_permission_denied">Autorisation Bluetooth refusée : l’invité démarrera sans Bluetooth de l’hôte.</string>
     <string name="vs_sf_tombstone">Tombstone de plantage SurfaceFlinger (débogage)</string>
     <string name="vs_sf_tombstone_sub">Si SurfaceFlinger plante, laisse le firmware écrire un tombstone normal dans le journal (avec la fonction en cause) au lieu d\'un court rapport. À utiliser pour envoyer un rapport de bug. S\'applique au prochain démarrage complet de la VM.</string>
+    <string name="vi_mouse_keyboard">Saisie : souris et clavier</string>
+    <string name="vi_mouse_keyboard_sub">Enregistre un pavé tactile et un clavier dans le système invité et supprime son écran tactile. L’écran devient un pavé tactile (toucher pour cliquer, deux doigts pour faire défiler) et un bouton de clavier apparaît dans la barre de navigation. Nécessite le moteur QEMU (pas le moteur 64 bits natif) et un redémarrage complet de la VM.</string>
+    <string name="vi_keypad">Saisie : pavé numérique</string>
+    <string name="vi_keypad_sub">Ajoute à la barre de navigation un bouton de pavé numérique : touches fléchées, OK, touches programmables, Appel/Fin et 0–9 * # comme sur un téléphone à touches. Le tactile continue de fonctionner et le pavé peut être combiné avec la souris et le clavier.</string>
+    <string name="vi_keyboard">Clavier</string>
+    <string name="vi_keypad_title">Pavé numérique</string>
+    <string name="vi_close">Fermer</string>
+    <string name="vi_open_keyboard">Clavier</string>
+    <string name="vi_open_keypad">Pavé numérique</string>
+    <string name="m_resize_screen">Redimensionner l’écran</string>
+    <string name="m_resize_done">Redimensionnement terminé</string>
+    <string name="m_resize_reset">Réinitialiser la taille de l’écran</string>
+    <string name="vi_resize_hint">Faites glisser un coin de l’écran pour le redimensionner. Une fois terminé, ouvrez le menu et touchez « Redimensionnement terminé ».</string>
 </resources>

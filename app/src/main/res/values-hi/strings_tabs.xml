@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Added for AEmulator Plus, 2026-11-10: tabs and several machines at once -->
+<resources>
+    <string name="tab_home">लाइब्रेरी</string>
+    <string name="tab_close">टैब बंद करें</string>
+    <string name="tab_close_title">%1$s बंद करें?</string>
+    <string name="tab_close_text">“छोटा करें” टैब को बंद कर देता है, लेकिन मशीन बैकग्राउंड में चलती रहती है; उसे लाइब्रेरी से फिर खोलें। “शट डाउन” मशीन को बंद कर देता है।</string>
+    <string name="tab_minimize">छोटा करें</string>
+    <string name="tab_shutdown">शट डाउन</string>
+    <string name="vm_slots_full">सभी %1$d मशीन स्लॉट इस्तेमाल में हैं। पहले किसी एक को शट डाउन करें।</string>
+</resources>

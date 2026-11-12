@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Added for AEmulator Plus, 2026-11-10: tabs and several machines at once -->
+<resources>
+    <string name="tab_home">Bibliotek</string>
+    <string name="tab_close">Luk fane</string>
+    <string name="tab_close_title">Vil du lukke %1$s?</string>
+    <string name="tab_close_text">“Minimér” lukker fanen, men lader maskinen køre videre i baggrunden; åbn den igen fra biblioteket. “Sluk” slukker maskinen.</string>
+    <string name="tab_minimize">Minimér</string>
+    <string name="tab_shutdown">Sluk</string>
+    <string name="vm_slots_full">Alle %1$d maskinpladser er i brug. Sluk først en af dem.</string>
+</resources>

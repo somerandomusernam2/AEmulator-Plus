@@ -17,7 +17,7 @@
     <string name="storage_text">Leiskite pasiekti visus failus: tada kiekvienos sistemos atminties kortelė bus vidinės atminties aplanke AEmulator – patogu APK failams, muzikai ir nuotraukoms.</string>
     <string name="allow">Leisti</string>
     <string name="empty_title">Sistemų dar nėra</string>
-    <string name="empty_text">Pridėkite ARM programinę įrangą, skirtą „Android“ 1.0–7.x: atkūrimo ZIP, „Odin“ archyvą (.tar.md5), system.img arba gamyklinį vaizdą.</string>
+    <string name="empty_text">Pridėkite ARM programinę įrangą, skirtą „Android“ 1.0–17: atkūrimo ZIP, „Odin“ archyvą (.tar.md5), system.img arba gamyklinį vaizdą.</string>
     <string name="empty_help">Kokie failai tinka?</string>
     <string name="import_failed">Importuoti nepavyko</string>
     <string name="import_running">Importuojama programinė įranga</string>
@@ -29,7 +29,7 @@
     <string name="start">Paleisti</string>
     <string name="rename">Pervadinti</string>
     <string name="help_title">Palaikoma programinė įranga</string>
-    <string name="help_text">• „Android“ 2.2–4.4: 32 bitų ARM programinė įranga, veikia per QEMU (senesnė nei 2.2: eksperimentinė).\n• „Android“ 5.0–17: arm64 programinė įranga ir GSI, veikia tiesiogiai telefone.\n\nFormatai:\n• CWM/TWRP atkūrimo ZIP (MIUI, CyanogenMod, perkelti ir dauguma pasirinktinių ROM);\n• „Samsung“: „Odin“ .tar / .tar.md5 arba ZIP su AP_*.tar.md5;\n• „Google“ gamykliniai vaizdai (.tgz / .zip);\n• system.img (ext4, sparse, YAFFS2), TWRP atsarginė kopija system.ext4.win;\n• OTA su system.new.dat(.br) + system.transfer.list.\n\nGeriausia, jei archyve yra boot.img: iš jo paimama tarnybų paleidimo tvarka.</string>
+    <string name="help_text">• „Android“ 2.2–4.4: 32 bitų ARM programinė įranga, veikia per QEMU (senesnė nei 2.2: eksperimentinė).\n• „Android“ 5.0–17: arm64 programinė įranga ir GSI, veikia tiesiogiai telefone.\n\nFormatai:\n• CWM/TWRP atkūrimo ZIP (MIUI, CyanogenMod, perkelti ir dauguma pasirinktinių ROM);\n• „Samsung“: „Odin“ .tar / .tar.md5 arba ZIP su AP_*.tar.md5;\n• „Google“ gamykliniai vaizdai (.tgz / .zip);\n• system.img (ext4, sparse, YAFFS2), TWRP atsarginė kopija system.ext4.win;\n• OTA su system.new.dat(.br) + system.transfer.list;\n• Taip pat: 7z, RAR, LG .kdz, Sony .ftf, Huawei UPDATE.APP, Qualcomm EDL, payload.bin, super.img, EROFS, Android-x86 ISO.\n\nGeriausia, jei archyve yra boot.img: iš jo paimama tarnybų paleidimo tvarka.</string>
     <string name="vs_screen">Svečio ekranas</string>
     <string name="vs_fixed_2x">„Desire HD“ variklis naudoja fiksuotą 480×800 ekraną, 240 dpi.</string>
     <string name="vs_screen_hint">Mažesnė skiriamoji geba pagreitina sistemą.</string>
@@ -44,6 +44,13 @@
     <string name="vs_legacy_sub">Senesnis „Desire HD“ variklis: tik GLES 1.x, 480×800 ekranas. Naudokite, jei pagrindinis variklis neveikia.</string>
     <string name="vs_lowram">Mažos atminties režimas</string>
     <string name="vs_lowram_sub">ro.config.low_ram – sistema taupo atmintį.</string>
+    <string name="vs_memory_mode">Atminties valdymas</string>
+    <string name="vs_memory_light">Lengvas</string>
+    <string name="vs_memory_medium">Vidutinis</string>
+    <string name="vs_memory_aggressive">Agresyvus</string>
+    <string name="vs_memory_light_sub">Fono programos sustabdomos tik tada, kai pačiam telefonui beveik pritrūksta atminties. Mažiausiai paleidimų iš naujo; naudoja daugiausia atminties. Įsigalioja visiškai iš naujo paleidus virtualią mašiną.</string>
+    <string name="vs_memory_medium_sub">Subalansuotas: palieka vidutinį skaičių fono programų, o likusias sustabdo, kai laisvos atminties lieka mažai. Įsigalioja visiškai iš naujo paleidus virtualią mašiną.</string>
+    <string name="vs_memory_aggressive_sub">Palieka nedaug fono programų ir tikrina dažnai, todėl atmintis atlaisvinama anksti. Naudoja mažiausiai atminties, bet programos paleidžiamos iš naujo dažniau. Įsigalioja visiškai iš naujo paleidus virtualią mašiną.</string>
     <string name="vs_proxy">Šiuolaikinis TLS tarpinis serveris</string>
     <string name="vs_proxy_sub">Leidžia senoms naršyklėms ir programoms atidaryti šiandienines HTTPS svetaines.</string>
     <string name="vs_controls">Valdymas</string>
@@ -146,7 +153,7 @@
     <string name="vs_strace">Sekti tarnybų sistemos iškvietimus</string>
     <string name="vs_strace_sub">Tarnybų pavadinimai, atskirti kableliais, pvz., mediaserver,zygote. Sulėtina tas tarnybas ir įrašo sekimo duomenis į jų žurnalus. Taikoma kitą kartą paleidus.</string>
     <string name="vs_wifi">„Wi-Fi“ tinklas</string>
-    <string name="vs_wifi_sub">Rodo šeimininko internetą virtualiai mašinai kaip prijungtą „Wi-Fi“ tinklą vietoj „Ethernet“. „Android“ 2.3, 4.0–7.x. Taikoma kitą kartą paleidus.</string>
+    <string name="vs_wifi_sub">Rodo šeimininko internetą virtualiai mašinai kaip prijungtą „Wi-Fi“ tinklą vietoj „Ethernet“. „Android“ 2.3, 4.0–17 (8–17: eksperimentinė). Taikoma kitą kartą paleidus.</string>
     <string name="vs_wifi_ssid">Tinklo pavadinimas (SSID)</string>
     <string name="vs_wifi_ssid_sub">Iki 32 baitų</string>
     <string name="vs_wifi_ssid_error">Tinklo pavadinimas negali būti tuščias</string>
@@ -489,4 +496,37 @@
     <string name="thermal_invalid">Įveskite reikšmę nuo -40 iki 150.</string>
     <string name="thermal_apply">Taikyti</string>
     <string name="thermal_reset">Naudoti numatytąją</string>
+    <string name="vs_guest_nav">Įjungti naršymo juostą / užduočių juostą</string>
+    <string name="vs_guest_nav_sub">Leidžia svečiui nupiešti savo naršymo juostą arba „Android“ darbalaukio versijų užduočių juostą (nustato qemu.hw.mainkeys=0). Importuodami įjunkite tik darbalaukio versijoms, visiems kitiems vaizdams palikite išjungtą. Įsigalioja kitą kartą visiškai paleidus.</string>
+    <string name="th_group_plain">Paprastos temos</string>
+    <string name="th_group_skins">Įrenginio išvaizdos temos (autorius @regectt)</string>
+    <string name="th_group_custom">Pasirinktinės temos</string>
+    <string name="th_custom_empty">Pasirinktinių temų dar nėra. Palieskite „Nauja tema“, kad sukurtumėte, arba importuokite .aetheme failą. Paprastų temų ir įrenginių išvaizdų pakeisti negalima: dubliuokite vieną, kad ją redaguotumėte.</string>
+    <string name="th_expand">Išskleisti sąrašą</string>
+    <string name="th_collapse">Sutraukti sąrašą</string>
+    <string name="vs_art_boot_image">Naudoti ART įkrovos vaizdą („Android 14+“)</string>
+    <string name="vs_art_boot_image_sub">Išjungta: svečias veikia be įkrovos vaizdo. Paleidimas lėtesnis, bet su vaizdu niekas negali nepavykti. Įjungta: emuliatorius paruošia šios vykdymo aplinkos įkrovos vaizdą (sukuriamas vieną kartą kitą kartą paleidus, o tai užtrunka).</string>
+    <string name="vs_no_watchdog">Išjungti sistemos „watchdog“ („Android 14+“)</string>
+    <string name="vs_no_watchdog_sub">Įkrovai, kuri lėtesnė už „Android“ 60 s „watchdog“ ribą, dėl kurios system_server be perstojo nutraukiamas. Pataiso programinės įrangos services.jar, kad „watchdog“ gija iškart baigtųsi; tikras sistemos užstrigimas po to nebeišsprendžiamas paleidus iš naujo. Iš anksto sukompiliuotas jar kodas ignoruojamas, todėl pirmoji įkrova gali būti lėtesnė. Išjungus atkuriamas originalus jar. Įsigalioja kitą kartą visiškai paleidus.</string>
+    <string name="folder_new">Naujas aplankas</string>
+    <string name="folder_new_dots">Naujas aplankas…</string>
+    <string name="folder_rename">Pervardyti aplanką</string>
+    <string name="folder_delete">Ištrinti aplanką (ROM išlieka)</string>
+    <string name="folder_move">Perkelti į aplanką</string>
+    <string name="folder_none">Ne aplanke</string>
+    <string name="folder_default_name">Aplankas</string>
+    <string name="folder_empty">Tuščia – numeskite ROM čia</string>
+    <string name="folder_open">Atidaryti aplanką</string>
+    <string name="folder_close">Uždaryti aplanką</string>
+    <plurals name="folder_roms">
+        <item quantity="one">%1$d ROM</item>
+        <item quantity="few">%1$d ROM</item>
+        <item quantity="many">%1$d ROM</item>
+        <item quantity="other">%1$d ROM</item>
+    </plurals>
+    <string name="phantom_title">Fantominių procesų žudikas</string>
+    <string name="phantom_msg">Jūsų įrenginyje kūrėjo parinktyse neįjungta parinktis „Išjungti antrinių procesų apribojimus“. Tai reiškia, kad paleidžiant emuliatorių bus nutrauktas zygote, todėl emuliatoriaus paleisti nepavyks. Todėl labai REKOMENDUOJAMA ją įjungti.</string>
+    <string name="phantom_open_dev">Atidaryti kūrėjo parinktis</string>
+    <string name="phantom_ignore">Ignoruoti</string>
+    <string name="phantom_never">Daugiau nebepriminti</string>
 </resources>

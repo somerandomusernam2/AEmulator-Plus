@@ -123,6 +123,7 @@ fun MachineCard(
     onReset: () -> Unit,
     onDelete: () -> Unit,
     onMoveToFolder: (() -> Unit)? = null,
+    active: Boolean = false,
 ) {
     val ctx = LocalContext.current
     val press = remember { MutableInteractionSource() }
@@ -171,7 +172,9 @@ fun MachineCard(
                 shapes = IconButtonDefaults.shapes(),
                 colors = IconButtonDefaults.filledIconButtonColors(containerColor = Color.White, contentColor = skinColors(img).last()),
                 modifier = Modifier.align(Alignment.BottomEnd).padding(10.dp).size(44.dp),
-            ) { Icon(Icons.Rounded.PlayArrow, stringResource(R.string.start)) }
+            ) { Icon(Icons.Rounded.PlayArrow, stringResource(if (active) R.string.open_vm else R.string.start)) }
+            // a machine that runs in the background (its tab was minimized): a green dot, the button opens it
+            if (active) Box(Modifier.align(Alignment.TopStart).padding(12.dp).size(10.dp).background(Color(0xFF4CAF50), CircleShape))
         }
         Column(Modifier.padding(start = 16.dp, end = 16.dp, bottom = 14.dp)) {
             Text(img.name, style = MaterialTheme.typography.titleMedium, maxLines = 2, overflow = TextOverflow.Ellipsis)

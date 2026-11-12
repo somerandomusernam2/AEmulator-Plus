@@ -225,4 +225,11 @@
     <string name="update_err_wrong_package">Preneseni APK ima napačen paket aplikacije</string>
     <string name="catalog_err_too_many_lines">Katalog presega 10000 vrstic</string>
     <string name="imp_iso_no_system">V sliki ISO ni najdenega sistema Android (pričakovano system.sfs ali system.img)</string>
+    <string name="imp_inspecting">Pregledovanje: %1$s</string>
+    <string name="imp_choice_api">Raven API-ja %1$s</string>
+    <string name="imp_choice_build">številka različice %1$s</string>
+    <string name="imp_choice_title">Katero stvar (%1$s) uvoziti?</string>
+    <string name="imp_choice_text">Ta paket vsebuje več kot eno stvar (%1$s): %2$d od %3$d. Izberite tisto, ki jo želite uvoziti.</string>
+    <string name="imp_choice_ok">Uvozi</string>
+    <string name="imp_choice_cancel">Prekliči uvoz</string>
 </resources>

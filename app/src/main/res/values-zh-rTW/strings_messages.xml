@@ -225,4 +225,11 @@
     <string name="update_err_wrong_package">下載的 APK 應用程式套件名稱有誤</string>
     <string name="catalog_err_too_many_lines">目錄超過 10000 行</string>
     <string name="imp_iso_no_system">在 ISO 映像檔中找不到 Android 系統（應包含 system.sfs 或 system.img）</string>
+    <string name="imp_inspecting">正在檢查 %1$s</string>
+    <string name="imp_choice_api">API 級別 %1$s</string>
+    <string name="imp_choice_build">版本號碼 %1$s</string>
+    <string name="imp_choice_title">要匯入哪個%1$s?</string>
+    <string name="imp_choice_text">此套件含有多個%1$s(第 %2$d 個,共 %3$d 個)。請選擇要匯入的一個。</string>
+    <string name="imp_choice_ok">匯入</string>
+    <string name="imp_choice_cancel">取消匯入</string>
 </resources>

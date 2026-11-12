@@ -89,4 +89,10 @@ class PartitionNamesTest {
         // a bare number is no prefix
         assertFalse(PartitionNames.isVendor("28.img"))
     }
+
+    @Test fun diskImageNames() {
+        // Googlebook / Chrome OS recovery zips ship the whole disk as a .bin
+        for (n in listOf("system.img", "x/recovery_stable-channel.bin", "disk.raw", "dump", "DISK.IMG")) assertTrue(n, PartitionNames.isDiskImageName(n))
+        for (n in listOf("fw.zip", "system.new.dat", "system.new.dat.br", "live.iso", "system.sin", "a.tar", "a.7z")) assertFalse(n, PartitionNames.isDiskImageName(n))
+    }
 }

@@ -17,7 +17,7 @@
     <string name="storage_text">Дазвольце доступ да ўсіх файлаў: тады карта памяці кожнай сістэмы будзе ў тэчцы AEmulator ва ўнутранай памяці — зручна для APK, музыкі і фота.</string>
     <string name="allow">Дазволіць</string>
     <string name="empty_title">Сістэм пакуль няма</string>
-    <string name="empty_text">Дадайце ARM-прашыўку для Android 1.0–7.x: ZIP для рэкаверы, архіў Odin (.tar.md5), system.img або фабрычны вобраз.</string>
+    <string name="empty_text">Дадайце ARM-прашыўку для Android 1.0–17: ZIP для рэкаверы, архіў Odin (.tar.md5), system.img або фабрычны вобраз.</string>
     <string name="empty_help">Якія файлы падыходзяць?</string>
     <string name="import_failed">Не ўдалося імпартаваць</string>
     <string name="import_running">Імпарт прашыўкі</string>
@@ -29,7 +29,7 @@
     <string name="start">Запусціць</string>
     <string name="rename">Перайменаваць</string>
     <string name="help_title">Падтрымліваемыя прашыўкі</string>
-    <string name="help_text">• Android 2.2–4.4: 32-разрадная ARM-прашыўка, працуе праз QEMU (раней за 2.2: эксперыментальна).\n• Android 5.0–17: прашыўкі arm64 і GSI, працуюць натыўна на тэлефоне.\n\nФарматы:\n• ZIP для рэкаверы CWM/TWRP (MIUI, CyanogenMod, партаваныя і большасць кастомных прашывак);\n• Samsung: Odin .tar / .tar.md5 або ZIP з AP_*.tar.md5;\n• фабрычныя вобразы Google (.tgz / .zip);\n• system.img (ext4, sparse, YAFFS2), рэзервовая копія TWRP system.ext4.win;\n• OTA з system.new.dat(.br) + system.transfer.list.\n\nЛепш за ўсё, калі ў архіве ёсць boot.img: з яго бярэцца парадак запуску службаў.</string>
+    <string name="help_text">• Android 2.2–4.4: 32-разрадная ARM-прашыўка, працуе праз QEMU (раней за 2.2: эксперыментальна).\n• Android 5.0–17: прашыўкі arm64 і GSI, працуюць натыўна на тэлефоне.\n\nФарматы:\n• ZIP для рэкаверы CWM/TWRP (MIUI, CyanogenMod, партаваныя і большасць кастомных прашывак);\n• Samsung: Odin .tar / .tar.md5 або ZIP з AP_*.tar.md5;\n• фабрычныя вобразы Google (.tgz / .zip);\n• system.img (ext4, sparse, YAFFS2), рэзервовая копія TWRP system.ext4.win;\n• OTA з system.new.dat(.br) + system.transfer.list;\n• Таксама: 7z, RAR, LG .kdz, Sony .ftf, Huawei UPDATE.APP, Qualcomm EDL, payload.bin, super.img, EROFS, Android-x86 ISO.\n\nЛепш за ўсё, калі ў архіве ёсць boot.img: з яго бярэцца парадак запуску службаў.</string>
     <string name="vs_screen">Экран госця</string>
     <string name="vs_fixed_2x">Рухавік Desire HD выкарыстоўвае фіксаваны экран 480×800 пры 240 dpi.</string>
     <string name="vs_screen_hint">Меншае раздзяленне робіць сістэму хутчэйшай.</string>
@@ -44,6 +44,13 @@
     <string name="vs_legacy_sub">Старэйшы рухавік Desire HD: толькі GLES 1.x, экран 480×800. Выкарыстоўвайце, калі асноўны рухавік не працуе.</string>
     <string name="vs_lowram">Рэжым малой памяці</string>
     <string name="vs_lowram_sub">ro.config.low_ram — сістэма эканоміць памяць.</string>
+    <string name="vs_memory_mode">Кіраванне памяццю</string>
+    <string name="vs_memory_light">Лёгкае</string>
+    <string name="vs_memory_medium">Сярэдняе</string>
+    <string name="vs_memory_aggressive">Агрэсіўнае</string>
+    <string name="vs_memory_light_sub">Фонавыя праграмы спыняюцца, толькі калі ў самога тэлефона амаль не застаецца памяці. Найменш перазапускаў; выкарыстоўвае найбольш памяці. Уступае ў сілу пасля поўнага перазапуску віртуальнай машыны.</string>
+    <string name="vs_memory_medium_sub">Збалансаваны рэжым: захоўвае ўмераную колькасць фонавых праграм і спыняе астатнія, калі свабоднай памяці становіцца мала. Уступае ў сілу пасля поўнага перазапуску віртуальнай машыны.</string>
+    <string name="vs_memory_aggressive_sub">Захоўвае мала фонавых праграм і правярае часта, таму памяць вызваляецца загадзя. Выкарыстоўвае найменш памяці, але праграмы перазапускаюцца часцей. Уступае ў сілу пасля поўнага перазапуску віртуальнай машыны.</string>
     <string name="vs_proxy">Сучасны TLS-проксі</string>
     <string name="vs_proxy_sub">Дазваляе старым браўзерам і праграмам адкрываць сённяшнія HTTPS-сайты.</string>
     <string name="vs_controls">Кіраванне</string>
@@ -146,7 +153,7 @@
     <string name="vs_strace">Трасіроўка сістэмных выклікаў службаў</string>
     <string name="vs_strace_sub">Назвы службаў праз коску, напрыклад mediaserver,zygote. Запавольвае гэтыя службы і запісвае трасіроўку ў іх журналы. Ужываецца пры наступнай загрузцы.</string>
     <string name="vs_wifi">Сетка Wi-Fi</string>
-    <string name="vs_wifi_sub">Паказвае інтэрнэт хоста віртуальнай машыне як падключаную сетку Wi-Fi замест Ethernet. Android 2.3, 4.0–7.x. Ужываецца пры наступнай загрузцы.</string>
+    <string name="vs_wifi_sub">Паказвае інтэрнэт хоста віртуальнай машыне як падключаную сетку Wi-Fi замест Ethernet. Android 2.3, 4.0–17 (8–17: эксперыментальна). Ужываецца пры наступнай загрузцы.</string>
     <string name="vs_wifi_ssid">Назва сеткі (SSID)</string>
     <string name="vs_wifi_ssid_sub">Да 32 байтаў</string>
     <string name="vs_wifi_ssid_error">Назва сеткі не можа быць пустой</string>
@@ -489,4 +496,37 @@
     <string name="thermal_invalid">Увядзіце значэнне ад -40 да 150.</string>
     <string name="thermal_apply">Ужыць</string>
     <string name="thermal_reset">Выкарыстаць стандартнае</string>
+    <string name="vs_guest_nav">Уключыць панэль навігацыі / панэль задач</string>
+    <string name="vs_guest_nav_sub">Дазваляе гасцявой сістэме маляваць уласную панэль навігацыі або панэль задач у настольных зборках Android (задае qemu.hw.mainkeys=0). Уключайце пры імпарце толькі для настольных зборак, для ўсіх астатніх вобразаў пакідайце выключаным. Дзейнічае пры наступным поўным запуску.</string>
+    <string name="th_group_plain">Простыя тэмы</string>
+    <string name="th_group_skins">Тэмы з выглядам прылад (ад @regectt)</string>
+    <string name="th_group_custom">Уласныя тэмы</string>
+    <string name="th_custom_empty">Уласных тэм пакуль няма. Націсніце «Новая тэма», каб стварыць яе, або імпартуйце файл .aetheme. Простыя тэмы і выгляды прылад змяніць нельга: прадублюйце тэму, каб адрэдагаваць яе.</string>
+    <string name="th_expand">Разгарнуць спіс</string>
+    <string name="th_collapse">Згарнуць спіс</string>
+    <string name="vs_art_boot_image">Выкарыстоўваць загрузачны вобраз ART (Android 14+)</string>
+    <string name="vs_art_boot_image_sub">Выкл.: гасцявая сістэма працуе без загрузачнага вобраза. Запуск павольнейшы, але з вобразам нічога не можа пайсці не так. Укл.: эмулятар рыхтуе загрузачны вобраз для гэтага асяроддзя выканання (ствараецца адзін раз пры наступным запуску, на гэта трэба час).</string>
+    <string name="vs_no_watchdog">Адключыць сістэмны watchdog (Android 14+)</string>
+    <string name="vs_no_watchdog_sub">Для загрузкі, якая даўжэйшая за 60-секундны ліміт watchdog Android, з-за чаго system_server заўсёды завяршаецца ў цыкле. Патчыць services.jar прашыўкі, каб паток watchdog завяршаўся адразу; сапраўдная ўзаемаблакіроўка сістэмы пасля гэтага больш не выпраўляецца перазапускам. Папярэдне скампіляваны код jar ігнаруецца, праз што першая загрузка можа быць павольнейшай. Пры выключэнні аднаўляецца зыходны jar. Дзейнічае пры наступным поўным запуску.</string>
+    <string name="folder_new">Новая папка</string>
+    <string name="folder_new_dots">Новая папка…</string>
+    <string name="folder_rename">Перайменаваць папку</string>
+    <string name="folder_delete">Выдаліць папку (ROM-ы захаваюцца)</string>
+    <string name="folder_move">Перамясціць у папку</string>
+    <string name="folder_none">Не ў папцы</string>
+    <string name="folder_default_name">Папка</string>
+    <string name="folder_empty">Пуста — перацягніце ROM-ы сюды</string>
+    <string name="folder_open">Адкрыць папку</string>
+    <string name="folder_close">Закрыць папку</string>
+    <plurals name="folder_roms">
+        <item quantity="one">%1$d ROM</item>
+        <item quantity="few">%1$d ROM-ы</item>
+        <item quantity="many">%1$d ROM-аў</item>
+        <item quantity="other">%1$d ROM-а</item>
+    </plurals>
+    <string name="phantom_title">Забойца фантомных працэсаў</string>
+    <string name="phantom_msg">На вашай прыладзе не ўключана опцыя «Адключыць абмежаванні даччыных працэсаў» у параметрах распрацоўшчыка. Праз гэта zygote будзе завершаны падчас запуску эмулятара, і эмулятар не зможа загрузіцца. Таму ВЕЛЬМІ РЭКАМЕНДУЕЦЦА ўключыць яе.</string>
+    <string name="phantom_open_dev">Адкрыць параметры распрацоўшчыка</string>
+    <string name="phantom_ignore">Ігнараваць</string>
+    <string name="phantom_never">Больш не нагадваць</string>
 </resources>

@@ -225,4 +225,11 @@
     <string name="update_err_wrong_package">Heruntergeladene APK hat das falsche App-Paket</string>
     <string name="catalog_err_too_many_lines">Katalog überschreitet 10000 Zeilen</string>
     <string name="imp_iso_no_system">Im ISO-Abbild wurde kein Android-System gefunden (erwartet: system.sfs oder system.img)</string>
+    <string name="imp_inspecting">%1$s wird geprüft</string>
+    <string name="imp_choice_api">API-Level %1$s</string>
+    <string name="imp_choice_build">Build-Nummer %1$s</string>
+    <string name="imp_choice_title">Welche(s) %1$s importieren?</string>
+    <string name="imp_choice_text">Dieses Paket enthält mehr als ein(e) %1$s (%2$d von %3$d). Wähle das, was importiert werden soll.</string>
+    <string name="imp_choice_ok">Importieren</string>
+    <string name="imp_choice_cancel">Import abbrechen</string>
 </resources>

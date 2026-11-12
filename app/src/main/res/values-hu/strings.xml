@@ -18,7 +18,7 @@
     <string name="storage_text">Engedélyezze a hozzáférést az összes fájlhoz: ekkor minden rendszer memóriakártyája a belső tárhely AEmulator mappájában lesz – kényelmes APK-khoz, zenéhez és fényképekhez.</string>
     <string name="allow">Engedélyezés</string>
     <string name="empty_title">Még nincs rendszer</string>
-    <string name="empty_text">Adjon hozzá ARM firmware-t Android 2.2–6.0 verzióhoz: recovery ZIP-et, Odin archívumot (.tar.md5), system.img fájlt vagy gyári képfájlt.</string>
+    <string name="empty_text">Adjon hozzá ARM firmware-t Android 1.0–17 verzióhoz: recovery ZIP-et, Odin archívumot (.tar.md5), system.img fájlt vagy gyári képfájlt.</string>
     <string name="empty_help">Mely fájlok működnek?</string>
     <string name="import_failed">Az importálás sikertelen</string>
     <string name="import_running">Firmware importálása</string>
@@ -30,7 +30,7 @@
     <string name="start">Indítás</string>
     <string name="rename">Átnevezés</string>
     <string name="help_title">Támogatott firmware</string>
-    <string name="help_text">• Android 2.2 és 4.0–4.4: fő támogatás; 5.x–6.x: kísérleti.\n• Csak 32 bites ARM firmware (armeabi / armeabi-v7a).\n\nFormátumok:\n• CWM/TWRP recovery ZIP (MIUI, CyanogenMod, portok, a legtöbb egyedi ROM);\n• Samsung: Odin .tar / .tar.md5 vagy AP_*.tar.md5 fájlt tartalmazó ZIP;\n• Google gyári képfájlok (.tgz / .zip);\n• system.img (ext4, sparse, YAFFS2), TWRP biztonsági mentés system.ext4.win;\n• OTA system.new.dat(.br) + system.transfer.list fájlokkal.\n\nA legjobb, ha az archívum tartalmaz boot.img fájlt: a szolgáltatások indítási sorrendje abból származik.</string>
+    <string name="help_text">• Android 2.2–4.4: 32 bites ARM firmware, QEMU-n keresztül fut (2.2 előtt: kísérleti).\n• Android 5.0–17: arm64 firmware és GSI-k, natívan futnak a telefonon.\n\nFormátumok:\n• CWM/TWRP recovery ZIP (MIUI, CyanogenMod, portok, a legtöbb egyedi ROM);\n• Samsung: Odin .tar / .tar.md5 vagy AP_*.tar.md5 fájlt tartalmazó ZIP;\n• Google gyári képfájlok (.tgz / .zip);\n• system.img (ext4, sparse, YAFFS2), TWRP biztonsági mentés system.ext4.win;\n• OTA system.new.dat(.br) + system.transfer.list fájlokkal;\n• Továbbá: 7z, RAR, LG .kdz, Sony .ftf, Huawei UPDATE.APP, Qualcomm EDL, payload.bin, super.img, EROFS, Android-x86 ISO.\n\nA legjobb, ha az archívum tartalmaz boot.img fájlt: a szolgáltatások indítási sorrendje abból származik.</string>
     <string name="vs_screen">Vendég képernyő</string>
     <string name="vs_fixed_2x">Az Android 2.x rögzített 480×800-as képernyőt használ 240 dpi mellett.</string>
     <string name="vs_screen_hint">Kisebb képernyővel gyorsabb a rendszer.</string>
@@ -45,6 +45,13 @@
     <string name="vs_legacy_sub">A régebbi Desire HD motor: csak GLES 1.x, 480×800-as képernyő. Használja, ha a fő motor nem működik.</string>
     <string name="vs_lowram">Alacsony memória mód</string>
     <string name="vs_lowram_sub">ro.config.low_ram — a rendszer memóriát takarít meg.</string>
+    <string name="vs_memory_mode">Memóriakezelés</string>
+    <string name="vs_memory_light">Könnyű</string>
+    <string name="vs_memory_medium">Közepes</string>
+    <string name="vs_memory_aggressive">Agresszív</string>
+    <string name="vs_memory_light_sub">A háttéralkalmazások csak akkor állnak le, ha magának a telefonnak majdnem elfogy a memóriája. Legkevesebb újraindulás; a legtöbb memóriát használja. A virtuális gép teljes újraindítása után lép érvénybe.</string>
+    <string name="vs_memory_medium_sub">Kiegyensúlyozott: mérsékelt számú háttéralkalmazást tart meg, a többit leállítja, ha kevés a szabad memória. A virtuális gép teljes újraindítása után lép érvénybe.</string>
+    <string name="vs_memory_aggressive_sub">Kevés háttéralkalmazást tart meg, és gyakran ellenőriz, így a memória korán felszabadul. A legkevesebb memóriát használja, de az alkalmazások gyakrabban indulnak újra. A virtuális gép teljes újraindítása után lép érvénybe.</string>
     <string name="vs_proxy">Modern TLS proxy</string>
     <string name="vs_proxy_sub">Lehetővé teszi, hogy a régi böngészők és alkalmazások megnyissák a mai HTTPS-oldalakat.</string>
     <string name="vs_controls">Vezérlés</string>
@@ -136,7 +143,7 @@
     <string name="vs_strace">Szolgáltatások rendszerhívásainak nyomon követése</string>
     <string name="vs_strace_sub">Szolgáltatásnevek vesszővel elválasztva, pl. mediaserver,zygote. Lelassítja ezeket a szolgáltatásokat, és a nyomot a naplóikba írja. A következő indításkor lép érvénybe.</string>
     <string name="vs_wifi">Wi-Fi hálózat</string>
-    <string name="vs_wifi_sub">A gazdagép internetét csatlakoztatott Wi-Fi hálózatként mutatja a VM-nek Ethernet helyett. Android 2.3, 4.0–7.x. A következő indításkor lép érvénybe.</string>
+    <string name="vs_wifi_sub">A gazdagép internetét csatlakoztatott Wi-Fi hálózatként mutatja a VM-nek Ethernet helyett. Android 2.3, 4.0–17 (8–17: kísérleti). A következő indításkor lép érvénybe.</string>
     <string name="vs_wifi_ssid">Hálózat neve (SSID)</string>
     <string name="vs_wifi_ssid_sub">Legfeljebb 32 bájt</string>
     <string name="vs_wifi_ssid_error">A hálózat neve nem lehet üres</string>
@@ -488,4 +495,35 @@
     <string name="m_reset_menu_pos">Menügomb visszaállítása</string>
     <string name="as_led">Értesítési fény</string>
     <string name="as_led_sub">A vendégtelefon LED-jének megjelenítése a képernyő felett</string>
+    <string name="vs_guest_nav">Navigációs sáv / tálca engedélyezése</string>
+    <string name="vs_guest_nav_sub">Lehetővé teszi, hogy a vendég saját navigációs sávot vagy az Android asztali buildek tálcáját rajzolja ki (beállítja: qemu.hw.mainkeys=0). Importáláskor csak asztali buildeknél kapcsold be, minden más képfájlnál hagyd kikapcsolva. A következő teljes indításkor lép érvénybe.</string>
+    <string name="th_group_plain">Egyszerű témák</string>
+    <string name="th_group_skins">Eszközkinézet-témák (készítette: @regectt)</string>
+    <string name="th_group_custom">Egyéni témák</string>
+    <string name="th_custom_empty">Még nincsenek egyéni témák. Érintsd meg az „Új téma” lehetőséget egy létrehozásához, vagy importálj egy .aetheme fájlt. Az egyszerű témák és az eszközkinézetek nem módosíthatók: másold le valamelyiket a szerkesztéshez.</string>
+    <string name="th_expand">Lista kibontása</string>
+    <string name="th_collapse">Lista összecsukása</string>
+    <string name="vs_art_boot_image">ART rendszerindító kép használata (Android 14+)</string>
+    <string name="vs_art_boot_image_sub">Ki: a vendég rendszerindító kép nélkül fut. Az indítás lassabb, de a képpel kapcsolatban semmi sem hibásodhat meg. Be: az emulátor rendszerindító képet készít ehhez a futtatókörnyezethez (a következő indításkor egyszer készül el, ami eltart egy ideig).</string>
+    <string name="vs_no_watchdog">Rendszerszintű watchdog letiltása (Android 14+)</string>
+    <string name="vs_no_watchdog_sub">Olyan indításhoz, amely lassabb az Android 60 másodperces watchdog-korlátjánál, és emiatt a system_server ciklikusan leáll. Megpatcheli a firmware services.jar fájlját, így a watchdog szál azonnal befejeződik; a valódi rendszer-holtpontot ezután újraindítás sem oldja meg. A jar előre lefordított kódját figyelmen kívül hagyja, ami lassabbá teheti az első indítást. A kikapcsolás visszaállítja az eredeti jar fájlt. A következő teljes indításkor lép érvénybe.</string>
+    <string name="folder_new">Új mappa</string>
+    <string name="folder_new_dots">Új mappa…</string>
+    <string name="folder_rename">Mappa átnevezése</string>
+    <string name="folder_delete">Mappa törlése (a ROM-ok megmaradnak)</string>
+    <string name="folder_move">Áthelyezés mappába</string>
+    <string name="folder_none">Nincs mappában</string>
+    <string name="folder_default_name">Mappa</string>
+    <string name="folder_empty">Üres – húzd ide a ROM-okat</string>
+    <string name="folder_open">Mappa megnyitása</string>
+    <string name="folder_close">Mappa bezárása</string>
+    <plurals name="folder_roms">
+        <item quantity="one">%1$d ROM</item>
+        <item quantity="other">%1$d ROM</item>
+    </plurals>
+    <string name="phantom_title">Fantomfolyamat-gyilkos</string>
+    <string name="phantom_msg">Az eszközödön nincs bekapcsolva a „Gyermekfolyamat-korlátozások letiltása” beállítás a Fejlesztői beállításokban. Ez azt jelenti, hogy a zygote leáll az emulátor indítása közben, így az emulátor nem tud elindulni. Ezért erősen ajánlott bekapcsolni.</string>
+    <string name="phantom_open_dev">Fejlesztői beállítások megnyitása</string>
+    <string name="phantom_ignore">Mellőzés</string>
+    <string name="phantom_never">Ne emlékeztess többé</string>
 </resources>

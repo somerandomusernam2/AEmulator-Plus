@@ -225,4 +225,11 @@
     <string name="update_err_wrong_package">APK دانلودشده بسته برنامه نادرستی دارد</string>
     <string name="catalog_err_too_many_lines">فهرست از ۱۰۰۰۰ خط بیشتر است</string>
     <string name="imp_iso_no_system">هیچ سیستم Android در تصویر ISO پیدا نشد (system.sfs یا system.img انتظار می‌رفت)</string>
+    <string name="imp_inspecting">در حال بررسی %1$s</string>
+    <string name="imp_choice_api">سطح API %1$s</string>
+    <string name="imp_choice_build">شماره ساخت %1$s</string>
+    <string name="imp_choice_title">کدام %1$s درون‌ریزی شود؟</string>
+    <string name="imp_choice_text">این بسته بیش از یک %1$s دارد (%2$d از %3$d). مورد موردنظر برای درون‌ریزی را انتخاب کنید.</string>
+    <string name="imp_choice_ok">درون‌ریزی</string>
+    <string name="imp_choice_cancel">لغو درون‌ریزی</string>
 </resources>

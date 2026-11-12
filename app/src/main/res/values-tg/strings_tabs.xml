@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Added for AEmulator Plus, 2026-11-10: tabs and several machines at once -->
+<resources>
+    <string name="tab_home">Китобхона</string>
+    <string name="tab_close">Пӯшидани варақа</string>
+    <string name="tab_close_title">%1$s пӯшида шавад?</string>
+    <string name="tab_close_text">«Хурд кардан» варақаро мепӯшад, аммо мошин дар замина кор карданро идома медиҳад; онро аз китобхона дубора кушоед. «Хомӯш кардан» мошинро хомӯш мекунад.</string>
+    <string name="tab_minimize">Хурд кардан</string>
+    <string name="tab_shutdown">Хомӯш кардан</string>
+    <string name="vm_slots_full">Ҳамаи %1$d ҷои мошинҳо банданд. Аввал яктои онҳоро хомӯш кунед.</string>
+</resources>

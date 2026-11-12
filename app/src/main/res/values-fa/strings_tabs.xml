@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Added for AEmulator Plus, 2026-11-10: tabs and several machines at once -->
+<resources>
+    <string name="tab_home">کتابخانه</string>
+    <string name="tab_close">بستن زبانه</string>
+    <string name="tab_close_title">%1$s بسته شود؟</string>
+    <string name="tab_close_text">«کوچک کردن» زبانه را می‌بندد اما ماشین در پس‌زمینه به کار ادامه می‌دهد؛ دوباره آن را از کتابخانه باز کنید. «خاموش کردن» ماشین را خاموش می‌کند.</string>
+    <string name="tab_minimize">کوچک کردن</string>
+    <string name="tab_shutdown">خاموش کردن</string>
+    <string name="vm_slots_full">هر %1$d جایگاه ماشین در حال استفاده است. ابتدا یکی را خاموش کنید.</string>
+</resources>

@@ -18,7 +18,7 @@
     <string name="storage_text">Izinkan akses ke semua file: kartu memori tiap sistem akan berada di folder AEmulator penyimpanan internal — praktis untuk APK, musik, dan foto.</string>
     <string name="allow">Izinkan</string>
     <string name="empty_title">Belum ada sistem</string>
-    <string name="empty_text">Tambahkan firmware ARM Android 2.2–6.0: ZIP recovery, arsip Odin (.tar.md5), system.img, atau factory image.</string>
+    <string name="empty_text">Tambahkan firmware ARM Android 1.0–17: ZIP recovery, arsip Odin (.tar.md5), system.img, atau factory image.</string>
     <string name="empty_help">File apa yang cocok?</string>
     <string name="import_failed">Impor gagal</string>
     <string name="import_running">Mengimpor firmware</string>
@@ -30,7 +30,7 @@
     <string name="start">Mulai</string>
     <string name="rename">Ganti nama</string>
     <string name="help_title">Firmware yang didukung</string>
-    <string name="help_text">• Android 2.3–4.4: firmware ARM 32-bit, lewat QEMU.\n• Android 5.0–17: firmware arm64 dan GSI, langsung di ponsel.\n\nFormat:\n• ZIP recovery CWM/TWRP (MIUI, CyanogenMod, port, sebagian besar ROM kustom);\n• Samsung: Odin .tar / .tar.md5 atau ZIP berisi AP_*.tar.md5;\n• factory image Google (.tgz / .zip);\n• system.img (ext4, sparse), cadangan TWRP system.ext4.win;\n• OTA dengan system.new.dat(.br) + system.transfer.list.\n\nPaling baik jika arsip berisi boot.img: urutan mulai layanan diambil darinya.</string>
+    <string name="help_text">• Android 2.3–4.4: firmware ARM 32-bit, lewat QEMU.\n• Android 5.0–17: firmware arm64 dan GSI, langsung di ponsel.\n\nFormat:\n• ZIP recovery CWM/TWRP (MIUI, CyanogenMod, port, sebagian besar ROM kustom);\n• Samsung: Odin .tar / .tar.md5 atau ZIP berisi AP_*.tar.md5;\n• factory image Google (.tgz / .zip);\n• system.img (ext4, sparse), cadangan TWRP system.ext4.win;\n• OTA dengan system.new.dat(.br) + system.transfer.list;\n• Juga: 7z, RAR, LG .kdz, Sony .ftf, Huawei UPDATE.APP, Qualcomm EDL, payload.bin, super.img, EROFS, Android-x86 ISO.\n\nPaling baik jika arsip berisi boot.img: urutan mulai layanan diambil darinya.</string>
     <string name="vs_screen">Layar tamu</string>
     <string name="vs_fixed_2x">Android 2.x memakai layar tetap 480×800, 240 dpi.</string>
     <string name="vs_screen_hint">Layar lebih kecil membuat sistem lebih cepat.</string>
@@ -45,6 +45,13 @@
     <string name="vs_legacy_sub">Mesin lama Desire HD: hanya GLES 1.x, layar 480×800. Pakai bila mesin utama gagal.</string>
     <string name="vs_lowram">Mode memori rendah</string>
     <string name="vs_lowram_sub">ro.config.low_ram — sistem menghemat memori.</string>
+    <string name="vs_memory_mode">Manajemen memori</string>
+    <string name="vs_memory_light">Ringan</string>
+    <string name="vs_memory_medium">Sedang</string>
+    <string name="vs_memory_aggressive">Agresif</string>
+    <string name="vs_memory_light_sub">Aplikasi latar belakang hanya dihentikan saat memori ponsel itu sendiri hampir habis. Paling sedikit restart; memakai memori terbanyak. Berlaku setelah VM dimulai ulang sepenuhnya.</string>
+    <string name="vs_memory_medium_sub">Seimbang: mempertahankan sejumlah aplikasi latar belakang dan menghentikan sisanya saat memori kosong menipis. Berlaku setelah VM dimulai ulang sepenuhnya.</string>
+    <string name="vs_memory_aggressive_sub">Mempertahankan sedikit aplikasi latar belakang dan memeriksa sesering mungkin, sehingga memori dibebaskan lebih awal. Memakai memori paling sedikit, tetapi aplikasi lebih sering dimulai ulang. Berlaku setelah VM dimulai ulang sepenuhnya.</string>
     <string name="vs_proxy">Proxy TLS modern</string>
     <string name="vs_proxy_sub">Browser dan aplikasi lama bisa membuka situs HTTPS masa kini.</string>
     <string name="vs_controls">Kontrol</string>
@@ -321,7 +328,7 @@
     <string name="vs_strace">Lacak panggilan sistem layanan</string>
     <string name="vs_strace_sub">Nama layanan dipisahkan koma, mis. mediaserver,zygote. Memperlambat layanan tersebut dan menulis jejak ke lognya. Berlaku pada boot berikutnya.</string>
     <string name="vs_wifi">Jaringan Wi-Fi</string>
-    <string name="vs_wifi_sub">Menampilkan internet host ke VM sebagai jaringan Wi-Fi yang terhubung, bukan Ethernet. Android 2.3, 4.0–7.x. Berlaku pada boot berikutnya.</string>
+    <string name="vs_wifi_sub">Menampilkan internet host ke VM sebagai jaringan Wi-Fi yang terhubung, bukan Ethernet. Android 2.3, 4.0–17 (8–17: eksperimental). Berlaku pada boot berikutnya.</string>
     <string name="vs_wifi_ssid">Nama jaringan (SSID)</string>
     <string name="vs_wifi_ssid_sub">Hingga 32 byte</string>
     <string name="vs_wifi_ssid_error">Nama jaringan tidak boleh kosong</string>
@@ -486,4 +493,34 @@
     <string name="thermal_invalid">Masukkan nilai dari -40 hingga 150.</string>
     <string name="thermal_apply">Terapkan</string>
     <string name="thermal_reset">Gunakan default</string>
+    <string name="vs_guest_nav">Aktifkan bilah navigasi / bilah tugas</string>
+    <string name="vs_guest_nav_sub">Memungkinkan guest menggambar bilah navigasinya sendiri, atau bilah tugas pada build desktop Android (mengatur qemu.hw.mainkeys=0). Aktifkan saat impor hanya untuk build desktop, matikan untuk semua image lainnya. Berlaku pada boot penuh berikutnya.</string>
+    <string name="th_group_plain">Tema polos</string>
+    <string name="th_group_skins">Tema skin perangkat (oleh @regectt)</string>
+    <string name="th_group_custom">Tema kustom</string>
+    <string name="th_custom_empty">Belum ada tema kustom. Ketuk “Tema baru” untuk membuatnya, atau impor file .aetheme. Tema polos dan skin perangkat tidak dapat diubah: duplikat salah satunya untuk mengeditnya.</string>
+    <string name="th_expand">Luaskan daftar</string>
+    <string name="th_collapse">Ciutkan daftar</string>
+    <string name="vs_art_boot_image">Gunakan image boot ART (Android 14+)</string>
+    <string name="vs_art_boot_image_sub">Mati: guest berjalan tanpa image boot. Startup lebih lambat, tetapi tidak ada hal terkait image yang bisa gagal. Hidup: emulator menyiapkan image boot untuk runtime ini (dibuat sekali pada startup berikutnya, yang memakan waktu).</string>
+    <string name="vs_no_watchdog">Nonaktifkan watchdog sistem (Android 14+)</string>
+    <string name="vs_no_watchdog_sub">Untuk boot yang lebih lambat dari batas watchdog Android 60 dtk, yang menghentikan system_server berulang kali. Menambal services.jar firmware agar thread watchdog langsung berakhir; deadlock sistem yang sebenarnya tidak lagi dipulihkan dengan restart. Kode jar yang sudah dikompilasi diabaikan, sehingga boot pertama bisa lebih lambat. Mematikannya akan memulihkan jar asli. Berlaku pada boot penuh berikutnya.</string>
+    <string name="folder_new">Folder baru</string>
+    <string name="folder_new_dots">Folder baru…</string>
+    <string name="folder_rename">Ganti nama folder</string>
+    <string name="folder_delete">Hapus folder (ROM tetap disimpan)</string>
+    <string name="folder_move">Pindahkan ke folder</string>
+    <string name="folder_none">Tidak dalam folder</string>
+    <string name="folder_default_name">Folder</string>
+    <string name="folder_empty">Kosong — letakkan ROM di sini</string>
+    <string name="folder_open">Buka folder</string>
+    <string name="folder_close">Tutup folder</string>
+    <plurals name="folder_roms">
+        <item quantity="other">%1$d ROM</item>
+    </plurals>
+    <string name="phantom_title">Pembunuh proses hantu</string>
+    <string name="phantom_msg">Perangkat Anda belum mengaktifkan opsi “Nonaktifkan batasan proses turunan” di Opsi Developer. Artinya zygote akan dihentikan saat emulator dimulai, sehingga emulator tidak dapat boot. Karena itu, SANGAT DISARANKAN untuk mengaktifkannya.</string>
+    <string name="phantom_open_dev">Buka Opsi Developer</string>
+    <string name="phantom_ignore">Abaikan</string>
+    <string name="phantom_never">Jangan ingatkan lagi</string>
 </resources>

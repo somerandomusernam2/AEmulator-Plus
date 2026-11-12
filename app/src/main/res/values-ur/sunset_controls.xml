@@ -30,4 +30,17 @@
     <string name="bluetooth_permission_denied">بلوٹوتھ کی اجازت مسترد کر دی گئی: گیسٹ ہوسٹ بلوٹوتھ کے بغیر بوٹ ہوگا۔</string>
     <string name="vs_sf_tombstone">SurfaceFlinger کریش tombstone (ڈیبگ)</string>
     <string name="vs_sf_tombstone_sub">اگر SurfaceFlinger کریش ہو جائے تو فرم ویئر مختصر رپورٹ کے بجائے لاگ میں عام tombstone (کریش ہونے والے فنکشن کے ساتھ) لکھتا ہے۔ بگ رپورٹ بھیجتے وقت استعمال کریں۔ اگلے مکمل VM بوٹ پر لاگو ہوگا۔</string>
+    <string name="vi_mouse_keyboard">ان پٹ: ماؤس اور کی بورڈ</string>
+    <string name="vi_mouse_keyboard_sub">گیسٹ میں ایک ٹچ پیڈ اور ایک کی بورڈ رجسٹر کرتا ہے اور اس کی ٹچ اسکرین ہٹا دیتا ہے۔ اسکرین ٹچ پیڈ بن جاتی ہے (کلک کے لیے ٹیپ کریں، اسکرول کے لیے دو انگلیاں) اور نیویگیشن بار میں کی بورڈ بٹن ظاہر ہوتا ہے۔ QEMU انجن (نیٹو 64 بٹ نہیں) اور VM کے مکمل ری اسٹارٹ کی ضرورت ہے۔</string>
+    <string name="vi_keypad">ان پٹ: کی پیڈ</string>
+    <string name="vi_keypad_sub">نیویگیشن بار میں کی پیڈ بٹن شامل کرتا ہے: ایرو کیز، OK، سافٹ کیز، کال/اختتام اور بٹن والے فون کی طرح 0–9 * #۔ ٹچ کام کرتا رہتا ہے اور اسے ماؤس اور کی بورڈ کے ساتھ ملایا جا سکتا ہے۔</string>
+    <string name="vi_keyboard">کی بورڈ</string>
+    <string name="vi_keypad_title">کی پیڈ</string>
+    <string name="vi_close">بند کریں</string>
+    <string name="vi_open_keyboard">کی بورڈ</string>
+    <string name="vi_open_keypad">کی پیڈ</string>
+    <string name="m_resize_screen">اسکرین کا سائز تبدیل کریں</string>
+    <string name="m_resize_done">سائز تبدیلی مکمل</string>
+    <string name="m_resize_reset">اسکرین کا سائز ری سیٹ کریں</string>
+    <string name="vi_resize_hint">سائز تبدیل کرنے کے لیے اسکرین کا کونا گھسیٹیں۔ مکمل ہونے پر مینو کھولیں اور “سائز تبدیلی مکمل” پر ٹیپ کریں۔</string>
 </resources>

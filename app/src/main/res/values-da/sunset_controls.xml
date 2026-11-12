@@ -30,4 +30,17 @@
     <string name="vs_sf_tombstone">SurfaceFlinger-nedbrudstombstone (fejlsøgning)</string>
     <string name="vs_sf_tombstone_sub">Når SurfaceFlinger går ned, skriver firmwaren en almindelig tombstone (med den funktion, der gik ned) til loggen i stedet for en kort rapport. Brug den, når du indsender en fejlrapport. Træder i kraft ved den virtuelle maskines næste fulde opstart.</string>
     <string name="bluetooth_permission_denied">Bluetooth-tilladelse afvist: gæsten starter uden værtens Bluetooth.</string>
+    <string name="vi_mouse_keyboard">Input: mus og tastatur</string>
+    <string name="vi_mouse_keyboard_sub">Registrerer en touchpad og et tastatur i gæsten og fjerner dens touchskærm. Skærmen bliver en touchpad (tryk for at klikke, to fingre for at rulle), og der vises en tastaturknap i navigationslinjen. Kræver QEMU-motoren (ikke den native 64-bit-motor) og en fuld genstart af den virtuelle maskine.</string>
+    <string name="vi_keypad">Input: taltastatur</string>
+    <string name="vi_keypad_sub">Tilføjer en taltastaturknap til navigationslinjen: piletaster, OK, programtaster, Ring/Afslut og 0–9 * # som på en knaptelefon. Berøring virker stadig, og taltastaturet kan kombineres med mus og tastatur.</string>
+    <string name="vi_keyboard">Tastatur</string>
+    <string name="vi_keypad_title">Taltastatur</string>
+    <string name="vi_close">Luk</string>
+    <string name="vi_open_keyboard">Tastatur</string>
+    <string name="vi_open_keypad">Taltastatur</string>
+    <string name="m_resize_screen">Tilpas skærmstørrelse</string>
+    <string name="m_resize_done">Tilpasning færdig</string>
+    <string name="m_resize_reset">Nulstil skærmstørrelse</string>
+    <string name="vi_resize_hint">Træk i et hjørne af skærmen for at ændre størrelsen. Åbn menuen, og tryk på “Tilpasning færdig”, når du er færdig.</string>
 </resources>

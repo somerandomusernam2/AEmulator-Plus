@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Added for AEmulator Plus, 2026-11-10: tabs and several machines at once -->
+<resources>
+    <string name="tab_home">Bókasafn</string>
+    <string name="tab_close">Loka flipa</string>
+    <string name="tab_close_title">Loka %1$s?</string>
+    <string name="tab_close_text">„Minnka“ lokar flipanum en vélin heldur áfram að keyra í bakgrunni; opnaðu hana aftur úr bókasafninu. „Slökkva“ slekkur á vélinni.</string>
+    <string name="tab_minimize">Minnka</string>
+    <string name="tab_shutdown">Slökkva</string>
+    <string name="vm_slots_full">Allar vélarraufar (%1$d) eru í notkun. Slökktu fyrst á einni.</string>
+</resources>

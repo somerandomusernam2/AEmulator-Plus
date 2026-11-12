@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Added for AEmulator Plus, 2026-11-10: tabs and several machines at once -->
+<resources>
+    <string name="tab_home">Libreria</string>
+    <string name="tab_close">Chiudi scheda</string>
+    <string name="tab_close_title">Chiudere %1$s?</string>
+    <string name="tab_close_text">“Riduci a icona” chiude la scheda e lascia la macchina in esecuzione in background; riaprila dalla libreria. “Spegni” spegne la macchina.</string>
+    <string name="tab_minimize">Riduci a icona</string>
+    <string name="tab_shutdown">Spegni</string>
+    <string name="vm_slots_full">Tutti i %1$d slot per le macchine sono occupati. Spegnine prima uno.</string>
+</resources>

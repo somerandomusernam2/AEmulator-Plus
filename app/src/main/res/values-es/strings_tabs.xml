@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Added for AEmulator Plus, 2026-11-10: tabs and several machines at once -->
+<resources>
+    <string name="tab_home">Biblioteca</string>
+    <string name="tab_close">Cerrar pestaña</string>
+    <string name="tab_close_title">¿Cerrar %1$s?</string>
+    <string name="tab_close_text">«Minimizar» cierra la pestaña y deja la máquina funcionando en segundo plano; vuelve a abrirla desde la biblioteca. «Apagar» apaga la máquina.</string>
+    <string name="tab_minimize">Minimizar</string>
+    <string name="tab_shutdown">Apagar</string>
+    <string name="vm_slots_full">Los %1$d espacios para máquinas están en uso. Apaga primero una.</string>
+</resources>

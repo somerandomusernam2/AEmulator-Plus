@@ -52,11 +52,16 @@ object AppPrefs {
         "ru" to "Русский",
         "uk" to "Українська",
         "be" to "Беларуская",
-        "kk" to "Қазақша",
         // Caucasus
         "hy" to "Հայերեն",
         "ka" to "ქართული",
         "az" to "Azərbaycanca",
+        // Central Asia
+        "kk" to "Қазақша",
+        "uz" to "Oʻzbekcha",
+        "ky" to "Кыргызча",
+        "tg" to "Тоҷикӣ",
+        "tk" to "Türkmençe",
         // South and Southeast Asia
         "hi" to "हिन्दी",
         "bn" to "বাংলা",
@@ -121,6 +126,10 @@ object AppPrefs {
 
     fun dynamicColor(ctx: Context): Boolean = sp(ctx).getBoolean("dynamic", true)
     fun setDynamicColor(ctx: Context, v: Boolean) = sp(ctx).edit().putBoolean("dynamic", v).apply()
+
+    /** "Never remind again" for the Android phantom process killer warning. */
+    fun phantomWarningDisabled(ctx: Context): Boolean = sp(ctx).getBoolean("phantom_warning_never", false)
+    fun setPhantomWarningDisabled(ctx: Context, v: Boolean) = sp(ctx).edit().putBoolean("phantom_warning_never", v).apply()
 
     fun autoCheckUpdates(ctx: Context): Boolean = sp(ctx).getBoolean("auto_check_updates", true)
     fun setAutoCheckUpdates(ctx: Context, v: Boolean) = sp(ctx).edit().putBoolean("auto_check_updates", v).apply()

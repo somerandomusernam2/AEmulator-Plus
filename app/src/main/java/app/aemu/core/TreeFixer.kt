@@ -257,6 +257,7 @@ class TreeFixer(
             if (GuestRootAliases.ensureEtc(root)) log("init: restored /etc -> /system/etc alias")
         }.onFailure { log("init: could not prepare /etc alias: ${it.message}") }
         miuiSdkFiles()
+        parkRustRuntimeConfig()
         makeUserZeroLink()
         makeDevNodes()
         rootLinks()
@@ -297,8 +298,10 @@ class TreeFixer(
         selinuxOff()
         surfaceGuard()
         surfaceFlingerGuard()
+        framebufferComposer()
         btiGuard()
         executableCodeCache()
+        mspaceHooks()
         glassGestureGuard()
         glassBluetoothPark()
         disableStallingPackages()
@@ -1332,14 +1335,31 @@ class TreeFixer(
             val rom = File(root, "$side/$lib/libgralloc_rom.so")
             val gui = File(root, "system/$lib/libgui.so")
             if (!wrap.isFile || !hw.isFile || !gui.isFile) return@runCatching
-            val inPlace = hw.length() == wrap.length() && hw.readBytes().contentEquals(wrap.readBytes())
+            // Modified for AEmulator Plus (2026-11-08): 8.1's Qualcomm SurfaceFlinger follows the word at handle+0x48 as a
+            // pointer to the buffer's metadata, where the wrapper above keeps the height (SIGSEGV at 0x320 on the first
+            // layer). Where the firmware's code does that (see QcomHandleProbe), the 64-bit wrapper that leaves the slot
+            // empty (engines/n64-27-alt) goes in instead. A SurfaceFlinger that reads something else keeps the standard one.
+            val wrapBytes = wrap.readBytes()
+            var chosen = wrapBytes
+            var variant = ""
+            if (name == "qcom" && lib == "lib64" && qcomSf && kernel.tag == "27") {
+                val altPath = "engines/n64-27-alt/vendor#lib64#libgralloc_qcom.so"
+                val layout = QcomHandleProbe.classify(File(root, "system/lib64/libsurfaceflinger.so"))
+                if (layout == QcomHandleProbe.Layout.METADATA_POINTER && EngineAssets.exists(ctx, altPath)) {
+                    runCatching { eaOpen(altPath).use { it.readBytes() } }.onSuccess { chosen = it; variant = " (empty metadata slot: SurfaceFlinger follows handle+0x48 as a pointer)" }
+                        .onFailure { log("$lib: alternative Qualcomm gralloc unreadable: ${it.message}") }
+                } else log("$lib: SurfaceFlinger's use of handle+0x48 is $layout, standard Qualcomm gralloc layout kept")
+            }
+            val cur = hw.readBytes()
+            val inPlace = cur.contentEquals(chosen)
             val wanted = if (name == "exynos") exynosLibgui(lib) else qcomSf
             if (wanted && !inPlace) {
                 if (!rom.isFile) hw.renameTo(rom)
-                wrap.copyTo(hw, overwrite = true)
+                hw.delete()
+                hw.writeBytes(chosen)
                 hw.setReadable(true, false)
-                log("$lib: gralloc with ${if (name == "exynos") "Samsung" else "Qualcomm"}'s handle layout in front of the firmware's")
-            } else if (!wanted && inPlace && rom.isFile) {
+                log("$lib: gralloc with ${if (name == "exynos") "Samsung" else "Qualcomm"}'s handle layout in front of the firmware's$variant")
+            } else if (!wanted && (inPlace || cur.contentEquals(wrapBytes)) && rom.isFile) {
                 hw.delete(); rom.renameTo(hw)
             }
         }
@@ -1553,9 +1573,14 @@ class TreeFixer(
                 File(root, d).listFiles()?.any { it.isFile && it.name != f.name && it.name.endsWith(".xml") &&
                     runCatching { it.readText().contains("android.hardware.wifi.direct") && !it.readText().contains("unavailable-feature name=\"android.hardware.wifi.direct") }.getOrDefault(false) } == true
             }
-            if (img.api >= 34 && !declared) {
+            // Added for AEmulator Plus (2026-11-09). Huawei's WifiEnhanceService (hwWifiEnhance-service.jar, EMUI / HarmonyOS 2 on
+            // 12) calls WifiP2pManager.initialize() in onBootPhase(500) and does not check for null. Without the Wi-Fi Direct
+            // feature SystemServer never starts the wifip2p service ("Manager wrapper not available: wifip2p"), the call hits a null
+            // manager, "Failed to boot service com.huawei.server.wifi.WifiEnhanceService" ends system_server and zygote follows with 137.
+            val huaweiWifiEnhance = File(root, "system/framework/hwWifiEnhance-service.jar").isFile
+            if ((img.api >= 34 || huaweiWifiEnhance) && !declared) {
                 f.writeText("<permissions><feature name=\"android.hardware.wifi.direct\" /></permissions>")
-                log("wifi display: android.hardware.wifi.direct declared (WifiDisplayAdapter refuses to start without it)")
+                log("wifi direct: android.hardware.wifi.direct declared (" + (if (huaweiWifiEnhance) "Huawei WifiEnhanceService needs the wifip2p manager" else "WifiDisplayAdapter refuses to start without it") + ")")
             } else f.delete()
         }
         // Qualcomm location core loads its modem (QMI) back end by name and crashes inside it without a modem;
@@ -1968,7 +1993,19 @@ class TreeFixer(
             .sortedByDescending { it.name }.map { "apex/${it.name}/lib64" }.filter { File(root, it).isDirectory }
         if (hasVndkPackage) log("audio: tree with a VNDK package (${vndkPkgDirs.joinToString { it.substringAfter('/').substringBefore('/') }}), the service's closure is made all the same")
         val fwDirs = listOf("system/lib64", "system/system/lib64", "system_ext/lib64", "system/system_ext/lib64") + vndkPkgDirs
-        fun fw(n: String) = fwDirs.map { File(root, "$it/$n") }.firstOrNull { it.isFile }
+        // Added for AEmulator Plus (2026-11-09). The service's passthrough impl (vendor/lib64/hw/android.hardware.audio@4.0-impl.so on a
+        // vendor that still has the 4.0 HAL) names the interface library of its own version (android.hardware.audio@4.0.so,
+        // ...audio.common@4.0.so, ...audio.effect@4.0.so). On this firmware (Huawei GLA-AL00, 12) they are not in the places above: they are probably vendor
+        // libraries or sit in a VNDK snapshot directory (the log of the next start says where, or that they are nowhere). The closure only looked in the places above, skipped the library without a
+        // word, and the service aborted with "Could not get passthrough implementation for android.hardware.audio@4.0::IDevicesFactory/
+        // default (library "android.hardware.audio@4.0.so" not found: needed by /vendor/lib64/hw/android.hardware.audio@4.0-impl.so)",
+        // "Could not register Audio Core API", exit 134, and audioserver died on the missing factory. The firmware's HIDL stack
+        // itself still comes only from fwDirs (a vendor libhidlbase is the old stack): these directories are for the closure, last.
+        val snapshotDirs = File(root, "system/lib64").listFiles().orEmpty()
+            .filter { it.isDirectory && !isLink(it) && Regex("vndk(-sp)?(-[0-9]+)?").matches(it.name) }
+            .sortedByDescending { it.name }.map { "system/lib64/${it.name}" }
+        val closureDirs = fwDirs + listOf("vendor/lib64", "system/vendor/lib64") + snapshotDirs
+        fun fw(n: String) = closureDirs.map { File(root, "$it/$n") }.firstOrNull { it.isFile }
         fun has(f: File, sym: String) = runCatching { String(f.readBytes(), Charsets.ISO_8859_1).contains(sym) }.getOrDefault(false)
         val symInit = "_ZN7android8hardware12ProcessState16initWithMmapSizeEm"
         val symReg = "registerPassthroughServiceImplementationERKNSt3__112basic_stringIcNS1_11char_traitsIcEENS1_9allocatorIcEEEES9_S9_"
@@ -2000,6 +2037,7 @@ class TreeFixer(
         // so it is no longer taken for granted: the closure below copies it (and what it names) from the firmware.
         llndk.removeAll(setOf("libapexsupport.so"))
         val brought = ArrayList<String>()
+        val unresolved = sortedMapOf<String, String>() // library -> the first one that names it
         val seen = HashSet<String>()
         val queue = ArrayDeque<File>()
         fun put(src: File, force: Boolean, name: String = src.name) {
@@ -2042,11 +2080,18 @@ class TreeFixer(
                 if (n in llndk || n in seen) continue
                 val here = File(dir, n)
                 if (here.isFile && !isEngineStandIn(here)) { queue.add(here); continue }
-                val src = fw(n) ?: continue // not in the firmware: the engine's VNDK directory, next in the search path
+                val src = fw(n)
+                if (src == null) { // not in the firmware: the engine's VNDK directory, next in the search path
+                    if (vndkDir == null || !File(vndkDir, n).isFile) unresolved.putIfAbsent(n, cur.name)
+                    continue
+                }
                 put(src, force = false)
             }
         }
         if (brought.isNotEmpty()) log("audio: the new HIDL stack taken from the firmware into /$dirRel: ${brought.joinToString()}")
+        // (a library nobody has used to vanish without a trace; now the log says which one the service will not find)
+        if (unresolved.isNotEmpty()) log("audio: not found in the firmware nor in the engine's VNDK directory: " +
+            unresolved.entries.joinToString { "${it.key} (needed by ${it.value})" })
     }
 
     /** Added for AEmulator Plus (2026-10-31). The engine's empty libhwbinder / libhidltransport stand-ins (no exports): nothing of the firmware's to keep. */
@@ -2392,7 +2437,7 @@ class TreeFixer(
         // Modified for AEmulator Plus (2026-10-27): the board's own android.hardware.graphics.composer declaration goes too.
         // A Wear OS 3 board (Android 11, e.g. Hublot BBe / r11) already declares composer@2.1 IComposer/default next to the
         // qti one; the fragment below then declares it a second time, VINTF refuses the device manifest ("Cannot add manifest
-        // fragment .../aemu.graphics.composer2.xml: HAL \"android.hardware.graphics.composer\" has a conflict"), hwservicemanager
+        // fragment .../aemu.graphics.composer2.xml: HAL "android.hardware.graphics.composer" has a conflict"), hwservicemanager
         // can no longer tell which HALs may register, and every HIDL/AIDL service of the guest aborts in registerAsService()
         // (-2147483648): audio, health, lights, NFC, wifi, cas, drm, keystore, then SurfaceFlinger. The fragment is the only
         // composer declaration left, whatever version the board had.
@@ -3071,6 +3116,24 @@ class TreeFixer(
         if (keep.exists()) return
         keep.parentFile?.mkdirs()
         src.copyTo(keep)
+    }
+
+    /**
+     * Added for AEmulator Plus (2026-11-10). An earlier build set rustruntime_cfg*.xml aside to stop HyperOS 3's "Rust
+     * runtime" start path (com.miui.home, com.miui.weather2: "rust:true", no spawner socket, pid 0). That file also
+     * DECLARES the shared libraries hyperos.rustruntime.v3/v5, and without it the packages that use them fail to scan
+     * ("Package com.miui.home requires unavailable shared library hyperos.rustruntime.v5; failing!"). It is put back.
+     */
+    private fun parkRustRuntimeConfig() {
+        val parked = File(root, "system/.aemu-parked").listFiles().orEmpty().filter {
+            it.isFile && it.name.contains("#permissions#rustruntime_cfg") && it.name.endsWith(".xml")
+        }
+        for (f in parked) {
+            val own = File(root, f.name.replace('#', '/'))
+            if (own.exists()) continue
+            own.parentFile?.mkdirs()
+            if (f.renameTo(own)) log("Rust runtime: ${own.name} put back (it declares the hyperos.rustruntime shared libraries)")
+        }
     }
 
     /** moves [f] to system/.aemu-parked (where the firmware's own files are kept); true when something moved */
@@ -3772,6 +3835,7 @@ class TreeFixer(
         }
         for ((from, to) in (copies + nougat).filter { !noBridge || !it.second.startsWith("system/lib/egl/libGLES_") } +
             listOf("@libaemushim.so" to "system/lib/libaemushim.so", "@libaemurlimit.so" to GuestPreload.RLIMIT.removePrefix("/"),
+                "@libaemubinderguard.so" to GuestPreload.GUARD.removePrefix("/"),
                 "@lights.default.so" to "system/lib/hw/lights.default.so") +
             // glibc (Google TV) firmware: fake /dev/shm_cache and /dev/shm_noncache so av_settings & co. can start
             (if (GuestPreload.isGlibcFirmware(root)) listOf("@libshmshim.so" to GuestPreload.SHMSHIM.removePrefix("/")) else emptyList())) {
@@ -3794,10 +3858,13 @@ class TreeFixer(
                 // firmware whose gralloc leaves same-process buffers alone but the engine's would unmap them (see GtiGralloc)
                 from == "gralloc.default.so" && grallocVariant -> GtiGralloc.ASSET
                 mtkHw -> "audio.primary.mtk.so"
-                // Samsung 4.1 (api 16) whose AudioFlinger opens the output at slot 108 (AOSP JB layout): the M7 stand-in HAL has
-                // the 4.2/4.3 layout (open_output_stream at 116), so that call lands on get_parameters, the primary output
+                // Samsung 4.1 / 4.2 (api 16-17) whose AudioFlinger opens the output at slot 108 (AOSP JB layout): the M7 stand-in HAL has
+                // the TouchWiz 4.2/4.3 layout (open_output_stream at 116), so that call lands on get_parameters, the primary output
                 // never opens ("Failed to open primary output") and AudioService.<init> throws. The AOSP-layout HAL fits.
-                samsung && img.api == 16 && from == "audio.primary.default.so" && openOutputSlotIs(108) -> "audio.primary.aosp.so"
+                // Fixed for api 17 (2026-11-11): AOSP-based ROMs on Samsung devices (CyanogenMod 10.1 on GT-I9300, 4.2.2) are
+                // "Samsung" to isSamsungFirmware() and fell into htcLike below, which kept the 116-slot stand-in HAL:
+                // logcat "Not output found for attached devices 00000002" / "Failed to open primary output", no sound at all.
+                samsung && img.api in 16..17 && from == "audio.primary.default.so" && openOutputSlotIs(108) -> "audio.primary.aosp.so"
                 // Samsung 4.1.x (GT-I9100 4.1.1) whose AudioFlinger still calls the ICS-style open_output_stream at slot 104
                 // (devices, &format, &channels, &rate, &out): the stand-in HAL has the 4.2/4.3 layout, slot 104 lands on another
                 // method and mediaserver dies in AudioFlinger::openOutput (SIGSEGV pc inside audio.primary.default.so, code 139).
@@ -3857,8 +3924,14 @@ class TreeFixer(
             }.getOrNull() else null
             val sonyFree = from == "gralloc.default.so" && replacedGralloc != null && libuiSlot != 0x44 &&
                 (GrallocProbe.allocDeviceSize(replacedGralloc) ?: 0) > GrallocProbe.AOSP_ALLOC_DEVICE_SIZE
+            // Modified for AEmulator Plus (2026-11-12): firmware whose native windows / buffers are one word longer than AOSP's
+            // (Sprd MocorDroid libui): the GLES bridge's query/perform slots move with them (see NativeWindowProbe)
+            val windowShift = if (to == "system/lib/egl/libGLES_bridge.so" && img.arch == GuestArch.ARM) nativeWindowShift() else 0
             val halBytes: ByteArray? = if (sonyFree)
                 runCatching { eaOpen(asset).use { it.readBytes() } }.getOrNull()?.let { GrallocProbe.withFreeAtSlot48(it) }
+            else if (windowShift != 0)
+                runCatching { eaOpen(asset).use { it.readBytes() } }.getOrNull()?.let { NativeWindowProbe.withWindowShift(it, windowShift) }
+                    ?: run { log("GL: bridge window slots could not be moved for this firmware's native window layout, bridge left as is"); null }
             else if (wantVer != null && wantVer != 0x0200)
                 runCatching { eaOpen(asset).use { it.readBytes() } }.getOrNull()?.let { AudioHalAbi.withDeviceVersion(it, wantVer) }
             else null
@@ -3877,6 +3950,7 @@ class TreeFixer(
                 if (halBytes != null) {
                     dst.outputStream().use { o -> o.write(halBytes) }
                     if (sonyFree) log("gralloc: Sony libui frees through alloc_device_t +0x48, engine gralloc adjusted (free moved from +0x44)")
+                    else if (windowShift != 0) log("GL: this firmware's native windows are $windowShift bytes longer than AOSP's (buffer handle at +0x${(NativeWindowProbe.AOSP_HANDLE_OFFSET + windowShift).toString(16)}), bridge window slots moved to match")
                     else log("audio: this AudioFlinger accepts only hw device version 0x${wantVer?.toString(16)} (read from libaudioflinger), HAL adjusted from 0x200")
                 } else eaOpen(asset).use { i -> dst.outputStream().use { o -> i.copyTo(o) } }
                 dst.setReadable(true, false)
@@ -4460,9 +4534,9 @@ class TreeFixer(
             val keep = File(root, "system/.aemu-parked/system#lib#libsurfaceflinger.so")
             backupOnce(lib, keep)
             if (ElfPatch.skipNullDeviceHook(lib) > 0) log("libsurfaceflinger: the missing HAL device hook is skipped")
-            // 4.2 without a hwcomposer module: the fake vsync thread was never switched on (see ElfPatch.hwcEventControlWithoutAllocation)
-            if (img.api == 17 && !hasHwcModule() && ElfPatch.hwcEventControlWithoutAllocation(lib) > 0)
-                log("libsurfaceflinger: the fb-HAL vsync thread is switched on (display not in the allocated set)")
+            // The vsync of 4.2+ without a composer is not patched into SurfaceFlinger any more: it gets a composer (below).
+            // A tree that carries the old byte patch is put back the way the firmware had it.
+            if (ElfPatch.revertHwcEventControlPatch(lib, keep) > 0) log("libsurfaceflinger: old vsync byte patch removed (the stand-in hwcomposer is used instead)")
             // Broadcom V3D firmware: /dev/v3d is emulated (native/bcmgpu); take out what older builds patched into the firmware
             if (BroadcomGpu.hasV3dComposer(lib)) {
                 ensureGememallocPool()
@@ -4479,6 +4553,35 @@ class TreeFixer(
     }.onFailure { log("libsurfaceflinger: patch failed: ${it.message}") }
 
     /**
+     * Added for AEmulator Plus, 2026-11-12. 4.2 - 4.4 firmware on the 32-bit engine has only the framebuffer HAL: sanitize() sets
+     * every hwcomposer module of the firmware aside, as they drive hardware that is not there. SurfaceFlinger's HWComposer
+     * then falls back to its own software VSyncThread, which never delivers a tick (on 4.2 eventControl() returns at "is this
+     * display allocated?", the built-in displays being marked only on the hwc path), so every frame waits out
+     * "Timed out waiting for hw vsync; faking it". The engine's own composer (native/hwc1fb) is a minimal HWC 1.1: GLES does
+     * all the drawing and it supplies the vsync, so SurfaceFlinger takes the path every real device takes, with its code
+     * unpatched. Only for a firmware that has no composer module left; one that has is not touched.
+     */
+    private fun framebufferComposer() = runCatching {
+        if (engine != Engine.KK || img.arch != GuestArch.ARM || img.api !in 17..19) return@runCatching
+        if (!File(root, "system/lib/libsurfaceflinger.so").isFile) return@runCatching
+        val dst = File(root, "system/lib/hw/hwcomposer.default.so")
+        // ours, from this or an earlier build: the module carries its own name string
+        val ours = dst.isFile && !isLink(dst) && runCatching { String(dst.readBytes(), Charsets.ISO_8859_1).contains("AEmulator framebuffer hwcomposer") }.getOrDefault(false)
+        // escape hatch for bisecting: an empty file named "nohwc" in the image's directory leaves SurfaceFlinger on the fb HAL alone
+        if (File(paths.dir, "nohwc").isFile) {
+            if (ours && dst.delete()) log("hwcomposer: stand-in composer removed (file \"nohwc\" in the image directory)")
+            return@runCatching
+        }
+        if (hasHwcModule() && !ours) return@runCatching              // the firmware keeps a composer of its own: not touched
+        if (assetSize(HWC_FB) <= 0) { log("hwcomposer: no stand-in composer in this build; SurfaceFlinger will fake its vsync"); return@runCatching }
+        if (ours && sameContent(HWC_FB, dst)) return@runCatching
+        dst.parentFile?.mkdirs()
+        dst.delete()
+        installAsset(HWC_FB, dst)
+        log("hwcomposer: stand-in composer installed (HWC 1.1, GLES composition, vsync at fb0's refresh rate)")
+    }.onFailure { log("hwcomposer: stand-in composer failed: ${it.message}") }
+
+    /**
      * Cupcake..Froyo (API <= 8): libpixelflinger generates its scanline code into malloc()ed heap and runs it after
      * cacheflush(); qemu-user refuses to execute the non-PROT_EXEC page, so the first menu / window animation killed
      * SurfaceFlinger (SIGSEGV with PC in an rw-p mapping) and, with it, system_server and zygote. libaemushim's
@@ -4493,6 +4596,22 @@ class TreeFixer(
         backupOnce(lib, keep)
         if (ElfPatch.execCacheflush(lib) > 0) log("libc: cacheflush() makes generated code executable (no LD_PRELOAD before 2.3)")
     }.onFailure { log("libc: cacheflush patch failed: ${it.message}") }
+
+    /**
+     * MediaTek's libpixelflinger.so calls two weak-imported debug hooks (android::mspace_malloc_stat / mspace_free_stat) without
+     * testing them; with no MTK libc to define them the load faults at address 0 on the first software-GL allocation (the boot
+     * animation dies with exit 139 at its first frame). See [MspaceHooks]. The original is kept in system/.aemu-parked.
+     */
+    private fun mspaceHooks() = runCatching {
+        for (dir in listOf("system/lib", "system/vendor/lib", "vendor/lib")) {
+            val lib = File(root, "$dir/libpixelflinger.so")
+            if (!lib.isFile || isLink(lib)) continue
+            val d = lib.readBytes()
+            if (MspaceHooks.patched(d) == null) continue
+            backupOnce(lib, File(root, "system/.aemu-parked/${dir.replace('/', '#')}#libpixelflinger.so"))
+            if (MspaceHooks.apply(lib)) log("libpixelflinger: the malloc debug hooks it imports weakly are no longer called through a null pointer ($dir)")
+        }
+    }.onFailure { log("libpixelflinger: patch failed: ${it.message}") }
 
     /**
      * A failed Surface.unlockCanvasAndPost() throws IllegalArgumentException; on a system_server thread nothing
@@ -4633,6 +4752,11 @@ class TreeFixer(
     }
 
     private fun assetSize(a: String): Long = runCatching { eaSize(a) }.getOrDefault(-1L)
+
+    /** 0 (AOSP layout, or not readable: leave the bridge alone) or 4: see [NativeWindowProbe]. Read from the firmware's own libui. */
+    private fun nativeWindowShift(): Int = runCatching {
+        NativeWindowProbe.windowShift(File(root, "system/lib/libui.so").readBytes())
+    }.getOrNull() ?: 0
     private fun installAsset(a: String, f: File) {
         if (f.isFile && !isLink(f) && f.length() == assetSize(a)) return
         f.delete()
@@ -4893,7 +5017,19 @@ class TreeFixer(
         }
     }
 
-    private val BPF_NOTES_STAMP = "2"      // 2: objects of vendor, odm, product and system_ext read as well
+    // key size, value size of the maps of netd.o (system/netd bpf_progs/netd.h). Only a fallback for an object without BTF:
+    // the netd.o of 17 carries them in its BTF ([btfAndroidMapSizes]), which is read first.
+    private val NETD_MAP_SIZES = mapOf("cookie_tag_map" to (8 to 8), "uid_counterset_map" to (4 to 1), "app_uid_stats_map" to (4 to 32),
+        "stats_map_A" to (16 to 32), "stats_map_B" to (16 to 32), "iface_stats_map" to (4 to 32), "configuration_map" to (4 to 4),
+        "uid_owner_map" to (4 to 8), "data_saver_enabled_map" to (4 to 1), "iface_index_name_map" to (4 to 16), "packet_trace_enabled_map" to (4 to 1),
+        // (17: read from the BTF of the netd.o of 17)
+        "uid_permission_chunk_map" to (4 to 1024), "blocked_ports_map" to (4 to 8), "ingress_discard_map" to (16 to 4), "netd_pid_map" to (4 to 4),
+        "lock_array_test_map" to (4 to 1), "lock_hash_test_map" to (4 to 1), "sk_storage" to (4 to 192), "l4s_accecn_enabled_map" to (4 to 1),
+        "l4s_conn_counter" to (4 to 4), "local_net_access_map" to (28 to 1), "local_net_uid_host_allowlist_map" to (28 to 1),
+        "local_net_note_op_cache_map" to (4 to 4), "local_net_cache_generation_id_map" to (4 to 8), "loopback_access_cache_map" to (12 to 8),
+        "loopback_permission_enabled_map" to (4 to 1), "require_internet_permission_map" to (4 to 1))
+
+    private val BPF_NOTES_STAMP = "6"      // 6: key and value sizes of a .android_maps object from its BTF (netd.o of 17: uid_permission_chunk_map read as key 1, value 0 and netd aborted);      // 5: sizes of netd's maps by name, raw definitions logged;      // 4: netd stats maps get the sizes of netd's structs; 3: notes of the stats maps logged; 2: objects of vendor, odm, product and system_ext read as well
 
     /**
      * Notes for the eBPF stand-in of the kernel (Kernel64.bpfMapNotes): one file per map of the firmware eBPF objects,
@@ -4975,6 +5111,10 @@ class TreeFixer(
             val symOff = b.getLong(sh(symtab) + 0x18).toInt(); val symCount = (b.getLong(sh(symtab) + 0x20) / 24).toInt()
             val mapsOff = b.getLong(sh(maps) + 0x18).toInt(); val mapsSize = b.getLong(sh(maps) + 0x20)
             val obj = o.name.removeSuffix(".o").substringBefore('@')
+            // Added for AEmulator Plus (2026-11-12): the BTF of the object has the exact key and value types of its maps
+            val btfSizes = (0 until shnum).firstOrNull { str(shstr, b.getInt(sh(it))) == ".BTF" }?.let { bi ->
+                runCatching { btfAndroidMapSizes(java.nio.ByteBuffer.wrap(b.array(), b.getLong(sh(bi) + 0x18).toInt(), b.getLong(sh(bi) + 0x20).toInt()).slice().order(java.nio.ByteOrder.LITTLE_ENDIAN)) }.getOrNull()
+            } ?: emptyMap()
             for (i in 0 until symCount) {
                 val s = symOff + i * 24
                 if ((b.getShort(s + 6).toInt() and 0xffff) != maps) continue
@@ -4984,6 +5124,22 @@ class TreeFixer(
                 val note = java.nio.ByteBuffer.allocate(12).order(java.nio.ByteOrder.LITTLE_ENDIAN)
                 for (k in 0 until 3) note.putInt(b.getInt(mapsOff + at.toInt() + k * 4))
                 var file = "map_${obj}_$name"
+                // (the definition of 17 has no sizes where the first words of the old one had them: word 1 is the map flags there -
+                // uid_permission_chunk_map read as key 1, value 0, and netd aborted on it in BpfMapRO<>::init. The sizes are those of the
+                // key and value types in the BTF of the object. A ring buffer (27) has none.)
+                btfSizes[name.removeSuffix("_def")]?.let { if (note.getInt(0) != 27) { note.putInt(4, it.first); note.putInt(8, it.second) } }
+                // Added for AEmulator Plus (2026-11-12): the netd.o of 17 states no key/value size in the definition (log of
+                // 13:50: "type 1, key 0, value 0"; word 3 on is 00000bbf 00000130 00000ce4 ..., apparently BTF references that
+                // are not read here yet). netd aborts without a word in BpfMapRO<>::init on a size that differs from its own
+                // structs, so for the maps of netd.o the sizes of those structs (bpf_progs/netd.h) stand in. Only the ones
+                // known for sure are listed; the raw definition of every netd map goes to the log.
+                if (obj == "netd") {
+                    val base = name.removeSuffix("_def")
+                    val known = NETD_MAP_SIZES[base]
+                    if (known != null && (note.getInt(4) == 0 || note.getInt(8) == 0)) { note.putInt(4, known.first); note.putInt(8, known.second) }
+                    val raw = (0 until minOf(10, (mapsSize - at).toInt() / 4)).joinToString(" ") { "%08x".format(b.getInt(mapsOff + at.toInt() + it * 4)) }
+                    log("eBPF def $base in ${o.name} (size ${b.getLong(s + 16)}): $raw -> key ${note.getInt(4)} value ${note.getInt(8)}")
+                }
                 if (pinned) {       // struct bpf_map_def: 12 words, create_location[n], pin_location[n], name_idx
                     val size = b.getLong(s + 16)
                     val n = ((size - 52) / 2).toInt()
@@ -5077,6 +5233,52 @@ class TreeFixer(
             }.onFailure { log("aconfig $container: ${it.message}") }
         }
         if (n > 0) log("aconfig: the flag storage of $n containers")
+    }
+
+    /**
+     * The key and value sizes of the maps of an Android eBPF object (system/bpf), from its BTF: DEFINE_BPF_MAP leaves, per map, a
+     * variable in a section named ".maps.<map>" whose type is a struct { key; value; } of the map's own types.
+     */
+    private fun btfAndroidMapSizes(b: java.nio.ByteBuffer): Map<String, Pair<Int, Int>> {
+        if (b.limit() < 24 || (b.getShort(0).toInt() and 0xffff) != 0xeb9f) return emptyMap()
+        val hdr = b.getInt(4); val typeOff = hdr + b.getInt(8); val typeLen = b.getInt(12); val strOff = hdr + b.getInt(16)
+        fun str(off: Int): String { val sb = StringBuilder(); var p = strOff + off; while (p < b.limit() && b.get(p).toInt() != 0) sb.append(b.get(p++).toInt().toChar()); return sb.toString() }
+        val types = ArrayList<Int>().apply { add(-1) }      // id -> offset; id 0 is void
+        var p = typeOff
+        while (p + 12 <= typeOff + typeLen) {
+            types.add(p)
+            val info = b.getInt(p + 4); val vlen = info and 0xffff
+            p += 12 + when ((info ushr 24) and 0x1f) { 1, 14, 17 -> 4; 3 -> 12; 4, 5, 15, 19 -> vlen * 12; 6, 13 -> vlen * 8; else -> 0 }
+        }
+        fun kind(id: Int) = if (id <= 0 || id >= types.size) 0 else (b.getInt(types[id] + 4) ushr 24) and 0x1f
+        fun ref(id: Int) = b.getInt(types[id] + 8)
+        fun sizeOf(id: Int, depth: Int = 0): Int = when (if (depth > 16) 0 else kind(id)) {
+            1, 4, 5, 6, 16, 19 -> ref(id)
+            2 -> 8
+            3 -> sizeOf(b.getInt(types[id] + 12), depth + 1) * b.getInt(types[id] + 20)
+            8, 9, 10, 11, 14, 18 -> sizeOf(ref(id), depth + 1)
+            else -> 0
+        }
+        val out = HashMap<String, Pair<Int, Int>>()
+        for (id in 1 until types.size) {
+            if (kind(id) != 15) continue
+            val sec = str(b.getInt(types[id]))
+            if (!sec.startsWith(".maps.")) continue
+            for (v in 0 until (b.getInt(types[id] + 4) and 0xffff)) {
+                var t = b.getInt(types[id] + 12 + v * 12)               // the variable
+                if (kind(t) != 14) continue
+                t = ref(t)
+                while (kind(t) in listOf(8, 9, 10, 11)) t = ref(t)
+                if (kind(t) != 4) continue
+                var key = 0; var value = 0
+                for (m in 0 until (b.getInt(types[t] + 4) and 0xffff)) {
+                    val e = types[t] + 12 + m * 12
+                    when (str(b.getInt(e))) { "key" -> key = sizeOf(b.getInt(e + 4)); "value" -> value = sizeOf(b.getInt(e + 4)) }
+                }
+                if (key > 0 && value > 0) out[sec.removePrefix(".maps.")] = key to value
+            }
+        }
+        return out
     }
 
     /**
@@ -6640,6 +6842,7 @@ val db = settingsDb()
         private const val MTK_HAL_MODULE_ID = "libaudio"
 
         private const val OPEN_GL = "engines/kk/libGLES_aemu.so"
+        private const val HWC_FB = "engines/kk/hwcomposer.default.so"
         /** Мастера первого запуска: Samsung, Google, AOSP, MIUI, HTC, Sony */
         val SETUP_WIZARDS = listOf(
             "com.sec.android.app.SecSetupWizard", "com.google.android.setupwizard", "com.android.provision",

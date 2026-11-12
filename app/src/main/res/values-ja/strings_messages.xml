@@ -225,4 +225,11 @@
     <string name="update_err_wrong_package">ダウンロードした APK のアプリパッケージが正しくありません</string>
     <string name="catalog_err_too_many_lines">カタログが 10000 行を超えています</string>
     <string name="imp_iso_no_system">ISO イメージに Android システムが見つかりません（system.sfs または system.img が必要です）</string>
+    <string name="imp_inspecting">%1$s を確認中</string>
+    <string name="imp_choice_api">API レベル %1$s</string>
+    <string name="imp_choice_build">ビルド番号 %1$s</string>
+    <string name="imp_choice_title">インポートする %1$s を選択してください</string>
+    <string name="imp_choice_text">このパッケージには複数の %1$s があります(%3$d 件中 %2$d 件目)。インポートするものを選んでください。</string>
+    <string name="imp_choice_ok">インポート</string>
+    <string name="imp_choice_cancel">インポートをキャンセル</string>
 </resources>

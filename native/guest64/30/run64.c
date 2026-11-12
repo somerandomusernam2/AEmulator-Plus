@@ -32,7 +32,7 @@ enum {
     NR_inotify_add_watch = 27, NR_ioctl = 29,
     NR_mknodat = 33, NR_mkdirat = 34, NR_unlinkat = 35, NR_symlinkat = 36, NR_linkat = 37, NR_renameat = 38,
     NR_umount2 = 39, NR_mount = 40, NR_statfs = 43, NR_truncate = 45, NR_ftruncate = 46, NR_faccessat = 48,
-    NR_chdir = 49, NR_chroot = 51, NR_fchmodat = 53, NR_fchownat = 54, NR_fchown = 55, NR_openat = 56, NR_close = 57,
+    NR_chdir = 49, NR_chroot = 51, NR_fchmod = 52, NR_fchmodat = 53, NR_fchownat = 54, NR_fchown = 55, NR_openat = 56, NR_close = 57,
     NR_lseek = 62, NR_read = 63, NR_write = 64, NR_writev = 66, NR_pread64 = 67, NR_pwrite64 = 68, NR_readlinkat = 78, NR_newfstatat = 79, NR_fstat = 80,
     NR_timerfd_create = 85, NR_utimensat = 88, NR_capget = 90, NR_capset = 91, NR_exit_group = 94, NR_unshare = 97,
     NR_sched_yield = 124, NR_rt_sigaction = 134, NR_rt_sigprocmask = 135, NR_reboot = 142,
@@ -206,8 +206,10 @@ static const char *xl(const char *p, char *buf, int *err) {
     if (pre(n, g_root) && (n[g_rootlen] == '/' || !n[g_rootlen])) return p;   // already a host path (our own argv)
     if (g_sdlen) {
         // the guest's card: plain directories for it, the shared folder of the phone underneath
+        // Modified for AEmulator Plus (2026-11-11): /storage/sdcard is one more mirror of the shared folder (the path an APK
+        // installer / file picker of the guest hands to `pm install`; /storage/sdcard0 alone was not enough)
         static const char *const sd[] = { "/storage/emulated/0", "/storage/emulated/legacy", "/storage/self/primary", "/sdcard",
-                                          "/mnt/sdcard", "/mnt/user/0/primary", "/mnt/shell/emulated/0", "/storage/sdcard0", 0 };
+                                          "/mnt/sdcard", "/mnt/user/0/primary", "/mnt/shell/emulated/0", "/storage/sdcard0", "/storage/sdcard", 0 };
         for (int i = 0; sd[i]; i++) {
             u64 l = slen(sd[i]);
             if (!pre(n, sd[i]) || (n[l] != '/' && n[l])) continue;
@@ -258,6 +260,10 @@ static void fake_owner(struct kstat *st) {
 // ---------------------------------------------------------------------------------------------------- ashmem
 
 #define ASHMEM_MAGIC 0x77
+#define F_ADD_SEALS 1033
+#define F_GET_SEALS 1034
+#define F_SEAL_WRITE 0x0008
+#define F_SEAL_FUTURE_WRITE 0x0010
 // an ashmem region is a memfd of ours; it may have come from another process, so it is recognised by its name
 static int is_ashmem_fd(int fd) {
     char p[40], t[32], d[24];
@@ -275,10 +281,29 @@ static long ashmem_ioctl(int fd, u32 cmd, u64 arg) {
     case 2: if (arg) *(char *)arg = 0; return 0;                    // GET_NAME
     case 3: return S2(NR_ftruncate, fd, arg);                       // SET_SIZE
     case 4: { struct kstat st; long r = S2(NR_fstat, fd, &st); return r < 0 ? r : st.st_size; } // GET_SIZE
-    // The protection mask is kept on the region itself, as a seal, so that it travels with the descriptor: Chromium
-    // (74, WebView of 10) makes a region read-only and checks that it reads back so. Mappings made before stay.
-    case 5: if (!(arg & 2)) S3(25 /*fcntl*/, fd, 1033 /*F_ADD_SEALS*/, 0x10 /*F_SEAL_FUTURE_WRITE*/); return 0; // SET_PROT_MASK
-    case 6: { long s = S3(25 /*fcntl*/, fd, 1034 /*F_GET_SEALS*/, 0); return s > 0 && (s & 0x10) ? 5 : 7; }       // GET_PROT_MASK
+    // The protection mask of a region is its write bit, kept in the memfd's inode so that it is shared by every process
+    // holding the region and travels with the descriptor over binder: Chromium makes a region read-only and checks that
+    // it reads back so, and system_server does the same to ApplicationSharedMemory (Android 17, in
+    // ActivityManagerService's constructor). The seal is F_SEAL_FUTURE_WRITE (Linux 5.1+): mappings made before stay
+    // writable, new writable mappings and write() are refused, exactly what libcutils' own memfd ashmem does.
+    // This used to be an fchmod of the memfd. The phone's SELinux policy may refuse that (EACCES: setattr on the
+    // app's tmpfs memfd), ashmem_set_prot_region then failed, and system_server died with "Failed to
+    // ashmem_set_prot_region: Permission denied" on those boots. Narrowing the mask never fails here, as with the real
+    // driver: the callers abort the process on an error. Only a host kernel without the seal falls back to fchmod
+    // (owner write bit, best effort), and the mask is then merely advisory if that is refused too. The engine's own
+    // fstat sees the real mode, not the S_IFCHR|0666 that the guest-facing fstat handler fakes.
+    case 5: { if ((u32)arg & 2 /*PROT_WRITE*/) return 0;                    // write stays allowed: nothing to take away
+              long r = S3(NR_fcntl, fd, F_ADD_SEALS, F_SEAL_FUTURE_WRITE);
+              if (r == 0 || r == -9 /*EBADF*/) return r;
+              struct kstat st;
+              if (S2(NR_fstat, fd, &st) == 0) S2(NR_fchmod, fd, (st.st_mode & 07777 & ~0200u));
+              return 0; }                                                    // SET_PROT_MASK
+    case 6: { long s = S2(NR_fcntl, fd, F_GET_SEALS);
+              if (s == -9 /*EBADF*/) return s;
+              if (s > 0 && (s & (F_SEAL_WRITE | F_SEAL_FUTURE_WRITE))) return 5;       // PROT_READ|PROT_EXEC
+              struct kstat st;
+              if (S2(NR_fstat, fd, &st) == 0 && !(st.st_mode & 0200)) return 5;        // the fchmod fallback above
+              return 7; }                                                    // GET_PROT_MASK (PROT_READ|WRITE|EXEC)
     case 7: return 0;                                               // PIN
     case 8: return 0;                                               // UNPIN
     case 9: return 0;                                               // GET_PIN_STATUS
@@ -749,10 +774,43 @@ static void own_put(long nr, long where, long uid, long gid) {        // nr: NR_
 
 static long trap2(long nr, long *a, void *uc, char **pbp);
 
+// Added for AEmulator Plus (2026-11-11): hyos_spawner dies in rustutils inherited_fd::init_once (canonicalize + read_dir +
+// read_link over /proc/self/fd) with ENOENT. Every failing path call on /proc/self (and every failing path call of hyos_spawner itself) is appended as "proc-trace nr=N <path> ret=-errno" to
+// <root>/dev/aemu-xattr.log (at most 400 lines), so the exact call and descriptor are on record.
+// Added for AEmulator Plus (2026-11-11): "/proc/<pid>/fd" is what an O_PATH descriptor of /proc/self/fd reads as. bionic's realpath()
+// (std::fs::canonicalize, hyos_spawner's inherited_fd::init_once) opens the path that way, reads the descriptor's link and then
+// checks that the answer is the same file (fstat of the descriptor against stat of the answer): with "/dev/null" for the answer
+// it never is, and realpath fails with ENOENT.
+static int is_proc_fddir(const char *t) {
+    if (!pre(t, "/proc/") || t[6] < '0' || t[6] > '9') return 0;
+    const char *q = t + 6;
+    while (*q >= '0' && *q <= '9') q++;
+    return seq(q, "/fd");
+}
+static int is_spawner(void) { u64 n = slen(g_exe); return n >= 12 && seq(g_exe + n - 12, "hyos_spawner"); }
+static void dbg_proc(long nr, const char *p, long r) {
+    static int cnt;
+    if (!g_rootlen || cnt >= 400) return;
+    cnt++;
+    char f[600], l[1100]; u64 o = 0; char d[24], *s;
+    memcpy(f, g_root, g_rootlen); memcpy(f + g_rootlen, "/dev/aemu-xattr.log", 20);
+    long fd = S4(NR_openat, AT_FDCWD, f, 02101 /*O_WRONLY|O_CREAT|O_APPEND*/, 0666);
+    if (fd < 0) return;
+    memcpy(l, "proc-trace nr=", 14); o = 14; s = utoa((u64)nr, d + sizeof d); memcpy(l + o, s, slen(s)); o += slen(s);
+    l[o++] = ' '; { u64 n = slen(p); if (n > 800) n = 800; memcpy(l + o, p, n); o += n; }
+    memcpy(l + o, " ret=-", 6); o += 6;
+    s = utoa((u64)(-r), d + sizeof d); memcpy(l + o, s, slen(s)); o += slen(s); memcpy(l + o, " exe=", 5); o += 5; { u64 n = slen(g_exe); if (n > 150) n = 150; memcpy(l + o, g_exe, n); o += n; }
+    l[o++] = '\n';
+    S3(NR_write, fd, l, o); S1(NR_close, fd);
+}
+
 static long trap(long nr, long *a, void *uc) {
     char *pb = 0;
     long r = trap2(nr, a, uc, &pb);
     if (pb) pb_put(pb);
+    if (r < 0 && r > -4096 && a[1] && (nr == NR_openat || nr == NR_newfstatat || nr == NR_statx || nr == NR_faccessat || nr == NR_readlinkat) &&
+        (pre((const char *)a[1], "/proc/self") || is_spawner()))
+        dbg_proc(nr, (const char *)a[1], r);
     return r;
 }
 
@@ -940,7 +998,7 @@ static long trap2(long nr, long *a, void *uc, char **pbp) {
             if (pre(q, "/fd/")) {
                 if (pre(t, "/memfd:aemu-ashmem")) memcpy(t, "/dev/ashmem", 12);
                 else if (!(pre(t, g_root) && (t[g_rootlen] == '/' || !t[g_rootlen])) && !pre(t, "/dev/") &&
-                         !(g_sdlen && pre(t, g_sd))) memcpy(t, "/dev/null", 10);
+                         !(g_sdlen && pre(t, g_sd)) && !is_proc_fddir(t)) memcpy(t, "/dev/null", 10);
             }
         }
         unxl(t);
@@ -1054,6 +1112,21 @@ static long trap2(long nr, long *a, void *uc, char **pbp) {
     }
     case NR_execve:
         return do_exec(P(0), (char *const *)a[1], (char *const *)a[2]);
+    case 281 /* execveat(dirfd, path, argv, envp, flags) */: {
+        const char *pp = P(1);
+        if (pp && pp[0] == '/') return do_exec(pp, (char *const *)a[2], (char *const *)a[3]);   // absolute: the dirfd does not matter
+        if ((a[4] & 0x1000 /*AT_EMPTY_PATH*/) && (!pp || !pp[0])) {                         // fexecve(): the file by its descriptor
+            static char fl[40], ft[PATH_MAX]; char t[24];
+            const char *d = utoa((u64)(u32)a[0], t + sizeof t);
+            memcpy(fl, "/proc/self/fd/", 14); memcpy(fl + 14, d, slen(d) + 1);
+            long n = S4(NR_readlinkat, AT_FDCWD, fl, ft, PATH_MAX - 1);
+            if (n < 2 || ft[0] != '/') return -ENOENT;
+            ft[n] = 0;
+            return do_exec(ft, (char *const *)a[2], (char *const *)a[3]);                    // (a host path: xl leaves it as it is)
+        }
+        if (pp && (int)a[0] == -100 /*AT_FDCWD: arrives zero-extended from 32 bits*/) return do_exec(pp, (char *const *)a[2], (char *const *)a[3]);
+        return -ENOSYS;                                                                        // relative to another directory: not supported
+    }
     case NR_ioctl:
         if (((a[1] >> 8) & 0xff) == ASHMEM_MAGIC) return ashmem_ioctl((int)a[0], (u32)a[1], (u64)a[2]);
         if (((a[1] >> 8) & 0xff) == 'I' && is_ion_fd((int)a[0])) return ion_ioctl((u32)a[1], (u64)a[2]);
@@ -1391,6 +1464,10 @@ static void install_filter(void) {
     // a phone kernel has it (5.8+), so without this entry every access() of a 32-bit guest went to the kernel with the
     // GUEST path, i.e. to the phone's own /system, /vendor... (EACCES for an app), never into the image.
     f[n++] = JEQ(NR_faccessat2, L_TRAP, 0);
+    // Added for AEmulator Plus (2026-11-12): bionic of 17 starts programs with execveat(AT_FDCWD, path, ...). Not trapped, the
+    // phone's kernel got the GUEST path ("/system/bin/idmap2" is the phone's own /system: EACCES for an app), so zygote's
+    // ExecuteBinary of idmap2 failed, OverlayConfig loaded no overlay and system_server died. Every kernel traps it.
+    f[n++] = JEQ(281 /* execveat */, L_TRAP, 0);
     f[n++] = JEQ(NR_rt_sigprocmask, L_SIG, 0);
     f[n++] = JEQ(NR_prctl, L_PRCTL, 0);
     f[n++] = JEQ(NR_mmap, L_MMAP, L_ALLOW);

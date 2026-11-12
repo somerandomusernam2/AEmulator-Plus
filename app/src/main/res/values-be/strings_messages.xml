@@ -225,4 +225,11 @@
     <string name="update_err_wrong_variant">APK абнаўлення не адпавядае гэтаму варыянту праграмы</string>
     <string name="update_err_wrong_package">У спампаванага APK няправільны пакет праграмы</string>
     <string name="catalog_err_too_many_lines">Каталог перавышае 10000 радкоў</string>
+    <string name="imp_inspecting">Праверка %1$s</string>
+    <string name="imp_choice_api">Узровень API %1$s</string>
+    <string name="imp_choice_build">нумар зборкі %1$s</string>
+    <string name="imp_choice_title">Які %1$s імпартаваць?</string>
+    <string name="imp_choice_text">У гэтым пакеце некалькі варыянтаў %1$s (%2$d з %3$d). Выберыце той, які трэба імпартаваць.</string>
+    <string name="imp_choice_ok">Імпартаваць</string>
+    <string name="imp_choice_cancel">Скасаваць імпарт</string>
 </resources>

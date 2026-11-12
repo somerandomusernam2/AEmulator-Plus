@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Added for AEmulator Plus, 2026-11-10: tabs and several machines at once -->
+<resources>
+    <string name="tab_home">Könyvtár</string>
+    <string name="tab_close">Lap bezárása</string>
+    <string name="tab_close_title">Bezárja a következőt: %1$s?</string>
+    <string name="tab_close_text">A „Kicsinyítés” bezárja a lapot, de a gép a háttérben tovább fut; nyissa meg újra a könyvtárból. A „Leállítás” kikapcsolja a gépet.</string>
+    <string name="tab_minimize">Kicsinyítés</string>
+    <string name="tab_shutdown">Leállítás</string>
+    <string name="vm_slots_full">Minden géphely foglalt (%1$d). Előbb állítson le egyet.</string>
+</resources>

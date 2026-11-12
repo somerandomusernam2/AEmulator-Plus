@@ -30,4 +30,17 @@
     <string name="bluetooth_permission_denied">Η άδεια Bluetooth απορρίφθηκε: ο επισκέπτης θα εκκινήσει χωρίς το Bluetooth του κεντρικού υπολογιστή.</string>
     <string name="vs_sf_tombstone">Tombstone κατάρρευσης του SurfaceFlinger (αποσφαλμάτωση)</string>
     <string name="vs_sf_tombstone_sub">Αν καταρρεύσει το SurfaceFlinger, το firmware γράφει στο αρχείο καταγραφής ένα κανονικό tombstone (με τη συνάρτηση που κατέρρευσε) αντί για σύντομη αναφορά. Χρησιμοποιήστε το όταν στέλνετε αναφορά σφάλματος. Ισχύει στην επόμενη πλήρη εκκίνηση της VM.</string>
+    <string name="vi_mouse_keyboard">Είσοδος: ποντίκι και πληκτρολόγιο</string>
+    <string name="vi_mouse_keyboard_sub">Καταχωρεί μια επιφάνεια αφής και ένα πληκτρολόγιο στο guest και αφαιρεί την οθόνη αφής του. Η οθόνη γίνεται επιφάνεια αφής (πατήστε για κλικ, δύο δάχτυλα για κύλιση) και εμφανίζεται ένα κουμπί πληκτρολογίου στη γραμμή πλοήγησης. Απαιτεί τη μηχανή QEMU (όχι την εγγενή 64-bit) και πλήρη επανεκκίνηση της VM.</string>
+    <string name="vi_keypad">Είσοδος: πληκτρολόγιο κουμπιών</string>
+    <string name="vi_keypad_sub">Προσθέτει στη γραμμή πλοήγησης ένα κουμπί πληκτρολογίου κουμπιών: πλήκτρα βελών, OK, soft keys, Κλήση/Τέλος και 0–9 * # όπως σε τηλέφωνο με κουμπιά. Η αφή εξακολουθεί να λειτουργεί και μπορεί να συνδυαστεί με ποντίκι και πληκτρολόγιο.</string>
+    <string name="vi_keyboard">Πληκτρολόγιο</string>
+    <string name="vi_keypad_title">Πληκτρολόγιο κουμπιών</string>
+    <string name="vi_close">Κλείσιμο</string>
+    <string name="vi_open_keyboard">Πληκτρολόγιο</string>
+    <string name="vi_open_keypad">Πληκτρολόγιο κουμπιών</string>
+    <string name="m_resize_screen">Αλλαγή μεγέθους οθόνης</string>
+    <string name="m_resize_done">Η αλλαγή μεγέθους ολοκληρώθηκε</string>
+    <string name="m_resize_reset">Επαναφορά μεγέθους οθόνης</string>
+    <string name="vi_resize_hint">Σύρετε μια γωνία της οθόνης για να αλλάξετε το μέγεθός της. Όταν τελειώσετε, ανοίξτε το μενού και πατήστε «Η αλλαγή μεγέθους ολοκληρώθηκε».</string>
 </resources>

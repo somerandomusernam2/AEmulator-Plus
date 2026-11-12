@@ -28,6 +28,8 @@ object InitPlan {
         val dirs: List<String>,
         /** setprop из секций init/boot (не из триггеров по свойствам) */
         val setprops: Map<String, String> = emptyMap(),
+        /** Added for AEmulator Plus (2026-11-09): the definitions a later one of the same service name replaced, oldest first (see [withProgramsInTree]) */
+        val shadowed: Map<String, List<RcService>> = emptyMap(),
     )
 
     /** Разбирает набор .rc-файлов (корень рамдиска и /system/etc/init, если есть). */
@@ -49,6 +51,7 @@ object InitPlan {
 
     fun parse(files: List<File>, props: Map<String, String> = emptyMap(), includeCharging: Boolean = false): Rc {
         val services = LinkedHashMap<String, RcService>()
+        val shadowed = LinkedHashMap<String, MutableList<RcService>>()
         val exports = LinkedHashMap<String, String>()
         val condExports = LinkedHashMap<String, String>()
         // режимы, в которые эмулятор не грузится: заводской, зарядка, восстановление
@@ -69,7 +72,11 @@ object InitPlan {
                 val t = ln.split(Regex("\\s+"))
                 when (t[0]) {
                     "service" -> {
-                        cur = if (t.size >= 3) RcService(t[1], t.drop(2)).also { services[t[1]] = it } else null
+                        cur = if (t.size >= 3) RcService(t[1], t.drop(2)).also {
+                            // (the later definition still wins; the one it replaces is kept for withProgramsInTree)
+                            services[t[1]]?.let { old -> shadowed.getOrPut(t[1]) { ArrayList() }.add(old) }
+                            services[t[1]] = it
+                        } else null
                     }
                     "on" -> {
                         cur = null
@@ -99,7 +106,31 @@ object InitPlan {
             }
         }
         exports.putAll(condExports)
-        return Rc(services, exports, dirs, setprops)
+        return Rc(services, exports, dirs, setprops, shadowed)
+    }
+
+    /**
+     * Added for AEmulator Plus (2026-11-09). parse() keeps the LAST definition of a service name (init itself keeps the first and
+     * ignores the rest). On a 32-bit MediaTek board two rc files define "power-hal-1-0": the board's own
+     * android.hardware.power@1.0-service-mediatek.rc and the engine's android.hardware.power@1.0-service.rc (an rc is no ELF, so it
+     * goes into a 32-bit tree although the engine's 64-bit program does not). The engine's one sorts last and wins, names a program
+     * that is not in the tree, and plan() drops the service without a word: nothing registered
+     * android.hardware.power@1.0::IPower/default and system_server stayed in StartPowerManager for ever (zygote: "Waited one second
+     * for android.hardware.power@1.0::IPower/default").
+     *
+     * Where the winning definition's program is not in the tree, the latest earlier definition whose program is takes its place.
+     * Where the program is there nothing changes: the last definition still wins (the audio and zygote rcs rely on that).
+     */
+    private fun withProgramsInTree(rc: Rc, root: File): Rc {
+        if (rc.shadowed.isEmpty()) return rc
+        fun inTree(s: RcService) = File(root, s.argv.first().removePrefix("/")).isFile
+        val services = LinkedHashMap(rc.services)
+        for ((name, earlier) in rc.shadowed) {
+            val last = services[name] ?: continue
+            if (inTree(last)) continue
+            earlier.lastOrNull { inTree(it) }?.let { services[name] = it }
+        }
+        return rc.copy(services = services)
     }
 
     private val AID = mapOf(
@@ -134,7 +165,8 @@ object InitPlan {
     )
 
     /** Строит план загрузки из разобранных rc-файлов; для отсутствующих служб берёт умолчания. */
-    fun plan(rc: Rc, api: Int, root: File): List<GuestService> {
+    fun plan(parsed: Rc, api: Int, root: File): List<GuestService> {
+        val rc = withProgramsInTree(parsed, root)
         val out = ArrayList<GuestService>()
         for (r in ORDER) {
             if (r.name == "zygote_secondary" && (rc.setprops["ro.zygote"] == "zygote64" || !File(root, "system/bin/app_process32").isFile)) continue
@@ -191,6 +223,12 @@ object InitPlan {
         out.addAll(sf, hals.map { it.copy(delayMs = 100, optional = false) })
         val z = out.indexOfFirst { it.name == "zygote" }.let { if (it < 0) out.size else it }
         out.addAll(z, rest)
+        // Added for AEmulator Plus (2026-11-10): HyperOS 3 "Rust runtime". The launcher (com.miui.home) is started through
+        // hyos_spawner's socket, not through zygote (its package has no dex of its own); init.hyos_spawner.rc starts the
+        // service once zygote runs. Last in the plan, so after zygote. See HyperOsCompat.
+        rc.services["hyos_spawner"]?.takeIf { api >= 34 && File(root, it.argv.first().removePrefix("/")).isFile }?.let { sv ->
+            out.add(GuestService(sv.name, sv.argv, sv.sockets.toMap(), uid = 0, gid = AID[sv.group] ?: 1000, delayMs = 500, optional = true))
+        }
         // Samsung 2.x boot logo + sound (playlogos1 is a oneshot, so the filter above never picks it up)
         return BootMediaServices.withLegacyLogo(out, root, api)
     }

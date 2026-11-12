@@ -225,4 +225,11 @@
     <string name="update_err_wrong_package">APK ที่ดาวน์โหลดมีแพ็กเกจแอปไม่ถูกต้อง</string>
     <string name="catalog_err_too_many_lines">แคตตาล็อกเกิน 10000 บรรทัด</string>
     <string name="imp_iso_no_system">ไม่พบระบบ Android ในอิมเมจ ISO (ต้องมี system.sfs หรือ system.img)</string>
+    <string name="imp_inspecting">กำลังตรวจสอบ %1$s</string>
+    <string name="imp_choice_api">API ระดับ %1$s</string>
+    <string name="imp_choice_build">หมายเลขบิลด์ %1$s</string>
+    <string name="imp_choice_title">จะนำเข้า %1$s ใด</string>
+    <string name="imp_choice_text">แพ็กเกจนี้มี %1$s มากกว่าหนึ่งรายการ (%2$d จาก %3$d) เลือกรายการที่ต้องการนำเข้า</string>
+    <string name="imp_choice_ok">นำเข้า</string>
+    <string name="imp_choice_cancel">ยกเลิกการนำเข้า</string>
 </resources>

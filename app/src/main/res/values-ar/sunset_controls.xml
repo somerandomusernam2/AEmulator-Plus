@@ -30,4 +30,17 @@
     <string name="bluetooth_permission_denied">تم رفض إذن البلوتوث: سيقلع الضيف بدون بلوتوث المضيف.</string>
     <string name="vs_sf_tombstone">شاهد انهيار SurfaceFlinger (tombstone) (تصحيح الأخطاء)</string>
     <string name="vs_sf_tombstone_sub">إذا انهار SurfaceFlinger، تكتب البرامج الثابتة tombstone عاديًا في السجل (مع الدالة المنهارة) بدلًا من تقرير قصير. استخدمه عند إرسال تقرير خلل. يُطبَّق عند التشغيل الكامل التالي للجهاز الافتراضي.</string>
+    <string name="vi_mouse_keyboard">الإدخال: الماوس ولوحة المفاتيح</string>
+    <string name="vi_mouse_keyboard_sub">يسجّل لوحة لمس ولوحة مفاتيح في النظام الضيف ويزيل شاشة اللمس الخاصة به. تتحول الشاشة إلى لوحة لمس (اضغط للنقر، وإصبعان للتمرير) ويظهر زر لوحة المفاتيح في شريط التنقل. يتطلب محرك QEMU (وليس المحرك الأصلي 64 بت) وإعادة تشغيل كاملة للجهاز الافتراضي.</string>
+    <string name="vi_keypad">الإدخال: لوحة الأزرار</string>
+    <string name="vi_keypad_sub">يضيف زر لوحة أزرار إلى شريط التنقل: مفاتيح الأسهم وموافق والمفاتيح البرمجية واتصال/إنهاء و0–9 * # كما في الهاتف ذي الأزرار. يستمر اللمس في العمل ويمكن الجمع بينها وبين الماوس ولوحة المفاتيح.</string>
+    <string name="vi_keyboard">لوحة المفاتيح</string>
+    <string name="vi_keypad_title">لوحة الأزرار</string>
+    <string name="vi_close">إغلاق</string>
+    <string name="vi_open_keyboard">لوحة المفاتيح</string>
+    <string name="vi_open_keypad">لوحة الأزرار</string>
+    <string name="m_resize_screen">تغيير حجم الشاشة</string>
+    <string name="m_resize_done">تم تغيير الحجم</string>
+    <string name="m_resize_reset">إعادة ضبط حجم الشاشة</string>
+    <string name="vi_resize_hint">اسحب زاوية الشاشة لتغيير حجمها. عند الانتهاء افتح القائمة واضغط «تم تغيير الحجم».</string>
 </resources>

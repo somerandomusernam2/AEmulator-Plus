@@ -30,4 +30,17 @@
     <string name="bluetooth_permission_denied">Bluetooth 권한이 거부되었습니다. 게스트는 호스트 Bluetooth 없이 부팅됩니다.</string>
     <string name="vs_sf_tombstone">SurfaceFlinger 크래시 톰스톤(디버그)</string>
     <string name="vs_sf_tombstone_sub">SurfaceFlinger가 크래시하면 짧은 보고서 대신 일반 톰스톤(크래시한 함수 포함)을 펌웨어가 로그에 기록하게 합니다. 버그 보고서를 보낼 때 사용하세요. 다음 VM 전체 부팅 시 적용됩니다.</string>
+    <string name="vi_mouse_keyboard">입력: 마우스 및 키보드</string>
+    <string name="vi_mouse_keyboard_sub">게스트에 터치패드와 키보드를 등록하고 터치스크린을 제거합니다. 화면이 터치패드가 되고(탭하여 클릭, 두 손가락으로 스크롤) 탐색 바에 키보드 버튼이 나타납니다. QEMU 엔진(네이티브 64비트 엔진 제외)과 VM 전체 재시작이 필요합니다.</string>
+    <string name="vi_keypad">입력: 키패드</string>
+    <string name="vi_keypad_sub">탐색 바에 키패드 버튼을 추가합니다: 방향키, 확인, 소프트키, 통화/종료, 피처폰처럼 0–9 * #. 터치도 계속 사용할 수 있으며 마우스 및 키보드와 함께 쓸 수 있습니다.</string>
+    <string name="vi_keyboard">키보드</string>
+    <string name="vi_keypad_title">키패드</string>
+    <string name="vi_close">닫기</string>
+    <string name="vi_open_keyboard">키보드</string>
+    <string name="vi_open_keypad">키패드</string>
+    <string name="m_resize_screen">화면 크기 조절</string>
+    <string name="m_resize_done">크기 조절 완료</string>
+    <string name="m_resize_reset">화면 크기 초기화</string>
+    <string name="vi_resize_hint">화면 모서리를 드래그하여 크기를 조절하세요. 끝나면 메뉴를 열고 “크기 조절 완료”를 탭하세요.</string>
 </resources>

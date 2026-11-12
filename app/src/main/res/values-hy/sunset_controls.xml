@@ -31,4 +31,17 @@
     <string name="vs_sf_tombstone">SurfaceFlinger-ի վթարի tombstone (վրիպազերծում)</string>
     <string name="vs_sf_tombstone_sub">Եթե SurfaceFlinger-ը վթարվի, որոնվածքը մատյանում կգրի սովորական tombstone (վթարված ֆունկցիայի նշումով)՝ կարճ հաշվետվության փոխարեն։ Օգտագործեք սխալի մասին հաղորդում ուղարկելիս։ Ուժի մեջ է մտնում VM-ի հաջորդ լրիվ բեռնման ժամանակ։</string>
     <string name="bluetooth_permission_denied">Bluetooth-ի թույլտվությունը մերժվել է. հյուրը կբեռնվի առանց հոսթի Bluetooth-ի։</string>
+    <string name="vi_mouse_keyboard">Մուտք. մկնիկ և ստեղնաշար</string>
+    <string name="vi_mouse_keyboard_sub">Հյուրի մեջ գրանցում է հպահարթակ և ստեղնաշար և հեռացնում է նրա հպէկրանը: Էկրանը դառնում է հպահարթակ (հպեք՝ սեղմելու համար, երկու մատ՝ ոլորելու համար), իսկ նավիգացիայի վահանակում հայտնվում է ստեղնաշարի կոճակ: Պահանջում է QEMU շարժիչ (ոչ բնիկ 64-բիթանոց) և վիրտուալ մեքենայի լրիվ վերագործարկում:</string>
+    <string name="vi_keypad">Մուտք. կոճակային ստեղնաշար</string>
+    <string name="vi_keypad_sub">Նավիգացիայի վահանակին ավելացնում է կոճակային ստեղնաշարի կոճակ՝ սլաքների ստեղներ, OK, ծրագրային ստեղներ, Զանգ/Ավարտ և 0–9 * # ինչպես կոճակային հեռախոսում: Հպումը շարունակում է աշխատել, և կոճակային ստեղնաշարը կարելի է համատեղել մկնիկի և ստեղնաշարի հետ:</string>
+    <string name="vi_keyboard">Ստեղնաշար</string>
+    <string name="vi_keypad_title">Կոճակային ստեղնաշար</string>
+    <string name="vi_close">Փակել</string>
+    <string name="vi_open_keyboard">Ստեղնաշար</string>
+    <string name="vi_open_keypad">Կոճակային ստեղնաշար</string>
+    <string name="m_resize_screen">Փոխել էկրանի չափը</string>
+    <string name="m_resize_done">Չափի փոփոխությունն ավարտվեց</string>
+    <string name="m_resize_reset">Վերակայել էկրանի չափը</string>
+    <string name="vi_resize_hint">Քաշեք էկրանի անկյունը՝ չափը փոխելու համար: Ավարտելուց հետո բացեք ընտրացանկը և հպեք «Չափի փոփոխությունն ավարտվեց»:</string>
 </resources>

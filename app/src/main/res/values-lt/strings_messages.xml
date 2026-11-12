@@ -225,4 +225,11 @@
     <string name="update_err_wrong_variant">Atnaujinimo APK neatitinka šios programos varianto</string>
     <string name="update_err_wrong_package">Atsisiųstas APK turi netinkamą programos paketą</string>
     <string name="catalog_err_too_many_lines">Katalogas viršija 10000 eilučių</string>
+    <string name="imp_inspecting">Tikrinama: %1$s</string>
+    <string name="imp_choice_api">API lygis %1$s</string>
+    <string name="imp_choice_build">versijos numeris %1$s</string>
+    <string name="imp_choice_title">Kurį elementą (%1$s) importuoti?</string>
+    <string name="imp_choice_text">Šiame pakete yra daugiau nei vienas elementas (%1$s): %2$d iš %3$d. Pasirinkite, kurį importuoti.</string>
+    <string name="imp_choice_ok">Importuoti</string>
+    <string name="imp_choice_cancel">Atšaukti importavimą</string>
 </resources>

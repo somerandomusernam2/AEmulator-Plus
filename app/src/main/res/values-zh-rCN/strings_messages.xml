@@ -225,4 +225,11 @@
     <string name="update_err_wrong_package">下载的 APK 的应用包名不正确</string>
     <string name="catalog_err_too_many_lines">目录超过 10000 行</string>
     <string name="imp_iso_no_system">在 ISO 镜像中未找到 Android 系统（应包含 system.sfs 或 system.img）</string>
+    <string name="imp_inspecting">正在检查 %1$s</string>
+    <string name="imp_choice_api">API 级别 %1$s</string>
+    <string name="imp_choice_build">版本号 %1$s</string>
+    <string name="imp_choice_title">要导入哪个%1$s?</string>
+    <string name="imp_choice_text">此包含有多个%1$s(第 %2$d 个,共 %3$d 个)。请选择要导入的一个。</string>
+    <string name="imp_choice_ok">导入</string>
+    <string name="imp_choice_cancel">取消导入</string>
 </resources>

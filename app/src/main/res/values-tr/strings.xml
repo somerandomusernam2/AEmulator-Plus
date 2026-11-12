@@ -18,7 +18,7 @@
     <string name="storage_text">Tüm dosyalara erişime izin verin: her sistemin hafıza kartı dahili depolamadaki AEmulator klasöründe olur; APK, müzik ve fotoğraflar için kullanışlıdır.</string>
     <string name="allow">İzin ver</string>
     <string name="empty_title">Henüz sistem yok</string>
-    <string name="empty_text">Android 2.2–6.0 için bir ARM yazılımı ekleyin: recovery ZIP, Odin arşivi (.tar.md5), system.img veya fabrika imajı.</string>
+    <string name="empty_text">Android 1.0–17 için bir ARM yazılımı ekleyin: recovery ZIP, Odin arşivi (.tar.md5), system.img veya fabrika imajı.</string>
     <string name="empty_help">Hangi dosyalar uygun?</string>
     <string name="import_failed">İçe aktarma başarısız</string>
     <string name="import_running">Yazılım içe aktarılıyor</string>
@@ -30,7 +30,7 @@
     <string name="start">Başlat</string>
     <string name="rename">Yeniden adlandır</string>
     <string name="help_title">Desteklenen yazılımlar</string>
-    <string name="help_text">• Android 2.3–4.4: 32 bit ARM yazılımlar, QEMU üzerinden.\n• Android 5.0–17: arm64 yazılımlar ve GSI’lar, telefonda doğrudan.\n\nBiçimler:\n• CWM/TWRP recovery ZIP (MIUI, CyanogenMod, portlar, çoğu özel ROM);\n• Samsung: Odin .tar / .tar.md5 veya AP_*.tar.md5 içeren ZIP;\n• Google fabrika imajları (.tgz / .zip);\n• system.img (ext4, sparse), TWRP yedeği system.ext4.win;\n• system.new.dat(.br) + system.transfer.list içeren OTA.\n\nArşivde boot.img olması en iyisidir: servislerin başlama sırası buradan alınır.</string>
+    <string name="help_text">• Android 2.3–4.4: 32 bit ARM yazılımlar, QEMU üzerinden.\n• Android 5.0–17: arm64 yazılımlar ve GSI’lar, telefonda doğrudan.\n\nBiçimler:\n• CWM/TWRP recovery ZIP (MIUI, CyanogenMod, portlar, çoğu özel ROM);\n• Samsung: Odin .tar / .tar.md5 veya AP_*.tar.md5 içeren ZIP;\n• Google fabrika imajları (.tgz / .zip);\n• system.img (ext4, sparse), TWRP yedeği system.ext4.win;\n• system.new.dat(.br) + system.transfer.list içeren OTA;\n• Ayrıca: 7z, RAR, LG .kdz, Sony .ftf, Huawei UPDATE.APP, Qualcomm EDL, payload.bin, super.img, EROFS, Android-x86 ISO.\n\nArşivde boot.img olması en iyisidir: servislerin başlama sırası buradan alınır.</string>
     <string name="vs_screen">Misafir ekranı</string>
     <string name="vs_fixed_2x">Android 2.x sabit 480×800, 240 dpi ekran kullanır.</string>
     <string name="vs_screen_hint">Ekran küçüldükçe sistem hızlanır.</string>
@@ -45,6 +45,13 @@
     <string name="vs_legacy_sub">Eski Desire HD motoru: yalnızca GLES 1.x, 480×800 ekran. Ana motor başaramazsa kullanın.</string>
     <string name="vs_lowram">Düşük bellek modu</string>
     <string name="vs_lowram_sub">ro.config.low_ram — sistem bellek tasarrufu yapar.</string>
+    <string name="vs_memory_mode">Bellek yönetimi</string>
+    <string name="vs_memory_light">Hafif</string>
+    <string name="vs_memory_medium">Orta</string>
+    <string name="vs_memory_aggressive">Agresif</string>
+    <string name="vs_memory_light_sub">Arka plandaki uygulamalar yalnızca telefonun kendi belleği neredeyse bittiğinde durdurulur. En az yeniden başlatma; en çok belleği kullanır. VM tamamen yeniden başlatıldıktan sonra geçerli olur.</string>
+    <string name="vs_memory_medium_sub">Dengeli: arka planda orta sayıda uygulama tutar, boş bellek azalınca kalanları durdurur. VM tamamen yeniden başlatıldıktan sonra geçerli olur.</string>
+    <string name="vs_memory_aggressive_sub">Arka planda az sayıda uygulama tutar ve sık kontrol eder; böylece bellek erkenden boşaltılır. En az belleği kullanır, ancak uygulamalar daha sık yeniden başlar. VM tamamen yeniden başlatıldıktan sonra geçerli olur.</string>
     <string name="vs_proxy">Modern TLS vekili</string>
     <string name="vs_proxy_sub">Eski tarayıcı ve uygulamalar günümüz HTTPS sitelerini açar.</string>
     <string name="vs_controls">Kontroller</string>
@@ -322,7 +329,7 @@
     <string name="vs_strace">Hizmetlerin sistem çağrılarını izle</string>
     <string name="vs_strace_sub">Virgülle ayrılmış hizmet adları, ör. mediaserver,zygote. Bu hizmetleri yavaşlatır ve izi günlüklerine yazar. Bir sonraki açılışta uygulanır.</string>
     <string name="vs_wifi">Wi-Fi ağı</string>
-    <string name="vs_wifi_sub">Ana makinenin internetini VM\'ye Ethernet yerine bağlı bir Wi-Fi ağı olarak gösterir. Android 2.3, 4.0–7.x. Bir sonraki açılışta uygulanır.</string>
+    <string name="vs_wifi_sub">Ana makinenin internetini VM\'ye Ethernet yerine bağlı bir Wi-Fi ağı olarak gösterir. Android 2.3, 4.0–17 (8–17: deneysel). Bir sonraki açılışta uygulanır.</string>
     <string name="vs_wifi_ssid">Ağ adı (SSID)</string>
     <string name="vs_wifi_ssid_sub">En fazla 32 bayt</string>
     <string name="vs_wifi_ssid_error">Ağ adı boş olamaz</string>
@@ -487,4 +494,35 @@
     <string name="thermal_invalid">-40 ile 150 arasında bir değer girin.</string>
     <string name="thermal_apply">Uygula</string>
     <string name="thermal_reset">Varsayılanı kullan</string>
+    <string name="vs_guest_nav">Gezinme çubuğunu / görev çubuğunu etkinleştir</string>
+    <string name="vs_guest_nav_sub">Konuk sistemin kendi gezinme çubuğunu veya Android masaüstü sürümlerinin görev çubuğunu çizmesine izin verir (qemu.hw.mainkeys=0 ayarlar). İçe aktarırken yalnızca masaüstü sürümleri için açın, diğer tüm imajlar için kapalı bırakın. Bir sonraki tam açılışta etkili olur.</string>
+    <string name="th_group_plain">Düz temalar</string>
+    <string name="th_group_skins">Cihaz kasası temaları (@regectt tarafından)</string>
+    <string name="th_group_custom">Özel temalar</string>
+    <string name="th_custom_empty">Henüz özel tema yok. Oluşturmak için “Yeni tema”ya dokunun veya bir .aetheme dosyası içe aktarın. Düz temalar ve cihaz kasaları değiştirilemez: düzenlemek için birini çoğaltın.</string>
+    <string name="th_expand">Listeyi genişlet</string>
+    <string name="th_collapse">Listeyi daralt</string>
+    <string name="vs_art_boot_image">ART önyükleme imajını kullan (Android 14+)</string>
+    <string name="vs_art_boot_image_sub">Kapalı: konuk sistem önyükleme imajı olmadan çalışır. Başlangıç daha yavaştır ancak imajla ilgili hiçbir şey başarısız olamaz. Açık: emülatör bu çalışma zamanı için bir önyükleme imajı hazırlar (bir sonraki başlatmada bir kez oluşturulur, bu biraz zaman alır).</string>
+    <string name="vs_no_watchdog">Sistem watchdog’unu devre dışı bırak (Android 14+)</string>
+    <string name="vs_no_watchdog_sub">Android’in 60 sn’lik watchdog sınırından daha yavaş bir açılış için; bu sınır system_server’ı döngü içinde sonlandırır. Yazılımın services.jar dosyasını yamalar, böylece watchdog iş parçacığı hemen sona erer; gerçek bir sistem kilitlenmesi artık yeniden başlatmayla düzelmez. Jar’ın önceden derlenmiş kodu yok sayılır, bu da ilk açılışı yavaşlatabilir. Kapatmak orijinal jar’ı geri yükler. Bir sonraki tam açılışta etkili olur.</string>
+    <string name="folder_new">Yeni klasör</string>
+    <string name="folder_new_dots">Yeni klasör…</string>
+    <string name="folder_rename">Klasörü yeniden adlandır</string>
+    <string name="folder_delete">Klasörü sil (ROM’lar kalır)</string>
+    <string name="folder_move">Klasöre taşı</string>
+    <string name="folder_none">Klasörde değil</string>
+    <string name="folder_default_name">Klasör</string>
+    <string name="folder_empty">Boş — ROM’ları buraya bırakın</string>
+    <string name="folder_open">Klasörü aç</string>
+    <string name="folder_close">Klasörü kapat</string>
+    <plurals name="folder_roms">
+        <item quantity="one">%1$d ROM</item>
+        <item quantity="other">%1$d ROM</item>
+    </plurals>
+    <string name="phantom_title">Hayalet işlem katili</string>
+    <string name="phantom_msg">Cihazınızda Geliştirici seçenekleri’ndeki “Alt işlem kısıtlamalarını devre dışı bırak” seçeneği etkin değil. Bu, emülatör başlatılırken zygote’un sonlandırılacağı ve emülatörün açılamayacağı anlamına gelir. Bu nedenle etkinleştirmeniz ŞİDDETLE ÖNERİLİR.</string>
+    <string name="phantom_open_dev">Geliştirici seçeneklerini aç</string>
+    <string name="phantom_ignore">Yoksay</string>
+    <string name="phantom_never">Bir daha hatırlatma</string>
 </resources>

@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- put into app/src/main/res/values/ (other languages fall back to these) -->
+<resources>
+    <string name="m_wea">Galp adatdan daşary ýagdaý duýduryşy</string>
+    <string name="m_wea_type">Duýduryş görnüşi</string>
+    <string name="m_wea_sent">Adatdan daşary ýagdaý duýduryşy iberildi</string>
+    <string name="m_wea_failed">Iberilmedi: telefonyň telefoniýasy işlemeýär</string>
+    <string name="wea_presidential">Prezident duýduryşy</string>
+    <string name="wea_extreme">Aşa howp</string>
+    <string name="wea_severe">Çynlakaý howp</string>
+    <string name="wea_amber">AMBER duýduryşy</string>
+    <string name="wea_test">Hökmany aýlyk synag</string>
+    <string name="wea_body_presidential">Prezident duýduryşy: Bu adatdan daşary ýagdaý duýduryş ulgamynyň synagy. Hiç hili hereket talap edilmeýär.</string>
+    <string name="wea_body_extreme">Aşa duýduryş: Sebitiňizde tornado duýduryşy. Häzir gaçybatalga gözläň. Bu synag.</string>
+    <string name="wea_body_severe">Çynlakaý duýduryş: Sebitiňizde sagat 18:00-a çenli ýyldyrym-ýagyş duýduryşy. Bu synag.</string>
+    <string name="wea_body_amber">AMBER duýduryşy: Çaga ýitdi, gök sedan. Görseňiz, 911-e jaň ediň. Bu synag.</string>
+    <string name="wea_body_test">Bu simsiz adatdan daşary ýagdaý duýduryş ulgamynyň synagy. Hiç hili hereket talap edilmeýär.</string>
+</resources>

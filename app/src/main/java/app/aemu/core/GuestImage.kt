@@ -28,6 +28,8 @@ data class VmSettings(
     /** HTTP/HTTPS-прокси с современным TLS для старых браузеров */
     val netProxy: Boolean = true,
     val lowRam: Boolean = false,
+    /** How eagerly the host kills cached guest processes: a [MemoryMode] id (light, medium, aggressive). Applies at the next full VM boot. */
+    val memoryMode: String = MemoryMode.DEFAULT.id,
     val showFrame: Boolean = false,
     val showNavBar: Boolean = true,
     val hideMenuButton: Boolean = false,
@@ -149,7 +151,7 @@ data class VmSettings(
     fun toJson(): JSONObject = JSONObject()
         .put("width", width).put("height", height).put("density", density)
         .put("gpu", gpu).put("hwui", hwui).put("jit", jit).put("fullDexopt", fullDexopt).put("fbHz", fbHz)
-        .put("touchHz", touchHz).put("netProxy", netProxy).put("lowRam", lowRam)
+        .put("touchHz", touchHz).put("netProxy", netProxy).put("lowRam", lowRam).put("memoryMode", memoryMode)
         .put("showFrame", showFrame).put("showNavBar", showNavBar)
         .put("hideMenuButton", hideMenuButton)
         .put("navButtons", NavControls.encode(NavControls.parse(navButtons)))
@@ -287,6 +289,7 @@ data class VmSettings(
                 touchHz = o.optInt("touchHz", d.touchHz),
                 netProxy = o.optBoolean("netProxy", d.netProxy),
                 lowRam = o.optBoolean("lowRam", d.lowRam),
+                memoryMode = MemoryMode.parse(o.optString("memoryMode", d.memoryMode)).id,
                 showFrame = o.optBoolean("showFrame", d.showFrame),
                 showNavBar = o.optBoolean("showNavBar", d.showNavBar),
                 hideMenuButton = o.optBoolean("hideMenuButton", d.hideMenuButton),

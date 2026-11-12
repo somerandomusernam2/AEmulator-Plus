@@ -30,4 +30,17 @@
     <string name="bluetooth_permission_denied">A Bluetooth-engedély megtagadva: a vendég a gazdagép Bluetooth-a nélkül indul.</string>
     <string name="vs_sf_tombstone">SurfaceFlinger-összeomlás tombstone (hibakeresés)</string>
     <string name="vs_sf_tombstone_sub">Ha a SurfaceFlinger összeomlik, a firmware rövid jelentés helyett normál tombstone-t ír a naplóba (az összeomló függvénnyel). Hibajelentés küldésekor használd. A következő teljes VM-indításkor lép érvénybe.</string>
+    <string name="vi_mouse_keyboard">Bevitel: egér és billentyűzet</string>
+    <string name="vi_mouse_keyboard_sub">Egy érintőpadot és egy billentyűzetet regisztrál a vendégben, és eltávolítja annak érintőképernyőjét. A képernyő érintőpaddá válik (koppintás a kattintáshoz, két ujj a görgetéshez), és a navigációs sávon megjelenik egy billentyűzet gomb. QEMU-motort (nem a natív 64 bitest) és a virtuális gép teljes újraindítását igényli.</string>
+    <string name="vi_keypad">Bevitel: gombsor</string>
+    <string name="vi_keypad_sub">Gombsor gombot ad a navigációs sávhoz: nyílbillentyűk, OK, funkciógombok, Hívás/Vége és 0–9 * # mint egy gombos telefonon. Az érintés továbbra is működik, és a gombsor kombinálható az egérrel és a billentyűzettel.</string>
+    <string name="vi_keyboard">Billentyűzet</string>
+    <string name="vi_keypad_title">Gombsor</string>
+    <string name="vi_close">Bezárás</string>
+    <string name="vi_open_keyboard">Billentyűzet</string>
+    <string name="vi_open_keypad">Gombsor</string>
+    <string name="m_resize_screen">Képernyő átméretezése</string>
+    <string name="m_resize_done">Átméretezés kész</string>
+    <string name="m_resize_reset">Képernyőméret visszaállítása</string>
+    <string name="vi_resize_hint">Húzd meg a képernyő egyik sarkát az átméretezéshez. Ha végeztél, nyisd meg a menüt, és koppints az „Átméretezés kész” lehetőségre.</string>
 </resources>

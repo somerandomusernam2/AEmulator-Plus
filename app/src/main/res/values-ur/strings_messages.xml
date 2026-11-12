@@ -225,4 +225,11 @@
     <string name="update_err_wrong_package">ڈاؤن لوڈ کی گئی APK کا ایپلیکیشن پیکیج غلط ہے</string>
     <string name="catalog_err_too_many_lines">کیٹلاگ 10000 لائنوں سے زیادہ ہے</string>
     <string name="imp_iso_no_system">ISO امیج میں کوئی Android سسٹم نہیں ملا (system.sfs یا system.img متوقع تھا)</string>
+    <string name="imp_inspecting">%1$s کا معائنہ ہو رہا ہے</string>
+    <string name="imp_choice_api">API لیول %1$s</string>
+    <string name="imp_choice_build">بلڈ نمبر %1$s</string>
+    <string name="imp_choice_title">کون سا %1$s امپورٹ کریں؟</string>
+    <string name="imp_choice_text">اس پیکیج میں ایک سے زیادہ %1$s ہیں (%2$d از %3$d)۔ امپورٹ کرنے کے لیے ایک منتخب کریں۔</string>
+    <string name="imp_choice_ok">امپورٹ کریں</string>
+    <string name="imp_choice_cancel">امپورٹ منسوخ کریں</string>
 </resources>

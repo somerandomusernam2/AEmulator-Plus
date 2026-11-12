@@ -18,7 +18,7 @@
     <string name="storage_text">允許存取所有檔案：每個系統的記憶卡都會放在內部儲存空間的 AEmulator 資料夾中，方便存放 APK、音樂和照片。</string>
     <string name="allow">允許</string>
     <string name="empty_title">尚無系統</string>
-    <string name="empty_text">新增適用於 Android 2.2–6.0 的 ARM 韌體：Recovery ZIP、Odin 壓縮檔（.tar.md5）、system.img 或原廠映像檔。</string>
+    <string name="empty_text">新增適用於 Android 1.0–17 的 ARM 韌體：Recovery ZIP、Odin 壓縮檔（.tar.md5）、system.img 或原廠映像檔。</string>
     <string name="empty_help">哪些檔案可以使用？</string>
     <string name="import_failed">匯入失敗</string>
     <string name="import_running">正在匯入韌體</string>
@@ -30,7 +30,7 @@
     <string name="start">啟動</string>
     <string name="rename">重新命名</string>
     <string name="help_title">支援的韌體</string>
-    <string name="help_text">• Android 2.2 與 4.0–4.4：主要支援；5.x–6.x：實驗性支援。\n• 僅支援 32 位元 ARM 韌體（armeabi / armeabi-v7a）。\n\n格式：\n• CWM/TWRP Recovery ZIP（MIUI、CyanogenMod、移植版、大多數自訂 ROM）；\n• Samsung：Odin .tar / .tar.md5，或內含 AP_*.tar.md5 的 ZIP；\n• Google 原廠映像檔（.tgz / .zip）；\n• system.img（ext4、sparse、YAFFS2）、TWRP 備份 system.ext4.win；\n• 含 system.new.dat(.br) + system.transfer.list 的 OTA。\n\n壓縮檔內含 boot.img 最佳：服務的啟動順序會從中取得。</string>
+    <string name="help_text">• Android 2.2–4.4：32 位元 ARM 韌體，透過 QEMU 執行（2.2 之前：實驗性）。\n• Android 5.0–17：arm64 韌體與 GSI，在手機上原生執行。\n\n格式：\n• CWM/TWRP Recovery ZIP（MIUI、CyanogenMod、移植版、大多數自訂 ROM）；\n• Samsung：Odin .tar / .tar.md5，或內含 AP_*.tar.md5 的 ZIP；\n• Google 原廠映像檔（.tgz / .zip）；\n• system.img（ext4、sparse、YAFFS2）、TWRP 備份 system.ext4.win；\n• 含 system.new.dat(.br) + system.transfer.list 的 OTA；\n• 另外支援：7z, RAR, LG .kdz, Sony .ftf, Huawei UPDATE.APP, Qualcomm EDL, payload.bin, super.img, EROFS, Android-x86 ISO。\n\n壓縮檔內含 boot.img 最佳：服務的啟動順序會從中取得。</string>
     <string name="vs_screen">客體螢幕</string>
     <string name="vs_fixed_2x">Android 2.x 使用固定的 480×800 螢幕，解析度為 240 dpi。</string>
     <string name="vs_screen_hint">螢幕越小，系統越快。</string>
@@ -45,6 +45,13 @@
     <string name="vs_legacy_sub">較舊的 Desire HD 引擎：僅支援 GLES 1.x，螢幕為 480×800。主引擎失敗時請使用。</string>
     <string name="vs_lowram">低記憶體模式</string>
     <string name="vs_lowram_sub">ro.config.low_ram — 系統會節省記憶體。</string>
+    <string name="vs_memory_mode">記憶體管理</string>
+    <string name="vs_memory_light">輕度</string>
+    <string name="vs_memory_medium">中度</string>
+    <string name="vs_memory_aggressive">積極</string>
+    <string name="vs_memory_light_sub">只有在手機本身記憶體快用完時才會停止背景應用程式。重新啟動次數最少，但佔用記憶體最多。完整重新啟動虛擬機後生效。</string>
+    <string name="vs_memory_medium_sub">均衡：保留適量的背景應用程式，可用記憶體不足時停止其餘應用程式。完整重新啟動虛擬機後生效。</string>
+    <string name="vs_memory_aggressive_sub">只保留少量背景應用程式並頻繁檢查，因此會及早釋放記憶體。佔用記憶體最少，但應用程式重新啟動更頻繁。完整重新啟動虛擬機後生效。</string>
     <string name="vs_proxy">現代 TLS 代理</string>
     <string name="vs_proxy_sub">讓舊版瀏覽器與應用程式能開啟現今的 HTTPS 網站。</string>
     <string name="vs_controls">控制項</string>
@@ -136,7 +143,7 @@
     <string name="vs_strace">追蹤服務的系統呼叫</string>
     <string name="vs_strace_sub">服務名稱以逗號分隔，例如 mediaserver,zygote。會拖慢這些服務，並將追蹤記錄寫入其日誌。下次開機時生效。</string>
     <string name="vs_wifi">Wi-Fi 網路</string>
-    <string name="vs_wifi_sub">將主機的網際網路以已連線的 Wi-Fi 網路（而非乙太網路）呈現給虛擬機器。適用於 Android 2.3, 4.0–7.x。下次開機時生效。</string>
+    <string name="vs_wifi_sub">將主機的網際網路以已連線的 Wi-Fi 網路（而非乙太網路）呈現給虛擬機器。適用於 Android 2.3, 4.0–17（8–17：實驗性）。下次開機時生效。</string>
     <string name="vs_wifi_ssid">網路名稱（SSID）</string>
     <string name="vs_wifi_ssid_sub">最多 32 位元組</string>
     <string name="vs_wifi_ssid_error">網路名稱不可為空白</string>
@@ -486,4 +493,34 @@
     <string name="m_reset_menu_pos">重設選單按鈕</string>
     <string name="as_led">通知燈</string>
     <string name="as_led_sub">在畫面上方顯示訪客手機的 LED</string>
+    <string name="vs_guest_nav">啟用導覽列/工作列</string>
+    <string name="vs_guest_nav_sub">允許客體繪製自己的導覽列,或 Android 桌面版建置的工作列(設定 qemu.hw.mainkeys=0)。匯入時僅對桌面版建置開啟,其他所有映像檔請保持關閉。下次完整開機時生效。</string>
+    <string name="th_group_plain">純色主題</string>
+    <string name="th_group_skins">裝置外殼主題(作者:@regectt)</string>
+    <string name="th_group_custom">自訂主題</string>
+    <string name="th_custom_empty">尚無自訂主題。輕觸「新增主題」來建立,或匯入 .aetheme 檔案。純色主題和裝置外殼無法修改:請複製一份再編輯。</string>
+    <string name="th_expand">展開清單</string>
+    <string name="th_collapse">收合清單</string>
+    <string name="vs_art_boot_image">使用 ART 開機映像檔(Android 14+)</string>
+    <string name="vs_art_boot_image_sub">關閉:客體不使用開機映像檔執行。啟動較慢,但不會因映像檔發生任何問題。開啟:模擬器為此執行階段準備開機映像檔(下次啟動時建立一次,需要一段時間)。</string>
+    <string name="vs_no_watchdog">停用系統看門狗(Android 14+)</string>
+    <string name="vs_no_watchdog_sub">適用於開機時間超過 Android 60 秒看門狗限制、導致 system_server 被循環終止的情況。修補韌體的 services.jar,使看門狗執行緒立即結束;此後系統真正的死結將無法再透過重新啟動恢復。jar 的預先編譯程式碼會被忽略,首次開機可能會更慢。關閉後會還原原始 jar。下次完整開機時生效。</string>
+    <string name="folder_new">新增資料夾</string>
+    <string name="folder_new_dots">新增資料夾…</string>
+    <string name="folder_rename">重新命名資料夾</string>
+    <string name="folder_delete">刪除資料夾(保留 ROM)</string>
+    <string name="folder_move">移至資料夾</string>
+    <string name="folder_none">不在資料夾中</string>
+    <string name="folder_default_name">資料夾</string>
+    <string name="folder_empty">空的 — 將 ROM 拖曳到此處</string>
+    <string name="folder_open">開啟資料夾</string>
+    <string name="folder_close">關閉資料夾</string>
+    <plurals name="folder_roms">
+        <item quantity="other">%1$d 個 ROM</item>
+    </plurals>
+    <string name="phantom_title">幻影程序殺手</string>
+    <string name="phantom_msg">您的裝置未在開發人員選項中啟用「停用子程序限制」。這表示 zygote 會在模擬器啟動期間被終止,導致模擬器無法開機。因此強烈建議啟用該選項。</string>
+    <string name="phantom_open_dev">開啟開發人員選項</string>
+    <string name="phantom_ignore">略過</string>
+    <string name="phantom_never">不再提醒</string>
 </resources>

@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Added for AEmulator Plus, 2026-11-10: tabs and several machines at once -->
+<resources>
+    <string name="tab_home">Knjižnica</string>
+    <string name="tab_close">Zapri zavihek</string>
+    <string name="tab_close_title">Želite zapreti %1$s?</string>
+    <string name="tab_close_text">»Minimiraj« zapre zavihek, stroj pa teče naprej v ozadju; znova ga odprite iz knjižnice. »Izklopi« stroj izklopi.</string>
+    <string name="tab_minimize">Minimiraj</string>
+    <string name="tab_shutdown">Izklopi</string>
+    <string name="vm_slots_full">Vseh %1$d mest za stroje je zasedenih. Najprej izklopite enega.</string>
+</resources>

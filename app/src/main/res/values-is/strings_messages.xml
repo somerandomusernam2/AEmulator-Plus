@@ -224,4 +224,11 @@
     <string name="update_err_wrong_variant">Uppfærslu-APK passar ekki við þessa útgáfugerð forritsins</string>
     <string name="update_err_wrong_package">Niðurhalaða APK-skráin hefur rangan forritspakka</string>
     <string name="catalog_err_too_many_lines">Skráin er með fleiri en 10000 línur</string>
+    <string name="imp_inspecting">Athuga %1$s</string>
+    <string name="imp_choice_api">API-stig %1$s</string>
+    <string name="imp_choice_build">útgáfunúmer %1$s</string>
+    <string name="imp_choice_title">Hvaða %1$s á að flytja inn?</string>
+    <string name="imp_choice_text">Þessi pakki inniheldur fleiri en eitt %1$s (%2$d af %3$d). Veldu það sem á að flytja inn.</string>
+    <string name="imp_choice_ok">Flytja inn</string>
+    <string name="imp_choice_cancel">Hætta við innflutning</string>
 </resources>

@@ -225,4 +225,11 @@
     <string name="update_err_wrong_package">Жүктелген APK-ның қолданба пакеті қате</string>
     <string name="catalog_err_too_many_lines">Каталог 10000 жолдан асады</string>
     <string name="imp_iso_no_system">ISO кескінінде Android жүйесі табылмады (system.sfs немесе system.img күтілген)</string>
+    <string name="imp_inspecting">%1$s тексерілуде</string>
+    <string name="imp_choice_api">API деңгейі %1$s</string>
+    <string name="imp_choice_build">құрастыру нөмірі %1$s</string>
+    <string name="imp_choice_title">Қай %1$s импортталсын?</string>
+    <string name="imp_choice_text">Бұл пакетте бірден көп %1$s бар (%3$d ішінен %2$d). Импорттайтынын таңдаңыз.</string>
+    <string name="imp_choice_ok">Импорттау</string>
+    <string name="imp_choice_cancel">Импорттауды болдырмау</string>
 </resources>

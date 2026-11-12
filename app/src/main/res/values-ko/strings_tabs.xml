@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Added for AEmulator Plus, 2026-11-10: tabs and several machines at once -->
+<resources>
+    <string name="tab_home">라이브러리</string>
+    <string name="tab_close">탭 닫기</string>
+    <string name="tab_close_title">%1$s을(를) 닫을까요?</string>
+    <string name="tab_close_text">‘최소화’는 탭을 닫되 머신은 백그라운드에서 계속 실행됩니다. 라이브러리에서 다시 열 수 있습니다. ‘종료’는 머신을 끕니다.</string>
+    <string name="tab_minimize">최소화</string>
+    <string name="tab_shutdown">종료</string>
+    <string name="vm_slots_full">머신 슬롯 %1$d개가 모두 사용 중입니다. 먼저 하나를 종료하세요.</string>
+</resources>

@@ -30,4 +30,17 @@
     <string name="bluetooth_permission_denied">Dopuštenje za Bluetooth je odbijeno: gost će se pokrenuti bez Bluetootha domaćina.</string>
     <string name="vs_sf_tombstone">SurfaceFlinger tombstone pada (otklanjanje pogrešaka)</string>
     <string name="vs_sf_tombstone_sub">Ako SurfaceFlinger padne, firmver će u dnevnik zapisati običan tombstone (s funkcijom koja je pala) umjesto kratkog izvještaja. Koristi pri slanju izvještaja o pogrešci. Primjenjuje se pri sljedećem potpunom pokretanju VM-a.</string>
+    <string name="vi_mouse_keyboard">Unos: miš i tipkovnica</string>
+    <string name="vi_mouse_keyboard_sub">Registrira dodirnu podlogu i tipkovnicu u gostu te uklanja njegov zaslon osjetljiv na dodir. Zaslon postaje dodirna podloga (dodir za klik, dva prsta za pomicanje), a na navigacijskoj traci pojavljuje se gumb tipkovnice. Zahtijeva QEMU mehanizam (ne izvorni 64-bitni) i potpuno ponovno pokretanje virtualnog stroja.</string>
+    <string name="vi_keypad">Unos: tipkovnica s tipkama</string>
+    <string name="vi_keypad_sub">Dodaje na navigacijsku traku gumb tipkovnice s tipkama: tipke sa strelicama, OK, programske tipke, Poziv/Kraj i 0–9 * # kao na telefonu s tipkama. Dodir i dalje radi, a tipkovnica s tipkama može se kombinirati s mišem i tipkovnicom.</string>
+    <string name="vi_keyboard">Tipkovnica</string>
+    <string name="vi_keypad_title">Tipkovnica s tipkama</string>
+    <string name="vi_close">Zatvori</string>
+    <string name="vi_open_keyboard">Tipkovnica</string>
+    <string name="vi_open_keypad">Tipkovnica s tipkama</string>
+    <string name="m_resize_screen">Promijeni veličinu zaslona</string>
+    <string name="m_resize_done">Promjena veličine gotova</string>
+    <string name="m_resize_reset">Vrati veličinu zaslona</string>
+    <string name="vi_resize_hint">Povucite kut zaslona da promijenite njegovu veličinu. Kad završite, otvorite izbornik i dodirnite „Promjena veličine gotova”.</string>
 </resources>

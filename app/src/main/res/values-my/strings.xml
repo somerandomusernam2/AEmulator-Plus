@@ -18,7 +18,7 @@
     <string name="storage_text">ဖိုင်အားလုံးသို့ ဝင်ခွင့်ပြုပါ- ထိုအခါ စနစ်တစ်ခုစီ၏ မမ်မိုရီကတ်သည် ဖုန်းမှတ်ဉာဏ်ရှိ AEmulator ဖိုလ်ဒါထဲတွင် ရှိနေမည်။ APK၊ တေးဂီတနှင့် ဓာတ်ပုံများအတွက် အဆင်ပြေသည်။</string>
     <string name="allow">ခွင့်ပြုရန်</string>
     <string name="empty_title">စနစ် မရှိသေးပါ</string>
-    <string name="empty_text">Android 2.2–6.0 အတွက် ARM ဖမ်းဝဲတစ်ခု ထည့်ပါ- recovery ZIP၊ Odin ဖိုင်ဆောင် (.tar.md5)၊ system.img သို့မဟုတ် စက်ရုံထုတ်ပုံရိပ်။</string>
+    <string name="empty_text">Android 1.0–17 အတွက် ARM ဖမ်းဝဲတစ်ခု ထည့်ပါ- recovery ZIP၊ Odin ဖိုင်ဆောင် (.tar.md5)၊ system.img သို့မဟုတ် စက်ရုံထုတ်ပုံရိပ်။</string>
     <string name="empty_help">မည်သည့်ဖိုင်များ အလုပ်လုပ်သနည်း။</string>
     <string name="import_failed">တင်သွင်းမှု မအောင်မြင်ပါ</string>
     <string name="import_running">ဖမ်းဝဲကို တင်သွင်းနေသည်</string>
@@ -30,7 +30,7 @@
     <string name="start">စတင်ရန်</string>
     <string name="rename">အမည်ပြောင်းရန်</string>
     <string name="help_title">ပံ့ပိုးထားသော ဖမ်းဝဲ</string>
-    <string name="help_text">• Android 2.2 နှင့် 4.0–4.4- အဓိကပံ့ပိုးမှု၊ 5.x–6.x- စမ်းသပ်ဆဲ။\n• 32-bit ARM ဖမ်းဝဲသာ (armeabi / armeabi-v7a)။\n\nဖော်မတ်များ-\n• CWM/TWRP recovery ZIP (MIUI၊ CyanogenMod၊ port များ၊ စိတ်ကြိုက် ROM အများစု);\n• Samsung- Odin .tar / .tar.md5 သို့မဟုတ် AP_*.tar.md5 ပါသော ZIP;\n• Google စက်ရုံထုတ်ပုံရိပ်များ (.tgz / .zip);\n• system.img (ext4၊ sparse၊ YAFFS2)၊ TWRP အရန်ဖိုင် system.ext4.win;\n• system.new.dat(.br) + system.transfer.list ပါသော OTA။\n\nဖိုင်ဆောင်တွင် boot.img ပါလျှင် အကောင်းဆုံးဖြစ်သည်- ဝန်ဆောင်မှုများ စတင်သည့်အစီအစဉ်ကို ၎င်းမှ ယူသည်။</string>
+    <string name="help_text">• Android 2.2–4.4- 32-bit ARM ဖမ်းဝဲ၊ QEMU မှတစ်ဆင့် လည်ပတ်သည် (2.2 မတိုင်မီ- စမ်းသပ်ဆဲ)။\n• Android 5.0–17- arm64 ဖမ်းဝဲနှင့် GSI များ၊ ဖုန်းပေါ်တွင် တိုက်ရိုက်လည်ပတ်သည်။\n\nဖော်မတ်များ-\n• CWM/TWRP recovery ZIP (MIUI၊ CyanogenMod၊ port များ၊ စိတ်ကြိုက် ROM အများစု);\n• Samsung- Odin .tar / .tar.md5 သို့မဟုတ် AP_*.tar.md5 ပါသော ZIP;\n• Google စက်ရုံထုတ်ပုံရိပ်များ (.tgz / .zip);\n• system.img (ext4၊ sparse၊ YAFFS2)၊ TWRP အရန်ဖိုင် system.ext4.win;\n• system.new.dat(.br) + system.transfer.list ပါသော OTA။;\n• ထို့အပြင်- 7z, RAR, LG .kdz, Sony .ftf, Huawei UPDATE.APP, Qualcomm EDL, payload.bin, super.img, EROFS, Android-x86 ISO\n\nဖိုင်ဆောင်တွင် boot.img ပါလျှင် အကောင်းဆုံးဖြစ်သည်- ဝန်ဆောင်မှုများ စတင်သည့်အစီအစဉ်ကို ၎င်းမှ ယူသည်။</string>
     <string name="vs_screen">ဧည့်သည်စခရင်</string>
     <string name="vs_fixed_2x">Android 2.x သည် 240 dpi ဖြင့် 480×800 စခရင်ကို သတ်မှတ်ထားသည့်အတိုင်း အသုံးပြုသည်။</string>
     <string name="vs_screen_hint">စခရင်သေးလေ စနစ်ပိုမြန်လေ ဖြစ်သည်။</string>
@@ -45,6 +45,13 @@
     <string name="vs_legacy_sub">အဟောင်း Desire HD အင်ဂျင်- GLES 1.x သာ၊ စခရင် 480×800။ အဓိကအင်ဂျင် မအလုပ်လုပ်လျှင် သုံးပါ။</string>
     <string name="vs_lowram">မှတ်ဉာဏ်နည်းမုဒ်</string>
     <string name="vs_lowram_sub">ro.config.low_ram — စနစ်က မှတ်ဉာဏ်ကို ချွေတာသည်။</string>
+    <string name="vs_memory_mode">မှတ်ဉာဏ်စီမံခန့်ခွဲမှု</string>
+    <string name="vs_memory_light">ပေါ့ပါး</string>
+    <string name="vs_memory_medium">အလယ်အလတ်</string>
+    <string name="vs_memory_aggressive">ပြင်းထန်</string>
+    <string name="vs_memory_light_sub">ဖုန်းကိုယ်တိုင်၏ မှတ်ဉာဏ်ကုန်လုနီးမှသာ နောက်ခံအက်ပ်များကို ရပ်ပါသည်။ ပြန်စမှု အနည်းဆုံး၊ မှတ်ဉာဏ် အများဆုံး သုံးသည်။ VM ကို အပြည့်အဝ ပြန်စပြီးမှ အကျိုးသက်ရောက်သည်။</string>
+    <string name="vs_memory_medium_sub">မျှတသည်- နောက်ခံအက်ပ်များကို အလယ်အလတ်အရေအတွက် ထားရှိပြီး လွတ်လပ်သော မှတ်ဉာဏ် နည်းလာသောအခါ ကျန်သည်များကို ရပ်သည်။ VM ကို အပြည့်အဝ ပြန်စပြီးမှ အကျိုးသက်ရောက်သည်။</string>
+    <string name="vs_memory_aggressive_sub">နောက်ခံအက်ပ်များကို အနည်းငယ်သာ ထားရှိပြီး မကြာခဏ စစ်ဆေးသောကြောင့် မှတ်ဉာဏ်ကို စောစောလွှတ်ပေးသည်။ မှတ်ဉာဏ် အနည်းဆုံးသုံးသော်လည်း အက်ပ်များ ပိုမိုမကြာခဏ ပြန်စသည်။ VM ကို အပြည့်အဝ ပြန်စပြီးမှ အကျိုးသက်ရောက်သည်။</string>
     <string name="vs_proxy">ခေတ်သစ် TLS ပရောက်စီ</string>
     <string name="vs_proxy_sub">ဘရောက်ဇာနှင့် အက်ပ်အဟောင်းများက ယနေ့ခေတ် HTTPS ဝဘ်ဆိုက်များကို ဖွင့်နိုင်စေသည်။</string>
     <string name="vs_controls">ထိန်းချုပ်မှု</string>
@@ -136,7 +143,7 @@
     <string name="vs_strace">ဝန်ဆောင်မှုများ၏ စနစ်ခေါ်ဆိုမှုများကို ခြေရာခံရန်</string>
     <string name="vs_strace_sub">ကော်မာဖြင့် ခြားထားသော ဝန်ဆောင်မှုအမည်များ၊ ဥပမာ mediaserver,zygote။ ထိုဝန်ဆောင်မှုများကို နှေးစေပြီး ခြေရာကို ၎င်းတို့၏ မှတ်တမ်းများတွင် ရေးသည်။ နောက်တစ်ကြိမ်စတင်ချိန်တွင် သက်ရောက်သည်။</string>
     <string name="vs_wifi">Wi-Fi ကွန်ရက်</string>
-    <string name="vs_wifi_sub">ဟို့စ်၏ အင်တာနက်ကို Ethernet အစား ချိတ်ဆက်ထားသော Wi-Fi ကွန်ရက်အဖြစ် VM သို့ ပြသည်။ Android 2.3, 4.0–7.x။ နောက်တစ်ကြိမ်စတင်ချိန်တွင် သက်ရောက်သည်။</string>
+    <string name="vs_wifi_sub">ဟို့စ်၏ အင်တာနက်ကို Ethernet အစား ချိတ်ဆက်ထားသော Wi-Fi ကွန်ရက်အဖြစ် VM သို့ ပြသည်။ Android 2.3, 4.0–17 (8–17: စမ်းသပ်ဆဲ)။ နောက်တစ်ကြိမ်စတင်ချိန်တွင် သက်ရောက်သည်။</string>
     <string name="vs_wifi_ssid">ကွန်ရက်အမည် (SSID)</string>
     <string name="vs_wifi_ssid_sub">၃၂ ဘိုက်အထိ</string>
     <string name="vs_wifi_ssid_error">ကွန်ရက်အမည်ကို အလွတ်မထားရပါ</string>
@@ -487,4 +494,34 @@
     <string name="m_reset_menu_pos">မီနူးခလုတ်ကို ပြန်လည်သတ်မှတ်ရန်</string>
     <string name="as_led">အသိပေးချက်မီး</string>
     <string name="as_led_sub">ဧည့်ဖုန်း၏ LED ကို ၎င်း၏စခရင်အပေါ်တွင် ပြပါ</string>
+    <string name="vs_guest_nav">လမ်းညွှန်ဘားကို / လုပ်ငန်းဘားကို ဖွင့်ရန်</string>
+    <string name="vs_guest_nav_sub">ဧည့်စနစ်အား ၎င်း၏ကိုယ်ပိုင် လမ်းညွှန်ဘား သို့မဟုတ် Android ဒက်စ်တော့ ဘီလ်ဒ်များ၏ လုပ်ငန်းဘားကို ဆွဲခွင့်ပြုသည် (qemu.hw.mainkeys=0 သတ်မှတ်သည်)။ တင်သွင်းစဉ် ဒက်စ်တော့ ဘီလ်ဒ်များအတွက်သာ ဖွင့်ပြီး အခြားအိမ်ခေါင်းပုံများအားလုံးအတွက် ပိတ်ထားပါ။ နောက်ထပ် အပြည့်အဝ စတင်ချိန်တွင် သက်ရောက်သည်။</string>
+    <string name="th_group_plain">ရိုးရိုးအပြင်အဆင်များ</string>
+    <string name="th_group_skins">စက်ပစ္စည်းအသွင်အပြင် အပြင်အဆင်များ (@regectt ဖန်တီး)</string>
+    <string name="th_group_custom">စိတ်ကြိုက်အပြင်အဆင်များ</string>
+    <string name="th_custom_empty">စိတ်ကြိုက်အပြင်အဆင် မရှိသေးပါ။ တစ်ခုဖန်တီးရန် “အပြင်အဆင်အသစ်” ကို တို့ပါ သို့မဟုတ် .aetheme ဖိုင်ကို တင်သွင်းပါ။ ရိုးရိုးအပြင်အဆင်များနှင့် စက်ပစ္စည်းအသွင်အပြင်များကို ပြောင်း၍မရပါ- တည်းဖြတ်ရန် တစ်ခုကို ပွားပါ။</string>
+    <string name="th_expand">စာရင်းကို ချဲ့ရန်</string>
+    <string name="th_collapse">စာရင်းကို ခေါက်ရန်</string>
+    <string name="vs_art_boot_image">ART boot image ကို သုံးရန် (Android 14+)</string>
+    <string name="vs_art_boot_image_sub">ပိတ်: ဧည့်စနစ်သည် boot image မပါဘဲ အလုပ်လုပ်သည်။ စတင်ချိန် နှေးသော်လည်း image နှင့်ပတ်သက်၍ မည်သည့်အရာမျှ မအောင်မြင်ဖြစ်နိုင်ပါ။ ဖွင့်: အတုယူကိရိယာသည် ဤ runtime အတွက် boot image တစ်ခုကို ပြင်ဆင်သည် (နောက်စတင်ချိန်တွင် တစ်ကြိမ်ပြုလုပ်ပြီး အချိန်အနည်းငယ်ကြာသည်)။</string>
+    <string name="vs_no_watchdog">စနစ် watchdog ကို ပိတ်ရန် (Android 14+)</string>
+    <string name="vs_no_watchdog_sub">Android ၏ ၆၀ စက္ကန့် watchdog ကန့်သတ်ချက်ထက် နှေးသော boot အတွက် ဖြစ်ပြီး system_server ကို ထပ်ခါထပ်ခါ ရပ်စေသည်။ ဖမ်းဝဲ၏ services.jar ကို ပက်ချ်လုပ်၍ watchdog thread ချက်ချင်းပြီးဆုံးစေသည်။ ထို့နောက် စနစ်၏ အမှန်တကယ် deadlock ကို ပြန်စတင်ခြင်းဖြင့် မပြင်နိုင်တော့ပါ။ jar ၏ ကြိုတင်ကွန်ပိုင်းလုပ်ထားသော ကုဒ်ကို လျစ်လျူရှုသဖြင့် ပထမဆုံး boot နှေးနိုင်သည်။ ပိတ်လိုက်လျှင် မူရင်း jar ပြန်ရောက်သည်။ နောက်ထပ် အပြည့်အဝ စတင်ချိန်တွင် သက်ရောက်သည်။</string>
+    <string name="folder_new">ဖိုလ်ဒါအသစ်</string>
+    <string name="folder_new_dots">ဖိုလ်ဒါအသစ်…</string>
+    <string name="folder_rename">ဖိုလ်ဒါအမည်ပြောင်းရန်</string>
+    <string name="folder_delete">ဖိုလ်ဒါကို ဖျက်ရန် (ROM များ ကျန်ရှိမည်)</string>
+    <string name="folder_move">ဖိုလ်ဒါသို့ ရွှေ့ရန်</string>
+    <string name="folder_none">ဖိုလ်ဒါထဲတွင် မရှိပါ</string>
+    <string name="folder_default_name">ဖိုလ်ဒါ</string>
+    <string name="folder_empty">ဗလာ — ROM များကို ဤနေရာသို့ ချပါ</string>
+    <string name="folder_open">ဖိုလ်ဒါကို ဖွင့်ရန်</string>
+    <string name="folder_close">ဖိုလ်ဒါကို ပိတ်ရန်</string>
+    <plurals name="folder_roms">
+        <item quantity="other">ROM %1$d ခု</item>
+    </plurals>
+    <string name="phantom_title">ကျိန်စာဆိုင်ရာ ပရိုဆက်စ် သတ်ဖြတ်သူ</string>
+    <string name="phantom_msg">သင့်စက်၏ ဆော့ဖ်ဝဲရေးသူ ရွေးချယ်စရာများတွင် “ကလေးပရိုဆက်စ် ကန့်သတ်ချက်များကို ပိတ်ရန်” ရွေးချယ်မှု မဖွင့်ထားပါ။ ဆိုလိုသည်မှာ အတုယူကိရိယာ စတင်စဉ် zygote ကို ရပ်စေပြီး အတုယူကိရိယာ boot မလုပ်နိုင်ဖြစ်စေသည်။ ထို့ကြောင့် ၎င်းကို ဖွင့်ရန် အလွန်အကြံပြုပါသည်။</string>
+    <string name="phantom_open_dev">ဆော့ဖ်ဝဲရေးသူ ရွေးချယ်စရာများကို ဖွင့်ရန်</string>
+    <string name="phantom_ignore">လျစ်လျူရှုရန်</string>
+    <string name="phantom_never">နောက်ထပ် မသတိပေးပါနှင့်</string>
 </resources>

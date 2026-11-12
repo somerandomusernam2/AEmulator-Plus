@@ -1,4 +1,6 @@
-/* Modified for AEmulator Sunset through 2026-10-03: natural-edge controls, cutout and
+/* Modified for AEmulator Plus, 2026-11-09: two machines on one tab (split screen).
+ * Modified for AEmulator Plus, 2026-11-09: several machines at once (one process slot each), one window with a tab bar.
+ * Modified for AEmulator Sunset through 2026-10-03: natural-edge controls, cutout and
  * compatibility and camera integration.
  * Modified for AEmulator Plus, 2026-10-12: VM screen themes, device skins (merged from Super Plus).
  * Modified for AEmulator Plus, 2026-10-25: emulated wireless emergency alerts. GPL-3.0; see LICENSE and NOTICE.md. */
@@ -167,6 +169,10 @@ import app.aemu.core.GuestVm
 import app.aemu.core.NetworkType
 import app.aemu.core.ImageStore
 import app.aemu.core.InputService
+import app.aemu.core.SplitLayout
+import app.aemu.core.TabRegistry
+import app.aemu.core.VmSlots
+import app.aemu.core.Keeper
 import kotlinx.coroutines.delay
 import kotlin.concurrent.thread
 import app.aemu.core.DisplayGeometry
@@ -174,12 +180,30 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.material.icons.rounded.ScreenRotation
 import androidx.compose.material.icons.rounded.AspectRatio
 
-/** Процесс :vm держит ровно одну машину. */
+/** Каждый процесс :vm / :vmN держит ровно одну машину (у каждой машины свой процесс, см. VmSlots). */
 object VmHost {
     @Volatile var vm: GuestVm? = null
+
+    /**
+     * Turns this process's machine off and takes the process with it. Works without the machine's window (a tab minimized,
+     * or a shutdown asked for from another tab): the window, if there is one, is told to close first.
+     */
+    fun shutdown(ctx: Context) {
+        val v = vm
+        val id = v?.img?.id
+        val app = ctx.applicationContext
+        if (id != null) TabRegistry.close(app, id)
+        thread(name = "vm-shutdown") {
+            runCatching { v?.stop() }
+            vm = null
+            // GL-мост нельзя поднять повторно в том же процессе — процесс уходит вместе с машиной
+            Thread.sleep(300)
+            android.os.Process.killProcess(android.os.Process.myPid())
+        }
+    }
 }
 
-class VmActivity : ComponentActivity() {
+open class VmActivity : ComponentActivity() {
     private lateinit var vm: GuestVm
     private val endingVm = java.util.concurrent.atomic.AtomicBoolean(false)
     private val processLifetime = android.os.Binder()
@@ -216,6 +240,18 @@ class VmActivity : ComponentActivity() {
     private var vmTheme by mutableStateOf(app.aemu.core.VmThemes.BUILT_IN[1])
     private var frameView: android.widget.ImageView? = null
     private var vmRoot: FrameLayout? = null
+    /** the tab bar above the guest (the same bar is in the library and in every machine's window) */
+    private var tabStripView: ComposeView? = null
+    /** true in the translucent windows (VmOverlayActivity*): the machine on top in a tab of two */
+    protected open val overlayVariant: Boolean get() = false
+    /** the side of the screen this window covers when it shares the tab with another machine ('T','B','L','R'); null: all of it */
+    private var panePos by mutableStateOf<Char?>(null)
+    private var dropView: SplitDropView? = null
+    private var tabCloseReceiver: android.content.BroadcastReceiver? = null
+    private var stateListener: ((GuestVm.State) -> Unit)? = null
+    private var logListener: ((String) -> Unit)? = null
+    private var frameCallback: (() -> Unit)? = null
+    private var ledListener: ((app.aemu.core.Lights.Led?) -> Unit)? = null
     private var cutoutInsets = androidx.core.graphics.Insets.NONE
     private var orientationListener: android.view.OrientationEventListener? = null
     /** size of the decoded skin picture while the selected theme is a device skin */
@@ -265,9 +301,11 @@ class VmActivity : ComponentActivity() {
         // Tablets may rotate the host container without rotating/resizing the guest framebuffer.
         // Phones retain the fixed natural window. Guest Android owns its display orientation.
         tablet = app.aemu.core.HostDisplayPolicy.rotateWindow(resources.configuration.smallestScreenWidthDp)
-        requestedOrientation = if (tablet) android.content.pm.ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
+        // the translucent window of a split takes the orientation of the window beneath it (and must not ask for one: API 26/27 throw)
+        if (!overlayVariant) requestedOrientation = if (tablet) android.content.pm.ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
             else if (natural.first > natural.second)
             android.content.pm.ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE else android.content.pm.ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
+        if (overlayVariant) window.addFlags(WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL)
         windowTurns = windowManager.defaultDisplay.rotation
         hostUi = app.aemu.AppPrefs.hostUiOptions(this)
         applyVmTheme()
@@ -308,6 +346,13 @@ class VmActivity : ComponentActivity() {
         vm = if (cur != null && cur.img.id == img.id) cur
             else GuestVm(applicationContext, resolved, intent.getBooleanExtra(EXTRA_LOW_POWER, false)).also { it.recoveryMode = intent.getBooleanExtra(EXTRA_RECOVERY, false); VmHost.vm = it }
         vm.onPower = { reboot, reason -> runOnUiThread { if (reboot) rebootVm(reason == "recovery") else stopVm() } }
+        // this window is a tab; the slot file says which machine this process runs
+        VmSlots.adopt(applicationContext, vm.img.id)
+        TabRegistry.open(applicationContext, vm.img.id)
+        TabRegistry.entryOf(applicationContext, vm.img.id)?.let { tab ->
+            if (tab.isOverlay(vm.img.id) != overlayVariant) { TabNav.openTab(this, tab); finish(); return }
+        }
+        registerTabCloseReceiver()
         val s = vm.settings
         userFrac = loadScreenFrac(vm.img.id)
         showLed = s.showLed
@@ -316,11 +361,6 @@ class VmActivity : ComponentActivity() {
         val (gw, gh) = if (vm.engine == Engine.GB) 480 to 800 else s.width to s.height
         val root = FrameLayout(this).apply { setBackgroundColor(0xff000000.toInt()) }
         vmRoot = root
-        androidx.core.view.ViewCompat.setOnApplyWindowInsetsListener(root) { _, insets ->
-            cutoutInsets = insets.getInsets(androidx.core.view.WindowInsetsCompat.Type.displayCutout())
-            applyCutoutBarrier()
-            insets
-        }
         box = FrameLayout(this)
         surfaceView = SurfaceView(this)
         surfaceView.holder.addCallback(object : SurfaceHolder.Callback {
@@ -373,7 +413,31 @@ class VmActivity : ComponentActivity() {
             }
         }
         root.addView(resizeOverlay, FrameLayout.LayoutParams(-1, -1))
-        setContentView(root)
+        // the window: the tab bar on top, the machine's screen below it
+        val strip = ComposeView(this).apply {
+            setContent { AemuTheme(forceDark = true) { TabBarHost() } }
+        }
+        tabStripView = strip
+        val wrapper = android.widget.LinearLayout(this).apply {
+            orientation = android.widget.LinearLayout.VERTICAL
+            setBackgroundColor(0xff000000.toInt())
+            addView(strip, android.widget.LinearLayout.LayoutParams(-1, -2))
+            addView(root, android.widget.LinearLayout.LayoutParams(-1, 0, 1f))
+        }
+        androidx.core.view.ViewCompat.setOnApplyWindowInsetsListener(wrapper) { _, insets ->
+            cutoutInsets = insets.getInsets(androidx.core.view.WindowInsetsCompat.Type.displayCutout())
+            applyCutoutBarrier()
+            insets
+        }
+        // a tab dragged over the window offers to share the screen (windows of a split don't take drops: two machines at most)
+        val drop = SplitDropView(this) { id, pos -> splitWith(id, pos) }
+        dropView = drop
+        val stack = FrameLayout(this).apply {
+            addView(wrapper, FrameLayout.LayoutParams(-1, -1))
+            addView(drop, FrameLayout.LayoutParams(-1, -1))
+        }
+        setContentView(stack)
+        applyPane(TabRegistry.entryOf(applicationContext, vm.img.id)?.paneOf(vm.img.id))
 
         // экран гостя вписываем с сохранением пропорций над панелью кнопок
         updateGuestLayout = layout@{
@@ -439,15 +503,19 @@ class VmActivity : ComponentActivity() {
         }
         root.addOnLayoutChangeListener { _, _, _, _, _, _, _, _, _ -> updateGuestLayout?.invoke() }
 
-        vm.onFrame = { guest.rings++; guest.poke() }
+        frameCallback = { guest.rings++; guest.poke() }
+        vm.onFrame = frameCallback
         state = vm.state
         logLines.addAll(vm.lines().takeLast(200))
-        vm.onState { st -> runOnUiThread { state = st } }
+        stateListener = { st: GuestVm.State -> runOnUiThread { state = st } }
+        vm.onState(stateListener!!)
         vm.mic.onPermissionNeeded = { runOnUiThread { askMic.launch(android.Manifest.permission.RECORD_AUDIO) } }
         vm.cameraFeed.onPermissionNeeded = { runOnUiThread { askCamera.launch(android.Manifest.permission.CAMERA) } }
         led = vm.lights.current
-        vm.lights.onChange { l -> runOnUiThread { led = l } }
-        vm.onLog { line -> runOnUiThread { logLines.add(line); if (logLines.size > 400) logLines.removeRange(0, logLines.size - 400) } }
+        ledListener = { l: app.aemu.core.Lights.Led? -> runOnUiThread { led = l } }
+        vm.lights.onChange(ledListener!!)
+        logListener = { line: String -> runOnUiThread { logLines.add(line); if (logLines.size > 400) logLines.removeRange(0, logLines.size - 400) } }
+        vm.onLog(logListener!!)
         guest.start()
         resetMenuOffset() // every start of the emulator puts the menu button back in its corner
 
@@ -505,15 +573,26 @@ class VmActivity : ComponentActivity() {
         captureThumbnail()
         orientationListener?.disable()
         heldNavKeys.releaseAll()
-        if (::vm.isInitialized) { vm.cameraVisible(false); vm.micVisible(false); vm.motionVisible(false); if (vm.engine == Engine.N64) vm.sensors.resume(false) }
+        // a window of a split stays on screen (paused, not stopped) while the other is in front: its machine keeps its feeds
+        if (::vm.isInitialized && panePos == null) hideFeeds()
         super.onPause()
+    }
+
+    override fun onStop() {
+        if (::vm.isInitialized && panePos != null) hideFeeds()
+        super.onStop()
+    }
+
+    private fun hideFeeds() {
+        vm.cameraVisible(false); vm.micVisible(false); vm.motionVisible(false)
+        if (vm.engine == Engine.N64) vm.sensors.resume(false)
     }
 
     override fun onConfigurationChanged(config: android.content.res.Configuration) {
         super.onConfigurationChanged(config)
         windowTurns = windowManager.defaultDisplay.rotation
         heldNavKeys.releaseAll()
-        updateGuestLayout?.invoke()
+        applyPane(panePos) // the halves follow the screen's new shape
     }
 
     private fun rotateScreen() {
@@ -524,7 +603,9 @@ class VmActivity : ComponentActivity() {
     private fun applyCutoutBarrier() {
         val root = vmRoot ?: return
         val inset = if (hostUi.cutoutBarrier) cutoutInsets else androidx.core.graphics.Insets.NONE
-        root.setPadding(inset.left, inset.top, inset.right, inset.bottom)
+        // the tab bar sits at the very top of the window and takes the top cutout itself
+        root.setPadding(inset.left, 0, inset.right, inset.bottom)
+        tabStripView?.setPadding(cutoutInsets.left, cutoutInsets.top, cutoutInsets.right, 0)
         updateGuestLayout?.invoke()
     }
 
@@ -600,7 +681,17 @@ class VmActivity : ComponentActivity() {
     }
 
     override fun onDestroy() {
-        if (::vm.isInitialized) vm.resurface = null
+        if (::vm.isInitialized) {
+            // a window that goes (tab minimized) leaves the machine running: take this window's hooks off it
+            vm.resurface = null
+            if (vm.onFrame === frameCallback) vm.onFrame = null
+            stateListener?.let { vm.removeOnState(it) }
+            logListener?.let { vm.removeOnLog(it) }
+            ledListener?.let { vm.lights.removeOnChange(it) }
+        }
+        tabCloseReceiver?.let { runCatching { unregisterReceiver(it) } }
+        tabCloseReceiver = null
+        tabStripView = null
         orientationListener?.disable()
         vmRoot = null
         heldNavKeys.releaseAll()
@@ -612,12 +703,100 @@ class VmActivity : ComponentActivity() {
         super.onDestroy()
     }
 
+    /** The tab bar of this window; this machine's own tab is the selected one. */
+    @Composable
+    private fun TabBarHost() {
+        val tabs by rememberVmTabs()
+        VmTabStrip(
+            tabs = tabs, current = vm.img.id, topInset = false, allowSplitDrag = panePos == null, inSplit = panePos != null,
+            onCloseCurrent = { shutdown -> if (shutdown) stopVm() else minimizeTab() },
+        )
+    }
+
+    /**
+     * Fits this window to its tab. In a tab of two machines each machine has a window of its own, half of the screen, with
+     * its own tab bar, navigation bar and menu button: the base window is a normal fullscreen-type window made smaller, the
+     * overlay window is a translucent one on top of the other half (the base window stays visible beneath it).
+     */
+    private fun applyPane(pos: Char?) {
+        panePos = pos
+        val real = android.graphics.Point()
+        windowManager.defaultDisplay.getRealSize(real)
+        val gap = (2 * resources.displayMetrics.density).toInt().coerceAtLeast(2)
+        val (w, h) = SplitLayout.paneSize(pos, real.x, real.y, gap)
+        window.setGravity(when (pos) {
+            'T' -> android.view.Gravity.TOP
+            'B' -> android.view.Gravity.BOTTOM
+            'L' -> android.view.Gravity.LEFT
+            'R' -> android.view.Gravity.RIGHT
+            else -> android.view.Gravity.NO_GRAVITY
+        })
+        window.setLayout(w, h)
+        // one tab bar per screen: the bottom half has none (left and right halves both touch the top)
+        tabStripView?.visibility = if (pos == 'B') android.view.View.GONE else android.view.View.VISIBLE
+        dropView?.accepting = pos == null
+        updateGuestLayout?.invoke()
+    }
+
+    /** The list of tabs changed: follow it (this machine's tab may have become a split, or stopped being one, or gone). */
+    private fun onTabsChanged() {
+        if (!::vm.isInitialized || isFinishing || isDestroyed) return
+        val id = vm.img.id
+        val tab = TabRegistry.entryOf(applicationContext, id)
+        if (tab == null) { finish(); return }
+        if (tab.isOverlay(id) != overlayVariant) {
+            // the other kind of window is the right one now: open it (only if this one is on screen; else it is made when the tab is opened)
+            if (lifecycle.currentState.isAtLeast(androidx.lifecycle.Lifecycle.State.STARTED)) TabNav.openTab(this, tab)
+            finish()
+            return
+        }
+        applyPane(tab.paneOf(id))
+    }
+
+    /** A tab was dropped on the [pos] edge of this window: its machine takes that half, this one the other. */
+    private fun splitWith(draggedId: String, pos: Char) {
+        val app = applicationContext
+        val me = vm.img.id
+        if (VmSlots.slotOf(app, draggedId) == null || !TabRegistry.split(app, me, draggedId, pos)) {
+            toast(getString(R.string.tab_split_failed)); return
+        }
+        TabRegistry.entryOf(app, me)?.let { tab ->
+            applyPane(tab.paneOf(me)) // at once: this window is paused as soon as the other comes up
+            TabNav.openTab(this, tab)
+        }
+    }
+
+    /** Closes this tab; the machine keeps running in its process and can be opened again from the library. */
+    private fun minimizeTab() {
+        heldNavKeys.releaseAll()
+        val id = vm.img.id
+        TabNav.go(this, TabNav.neighbor(applicationContext, id))
+        TabRegistry.close(applicationContext, id)
+        finish()
+    }
+
+    /** Another window (a tab's close button) asks this machine's window to go. */
+    private fun registerTabCloseReceiver() {
+        val rx = object : android.content.BroadcastReceiver() {
+            override fun onReceive(c: Context, i: Intent) { onTabsChanged() }
+        }
+        tabCloseReceiver = rx
+        val filter = android.content.IntentFilter(TabRegistry.ACTION_CHANGED)
+        if (android.os.Build.VERSION.SDK_INT >= 33) registerReceiver(rx, filter, Context.RECEIVER_NOT_EXPORTED) else registerReceiver(rx, filter)
+    }
+
     private fun stopVm() {
         if (!endingVm.compareAndSet(false, true)) return
+        val id = vm.img.id
+        val app = applicationContext
+        val inFront = lifecycle.currentState.isAtLeast(androidx.lifecycle.Lifecycle.State.STARTED) && !isFinishing && !isDestroyed
+        val next = TabNav.neighbor(app, id)
         thread {
             runCatching { vm.stop() }
             VmHost.vm = null
-            runOnUiThread { finishAndRemoveTask() }
+            TabRegistry.close(app, id)
+            // only this window goes (the other tabs and the library share the task): show a neighbour, then close this one
+            runOnUiThread { if (!isDestroyed) { if (inFront) TabNav.go(this, next); finish() } }
             Thread.sleep(300)
             // GL-мост нельзя поднять повторно в том же процессе — процесс :vm уходит вместе с машиной
             android.os.Process.killProcess(android.os.Process.myPid())
@@ -825,15 +1004,20 @@ class VmActivity : ComponentActivity() {
         val h = guest.h
         if (w <= 0 || h <= 0) { toast(getString(R.string.m_failed)); return }
         val password = (1..8).map { "abcdefghijkmnpqrstuvwxyz23456789".random() }.joinToString("")
-        val server = app.aemu.core.VncServer(app.aemu.core.VncServer.DEFAULT_PORT, password, w, h, vm.img.name,
-            { px -> grabFrame(px) }, vm.input, vm::log)
-        if (!server.start()) { toast(getString(R.string.m_failed)); return }
+        // another machine running at the same time may already hold the default port
+        var vncPort = app.aemu.core.VncServer.DEFAULT_PORT
+        var server: app.aemu.core.VncServer? = null
+        for (p in vncPort until vncPort + 10) {
+            val candidate = app.aemu.core.VncServer(p, password, w, h, vm.img.name, { px -> grabFrame(px) }, vm.input, vm::log)
+            if (candidate.start()) { server = candidate; vncPort = p; break }
+        }
+        if (server == null) { toast(getString(R.string.m_failed)); return }
         vnc = server; vncOn = true
         val ip = runCatching {
             java.net.NetworkInterface.getNetworkInterfaces().asSequence().filter { it.isUp && !it.isLoopback }
                 .flatMap { it.inetAddresses.asSequence() }.firstOrNull { it is java.net.Inet4Address }?.hostAddress
         }.getOrNull() ?: "127.0.0.1"
-        val where = getString(R.string.m_vnc_started, "$ip:${app.aemu.core.VncServer.DEFAULT_PORT}", password)
+        val where = getString(R.string.m_vnc_started, "$ip:$vncPort", password)
         vm.log("vnc: $where")
         runOnUiThread { Toast.makeText(this, where, Toast.LENGTH_LONG).show() }
     }
@@ -1149,7 +1333,7 @@ class VmActivity : ComponentActivity() {
     private fun restartProcess(id: String, recovery: Boolean = false, lowPower: Boolean = false) {
         // Hand off while still foreground, then wait for Binder death in the main process.
         // Removing the whole task here could also remove the new restart activity.
-        try { VmRestartActivity.handoff(this, id, recovery, processLifetime, lowPower) }
+        try { VmRestartActivity.handoff(applicationContext, id, recovery, processLifetime, lowPower) }
         catch (_: Exception) { endingVm.set(false); toast(getString(R.string.vm_restart_failed)); return }
         finish()
         android.os.Process.killProcess(android.os.Process.myPid())
@@ -1252,9 +1436,9 @@ class VmActivity : ComponentActivity() {
                 DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
                     DropdownMenuItem(text = { Text(stringResource(R.string.log)) }, leadingIcon = { Icon(Icons.Rounded.Terminal, null) },
                         onClick = { menu = false; showLog = true })
-                    // the machine keeps running behind its notification
+                    // the tab closes, the machine keeps running (open it again from the library)
                     DropdownMenuItem(text = { Text(stringResource(R.string.m_minimize)) }, leadingIcon = { Icon(Icons.Rounded.Close, null) },
-                        onClick = { menu = false; moveTaskToBack(true) })
+                        onClick = { menu = false; minimizeTab() })
                     HorizontalDivider()
                     DropdownMenuItem(text = { Text(stringResource(R.string.vol_up)) }, leadingIcon = { Icon(Icons.Rounded.VolumeUp, null) },
                         onClick = { vm.input.press(InputService.KEY_VOLUMEUP) })
@@ -1325,8 +1509,7 @@ class VmActivity : ComponentActivity() {
                         onClick = {
                             menu = false
                             heldNavKeys.releaseAll()
-                            startActivity(Intent(this@VmActivity, MainActivity::class.java)
-                                .addFlags(Intent.FLAG_ACTIVITY_REORDER_TO_FRONT or Intent.FLAG_ACTIVITY_SINGLE_TOP))
+                            TabNav.openHome(this@VmActivity)
                         })
                     DropdownMenuItem(text = { Text(stringResource(R.string.m_reboot)) }, leadingIcon = { Icon(Icons.Rounded.RestartAlt, null) },
                         onClick = { menu = false; rebootVm(vm.recoveryMode) })
@@ -1685,10 +1868,33 @@ class VmActivity : ComponentActivity() {
         const val EXTRA_ID = "id"
         const val EXTRA_RECOVERY = "recovery"
         const val EXTRA_LOW_POWER = "low_power"
-        fun start(ctx: Context, id: String, recovery: Boolean = false, lowPower: Boolean = false) {
-            // Multi-VM: open each machine in its own, independent task window
-            ctx.startActivity(Intent(ctx, VmActivity::class.java).putExtra(EXTRA_ID, id).putExtra(EXTRA_RECOVERY, recovery).putExtra(EXTRA_LOW_POWER, lowPower)
-                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_NEW_DOCUMENT or Intent.FLAG_ACTIVITY_MULTIPLE_TASK))
+
+        /** The window of machine [id] in process slot [slot]. */
+        fun intentFor(ctx: Context, slot: Int, id: String?, recovery: Boolean = false, lowPower: Boolean = false, overlay: Boolean = false): Intent =
+            Intent(ctx, VmSlots.activityClass(slot, overlay)).apply {
+                if (id != null) putExtra(EXTRA_ID, id)
+                putExtra(EXTRA_RECOVERY, recovery); putExtra(EXTRA_LOW_POWER, lowPower)
+            }
+
+        /**
+         * Opens machine [id] as a tab of the one app window. Machines run side by side, each in a process slot of its own:
+         * one that is already running keeps its slot and is simply brought to the front; a new one takes a free slot.
+         * False when every slot is taken.
+         */
+        fun start(ctx: Context, id: String, recovery: Boolean = false, lowPower: Boolean = false): Boolean {
+            runCatching { TabRegistry.live(ctx) } // drops tabs of machines that are gone
+            val running = VmSlots.slotOf(ctx, id) != null
+            val slot = VmSlots.allocate(ctx, id)
+            if (slot < 0) {
+                Toast.makeText(ctx, ctx.getString(R.string.vm_slots_full, VmSlots.COUNT), Toast.LENGTH_LONG).show()
+                return false
+            }
+            TabRegistry.open(ctx, id)
+            // a machine that already runs in a tab of two comes back with its partner
+            val tab = if (running) TabRegistry.entryOf(ctx, id) else null
+            if (tab != null && tab.isGroup) TabNav.openTab(ctx, tab)
+            else TabNav.show(ctx, intentFor(ctx, slot, id, recovery, lowPower))
+            return true
         }
     }
 }

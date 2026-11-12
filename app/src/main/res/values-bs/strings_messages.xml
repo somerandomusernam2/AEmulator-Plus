@@ -225,4 +225,11 @@
     <string name="update_err_wrong_package">Preuzeti APK ima pogrešan paket aplikacije</string>
     <string name="catalog_err_too_many_lines">Katalog premašuje 10000 redova</string>
     <string name="imp_iso_no_system">U ISO slici nije pronađen Android sistem (očekuje se system.sfs ili system.img)</string>
+    <string name="imp_inspecting">Provjera: %1$s</string>
+    <string name="imp_choice_api">Nivo API-ja %1$s</string>
+    <string name="imp_choice_build">broj verzije %1$s</string>
+    <string name="imp_choice_title">Koju stavku (%1$s) uvesti?</string>
+    <string name="imp_choice_text">Ovaj paket sadrži više od jedne stavke (%1$s): %2$d od %3$d. Odaberite onu koju želite uvesti.</string>
+    <string name="imp_choice_ok">Uvezi</string>
+    <string name="imp_choice_cancel">Otkaži uvoz</string>
 </resources>

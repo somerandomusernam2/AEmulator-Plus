@@ -20,7 +20,14 @@ import java.util.concurrent.ConcurrentHashMap
  * Когда памяти мало, убиваем самый неважный и самый толстый процесс, как это делал бы lowmemorykiller.
  */
 /** [ramMb] > 0: guest RAM budget; background apps are killed when the guest's total RSS exceeds it. */
-class GuestLmk(private val root: File, private val lowRam: Boolean, private val log: (String) -> Unit, private val ramMb: Int = 0) {
+class GuestLmk(
+    private val root: File,
+    private val lowRam: Boolean,
+    private val log: (String) -> Unit,
+    private val ramMb: Int = 0,
+    /** how eagerly cached processes are stopped; [MemoryMode.MEDIUM] is the rule that was fixed before the setting existed */
+    private val mode: MemoryMode = MemoryMode.DEFAULT,
+) {
     private val adj = ConcurrentHashMap<Int, Int>()
     @Volatile private var running = false
     private var server: LocalServerSocket? = null
@@ -137,25 +144,17 @@ class GuestLmk(private val root: File, private val lowRam: Boolean, private val 
     private fun loop() {
         // RSS процессов гостя не складываем: страницы зиготы общие и считались бы в каждом процессе.
         // Мерило — свободная память телефона; с lowRam держим запас больше и фона меньше.
-        val minHost = if (lowRam) 2500L else MIN_HOST_MB
-        val maxCached = if (ramMb > 0) (ramMb / 128).coerceIn(2, MAX_CACHED) else if (lowRam) 4 else MAX_CACHED
+        // The thresholds and the reasoning behind them are in [MemoryMode.shouldKill]; the mode only chooses the numbers.
+        log("memory: management ${mode.id}${if (lowRam) ", low memory mode" else ""}")
         while (running) {
-            Thread.sleep(2000)
+            Thread.sleep(mode.intervalMs)
             adj.keys.removeAll { !File("/proc/$it").exists() }
             val cached = adj.filter { it.value >= CACHED }.keys
             if (cached.isEmpty()) continue
             val avail = memAvailableMb()
             // RSS overcounts shared zygote pages, so the budget check is approximate (upper bound)
-            val overBudget = ramMb > 0 && adj.keys.sumOf { rssMb(it).coerceAtLeast(0) } > ramMb * 2
-            // The count and the budget only matter when the phone runs short: with plenty free, killing a cached
-            // service just makes the activity manager start it again (MIUI keeps 11-14 of them: a kill every 5 s,
-            // providers gone under their clients, the CPU busy with restarts)
-            val tight = avail < minHost * 2
-            if (avail >= minHost && !(tight && (cached.size > maxCached || overBudget))) continue
-            // Soft pressure (host free below minHost, but the guest holds only a few cached processes): killing them just
-            // makes ActivityManager respawn gms/launcher helpers every few seconds, which starves system_server and
-            // crash-loops the Wear home app. Below KEEP_CACHED only a real shortage (avail < HARD_HOST_MB) justifies a kill.
-            if (cached.size <= KEEP_CACHED && avail >= HARD_HOST_MB && !overBudget) continue
+            val rssSum = if (ramMb > 0) adj.keys.sumOf { rssMb(it).coerceAtLeast(0) } else 0L
+            if (!mode.shouldKill(lowRam, ramMb, avail, cached.size, rssSum)) continue
             val sizes = cached.associateWith { rssMb(it) }
             // сначала самый неважный, среди равных — самый большой
             val victim = cached.maxWithOrNull(compareBy<Int> { adj[it] ?: 0 }.thenBy { sizes[it] ?: 0 }) ?: continue
@@ -164,18 +163,12 @@ class GuestLmk(private val root: File, private val lowRam: Boolean, private val 
             adj.remove(victim)
             kills++
             log("memory: killed background process $victim (adj $a, ${sizes[victim]} MB; cached ${cached.size}, host free $avail MB)")
-            Thread.sleep(3000)
+            Thread.sleep(mode.pauseMs)
         }
     }
 
     companion object {
         /** HIDDEN_APP_MIN_ADJ (≤4.3) = CACHED_APP_MIN_ADJ (4.4+) = 9 */
         const val CACHED = 9
-        const val MAX_CACHED = 10
-        const val MIN_HOST_MB = 1500L
-        /** Cached guest processes that are never killed for merely soft host memory pressure. */
-        const val KEEP_CACHED = 3
-        /** Host MemAvailable below which even the last cached processes may be killed. */
-        const val HARD_HOST_MB = 400L
     }
 }

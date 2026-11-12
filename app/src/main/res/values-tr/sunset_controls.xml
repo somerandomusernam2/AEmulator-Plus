@@ -30,4 +30,17 @@
     <string name="bluetooth_permission_denied">Bluetooth izni reddedildi: misafir, ana makine Bluetooth\'u olmadan açılacak.</string>
     <string name="vs_sf_tombstone">SurfaceFlinger çökme tombstone\'u (hata ayıklama)</string>
     <string name="vs_sf_tombstone_sub">SurfaceFlinger çökerse ürün yazılımı, kısa bir rapor yerine günlüğe normal bir tombstone (çöken işlevle birlikte) yazar. Hata raporu gönderirken kullanın. Bir sonraki tam VM açılışında geçerli olur.</string>
+    <string name="vi_mouse_keyboard">Giriş: fare ve klavye</string>
+    <string name="vi_mouse_keyboard_sub">Konuk sisteme bir dokunmatik yüzey ve bir klavye kaydeder ve dokunmatik ekranını kaldırır. Ekran dokunmatik yüzey olur (tıklamak için dokunun, kaydırmak için iki parmak kullanın) ve gezinme çubuğunda bir klavye düğmesi belirir. QEMU motoru (yerel 64 bit olan değil) ve VM’nin tam yeniden başlatılması gerekir.</string>
+    <string name="vi_keypad">Giriş: tuş takımı</string>
+    <string name="vi_keypad_sub">Gezinme çubuğuna bir tuş takımı düğmesi ekler: ok tuşları, Tamam, yazılım tuşları, Ara/Bitir ve tuşlu telefon gibi 0–9 * #. Dokunmatik kullanım çalışmaya devam eder ve tuş takımı fare ve klavyeyle birlikte kullanılabilir.</string>
+    <string name="vi_keyboard">Klavye</string>
+    <string name="vi_keypad_title">Tuş takımı</string>
+    <string name="vi_close">Kapat</string>
+    <string name="vi_open_keyboard">Klavye</string>
+    <string name="vi_open_keypad">Tuş takımı</string>
+    <string name="m_resize_screen">Ekranı yeniden boyutlandır</string>
+    <string name="m_resize_done">Boyutlandırma tamamlandı</string>
+    <string name="m_resize_reset">Ekran boyutunu sıfırla</string>
+    <string name="vi_resize_hint">Yeniden boyutlandırmak için ekranın bir köşesini sürükleyin. Bitirdiğinizde menüyü açıp “Boyutlandırma tamamlandı”na dokunun.</string>
 </resources>

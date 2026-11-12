@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Added for AEmulator Plus, 2026-11-10: tabs and several machines at once -->
+<resources>
+    <string name="tab_home">Kitaphana</string>
+    <string name="tab_close">Goýmany ýap</string>
+    <string name="tab_close_title">%1$s ýapylsynmy?</string>
+    <string name="tab_close_text">“Kiçelt” goýmany ýapýar, emma maşyn fonda işlemegini dowam etdirýär; ony kitaphanadan gaýtadan açyň. “Öçür” maşyny öçürýär.</string>
+    <string name="tab_minimize">Kiçelt</string>
+    <string name="tab_shutdown">Öçür</string>
+    <string name="vm_slots_full">Maşynyň ähli %1$d uyasy ulanylýar. Ilki birini öçüriň.</string>
+</resources>

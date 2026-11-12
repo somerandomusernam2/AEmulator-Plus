@@ -18,7 +18,7 @@
     <string name="storage_text">Дозвольте доступ до всіх файлів — тоді «карта пам’яті» кожної системи лежатиме в папці AEmulator внутрішньої пам’яті, куди зручно класти APK, музику й фото.</string>
     <string name="allow">Дозволити</string>
     <string name="empty_title">Ще немає жодної системи</string>
-    <string name="empty_text">Додайте прошивку Android 2.2–6.0 для ARM: ZIP для рекавері, архів Odin (.tar.md5), system.img або factory-образ.</string>
+    <string name="empty_text">Додайте прошивку Android 1.0–17 для ARM: ZIP для рекавері, архів Odin (.tar.md5), system.img або factory-образ.</string>
     <string name="empty_help">Які файли підходять?</string>
     <string name="import_failed">Імпорт не вдався</string>
     <string name="import_running">Імпорт прошивки</string>
@@ -30,7 +30,7 @@
     <string name="start">Запустити</string>
     <string name="rename">Перейменувати</string>
     <string name="help_title">Які прошивки підходять</string>
-    <string name="help_text">• Android 2.3–4.4: 32-бітні ARM-прошивки, працюють через QEMU.\n• Android 5.0–17: arm64-прошивки та GSI, працюють нативно на телефоні.\n\nФормати:\n• ZIP для CWM/TWRP (MIUI, CyanogenMod, порти, більшість кастомних прошивок);\n• Samsung: .tar / .tar.md5 з Odin або ZIP з AP_*.tar.md5;\n• factory-образи Google (.tgz / .zip);\n• system.img (ext4, sparse), TWRP-бекап system.ext4.win;\n• OTA з system.new.dat(.br) + system.transfer.list.\n\nНайкраще, якщо в архіві є boot.img — з нього береться порядок запуску служб.</string>
+    <string name="help_text">• Android 2.3–4.4: 32-бітні ARM-прошивки, працюють через QEMU.\n• Android 5.0–17: arm64-прошивки та GSI, працюють нативно на телефоні.\n\nФормати:\n• ZIP для CWM/TWRP (MIUI, CyanogenMod, порти, більшість кастомних прошивок);\n• Samsung: .tar / .tar.md5 з Odin або ZIP з AP_*.tar.md5;\n• factory-образи Google (.tgz / .zip);\n• system.img (ext4, sparse), TWRP-бекап system.ext4.win;\n• OTA з system.new.dat(.br) + system.transfer.list;\n• Також: 7z, RAR, LG .kdz, Sony .ftf, Huawei UPDATE.APP, Qualcomm EDL, payload.bin, super.img, EROFS, Android-x86 ISO.\n\nНайкраще, якщо в архіві є boot.img — з нього береться порядок запуску служб.</string>
     <string name="vs_screen">Екран гостя</string>
     <string name="vs_fixed_2x">Для Android 2.x екран фіксований: 480×800, 240 dpi.</string>
     <string name="vs_screen_hint">Що менший екран — то швидше працює система.</string>
@@ -45,6 +45,13 @@
     <string name="vs_legacy_sub">Старий рушій стенда Desire HD: лише GLES 1.x, екран 480×800. Вмикайте, якщо основний не впорався.</string>
     <string name="vs_lowram">Режим малої пам’яті</string>
     <string name="vs_lowram_sub">ro.config.low_ram — система економить пам’ять.</string>
+    <string name="vs_memory_mode">Керування пам’яттю</string>
+    <string name="vs_memory_light">Легке</string>
+    <string name="vs_memory_medium">Середнє</string>
+    <string name="vs_memory_aggressive">Агресивне</string>
+    <string name="vs_memory_light_sub">Фонові застосунки зупиняються, лише коли в самого телефона майже не лишається пам’яті. Найменше перезапусків; використовує найбільше пам’яті. Набирає чинності після повного перезапуску віртуальної машини.</string>
+    <string name="vs_memory_medium_sub">Збалансований режим: залишає помірну кількість фонових застосунків і зупиняє решту, коли вільної пам’яті стає мало. Набирає чинності після повного перезапуску віртуальної машини.</string>
+    <string name="vs_memory_aggressive_sub">Залишає мало фонових застосунків і перевіряє часто, тому пам’ять звільняється завчасно. Використовує найменше пам’яті, але застосунки перезапускаються частіше. Набирає чинності після повного перезапуску віртуальної машини.</string>
     <string name="vs_proxy">Сучасний TLS-проксі</string>
     <string name="vs_proxy_sub">Старі браузери й застосунки відкривають сучасні HTTPS-сайти.</string>
     <string name="vs_controls">Керування</string>
@@ -328,7 +335,7 @@
     <string name="vs_strace">Трасування системних викликів служб</string>
     <string name="vs_strace_sub">Назви служб через кому, наприклад mediaserver,zygote. Уповільнює ці служби й записує трасування в їхні журнали. Застосовується під час наступного завантаження.</string>
     <string name="vs_wifi">Мережа Wi-Fi</string>
-    <string name="vs_wifi_sub">Показує ВМ інтернет хоста як підключену мережу Wi-Fi замість Ethernet. Android 2.3, 4.0–7.x. Застосовується під час наступного завантаження.</string>
+    <string name="vs_wifi_sub">Показує ВМ інтернет хоста як підключену мережу Wi-Fi замість Ethernet. Android 2.3, 4.0–17 (8–17: експериментально). Застосовується під час наступного завантаження.</string>
     <string name="vs_wifi_ssid">Назва мережі (SSID)</string>
     <string name="vs_wifi_ssid_sub">До 32 байтів</string>
     <string name="vs_wifi_ssid_error">Назва мережі не може бути порожньою</string>
@@ -489,4 +496,37 @@
     <string name="thermal_invalid">Введіть значення від -40 до 150.</string>
     <string name="thermal_apply">Застосувати</string>
     <string name="thermal_reset">За замовчуванням</string>
+    <string name="vs_guest_nav">Увімкнути панель навігації / панель завдань</string>
+    <string name="vs_guest_nav_sub">Дозволяє гостьовій системі малювати власну панель навігації або панель завдань у десктопних збірках Android (встановлює qemu.hw.mainkeys=0). Вмикайте під час імпорту лише для десктопних збірок, для всіх інших образів залишайте вимкненим. Застосовується під час наступного повного завантаження.</string>
+    <string name="th_group_plain">Прості теми</string>
+    <string name="th_group_skins">Теми з виглядом пристроїв (від @regectt)</string>
+    <string name="th_group_custom">Власні теми</string>
+    <string name="th_custom_empty">Власних тем ще немає. Торкніться «Нова тема», щоб створити її, або імпортуйте файл .aetheme. Прості теми та вигляди пристроїв змінити не можна: продублюйте тему, щоб відредагувати її.</string>
+    <string name="th_expand">Розгорнути список</string>
+    <string name="th_collapse">Згорнути список</string>
+    <string name="vs_art_boot_image">Використовувати завантажувальний образ ART (Android 14+)</string>
+    <string name="vs_art_boot_image_sub">Вимк.: гостьова система працює без завантажувального образу. Запуск повільніший, але з образом нічого не може зламатися. Увімк.: емулятор готує завантажувальний образ для цього середовища виконання (створюється один раз під час наступного запуску, що забирає час).</string>
+    <string name="vs_no_watchdog">Вимкнути системний watchdog (Android 14+)</string>
+    <string name="vs_no_watchdog_sub">Для завантаження, яке триває довше за 60-секундний ліміт watchdog Android, через що system_server завершується в циклі. Патчить services.jar прошивки, щоб потік watchdog одразу завершувався; справжнє взаємне блокування системи після цього більше не усувається перезапуском. Попередньо скомпільований код jar ігнорується, через що перше завантаження може бути повільнішим. Після вимкнення відновлюється оригінальний jar. Застосовується під час наступного повного завантаження.</string>
+    <string name="folder_new">Нова тека</string>
+    <string name="folder_new_dots">Нова тека…</string>
+    <string name="folder_rename">Перейменувати теку</string>
+    <string name="folder_delete">Видалити теку (прошивки залишаться)</string>
+    <string name="folder_move">Перемістити до теки</string>
+    <string name="folder_none">Не в теці</string>
+    <string name="folder_default_name">Тека</string>
+    <string name="folder_empty">Порожньо — перетягніть прошивки сюди</string>
+    <string name="folder_open">Відкрити теку</string>
+    <string name="folder_close">Закрити теку</string>
+    <plurals name="folder_roms">
+        <item quantity="one">%1$d ROM</item>
+        <item quantity="few">%1$d ROM</item>
+        <item quantity="many">%1$d ROM</item>
+        <item quantity="other">%1$d ROM</item>
+    </plurals>
+    <string name="phantom_title">Вбивця фантомних процесів</string>
+    <string name="phantom_msg">На вашому пристрої не ввімкнено опцію «Вимкнути обмеження дочірніх процесів» у параметрах розробника. Через це zygote буде завершено під час запуску емулятора, і емулятор не зможе завантажитися. Тому НАСТІЙНО РЕКОМЕНДУЄТЬСЯ ввімкнути її.</string>
+    <string name="phantom_open_dev">Відкрити параметри розробника</string>
+    <string name="phantom_ignore">Ігнорувати</string>
+    <string name="phantom_never">Більше не нагадувати</string>
 </resources>

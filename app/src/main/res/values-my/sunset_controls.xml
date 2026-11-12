@@ -30,4 +30,17 @@
     <string name="bluetooth_permission_denied">Bluetooth ခွင့်ပြုချက်ကို ငြင်းပယ်ထားသည်- ဧည့်သည်သည် ဟို့စ် Bluetooth မပါဘဲ စတင်မည်။</string>
     <string name="vs_sf_tombstone">SurfaceFlinger ပျက်စီးမှု tombstone (အမှားရှာဖွေခြင်း)</string>
     <string name="vs_sf_tombstone_sub">SurfaceFlinger ပျက်ပါက အတိုချုပ်အစီရင်ခံစာအစား ဖမ်းဝဲက ပုံမှန် tombstone (ပျက်သွားသော လုပ်ဆောင်ချက်ပါ) ကို မှတ်တမ်းထဲ ရေးပေးပါမည်။ ချွတ်ယွင်းချက်အစီရင်ခံစာ ပို့သည့်အခါ သုံးပါ။ နောက် VM အပြည့်စတင်ချိန်တွင် သက်ရောက်ပါမည်။</string>
+    <string name="vi_mouse_keyboard">ထည့်သွင်းမှု- မောက်စ်နှင့် ကီးဘုတ်</string>
+    <string name="vi_mouse_keyboard_sub">ဧည့်စနစ်တွင် touchpad နှင့် ကီးဘုတ်ကို မှတ်ပုံတင်ပြီး ၎င်း၏ touch screen ကို ဖယ်ရှားသည်။ ဖန်သားပြင်သည် touchpad ဖြစ်လာပြီး (နှိပ်ရန် တို့ပါ၊ လှိမ့်ရန် လက်နှစ်ချောင်း) လမ်းညွှန်ဘားတွင် ကီးဘုတ်ခလုတ် ပေါ်လာသည်။ QEMU အင်ဂျင် (မူရင်း ၆၄-bit မဟုတ်) နှင့် VM ကို အပြည့်အဝ ပြန်စတင်ရန် လိုအပ်သည်။</string>
+    <string name="vi_keypad">ထည့်သွင်းမှု- ခလုတ်ကီးပက်</string>
+    <string name="vi_keypad_sub">လမ်းညွှန်ဘားတွင် ခလုတ်ကီးပက် ခလုတ်ကို ထည့်သည်- မြားခလုတ်များ၊ OK၊ ဆော့ဖ်ကီးများ၊ ခေါ်ဆို/ဖြတ် နှင့် ခလုတ်ဖုန်းကဲ့သို့ 0–9 * # တို့ဖြစ်သည်။ ထိတွေ့မှု ဆက်လက်အလုပ်လုပ်ပြီး မောက်စ်နှင့် ကီးဘုတ်နှင့် ပေါင်းသုံးနိုင်သည်။</string>
+    <string name="vi_keyboard">ကီးဘုတ်</string>
+    <string name="vi_keypad_title">ခလုတ်ကီးပက်</string>
+    <string name="vi_close">ပိတ်ရန်</string>
+    <string name="vi_open_keyboard">ကီးဘုတ်</string>
+    <string name="vi_open_keypad">ခလုတ်ကီးပက်</string>
+    <string name="m_resize_screen">ဖန်သားပြင် အရွယ်အစား ပြောင်းရန်</string>
+    <string name="m_resize_done">အရွယ်အစားပြောင်းခြင်း ပြီးပါပြီ</string>
+    <string name="m_resize_reset">ဖန်သားပြင် အရွယ်အစား ပြန်လည်သတ်မှတ်ရန်</string>
+    <string name="vi_resize_hint">အရွယ်အစားပြောင်းရန် ဖန်သားပြင်၏ ထောင့်တစ်ခုကို ဆွဲပါ။ ပြီးလျှင် မီနူးကိုဖွင့်ပြီး “အရွယ်အစားပြောင်းခြင်း ပြီးပါပြီ” ကို တို့ပါ။</string>
 </resources>

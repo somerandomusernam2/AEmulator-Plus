@@ -605,32 +605,31 @@ object ElfPatch {
     }
 
     /**
-     * Jelly Bean 4.2 SurfaceFlinger, no hwcomposer module (the framebuffer HAL drives the screen): the HWComposer constructor
-     * marks the displays in mAllocatedDisplayIDs only on its hwc path, so with the fb HAL alone the set stays empty, and
-     * HWComposer::eventControl() returns at its first check ("is this display allocated?") before it reaches
-     * VSyncThread::setEnabled(). The fake vsync thread then sleeps forever, every EventThread wait runs its whole 1 s and
-     * SurfaceFlinger "fakes" the vsync ("Timed out waiting for hw vsync; faking it") - the slideshow.
-     *
-     * The check is `lsrs.w r2, r0, r1 ; tst r2, r3 ; beq return` (0x80000000 >> display tested against the set). The branch
-     * becomes a nop, so an unallocated display falls through to the same code an allocated one runs: hwc call if there is a
-     * hwc, else VSyncThread::setEnabled(). Display ids are only ever 0..31 here (the first check keeps its own branch).
-     * Returns 1 when patched, 0 when the function or the pattern is not there or is already patched.
+     * Modified for AEmulator Plus, 2026-11-12. An earlier build made 4.2 SurfaceFlinger's fake vsync thread run by turning
+     * the "is this display allocated?" branch at the top of HWComposer::eventControl() into a nop
+     * (`lsrs.w r2, r0, r1 ; tst r2, r3 ; beq return` -> `... ; nop`). That was a workaround for the missing hwcomposer
+     * module; the engine now installs one (native/hwc1fb) and SurfaceFlinger's stock code runs unmodified. This undoes the
+     * old patch in a tree that already carries it: the branch's original halfword is read from the same place in [stock],
+     * the copy of libsurfaceflinger.so made before it was ever patched. Nothing is touched unless the live file has exactly
+     * the patched shape and the stock file has a conditional branch at the same offset and identical bytes before it.
+     * Returns 1 when undone, 0 when there was nothing to undo.
      */
-    fun hwcEventControlWithoutAllocation(f: File): Int {
+    fun revertHwcEventControlPatch(f: File, stock: File): Int {
         val name = "_ZN7android10HWComposer12eventControlEiii"
         val d = runCatching { f.readBytes() }.getOrNull() ?: return 0
+        val s = runCatching { stock.readBytes() }.getOrNull() ?: return 0
+        if (s.size != d.size) return 0
         val v = symbolsIn(d, setOf(name))?.get(name) ?: return 0
         if ((v shr 40) and 1L != 1L) return 0                                   // Thumb code only
         val off = (v and 0xffffffffffL).toInt() and 1.inv()
-        fun u16(o: Int) = (d[o].toInt() and 0xff) or ((d[o + 1].toInt() and 0xff) shl 8)
+        fun u16(b: ByteArray, o: Int) = (b[o].toInt() and 0xff) or ((b[o + 1].toInt() and 0xff) shl 8)
         var i = off
         while (i + 8 <= minOf(off + 96, d.size)) {
-            // lsrs.w r2, r0, r1 (fa30 f201) ; tst r2, r3 (421a) ; beq (d0xx)
-            if (u16(i) == 0xfa30 && u16(i + 2) == 0xf201 && u16(i + 4) == 0x421a) {
-                if (u16(i + 6) == 0xbf00) return 0                               // already patched
-                if ((u16(i + 6) and 0xff00) != 0xd000) return 0                  // not a beq: a build we do not know
+            // lsrs.w r2, r0, r1 (fa30 f201) ; tst r2, r3 (421a) ; nop (bf00): the patched shape
+            if (u16(d, i) == 0xfa30 && u16(d, i + 2) == 0xf201 && u16(d, i + 4) == 0x421a && u16(d, i + 6) == 0xbf00) {
+                if ((i until i + 6).any { d[it] != s[it] } || (u16(s, i + 6) and 0xff00) != 0xd000) return 0   // not our patch
                 if (!f.canWrite()) f.setWritable(true, true)
-                RandomAccessFile(f, "rw").use { raf -> raf.seek((i + 6).toLong()); raf.write(byteArrayOf(0x00, 0xbf.toByte())) }
+                RandomAccessFile(f, "rw").use { raf -> raf.seek((i + 6).toLong()); raf.write(s, i + 6, 2) }
                 return 1
             }
             i += 2

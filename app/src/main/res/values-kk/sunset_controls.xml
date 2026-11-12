@@ -30,4 +30,17 @@
     <string name="bluetooth_permission_denied">Bluetooth рұқсаты берілмеді: қонақ хост Bluetooth-сыз жүктеледі.</string>
     <string name="vs_sf_tombstone">SurfaceFlinger бұзылуының tombstone-ы (түзету)</string>
     <string name="vs_sf_tombstone_sub">SurfaceFlinger бұзылса, микробағдарлама қысқа есептің орнына журналға қалыпты tombstone (бұзылған функциямен бірге) жазады. Қате туралы есеп жіберген кезде пайдаланыңыз. Келесі толық VM жүктеуінде қолданылады.</string>
+    <string name="vi_mouse_keyboard">Енгізу: тінтуір және пернетақта</string>
+    <string name="vi_mouse_keyboard_sub">Қонақта сенсорлық тақтаны және пернетақтаны тіркейді және оның сенсорлық экранын жояды. Экран сенсорлық тақтаға айналады (басу үшін түртіңіз, айналдыру үшін екі саусақ) және навигация жолағында пернетақта түймесі пайда болады. QEMU қозғалтқышы (жергілікті 64 биттік емес) және виртуалды машинаны толық қайта іске қосу қажет.</string>
+    <string name="vi_keypad">Енгізу: түймелі пернетақта</string>
+    <string name="vi_keypad_sub">Навигация жолағына түймелі пернетақта түймесін қосады: көрсеткі пернелері, OK, бағдарламалық пернелер, Қоңырау/Аяқтау және түймелі телефондағыдай 0–9 * #. Сенсор жұмысын жалғастырады және оны тінтуірмен және пернетақтамен біріктіруге болады.</string>
+    <string name="vi_keyboard">Пернетақта</string>
+    <string name="vi_keypad_title">Түймелі пернетақта</string>
+    <string name="vi_close">Жабу</string>
+    <string name="vi_open_keyboard">Пернетақта</string>
+    <string name="vi_open_keypad">Түймелі пернетақта</string>
+    <string name="m_resize_screen">Экран өлшемін өзгерту</string>
+    <string name="m_resize_done">Өлшемді өзгерту аяқталды</string>
+    <string name="m_resize_reset">Экран өлшемін бастапқы қалпына келтіру</string>
+    <string name="vi_resize_hint">Өлшемін өзгерту үшін экранның бұрышын сүйреңіз. Аяқтағанда мәзірді ашып, «Өлшемді өзгерту аяқталды» түймесін түртіңіз.</string>
 </resources>

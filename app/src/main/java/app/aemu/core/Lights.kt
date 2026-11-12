@@ -49,6 +49,7 @@ class Lights(private val root: File, private val log: (String) -> Unit) {
     @Volatile private var sysfsOff = 0
 
     fun onChange(l: (Led?) -> Unit) { listeners.add(l) }
+    fun removeOnChange(l: (Led?) -> Unit) { listeners.remove(l) }
 
     fun start() {
         running = true

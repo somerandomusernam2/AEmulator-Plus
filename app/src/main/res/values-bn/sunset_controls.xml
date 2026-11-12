@@ -30,4 +30,17 @@
     <string name="bluetooth_permission_denied">ব্লুটুথের অনুমতি প্রত্যাখ্যাত হয়েছে: গেস্ট হোস্ট ব্লুটুথ ছাড়াই বুট হবে।</string>
     <string name="vs_sf_tombstone">SurfaceFlinger ক্র্যাশ টম্বস্টোন (ডিবাগ)</string>
     <string name="vs_sf_tombstone_sub">SurfaceFlinger ক্র্যাশ করলে, সংক্ষিপ্ত রিপোর্টের বদলে ফার্মওয়্যারকে লগে একটি সাধারণ টম্বস্টোন (ক্র্যাশ করা ফাংশনসহ) লিখতে দিন। বাগ রিপোর্ট পাঠানোর সময় এটি ব্যবহার করুন। পরের পূর্ণ VM বুটে প্রযোজ্য হবে।</string>
+    <string name="vi_mouse_keyboard">ইনপুট: মাউস ও কীবোর্ড</string>
+    <string name="vi_mouse_keyboard_sub">গেস্টে একটি টাচপ্যাড ও একটি কীবোর্ড নিবন্ধন করে এবং এর টাচ স্ক্রিন সরিয়ে দেয়। স্ক্রিন টাচপ্যাডে পরিণত হয় (ক্লিক করতে ট্যাপ করুন, স্ক্রল করতে দুই আঙুল) এবং নেভিগেশন বারে একটি কীবোর্ড বোতাম দেখা যায়। QEMU ইঞ্জিন (নেটিভ ৬৪-বিট নয়) এবং VM-এর পূর্ণ রিস্টার্ট প্রয়োজন।</string>
+    <string name="vi_keypad">ইনপুট: কীপ্যাড</string>
+    <string name="vi_keypad_sub">নেভিগেশন বারে একটি কীপ্যাড বোতাম যোগ করে: অ্যারো কী, OK, সফট কী, কল/শেষ এবং বোতামওয়ালা ফোনের মতো 0–9 * #। টাচ কাজ করতে থাকে এবং এটি মাউস ও কীবোর্ডের সঙ্গে একসাথে ব্যবহার করা যায়।</string>
+    <string name="vi_keyboard">কীবোর্ড</string>
+    <string name="vi_keypad_title">কীপ্যাড</string>
+    <string name="vi_close">বন্ধ করুন</string>
+    <string name="vi_open_keyboard">কীবোর্ড</string>
+    <string name="vi_open_keypad">কীপ্যাড</string>
+    <string name="m_resize_screen">স্ক্রিনের আকার বদলান</string>
+    <string name="m_resize_done">আকার বদলানো সম্পন্ন</string>
+    <string name="m_resize_reset">স্ক্রিনের আকার রিসেট করুন</string>
+    <string name="vi_resize_hint">আকার বদলাতে স্ক্রিনের একটি কোণ টেনে আনুন। শেষ হলে মেনু খুলে “আকার বদলানো সম্পন্ন” ট্যাপ করুন।</string>
 </resources>

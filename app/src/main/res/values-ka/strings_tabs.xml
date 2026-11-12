@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Added for AEmulator Plus, 2026-11-10: tabs and several machines at once -->
+<resources>
+    <string name="tab_home">ბიბლიოთეკა</string>
+    <string name="tab_close">ჩანართის დახურვა</string>
+    <string name="tab_close_title">დაიხუროს %1$s?</string>
+    <string name="tab_close_text">„ჩაკეცვა“ ხურავს ჩანართს, მაგრამ მანქანა ფონზე განაგრძობს მუშაობას; ხელახლა გახსენით ბიბლიოთეკიდან. „გამორთვა“ მანქანას თიშავს.</string>
+    <string name="tab_minimize">ჩაკეცვა</string>
+    <string name="tab_shutdown">გამორთვა</string>
+    <string name="vm_slots_full">მანქანის ყველა %1$d სლოტი დაკავებულია. ჯერ ერთ-ერთი გამორთეთ.</string>
+</resources>

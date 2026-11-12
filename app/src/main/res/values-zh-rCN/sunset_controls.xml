@@ -30,4 +30,17 @@
     <string name="bluetooth_permission_denied">蓝牙权限被拒绝:客户机将在没有主机蓝牙的情况下启动。</string>
     <string name="vs_sf_tombstone">SurfaceFlinger 崩溃墓碑（调试）</string>
     <string name="vs_sf_tombstone_sub">SurfaceFlinger 崩溃时，让固件向日志写入普通墓碑（包含崩溃的函数），而不是简短报告。提交错误报告时请使用。下次完整启动虚拟机时生效。</string>
+    <string name="vi_mouse_keyboard">输入:鼠标和键盘</string>
+    <string name="vi_mouse_keyboard_sub">在客户机中注册触控板和键盘,并移除其触摸屏。屏幕将变为触控板(轻点点击,双指滚动),导航栏中会出现键盘按钮。需要 QEMU 引擎(非原生 64 位引擎)并完全重启虚拟机。</string>
+    <string name="vi_keypad">输入:小键盘</string>
+    <string name="vi_keypad_sub">在导航栏中添加小键盘按钮:方向键、确认键、软键、通话/挂断,以及类似功能手机的 0–9 * #。触控仍可使用,并可与鼠标和键盘组合使用。</string>
+    <string name="vi_keyboard">键盘</string>
+    <string name="vi_keypad_title">小键盘</string>
+    <string name="vi_close">关闭</string>
+    <string name="vi_open_keyboard">键盘</string>
+    <string name="vi_open_keypad">小键盘</string>
+    <string name="m_resize_screen">调整屏幕大小</string>
+    <string name="m_resize_done">完成调整</string>
+    <string name="m_resize_reset">重置屏幕大小</string>
+    <string name="vi_resize_hint">拖动屏幕的一角来调整大小。完成后打开菜单并点按“完成调整”。</string>
 </resources>

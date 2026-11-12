@@ -18,7 +18,7 @@
     <string name="storage_text">Salli pääsy kaikkiin tiedostoihin: silloin kunkin järjestelmän muistikortti sijaitsee sisäisen tallennustilan AEmulator-kansiossa — kätevää APK-tiedostoille, musiikille ja kuville.</string>
     <string name="allow">Salli</string>
     <string name="empty_title">Ei vielä järjestelmiä</string>
-    <string name="empty_text">Lisää ARM-laiteohjelmisto Android 2.2–6.0:lle: recovery-ZIP, Odin-arkisto (.tar.md5), system.img tai tehdaskuva.</string>
+    <string name="empty_text">Lisää ARM-laiteohjelmisto Android 1.0–17:lle: recovery-ZIP, Odin-arkisto (.tar.md5), system.img tai tehdaskuva.</string>
     <string name="empty_help">Mitkä tiedostot toimivat?</string>
     <string name="import_failed">Tuonti epäonnistui</string>
     <string name="import_running">Tuodaan laiteohjelmistoa</string>
@@ -30,7 +30,7 @@
     <string name="start">Käynnistä</string>
     <string name="rename">Nimeä uudelleen</string>
     <string name="help_title">Tuetut laiteohjelmistot</string>
-    <string name="help_text">• Android 2.2 ja 4.0–4.4: päätuki; 5.x–6.x: kokeellinen.\n• Vain 32-bittinen ARM-laiteohjelmisto (armeabi / armeabi-v7a).\n\nMuodot:\n• CWM/TWRP-recovery-ZIP (MIUI, CyanogenMod, portit, useimmat custom ROMit);\n• Samsung: Odin .tar / .tar.md5 tai ZIP, jossa on AP_*.tar.md5;\n• Googlen tehdaskuvat (.tgz / .zip);\n• system.img (ext4, sparse, YAFFS2), TWRP-varmuuskopio system.ext4.win;\n• OTA, jossa system.new.dat(.br) + system.transfer.list.\n\nParasta, jos arkistossa on boot.img: palvelujen käynnistysjärjestys otetaan siitä.</string>
+    <string name="help_text">• Android 2.2–4.4: 32-bittinen ARM-laiteohjelmisto, toimii QEMU:n kautta (ennen 2.2: kokeellinen).\n• Android 5.0–17: arm64-laiteohjelmisto ja GSI:t, toimivat natiivisti puhelimessa.\n\nMuodot:\n• CWM/TWRP-recovery-ZIP (MIUI, CyanogenMod, portit, useimmat custom ROMit);\n• Samsung: Odin .tar / .tar.md5 tai ZIP, jossa on AP_*.tar.md5;\n• Googlen tehdaskuvat (.tgz / .zip);\n• system.img (ext4, sparse, YAFFS2), TWRP-varmuuskopio system.ext4.win;\n• OTA, jossa system.new.dat(.br) + system.transfer.list;\n• Myös: 7z, RAR, LG .kdz, Sony .ftf, Huawei UPDATE.APP, Qualcomm EDL, payload.bin, super.img, EROFS, Android-x86 ISO.\n\nParasta, jos arkistossa on boot.img: palvelujen käynnistysjärjestys otetaan siitä.</string>
     <string name="vs_screen">Vieraan näyttö</string>
     <string name="vs_fixed_2x">Android 2.x käyttää kiinteää 480×800-näyttöä, 240 dpi.</string>
     <string name="vs_screen_hint">Pienempi näyttö nopeuttaa järjestelmää.</string>
@@ -45,6 +45,13 @@
     <string name="vs_legacy_sub">Vanhempi Desire HD -moottori: vain GLES 1.x, 480×800-näyttö. Käytä, jos päämoottori ei toimi.</string>
     <string name="vs_lowram">Vähämuistitila</string>
     <string name="vs_lowram_sub">ro.config.low_ram — järjestelmä säästää muistia.</string>
+    <string name="vs_memory_mode">Muistinhallinta</string>
+    <string name="vs_memory_light">Kevyt</string>
+    <string name="vs_memory_medium">Keskitaso</string>
+    <string name="vs_memory_aggressive">Aggressiivinen</string>
+    <string name="vs_memory_light_sub">Taustasovellukset pysäytetään vasta, kun itse puhelimen muisti on lähes loppu. Vähiten uudelleenkäynnistyksiä; käyttää eniten muistia. Tulee voimaan virtuaalikoneen täyden uudelleenkäynnistyksen jälkeen.</string>
+    <string name="vs_memory_medium_sub">Tasapainoinen: pitää kohtuullisen määrän taustasovelluksia ja pysäyttää loput, kun vapaa muisti vähenee. Tulee voimaan virtuaalikoneen täyden uudelleenkäynnistyksen jälkeen.</string>
+    <string name="vs_memory_aggressive_sub">Pitää vain muutaman taustasovelluksen ja tarkistaa usein, joten muisti vapautuu ajoissa. Käyttää vähiten muistia, mutta sovellukset käynnistyvät useammin uudelleen. Tulee voimaan virtuaalikoneen täyden uudelleenkäynnistyksen jälkeen.</string>
     <string name="vs_proxy">Moderni TLS-välityspalvelin</string>
     <string name="vs_proxy_sub">Antaa vanhojen selainten ja sovellusten avata nykypäivän HTTPS-sivustoja.</string>
     <string name="vs_controls">Ohjaimet</string>
@@ -136,7 +143,7 @@
     <string name="vs_strace">Jäljitä palvelujen järjestelmäkutsut</string>
     <string name="vs_strace_sub">Palvelujen nimet pilkuilla erotettuina, esim. mediaserver,zygote. Hidastaa näitä palveluja ja kirjoittaa jäljen niiden lokeihin. Tulee voimaan seuraavalla käynnistyksellä.</string>
     <string name="vs_wifi">Wi-Fi-verkko</string>
-    <string name="vs_wifi_sub">Näyttää isännän internetyhteyden järjestelmälle yhdistettynä Wi-Fi-verkkona Ethernetin sijaan. Android 2.3, 4.0–7.x. Tulee voimaan seuraavalla käynnistyksellä.</string>
+    <string name="vs_wifi_sub">Näyttää isännän internetyhteyden järjestelmälle yhdistettynä Wi-Fi-verkkona Ethernetin sijaan. Android 2.3, 4.0–17 (8–17: kokeellinen). Tulee voimaan seuraavalla käynnistyksellä.</string>
     <string name="vs_wifi_ssid">Verkon nimi (SSID)</string>
     <string name="vs_wifi_ssid_sub">Enintään 32 tavua</string>
     <string name="vs_wifi_ssid_error">Verkon nimi ei voi olla tyhjä</string>
@@ -488,4 +495,35 @@
     <string name="m_reset_menu_pos">Nollaa valikkopainike</string>
     <string name="as_led">Ilmoitusvalo</string>
     <string name="as_led_sub">Näytä vieraspuhelimen LED näytön yläpuolella</string>
+    <string name="vs_guest_nav">Ota käyttöön siirtymispalkki / tehtäväpalkki</string>
+    <string name="vs_guest_nav_sub">Antaa vieraan piirtää oman siirtymispalkkinsa tai Androidin työpöytäversioiden tehtäväpalkin (asettaa qemu.hw.mainkeys=0). Ota käyttöön tuonnin yhteydessä vain työpöytäversioille ja jätä pois päältä kaikille muille levykuville. Tulee voimaan seuraavalla täydellä käynnistyksellä.</string>
+    <string name="th_group_plain">Yksinkertaiset teemat</string>
+    <string name="th_group_skins">Laitekuoriteemat (tekijä @regectt)</string>
+    <string name="th_group_custom">Omat teemat</string>
+    <string name="th_custom_empty">Omia teemoja ei vielä ole. Luo sellainen napauttamalla ”Uusi teema” tai tuo .aetheme-tiedosto. Yksinkertaisia teemoja ja laitekuoria ei voi muuttaa: monista jokin muokataksesi sitä.</string>
+    <string name="th_expand">Laajenna luettelo</string>
+    <string name="th_collapse">Tiivistä luettelo</string>
+    <string name="vs_art_boot_image">Käytä ART-käynnistyskuvaa (Android 14+)</string>
+    <string name="vs_art_boot_image_sub">Pois: vieras toimii ilman käynnistyskuvaa. Käynnistys on hitaampaa, mutta kuvan osalta mikään ei voi epäonnistua. Päällä: emulaattori valmistelee käynnistyskuvan tälle suoritusympäristölle (luodaan kerran seuraavassa käynnistyksessä, mikä kestää hetken).</string>
+    <string name="vs_no_watchdog">Poista järjestelmän watchdog käytöstä (Android 14+)</string>
+    <string name="vs_no_watchdog_sub">Käynnistykseen, joka on hitaampi kuin Androidin 60 sekunnin watchdog-raja, joka tappaa system_serverin silmukassa. Muokkaa laiteohjelmiston services.jar-tiedostoa niin, että watchdog-säie päättyy heti; todellista järjestelmän lukkiutumista ei sen jälkeen enää korjata uudelleenkäynnistyksellä. Jar-tiedoston esikäännetty koodi ohitetaan, mikä voi hidastaa ensimmäistä käynnistystä. Pois kytkeminen palauttaa alkuperäisen jarin. Tulee voimaan seuraavalla täydellä käynnistyksellä.</string>
+    <string name="folder_new">Uusi kansio</string>
+    <string name="folder_new_dots">Uusi kansio…</string>
+    <string name="folder_rename">Nimeä kansio uudelleen</string>
+    <string name="folder_delete">Poista kansio (ROMit säilyvät)</string>
+    <string name="folder_move">Siirrä kansioon</string>
+    <string name="folder_none">Ei kansiossa</string>
+    <string name="folder_default_name">Kansio</string>
+    <string name="folder_empty">Tyhjä – pudota ROMit tähän</string>
+    <string name="folder_open">Avaa kansio</string>
+    <string name="folder_close">Sulje kansio</string>
+    <plurals name="folder_roms">
+        <item quantity="one">%1$d ROM</item>
+        <item quantity="other">%1$d ROMia</item>
+    </plurals>
+    <string name="phantom_title">Haamuprosessien tappaja</string>
+    <string name="phantom_msg">Laitteesi kehittäjäasetuksissa ei ole otettu käyttöön vaihtoehtoa ”Poista alaprosessien rajoitukset käytöstä”. Tämän vuoksi zygote tapetaan emulaattorin käynnistyksen aikana, eikä emulaattori voi käynnistyä. Siksi sen käyttöönottoa SUOSITELLAAN ERITTÄIN VAHVASTI.</string>
+    <string name="phantom_open_dev">Avaa kehittäjäasetukset</string>
+    <string name="phantom_ignore">Ohita</string>
+    <string name="phantom_never">Älä muistuta enää</string>
 </resources>

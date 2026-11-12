@@ -30,4 +30,17 @@
     <string name="vs_sf_tombstone">SurfaceFlingeri krahhi tombstone (silumine)</string>
     <string name="vs_sf_tombstone_sub">Kui SurfaceFlinger jookseb kokku, kirjutab püsivara logisse tavalise tombstone’i (koos kokkujooksnud funktsiooniga) lühikese aruande asemel. Kasutage veateate saatmisel. Rakendub virtuaalmasina järgmisel täielikul käivitusel.</string>
     <string name="bluetooth_permission_denied">Bluetoothi luba keelati: külaline käivitub ilma hosti Bluetoothita.</string>
+    <string name="vi_mouse_keyboard">Sisend: hiir ja klaviatuur</string>
+    <string name="vi_mouse_keyboard_sub">Registreerib külalises puuteplaadi ja klaviatuuri ning eemaldab selle puuteekraani. Ekraanist saab puuteplaat (puudutus klõpsab, kaks sõrme kerib) ja navigeerimisribale ilmub klaviatuurinupp. Vajab QEMU mootorit (mitte natiivset 64-bitist) ja virtuaalmasina täielikku taaskäivitamist.</string>
+    <string name="vi_keypad">Sisend: nuppudega klaviatuur</string>
+    <string name="vi_keypad_sub">Lisab navigeerimisribale nuppudega klaviatuuri nupu: nooleklahvid, OK, tarkvaraklahvid, Helista/Lõpeta ja 0–9 * # nagu nupptelefonil. Puutetundlikkus töötab edasi ja nuppudega klaviatuuri saab kombineerida hiire ja klaviatuuriga.</string>
+    <string name="vi_keyboard">Klaviatuur</string>
+    <string name="vi_keypad_title">Nuppudega klaviatuur</string>
+    <string name="vi_close">Sulge</string>
+    <string name="vi_open_keyboard">Klaviatuur</string>
+    <string name="vi_open_keypad">Nuppudega klaviatuur</string>
+    <string name="m_resize_screen">Muuda ekraani suurust</string>
+    <string name="m_resize_done">Suuruse muutmine valmis</string>
+    <string name="m_resize_reset">Lähtesta ekraani suurus</string>
+    <string name="vi_resize_hint">Suuruse muutmiseks lohista ekraani nurka. Lõpetamisel ava menüü ja puuduta valikut „Suuruse muutmine valmis“.</string>
 </resources>

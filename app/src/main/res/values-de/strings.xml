@@ -18,7 +18,7 @@
     <string name="storage_text">Erlaube den Zugriff auf alle Dateien: Dann liegt die Speicherkarte jedes Systems im Ordner AEmulator des internen Speichers – praktisch für APKs, Musik und Fotos.</string>
     <string name="allow">Erlauben</string>
     <string name="empty_title">Noch keine Systeme</string>
-    <string name="empty_text">Füge eine ARM-Firmware für Android 2.2–6.0 hinzu: Recovery-ZIP, Odin-Archiv (.tar.md5), system.img oder Factory-Image.</string>
+    <string name="empty_text">Füge eine ARM-Firmware für Android 1.0–17 hinzu: Recovery-ZIP, Odin-Archiv (.tar.md5), system.img oder Factory-Image.</string>
     <string name="empty_help">Welche Dateien gehen?</string>
     <string name="import_failed">Import fehlgeschlagen</string>
     <string name="import_running">Firmware wird importiert</string>
@@ -30,7 +30,7 @@
     <string name="start">Starten</string>
     <string name="rename">Umbenennen</string>
     <string name="help_title">Unterstützte Firmware</string>
-    <string name="help_text">• Android 2.3–4.4: 32-Bit-ARM-Firmware, läuft über QEMU.\n• Android 5.0–17: arm64-Firmware und GSIs, laufen nativ auf dem Handy.\n\nFormate:\n• CWM/TWRP-Recovery-ZIP (MIUI, CyanogenMod, Ports, die meisten Custom-ROMs);\n• Samsung: Odin .tar / .tar.md5 oder ZIP mit AP_*.tar.md5;\n• Google-Factory-Images (.tgz / .zip);\n• system.img (ext4, sparse), TWRP-Backup system.ext4.win;\n• OTA mit system.new.dat(.br) + system.transfer.list.\n\nAm besten enthält das Archiv boot.img – daraus wird die Startreihenfolge der Dienste gelesen.</string>
+    <string name="help_text">• Android 2.3–4.4: 32-Bit-ARM-Firmware, läuft über QEMU.\n• Android 5.0–17: arm64-Firmware und GSIs, laufen nativ auf dem Handy.\n\nFormate:\n• CWM/TWRP-Recovery-ZIP (MIUI, CyanogenMod, Ports, die meisten Custom-ROMs);\n• Samsung: Odin .tar / .tar.md5 oder ZIP mit AP_*.tar.md5;\n• Google-Factory-Images (.tgz / .zip);\n• system.img (ext4, sparse), TWRP-Backup system.ext4.win;\n• OTA mit system.new.dat(.br) + system.transfer.list;\n• Außerdem: 7z, RAR, LG .kdz, Sony .ftf, Huawei UPDATE.APP, Qualcomm EDL, payload.bin, super.img, EROFS, Android-x86 ISO.\n\nAm besten enthält das Archiv boot.img – daraus wird die Startreihenfolge der Dienste gelesen.</string>
     <string name="vs_screen">Gastbildschirm</string>
     <string name="vs_fixed_2x">Android 2.x nutzt fest 480×800 bei 240 dpi.</string>
     <string name="vs_screen_hint">Ein kleinerer Bildschirm macht das System schneller.</string>
@@ -45,6 +45,13 @@
     <string name="vs_legacy_sub">Die ältere Desire-HD-Engine: nur GLES 1.x, 480×800. Nutzen, wenn die Haupt-Engine scheitert.</string>
     <string name="vs_lowram">Wenig-Speicher-Modus</string>
     <string name="vs_lowram_sub">ro.config.low_ram – das System spart Speicher.</string>
+    <string name="vs_memory_mode">Speicherverwaltung</string>
+    <string name="vs_memory_light">Leicht</string>
+    <string name="vs_memory_medium">Mittel</string>
+    <string name="vs_memory_aggressive">Aggressiv</string>
+    <string name="vs_memory_light_sub">Hintergrund-Apps werden nur beendet, wenn dem Handy selbst fast der Speicher ausgeht. Am wenigsten Neustarts; belegt am meisten Speicher. Wird nach einem vollständigen Neustart der VM wirksam.</string>
+    <string name="vs_memory_medium_sub">Ausgewogen: behält eine mittlere Anzahl von Hintergrund-Apps und beendet die übrigen, wenn der freie Speicher knapp wird. Wird nach einem vollständigen Neustart der VM wirksam.</string>
+    <string name="vs_memory_aggressive_sub">Behält nur wenige Hintergrund-Apps und prüft oft, sodass Speicher früh frei wird. Belegt am wenigsten Speicher, aber Apps starten häufiger neu. Wird nach einem vollständigen Neustart der VM wirksam.</string>
     <string name="vs_proxy">Moderner TLS-Proxy</string>
     <string name="vs_proxy_sub">Alte Browser und Apps öffnen heutige HTTPS-Seiten.</string>
     <string name="vs_controls">Steuerung</string>
@@ -322,7 +329,7 @@
     <string name="vs_strace">Systemaufrufe von Diensten verfolgen</string>
     <string name="vs_strace_sub">Dienstnamen, durch Kommas getrennt, z. B. mediaserver,zygote. Verlangsamt diese Dienste und schreibt die Ablaufverfolgung in ihre Logs. Gilt ab dem nächsten Start.</string>
     <string name="vs_wifi">WLAN-Netzwerk</string>
-    <string name="vs_wifi_sub">Zeigt der VM die Internetverbindung des Hosts als verbundenes WLAN statt als Ethernet. Android 2.3, 4.0–7.x. Gilt ab dem nächsten Start.</string>
+    <string name="vs_wifi_sub">Zeigt der VM die Internetverbindung des Hosts als verbundenes WLAN statt als Ethernet. Android 2.3, 4.0–17 (8–17: experimentell). Gilt ab dem nächsten Start.</string>
     <string name="vs_wifi_ssid">Netzwerkname (SSID)</string>
     <string name="vs_wifi_ssid_sub">Bis zu 32 Byte</string>
     <string name="vs_wifi_ssid_error">Der Netzwerkname darf nicht leer sein</string>
@@ -487,4 +494,35 @@
     <string name="thermal_invalid">Gib einen Wert von -40 bis 150 ein.</string>
     <string name="thermal_apply">Anwenden</string>
     <string name="thermal_reset">Standard verwenden</string>
+    <string name="vs_guest_nav">Navigationsleiste / Taskleiste aktivieren</string>
+    <string name="vs_guest_nav_sub">Lässt das Gastsystem seine eigene Navigationsleiste oder die Taskleiste von Android-Desktop-Builds zeichnen (setzt qemu.hw.mainkeys=0). Beim Import nur für Desktop-Builds einschalten, für alle anderen Images ausgeschaltet lassen. Gilt ab dem nächsten vollständigen Start.</string>
+    <string name="th_group_plain">Einfache Designs</string>
+    <string name="th_group_skins">Gerätegehäuse-Designs (von @regectt)</string>
+    <string name="th_group_custom">Eigene Designs</string>
+    <string name="th_custom_empty">Noch keine eigenen Designs. Tippe auf „Neues Design“, um eines zu erstellen, oder importiere eine .aetheme-Datei. Einfache Designs und Gerätegehäuse lassen sich nicht ändern: Dupliziere eines, um es zu bearbeiten.</string>
+    <string name="th_expand">Liste ausklappen</string>
+    <string name="th_collapse">Liste einklappen</string>
+    <string name="vs_art_boot_image">ART-Boot-Image verwenden (Android 14+)</string>
+    <string name="vs_art_boot_image_sub">Aus: Das Gastsystem läuft ohne Boot-Image. Der Start ist langsamer, aber am Image kann nichts schiefgehen. An: Der Emulator erstellt ein Boot-Image für diese Laufzeit (wird einmalig beim nächsten Start erzeugt, was etwas dauert).</string>
+    <string name="vs_no_watchdog">Systemweiten Watchdog deaktivieren (Android 14+)</string>
+    <string name="vs_no_watchdog_sub">Für einen Start, der länger dauert als das 60-Sekunden-Watchdog-Limit von Android, das system_server in einer Schleife beendet. Patcht die services.jar der Firmware, sodass der Watchdog-Thread sofort endet; ein echter System-Deadlock wird danach nicht mehr durch einen Neustart behoben. Der vorkompilierte Code der JAR wird ignoriert, was den ersten Start verlangsamen kann. Beim Ausschalten wird die Original-JAR wiederhergestellt. Gilt ab dem nächsten vollständigen Start.</string>
+    <string name="folder_new">Neuer Ordner</string>
+    <string name="folder_new_dots">Neuer Ordner…</string>
+    <string name="folder_rename">Ordner umbenennen</string>
+    <string name="folder_delete">Ordner löschen (ROMs bleiben erhalten)</string>
+    <string name="folder_move">In Ordner verschieben</string>
+    <string name="folder_none">In keinem Ordner</string>
+    <string name="folder_default_name">Ordner</string>
+    <string name="folder_empty">Leer – ROMs hierher ziehen</string>
+    <string name="folder_open">Ordner öffnen</string>
+    <string name="folder_close">Ordner schließen</string>
+    <plurals name="folder_roms">
+        <item quantity="one">%1$d ROM</item>
+        <item quantity="other">%1$d ROMs</item>
+    </plurals>
+    <string name="phantom_title">Phantom-Prozess-Killer</string>
+    <string name="phantom_msg">Auf deinem Gerät ist die Option „Beschränkungen für untergeordnete Prozesse deaktivieren“ in den Entwickleroptionen nicht aktiviert. Dadurch wird der Zygote beim Start des Emulators beendet, sodass der Emulator nicht booten kann. Es wird daher DRINGEND EMPFOHLEN, sie zu aktivieren.</string>
+    <string name="phantom_open_dev">Entwickleroptionen öffnen</string>
+    <string name="phantom_ignore">Ignorieren</string>
+    <string name="phantom_never">Nie wieder erinnern</string>
 </resources>

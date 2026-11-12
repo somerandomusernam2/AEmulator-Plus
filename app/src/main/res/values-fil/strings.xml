@@ -18,7 +18,7 @@
     <string name="storage_text">Payagan ang access sa lahat ng file: pagkatapos, ang memory card ng bawat system ay nasa folder na AEmulator ng internal storage — madaling gamitin para sa mga APK, musika at larawan.</string>
     <string name="allow">Payagan</string>
     <string name="empty_title">Wala pang mga system</string>
-    <string name="empty_text">Magdagdag ng ARM firmware para sa Android 2.2–6.0: isang recovery ZIP, isang Odin archive (.tar.md5), system.img o factory image.</string>
+    <string name="empty_text">Magdagdag ng ARM firmware para sa Android 1.0–17: isang recovery ZIP, isang Odin archive (.tar.md5), system.img o factory image.</string>
     <string name="empty_help">Aling mga file ang gumagana?</string>
     <string name="import_failed">Nabigo ang pag-import</string>
     <string name="import_running">Ini-import ang firmware</string>
@@ -30,7 +30,7 @@
     <string name="start">Simulan</string>
     <string name="rename">Palitan ang pangalan</string>
     <string name="help_title">Mga sinusuportahang firmware</string>
-    <string name="help_text">• Android 2.2 at 4.0–4.4: pangunahing suporta; 5.x–6.x: eksperimental.\n• 32-bit ARM firmware lang (armeabi / armeabi-v7a).\n\nMga format:\n• CWM/TWRP recovery ZIP (MIUI, CyanogenMod, mga port, karamihan ng custom ROM);\n• Samsung: Odin .tar / .tar.md5 o isang ZIP na may AP_*.tar.md5;\n• Mga factory image ng Google (.tgz / .zip);\n• system.img (ext4, sparse, YAFFS2), TWRP backup na system.ext4.win;\n• OTA na may system.new.dat(.br) + system.transfer.list.\n\nPinakamainam kung may boot.img ang archive: doon kinukuha ang pagkakasunod-sunod ng pagsisimula ng mga serbisyo.</string>
+    <string name="help_text">• Android 2.2–4.4: 32-bit ARM firmware, tumatakbo sa QEMU (mas luma sa 2.2: eksperimental).\n• Android 5.0–17: arm64 firmware at mga GSI, native na tumatakbo sa telepono.\n\nMga format:\n• CWM/TWRP recovery ZIP (MIUI, CyanogenMod, mga port, karamihan ng custom ROM);\n• Samsung: Odin .tar / .tar.md5 o isang ZIP na may AP_*.tar.md5;\n• Mga factory image ng Google (.tgz / .zip);\n• system.img (ext4, sparse, YAFFS2), TWRP backup na system.ext4.win;\n• OTA na may system.new.dat(.br) + system.transfer.list;\n• Gayundin: 7z, RAR, LG .kdz, Sony .ftf, Huawei UPDATE.APP, Qualcomm EDL, payload.bin, super.img, EROFS, Android-x86 ISO.\n\nPinakamainam kung may boot.img ang archive: doon kinukuha ang pagkakasunod-sunod ng pagsisimula ng mga serbisyo.</string>
     <string name="vs_screen">Screen ng guest</string>
     <string name="vs_fixed_2x">Gumagamit ang Android 2.x ng nakapirming 480×800 na screen sa 240 dpi.</string>
     <string name="vs_screen_hint">Mas bumibilis ang system kapag mas maliit ang screen.</string>
@@ -45,6 +45,13 @@
     <string name="vs_legacy_sub">Ang mas lumang Desire HD engine: GLES 1.x lang, 480×800 na screen. Gamitin ito kung pumalya ang pangunahing engine.</string>
     <string name="vs_lowram">Low memory mode</string>
     <string name="vs_lowram_sub">ro.config.low_ram — nagtitipid ng memory ang system.</string>
+    <string name="vs_memory_mode">Pamamahala ng memory</string>
+    <string name="vs_memory_light">Magaan</string>
+    <string name="vs_memory_medium">Katamtaman</string>
+    <string name="vs_memory_aggressive">Agresibo</string>
+    <string name="vs_memory_light_sub">Ihihinto lang ang mga app sa background kapag halos maubos na ang memory ng telepono mismo. Pinakakaunting restart; pinakamarami ang nagagamit na memory. Magkakabisa pagkatapos ng buong restart ng VM.</string>
+    <string name="vs_memory_medium_sub">Balanse: nagpapanatili ng katamtamang dami ng mga app sa background at ihihinto ang iba kapag kaunti na ang libreng memory. Magkakabisa pagkatapos ng buong restart ng VM.</string>
+    <string name="vs_memory_aggressive_sub">Kaunting mga app lang sa background ang pinananatili at madalas ang pag-check, kaya maaga ring napapalaya ang memory. Pinakakaunti ang nagagamit na memory, pero mas madalas mag-restart ang mga app. Magkakabisa pagkatapos ng buong restart ng VM.</string>
     <string name="vs_proxy">Modernong TLS proxy</string>
     <string name="vs_proxy_sub">Nagagawa ng mga lumang browser at app na magbukas ng mga HTTPS site ngayon.</string>
     <string name="vs_controls">Mga kontrol</string>
@@ -136,7 +143,7 @@
     <string name="vs_strace">I-trace ang mga system call ng mga serbisyo</string>
     <string name="vs_strace_sub">Mga pangalan ng serbisyo na pinaghihiwalay ng kuwit, hal. mediaserver,zygote. Pinapabagal ang mga serbisyong iyon at isinusulat ang trace sa kanilang mga log. Ilalapat sa susunod na boot.</string>
     <string name="vs_wifi">Wi-Fi network</string>
-    <string name="vs_wifi_sub">Ipinapakita ang internet ng host sa VM bilang nakakonektang Wi-Fi network sa halip na Ethernet. Android 2.3, 4.0–7.x. Ilalapat sa susunod na boot.</string>
+    <string name="vs_wifi_sub">Ipinapakita ang internet ng host sa VM bilang nakakonektang Wi-Fi network sa halip na Ethernet. Android 2.3, 4.0–17 (8–17: eksperimental). Ilalapat sa susunod na boot.</string>
     <string name="vs_wifi_ssid">Pangalan ng network (SSID)</string>
     <string name="vs_wifi_ssid_sub">Hanggang 32 byte</string>
     <string name="vs_wifi_ssid_error">Hindi puwedeng walang laman ang pangalan ng network</string>
@@ -488,4 +495,35 @@
     <string name="m_reset_menu_pos">I-reset ang menu button</string>
     <string name="as_led">Ilaw ng notification</string>
     <string name="as_led_sub">Ipakita ang LED ng guest na telepono sa itaas ng screen nito</string>
+    <string name="vs_guest_nav">I-enable ang navigation bar / taskbar</string>
+    <string name="vs_guest_nav_sub">Pinapayagan ang guest na iguhit ang sarili nitong navigation bar, o ang taskbar ng mga desktop build ng Android (itinatakda ang qemu.hw.mainkeys=0). I-on sa pag-import para lang sa mga desktop build, at i-off para sa lahat ng ibang image. Magkakabisa sa susunod na buong boot.</string>
+    <string name="th_group_plain">Mga payak na tema</string>
+    <string name="th_group_skins">Mga tema ng skin ng device (ni @regectt)</string>
+    <string name="th_group_custom">Mga custom na tema</string>
+    <string name="th_custom_empty">Wala pang custom na tema. I-tap ang “Bagong tema” para gumawa ng isa, o mag-import ng .aetheme file. Hindi mababago ang mga payak na tema at skin ng device: mag-duplicate ng isa para i-edit ito.</string>
+    <string name="th_expand">Palawakin ang listahan</string>
+    <string name="th_collapse">I-collapse ang listahan</string>
+    <string name="vs_art_boot_image">Gamitin ang ART boot image (Android 14+)</string>
+    <string name="vs_art_boot_image_sub">Naka-off: tumatakbo ang guest nang walang boot image. Mas mabagal ang pagsisimula, pero walang maaaring pumalya sa image. Naka-on: naghahanda ang emulator ng boot image para sa runtime na ito (isang beses gagawin sa susunod na pagsisimula, na medyo matagal).</string>
+    <string name="vs_no_watchdog">I-disable ang system watchdog (Android 14+)</string>
+    <string name="vs_no_watchdog_sub">Para sa boot na mas mabagal kaysa sa 60 s na limitasyon ng watchdog ng Android, na paulit-ulit na pumapatay sa system_server. Pini-patch ang services.jar ng firmware para agad na magtapos ang watchdog thread; ang tunay na system deadlock ay hindi na maaayos ng restart. Hindi pinapansin ang precompiled na code ng jar, na maaaring magpabagal sa unang boot. Kapag in-off, maibabalik ang orihinal na jar. Magkakabisa sa susunod na buong boot.</string>
+    <string name="folder_new">Bagong folder</string>
+    <string name="folder_new_dots">Bagong folder…</string>
+    <string name="folder_rename">Palitan ang pangalan ng folder</string>
+    <string name="folder_delete">I-delete ang folder (mananatili ang mga ROM)</string>
+    <string name="folder_move">Ilipat sa folder</string>
+    <string name="folder_none">Wala sa folder</string>
+    <string name="folder_default_name">Folder</string>
+    <string name="folder_empty">Walang laman — i-drop dito ang mga ROM</string>
+    <string name="folder_open">Buksan ang folder</string>
+    <string name="folder_close">Isara ang folder</string>
+    <plurals name="folder_roms">
+        <item quantity="one">%1$d ROM</item>
+        <item quantity="other">%1$d na ROM</item>
+    </plurals>
+    <string name="phantom_title">Phantom process killer</string>
+    <string name="phantom_msg">Hindi naka-enable sa iyong device ang opsyong “I-disable ang mga paghihigpit sa child process” sa Developer Options. Ibig sabihin, papatayin ang zygote sa pagsisimula ng emulator, kaya hindi makakapag-boot ang emulator. Kaya HIGHLY RECOMMENDED na i-enable ito.</string>
+    <string name="phantom_open_dev">Buksan ang Developer Options</string>
+    <string name="phantom_ignore">Huwag pansinin</string>
+    <string name="phantom_never">Huwag nang ipaalala</string>
 </resources>

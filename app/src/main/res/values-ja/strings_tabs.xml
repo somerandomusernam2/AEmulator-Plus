@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Added for AEmulator Plus, 2026-11-10: tabs and several machines at once -->
+<resources>
+    <string name="tab_home">ライブラリ</string>
+    <string name="tab_close">タブを閉じる</string>
+    <string name="tab_close_title">%1$s を閉じますか？</string>
+    <string name="tab_close_text">「最小化」はタブを閉じ、マシンはバックグラウンドで動作し続けます。ライブラリからもう一度開けます。「シャットダウン」はマシンの電源を切ります。</string>
+    <string name="tab_minimize">最小化</string>
+    <string name="tab_shutdown">シャットダウン</string>
+    <string name="vm_slots_full">%1$d 個のマシンスロットがすべて使用中です。先にどれか 1 台をシャットダウンしてください。</string>
+</resources>

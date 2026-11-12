@@ -30,4 +30,17 @@
     <string name="bluetooth_permission_denied">Bluetooth-behörighet nekad: gästen startar utan värdens Bluetooth.</string>
     <string name="vs_sf_tombstone">SurfaceFlinger-kraschens tombstone (felsökning)</string>
     <string name="vs_sf_tombstone_sub">Om SurfaceFlinger kraschar låter detta firmware skriva en vanlig tombstone till loggen (med den funktion som kraschade) i stället för en kort rapport. Använd det när du skickar en felrapport. Gäller vid nästa fullständiga VM-start.</string>
+    <string name="vi_mouse_keyboard">Inmatning: mus och tangentbord</string>
+    <string name="vi_mouse_keyboard_sub">Registrerar en pekplatta och ett tangentbord i gästen och tar bort dess pekskärm. Skärmen blir en pekplatta (tryck för att klicka, två fingrar för att rulla) och en tangentbordsknapp visas i navigeringsfältet. Kräver QEMU-motorn (inte den inbyggda 64-bitarsmotorn) och en fullständig omstart av den virtuella datorn.</string>
+    <string name="vi_keypad">Inmatning: knappsats</string>
+    <string name="vi_keypad_sub">Lägger till en knappsatsknapp i navigeringsfältet: piltangenter, OK, funktionstangenter, Ring/Avsluta och 0–9 * # som på en knapptelefon. Pekskärmen fungerar som vanligt och knappsatsen kan kombineras med mus och tangentbord.</string>
+    <string name="vi_keyboard">Tangentbord</string>
+    <string name="vi_keypad_title">Knappsats</string>
+    <string name="vi_close">Stäng</string>
+    <string name="vi_open_keyboard">Tangentbord</string>
+    <string name="vi_open_keypad">Knappsats</string>
+    <string name="m_resize_screen">Ändra skärmstorlek</string>
+    <string name="m_resize_done">Storleksändring klar</string>
+    <string name="m_resize_reset">Återställ skärmstorlek</string>
+    <string name="vi_resize_hint">Dra i ett hörn av skärmen för att ändra storlek. Öppna menyn och tryck på ”Storleksändring klar” när du är klar.</string>
 </resources>
