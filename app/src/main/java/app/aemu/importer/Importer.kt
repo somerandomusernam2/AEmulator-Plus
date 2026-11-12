@@ -2480,8 +2480,10 @@ class Importer(
     // ------------------------------------------------------------------ образы ФС
 
     /**
-     * Set while the system partition image built from a block OTA (system.new.dat + transfer list) is imported: a SquashFS
-     * one cannot be rebuilt from its files later, so it is kept for delta OTAs ([StockImage]).
+     * Set while the system partition image built from a block OTA (system.new.dat + transfer list) is imported. No longer
+     * decides whether a SquashFS /system is kept: that is now every SquashFS system image read as is (a raw system.img
+     * from a zip, a recovered partition...), since it cannot be rebuilt from its files later and a delta OTA needs it
+     * ([StockImage]).
      */
     private var keepStockImage = false
 
@@ -2492,7 +2494,7 @@ class Importer(
         if (UbiFsReader.probe(src)) { importUbifs(src, mount); return }
         if (Yaffs2Reader.probe(src)) { importYaffs2(src, mount); return }
         if (ErofsReader.probe(src)) { importErofs(src, mount); return }
-        if (!Ext4Reader.probe(src)) { importOtherFilesystem(src, mount, keep = keepStockImage && mount == "system" && src === source); return }
+        if (!Ext4Reader.probe(src)) { importOtherFilesystem(src, mount, keep = mount == "system" && src === source); return }
         val fs = Ext4Reader(src)
         // Android 7+ A/B ("system-as-root"): the partition IS the root file system, /system is a folder in it.
         // Its top level (init*.rc, sepolicy, sbin/, default.prop...) is the ramdisk, so it goes to the guest root as is.

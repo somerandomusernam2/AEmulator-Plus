@@ -553,6 +553,7 @@ object DiagExport {
                 appendLine("$d/${f.name}: ${f.length()} bytes" + if (ours) " (the engine's stand-in, native/hwc1fb)" else "")
             }
         }
+        if (HwcFallback.disabled(p)) appendLine("stand-in composer: OFF for this image (surfaceflinger crashed with it; delete \"hwc-standin-off\" in the image directory to try it again)")
         appendLine()
         appendLine("-- HALs: what the manifest promises vs what the tree can start --")
         runCatching { append(halReport(p.root)) }.onFailure { appendLine("[failed: $it]") }

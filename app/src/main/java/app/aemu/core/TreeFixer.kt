@@ -4559,14 +4559,20 @@ class TreeFixer(
      * display allocated?", the built-in displays being marked only on the hwc path), so every frame waits out
      * "Timed out waiting for hw vsync; faking it". The engine's own composer (native/hwc1fb) is a minimal HWC 1.1: GLES does
      * all the drawing and it supplies the vsync, so SurfaceFlinger takes the path every real device takes, with its code
-     * unpatched. Only for a firmware that has no composer module left; one that has is not touched.
+     * unpatched. Only for a firmware that has no composer module left; one that has is not touched. It goes into every such
+ * image first; if surfaceflinger crashes with it, GuestVm takes it out again and restarts (see [HwcFallback]).
      */
     private fun framebufferComposer() = runCatching {
         if (engine != Engine.KK || img.arch != GuestArch.ARM || img.api !in 17..19) return@runCatching
         if (!File(root, "system/lib/libsurfaceflinger.so").isFile) return@runCatching
         val dst = File(root, "system/lib/hw/hwcomposer.default.so")
         // ours, from this or an earlier build: the module carries its own name string
-        val ours = dst.isFile && !isLink(dst) && runCatching { String(dst.readBytes(), Charsets.ISO_8859_1).contains("AEmulator framebuffer hwcomposer") }.getOrDefault(false)
+        val ours = HwcFallback.isStandIn(dst)
+        // a SurfaceFlinger of this image crashed with the stand-in before (HwcFallback): it stays out, the image runs on the fb HAL
+        if (HwcFallback.disabled(paths)) {
+            if (HwcFallback.remove(root)) log("hwcomposer: stand-in composer removed (surfaceflinger crashed with it on this image; file \"hwc-standin-off\" in the image directory)")
+            return@runCatching
+        }
         // escape hatch for bisecting: an empty file named "nohwc" in the image's directory leaves SurfaceFlinger on the fb HAL alone
         if (File(paths.dir, "nohwc").isFile) {
             if (ours && dst.delete()) log("hwcomposer: stand-in composer removed (file \"nohwc\" in the image directory)")

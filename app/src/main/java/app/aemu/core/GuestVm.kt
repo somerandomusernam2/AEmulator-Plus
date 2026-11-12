@@ -2031,6 +2031,7 @@ class GuestVm(val ctx: Context, val img: GuestImage, val lowPowerBoot: Boolean =
             if (!stopping && code != 0 && !QemuFallback.enabled(paths) &&
                 runCatching { QemuFallback.isLinkFailure(QemuFallback.lastRun(log.readText(), name)) }.getOrDefault(false))
                 fallbackToPatchedQemu(name)
+            if (!stopping && name == "surfaceflinger" && HwcFallback.isCrashExit(code)) fallbackWithoutHwc()
             // a restarted service is already running again under this name
             synchronized(procs) { if (procs[name].let { it == null || it === p }) props.put("init.svc.$name", "stopped") }
         }, "log-$name").apply { isDaemon = true; start() }
@@ -2101,6 +2102,21 @@ class GuestVm(val ctx: Context, val img: GuestImage, val lowPowerBoot: Boolean =
         if (!binderProtocolRetried.compareAndSet(false, true)) return
         BinderProtocol.save(paths.bin, wanted)
         log("✖ $name: binder driver speaks protocol $driver, the firmware wants $wanted; remembered, starting the system again with protocol $wanted")
+        onPower?.invoke(true, "")
+    }
+
+    private val hwcFallbackStarted = java.util.concurrent.atomic.AtomicBoolean(false)
+
+    /**
+     * surfaceflinger crashed before the system had booted while the engine's stand-in hwcomposer (TreeFixer.framebufferComposer)
+     * was in the tree: remember that this image does not take it, take it out and start the system again, once.
+     */
+    private fun fallbackWithoutHwc() {
+        if (bootDoneAt != 0L || everBooted || !HwcFallback.installed(paths.root)) return
+        if (!hwcFallbackStarted.compareAndSet(false, true)) return
+        if (!HwcFallback.disable(paths)) { log("surfaceflinger: cannot remember the composer choice"); return }
+        log("✖ surfaceflinger crashed with the stand-in hwcomposer; it is left out of this image from now on, starting the system again")
+        HwcFallback.remove(paths.root)
         onPower?.invoke(true, "")
     }
 
