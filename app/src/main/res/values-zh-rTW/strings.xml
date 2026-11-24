@@ -540,4 +540,6 @@
     <string name="vs_no_dex2oat_sub">應用程式與系統程式碼永遠不會在客體中編譯：每次 dex2oat 執行都會立即失敗。警告：可能導致當機、畫面異常等非預期行為（應用程式變慢，部分韌體無編譯則無法開機）。預設關閉。下次完整啟動時生效。</string>
     <string name="m_multitask">多工切換</string>
     <string name="nav_show">顯示 Android 按鈕列</string>
+    <string name="vs_folder_share">資料夾共用</string>
+    <string name="vs_folder_share_sub">/sdcard/AEmulatorPlus &lt;-&gt; /sdcard/AEmulatorPlus</string>
 </resources>

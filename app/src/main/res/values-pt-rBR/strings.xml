@@ -540,4 +540,6 @@
     <string name="vs_skip_perm_wait_sub">Para firmware x86 em um telefone ARM, em que o app do controlador de permissões demora mais de 60 s para responder e o system_server é encerrado (\"Error granting/upgrading runtime permissions\"). Modifica o services.jar do firmware para que a inicialização não espere as concessões padrão de permissões de execução; apps pré-instalados então não recebem essas permissões na inicialização. dex2oat é impedido de recompilar o jar modificado. Desativar restaura o jar original. Surte efeito na próxima inicialização completa.</string>
     <string name="m_multitask">Alternância de tarefas</string>
     <string name="nav_show">Mostrar barra de botões do Android</string>
+    <string name="vs_folder_share">Compartilhar pasta</string>
+    <string name="vs_folder_share_sub">/sdcard/AEmulatorPlus &lt;-&gt; /sdcard/AEmulatorPlus</string>
 </resources>

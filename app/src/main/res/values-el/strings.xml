@@ -549,4 +549,6 @@
     <string name="vs_no_dex2oat_sub">Οι εφαρμογές και ο κώδικας συστήματος δεν μεταγλωττίζονται ποτέ στο φιλοξενούμενο σύστημα: κάθε εκτέλεση dex2oat αποτυγχάνει αμέσως. Προειδοποίηση: μπορεί να προκαλέσει καταρρεύσεις, προβλήματα εμφάνισης και άλλη ανεπιθύμητη συμπεριφορά (οι εφαρμογές τρέχουν πιο αργά, ορισμένα firmware δεν εκκινούν χωρίς μεταγλώττιση). Ανενεργό από προεπιλογή. Ισχύει από την επόμενη πλήρη εκκίνηση.</string>
     <string name="m_multitask">Εναλλαγή εργασιών</string>
     <string name="nav_show">Εμφάνιση της γραμμής κουμπιών Android</string>
+    <string name="vs_folder_share">Κοινή χρήση φακέλου</string>
+    <string name="vs_folder_share_sub">/sdcard/AEmulatorPlus &lt;-&gt; /sdcard/AEmulatorPlus</string>
 </resources>

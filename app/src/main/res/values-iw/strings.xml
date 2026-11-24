@@ -550,4 +550,6 @@
     <string name="vs_no_dex2oat_sub">אפליקציות וקוד מערכת לעולם לא מהודרים במערכת האורחת: כל הרצה של dex2oat נכשלת מיד. אזהרה: הדבר עלול לגרום קריסות, תקלות תצוגה והתנהגות בלתי צפויה אחרת (האפליקציות אטיות יותר, חלק מהקושחות לא נדלקות בלי הידור). כבוי כברירת מחדל. יופעל בהפעלה המלאה הבאה.</string>
     <string name="m_multitask">החלפת משימות</string>
     <string name="nav_show">הצג את סרגל הכפתורים של Android</string>
+    <string name="vs_folder_share">שיתוף תיקייה</string>
+    <string name="vs_folder_share_sub">/sdcard/AEmulatorPlus &lt;-&gt; /sdcard/AEmulatorPlus</string>
 </resources>

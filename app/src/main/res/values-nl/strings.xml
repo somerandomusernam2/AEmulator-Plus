@@ -549,4 +549,6 @@
     <string name="vs_no_dex2oat_sub">Apps en systeemcode worden in de gast nooit gecompileerd: elke dex2oat-run faalt meteen. Waarschuwing: dit kan crashes, glitches en ander onbedoeld gedrag veroorzaken (apps werken langzamer, sommige firmware start niet zonder compilatie). Standaard uit. Gaat in bij de volgende volledige start.</string>
     <string name="m_multitask">Taakwissel</string>
     <string name="nav_show">Android-knoppenbalk tonen</string>
+    <string name="vs_folder_share">Map delen</string>
+    <string name="vs_folder_share_sub">/sdcard/AEmulatorPlus &lt;-&gt; /sdcard/AEmulatorPlus</string>
 </resources>

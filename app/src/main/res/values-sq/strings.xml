@@ -548,4 +548,6 @@
     <string name="vs_no_dex2oat_sub">Aplikacionet dhe kodi i sistemit nuk përkthehen kurrë në sistemin e ftuar: çdo xhim dex2oat dështon menjëherë. Kujdes: kjo mund të shkaktojë vithisje, probleme pamjeje dhe sjellje të papritura të tjera (aplikacionet ecin më ngadalë, disa firmware nisen pa përkthim). Çaktivizuar si parazgjedhje. Zbatohet në nisjen e plotë të radhës.</string>
     <string name="m_multitask">Ndërrimi i detyrave</string>
     <string name="nav_show">Shfaq shiritin e butonave të Android-it</string>
+    <string name="vs_folder_share">Ndarja e dosjes</string>
+    <string name="vs_folder_share_sub">/sdcard/AEmulatorPlus &lt;-&gt; /sdcard/AEmulatorPlus</string>
 </resources>

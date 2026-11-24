@@ -540,4 +540,6 @@
     <string name="vs_no_dex2oat_sub">Ứng dụng và mã hệ thống không bao giờ được biên dịch trong hệ điều hành khách: mỗi lần chạy dex2oat đều thất bại ngay. Cảnh báo: điều này có thể gây sự cố, lỗi hiển thị và hành vi ngoài ý muốn (ứng dụng chạy chậm hơn, một số firmware không boot nếu không biên dịch). Tắt theo mặc định. Có hiệu lực ở lần khởi động đầy đủ tiếp theo.</string>
     <string name="m_multitask">Chuyển tác vụ</string>
     <string name="nav_show">Hiện thanh nút Android</string>
+    <string name="vs_folder_share">Chia sẻ thư mục</string>
+    <string name="vs_folder_share_sub">/sdcard/AEmulatorPlus &lt;-&gt; /sdcard/AEmulatorPlus</string>
 </resources>

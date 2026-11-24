@@ -540,4 +540,6 @@
     <string name="vs_no_dex2oat_sub">แอปและโค้ดของระบบจะไม่ถูกคอมไพล์ในเกสต์เลย การรัน dex2oat ทุกครั้งจะล้มเหลวทันที คำเตือน: อาจทำให้แอปพัง จอกระตุก หรือทำงานผิดปกติอย่างอื่นได้ (แอปทำงานช้าลง บางเฟิร์มแวร์บูตไม่ได้ถ้าไม่คอมไพล์) ปิดอยู่โดยค่าเริ่มต้น มีผลตั้งแต่การเริ่มระบบแบบเต็มครั้งถัดไป</string>
     <string name="m_multitask">สลับงาน</string>
     <string name="nav_show">แสดงแถบปุ่ม Android</string>
+    <string name="vs_folder_share">แชร์โฟลเดอร์</string>
+    <string name="vs_folder_share_sub">/sdcard/AEmulatorPlus &lt;-&gt; /sdcard/AEmulatorPlus</string>
 </resources>

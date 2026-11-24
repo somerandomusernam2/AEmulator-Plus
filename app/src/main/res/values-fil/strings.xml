@@ -540,4 +540,6 @@
     <string name="vs_no_dex2oat_sub">Hindi kailanman naco-compile ang mga app at system code sa guest: agad na nabibigo ang bawat pagtakbo ng dex2oat. Babala: maaaring magdulot ito ng mga crash, glitch, at ibang hindi inaasahang gawi (mabagal ang mga app, hindi makaboot ang ilang firmware nang walang compilation). Nakapatay bilang default. Magkakabisa sa susunod na full start.</string>
     <string name="m_multitask">Paglipat ng gawain</string>
     <string name="nav_show">Ipakita ang bar ng mga button ng Android</string>
+    <string name="vs_folder_share">Pagbabahagi ng folder</string>
+    <string name="vs_folder_share_sub">/sdcard/AEmulatorPlus &lt;-&gt; /sdcard/AEmulatorPlus</string>
 </resources>

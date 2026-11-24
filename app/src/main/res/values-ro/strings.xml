@@ -551,4 +551,6 @@
     <string name="vs_no_dex2oat_sub">Aplicațiile și codul de sistem nu sunt niciodată compilate în sistemul invitat: fiecare rulare dex2oat eșuează imediat. Avertisment: poate cauza blocări, erori de afișare și alt comportament nedorit (aplicațiile merg mai lent, unele firmware nu pornesc fără compilare). Dezactivat implicit. Se aplică la următoarea pornire completă.</string>
     <string name="m_multitask">Comutarea sarcinilor</string>
     <string name="nav_show">Afișează bara de butoane Android</string>
+    <string name="vs_folder_share">Partajarea folderului</string>
+    <string name="vs_folder_share_sub">/sdcard/AEmulatorPlus &lt;-&gt; /sdcard/AEmulatorPlus</string>
 </resources>

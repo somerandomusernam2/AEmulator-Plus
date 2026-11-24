@@ -540,4 +540,6 @@
     <string name="vs_no_dex2oat_sub">应用和系统代码永远不会在客户机中编译：每次 dex2oat 运行都会立即失败。警告：可能导致崩溃、花屏等异常行为（应用运行变慢，部分固件离开编译无法启动）。默认关闭。下次完整启动时生效。</string>
     <string name="m_multitask">多任务切换</string>
     <string name="nav_show">显示 Android 按键栏</string>
+    <string name="vs_folder_share">文件夹共享</string>
+    <string name="vs_folder_share_sub">/sdcard/AEmulatorPlus &lt;-&gt; /sdcard/AEmulatorPlus</string>
 </resources>

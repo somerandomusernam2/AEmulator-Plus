@@ -540,4 +540,6 @@
     <string name="vs_no_dex2oat_sub">Uygulamalar ve sistem kodu konukta asla derlenmez: her dex2oat çalışması anında başarısız olur. Uyarı: bu, çökmelere, bozulmalara ve diğer istenmeyen davranışlara yol açabilir (uygulamalar yavaşlar, bazı cihaz yazılımları derleme olmadan açılmaz). Varsayılan olarak kapalı. Bir sonraki tam başlatmada uygulanır.</string>
     <string name="m_multitask">Görev değiştirme</string>
     <string name="nav_show">Android düğme çubuğunu göster</string>
+    <string name="vs_folder_share">Klasör paylaşımı</string>
+    <string name="vs_folder_share_sub">/sdcard/AEmulatorPlus &lt;-&gt; /sdcard/AEmulatorPlus</string>
 </resources>

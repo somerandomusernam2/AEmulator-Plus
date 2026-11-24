@@ -200,6 +200,7 @@ class GuestVm(val ctx: Context, val img: GuestImage, val lowPowerBoot: Boolean =
     val hostBatteryFollowing get() = battery.following
     val hostBatteryLevel get() = battery.latest?.percent ?: 80
     val hostBatteryCharging get() = battery.latest?.status in listOf(2, 5)
+    private var folderShare: FolderShare? = null
     private val motion = MotionBridge(ctx, paths, { img.api in 9..25 && engine != Engine.N64 && !recoveryMode && !nativeUi }, { settings.motionSensors }, { settings.gyroLock }, ::log)
     fun motionVisible(visible: Boolean) { motion.visible(visible) }
     fun simulateRotation() = motion.simulateRotation()
@@ -584,6 +585,12 @@ class GuestVm(val ctx: Context, val img: GuestImage, val lowPowerBoot: Boolean =
         TreeFixer(ctx, paths, img, ::log).fixup()   // framebuffer, input node
         battery.start()
         val sd = Sdcard.setup(ctx, paths, img, ::log)
+        folderShare = sd?.let {
+            FolderShare(it, File(paths.bin, "folder-share.state"), ::log).also { f ->
+                f.setEnabled(settings.folderShare && FolderShare.access(ctx))
+                f.start()
+            }
+        }
         val prep = RecoveryImage.prepare(paths, sd, ::log, img.api, settings)
         input.sinkProtocolB = prep.touchProtocolB
         prep.format?.let { recoveryFormat = it; log("recovery framebuffer: ${when (it) { 0 -> "RGB565"; 2 -> "BGRA_8888"; else -> "32-bit RGBX" }}") }
@@ -790,6 +797,12 @@ class GuestVm(val ctx: Context, val img: GuestImage, val lowPowerBoot: Boolean =
         if (File(paths.root, "system/.aemu-parked/system#lib#hw#audio_policy.default.so").isFile) swapAudioPolicy()
         GuestLog.clear(paths.root)
         val sd = Sdcard.setup(ctx, paths, img, ::log)
+        folderShare = sd?.let {
+            FolderShare(it, File(paths.bin, "folder-share.state"), ::log).also { f ->
+                f.setEnabled(settings.folderShare && FolderShare.access(ctx))
+                f.start()
+            }
+        }
 
         // 2. свойства
         val s = settings
@@ -3914,6 +3927,7 @@ class GuestVm(val ctx: Context, val img: GuestImage, val lowPowerBoot: Boolean =
         try {
             step("vibration") { vibration.stop() }
             step("battery", 8_000) { battery.stop() }
+            step("folderShare", 8_000) { folderShare?.stop(); folderShare = null }
             step("camera") { camera.stop() }
             step("microphone") { microphone.stop() }
             step("bluetooth") { bluetooth.stop() }

@@ -548,4 +548,6 @@
     <string name="vs_skip_perm_wait_sub">ARM հեռախոսի վրա x86 կրճատումների համար, որտեղ թույլատրությունների վերահսկիչ հավելվածը շատ դանդաղ է պատասխանում 60 վրկ-ում և system_server-ը սպանվում է (\"Error granting/upgrading runtime permissions\")։ Ուղղում է կրճատման services.jar-ը, որ բացումը չսպասի լռելյայն գործարկման թույլատրությունների տրմանը. նախատեղադրված հավելվածները այդ դեպքում չեն ստանում այդ թույլատրությունները բացման ժամանակ։ dex2oat-ին թույլ չի տրվում վերակոմպիլացնել ուղղված jar-ը։ Անջատելը վերականգնում է սկզբնական jar-ը։ Գործում է հաջորդ լիարժեք բացման ժամանակ։</string>
     <string name="m_multitask">Խնդիրների հերթափոխում</string>
     <string name="nav_show">Ցուցադրել Android-ի կոճակների վահանակը</string>
+    <string name="vs_folder_share">Պանակի ընդհանուր օգտագործում</string>
+    <string name="vs_folder_share_sub">/sdcard/AEmulatorPlus &lt;-&gt; /sdcard/AEmulatorPlus</string>
 </resources>

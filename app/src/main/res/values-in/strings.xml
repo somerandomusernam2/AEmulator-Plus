@@ -540,4 +540,6 @@
     <string name="vs_no_dex2oat_sub">Aplikasi dan kode sistem tidak pernah dikompilasi di guest: setiap eksekusi dex2oat langsung gagal. Peringatan: ini dapat menyebabkan crash, glitch, dan perilaku tak diinginkan lainnya (aplikasi berjalan lebih lambat, sebagian firmware tidak bisa boot tanpa kompilasi). Nonaktif secara bawaan. Berlaku pada mulai penuh berikutnya.</string>
     <string name="m_multitask">Beralih tugas</string>
     <string name="nav_show">Tampilkan bilah tombol Android</string>
+    <string name="vs_folder_share">Berbagi folder</string>
+    <string name="vs_folder_share_sub">/sdcard/AEmulatorPlus &lt;-&gt; /sdcard/AEmulatorPlus</string>
 </resources>

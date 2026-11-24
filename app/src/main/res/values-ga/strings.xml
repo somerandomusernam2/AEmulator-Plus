@@ -553,4 +553,6 @@
     <string name="vs_no_dex2oat_sub">Ní chuirtear aipeanna agus córaschód i gcrích sa chóras aíochta riamh: theipeann ar gach rith dex2oat láithreach bonn. Rabhadh: d’fhéadfadh seo tuairteanna, botúin agus iompar gan choinne eile a chruthú (riteann aipeanna níos moille, ní féidir le roinnt firmware tosú gan tiomsú). Díchumasaithe de réir réamhshocraithe. Cuirfear i bhfeidhm ag an gcéad tosú iomlán eile.</string>
     <string name="m_multitask">Malairt tascanna</string>
     <string name="nav_show">Taispeáin an barra cnaipí Android</string>
+    <string name="vs_folder_share">Comhroinnt fillteán</string>
+    <string name="vs_folder_share_sub">/sdcard/AEmulatorPlus &lt;-&gt; /sdcard/AEmulatorPlus</string>
 </resources>

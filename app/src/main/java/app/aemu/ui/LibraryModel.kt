@@ -11,6 +11,8 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import app.aemu.core.GuestImage
 import app.aemu.core.ImageStore
+import app.aemu.core.VmPaths
+import java.io.File
 import app.aemu.core.VmSettings
 import app.aemu.importer.Importer
 import app.aemu.importer.PartitionChooser
@@ -157,8 +159,14 @@ class LibraryModel(app: Application) : AndroidViewModel(app) {
     fun rename(img: GuestImage, name: String) = update(img) { it.copy(name = name) }
 
     /** [name] is the new machine name from the settings sheet; null or blank keeps the current one. */
-    fun updateSettings(img: GuestImage, s: VmSettings, name: String? = null) =
+    fun updateSettings(img: GuestImage, s: VmSettings, name: String? = null) {
+        runCatching {
+            val off = File(VmPaths(getApplication(), img.id).bin, "folder-share.off")
+            off.parentFile?.mkdirs()
+            if (s.folderShare) off.delete() else off.writeText("")
+        }
         update(img) { it.copy(settings = s, name = name?.trim()?.takeIf { n -> n.isNotEmpty() } ?: it.name) }
+    }
 
     private fun update(img: GuestImage, f: (GuestImage) -> GuestImage) {
         viewModelScope.launch(Dispatchers.IO) {

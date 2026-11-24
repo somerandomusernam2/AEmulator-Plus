@@ -548,4 +548,6 @@
     <string name="vs_skip_perm_wait_sub">ARM ফোনে x86 ফার্মওয়্যারের জন্য, যেখানে পারমিশন কন্ট্রোলার অ্যাপ ৬০ সেকেন্ডের মধ্যে উত্তর দিতে পারে না বলে system_server মারা যায় (\"Error granting/upgrading runtime permissions\")। ফার্মওয়্যারের services.jar প্যাচ করে যাতে বুট ডিফল্ট রানটাইম পারমিশন গ্রান্টের অপেক্ষা না করে; ফলে প্রি-ইনস্টলড অ্যাপ বুটে সেই পারমিশনগুলো পায় না। dex2oat প্যাচ করা jar আবার কম্পাইল করতে দেওয়া হয় না। বন্ধ করলে আসল jar ফিরে আসে। পরের পূর্ণ বুটে কার্যকর।</string>
     <string name="m_multitask">টাস্ক পরিবর্তন</string>
     <string name="nav_show">অ্যান্ড্রয়েড বোতাম বার দেখান</string>
+    <string name="vs_folder_share">ফোল্ডার শেয়ারিং</string>
+    <string name="vs_folder_share_sub">/sdcard/AEmulatorPlus &lt;-&gt; /sdcard/AEmulatorPlus</string>
 </resources>

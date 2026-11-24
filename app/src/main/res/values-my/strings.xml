@@ -547,4 +547,6 @@
     <string name="vs_skip_perm_wait_sub">ARM ဖုန်းပေါ်ရှိ x86 firmware အတွက်၊ ခွင့်ပြုချက် ထိန်းချုပ်မှု app သည် စက္ကန့် ၆၀ အတွင်း ဖြေဆိုရမှု နှေးကွေးလွန်း၍ system_server ကို ပိတ်လိုက်သည် (\"Error granting/upgrading runtime permissions\")။ firmware ၏ services.jar ကို ပက်ချ်ထား၍ ဘူးတ်လုပ်ဆောင်စဉ် မူလခွင့်ပြုချက် runtime ပေးအပ်မှုများကို မစောင့်ဆိုင်းရ- ထို့ကြောင့် ကြိုတင်ထည့်သွင်းထားသော app များသည် ဘူးတ်ချိန်တွင် ထိုခွင့်ပြုချက်များ မရရှိပါ။ dex2oat သည် ပက်ချ်လုပ်ထားသော jar ကို ပြန်ကွန်ပိုင်းခွင့် မပြုပါ။ ပိတ်လိုက်ပါက မူလ jar ပြန်ရရှိသည်။ နောက်တစ်ကြိမ် အပြည့်အဝ ဘူးတ်သောအခါ အကျိုးသက်ရောက်သည်။</string>
     <string name="m_multitask">အလုပ်များ ပြောင်းခြင်း</string>
     <string name="nav_show">Android ခလုတ်ဘားကို ပြပါ</string>
+    <string name="vs_folder_share">ဖိုလ်ဒါ မျှဝေခြင်း</string>
+    <string name="vs_folder_share_sub">/sdcard/AEmulatorPlus &lt;-&gt; /sdcard/AEmulatorPlus</string>
 </resources>

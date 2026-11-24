@@ -547,4 +547,6 @@
     <string name="vs_no_dex2oat_sub">Forrit og kerfiskóði eru aldrei þýddir í gestkerfinu: dex2oat fellur strax. Aðvörun: þetta getur valdið hrunum, glum og öðrum óæskilegum hegðunum (forrit keyra hægar, sum firmware ræsist ekki án þýðingar). Slökkt á sjálfgefið. Tekur gildi við næstu fullu ræsingu.</string>
     <string name="m_multitask">Verkskipti</string>
     <string name="nav_show">Sýna Android-hnappastiku</string>
+    <string name="vs_folder_share">Deiling möppu</string>
+    <string name="vs_folder_share_sub">/sdcard/AEmulatorPlus &lt;-&gt; /sdcard/AEmulatorPlus</string>
 </resources>

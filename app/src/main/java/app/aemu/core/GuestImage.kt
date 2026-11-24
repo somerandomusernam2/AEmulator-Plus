@@ -54,6 +54,7 @@ data class VmSettings(
     val showLed: Boolean = true,
     val vibration: Boolean = true,
     val hostBattery: Boolean = true,
+    val folderShare: Boolean = false,
     /** Explicit host-camera opt-in; applies at the next full VM boot. */
     val camera: Boolean = false,
     /** Explicit host-microphone opt-in (guest app records from the phone microphone); applies at the next full VM boot. */
@@ -200,6 +201,7 @@ data class VmSettings(
         .put("keepScreenOn", keepScreenOn).put("showLed", showLed).put("native32", native32).put("translate32", translate32).put("mtMode", mtMode).put("legacyEngine", legacyEngine)
         .put("vibration", vibration)
         .put("hostBattery", hostBattery)
+        .put("folderShare", folderShare)
         .put("camera", camera)
         .put("microphone", microphone)
         .put("bluetooth", bluetooth)
@@ -349,6 +351,7 @@ data class VmSettings(
                 showLed = o.optBoolean("showLed", d.showLed),
                 vibration = o.optBoolean("vibration", d.vibration),
                 hostBattery = o.optBoolean("hostBattery", d.hostBattery),
+                folderShare = o.optBoolean("folderShare", d.folderShare),
                 camera = o.optBoolean("camera", d.camera),
                 microphone = o.optBoolean("microphone", d.microphone),
                 bluetooth = o.optBoolean("bluetooth", d.bluetooth),

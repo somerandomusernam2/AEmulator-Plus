@@ -551,4 +551,6 @@
     <string name="vs_no_dex2oat_sub">Programmalar we ulgam kody myhmonda hiç wagt kompillelenýär: dex2oat-yň her bir işe girizişi derrew şowsuz gutarýar. Duýduryş: bu döwülmelere, näsazlyklara we beýleki islenmedik hereketlere sebäp bolup biler (programmalar haýal işleýär, käbir firmware kompillesiz başlanmaýar). Standart boýunça öçürilen. Indiki doly başlatmakda giltutarýar.</string>
     <string name="m_multitask">Tapgyrtlary çalşyrmak</string>
     <string name="nav_show">Android düwmeler panelini görkez</string>
+    <string name="vs_folder_share">Bukjany paýlaşmak</string>
+    <string name="vs_folder_share_sub">/sdcard/AEmulatorPlus &lt;-&gt; /sdcard/AEmulatorPlus</string>
 </resources>

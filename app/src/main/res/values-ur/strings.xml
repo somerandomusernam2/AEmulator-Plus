@@ -540,4 +540,6 @@
     <string name="vs_no_dex2oat_sub">ایپس اور سسٹم کوڈ مہمان سسٹم میں کبھی کمپائل نہیں ہوتے: dex2oat کا ہر چلنا فوراً ناکام ہوتا ہے۔ وارننگ: اس سے کریشز، گلچز اور دیگر غیر متوقع رویے ہو سکتے ہیں (ایپس سست چلتی ہیں، کچھ فرم ویئر کمپائل کے بغیر بوٹ نہیں ہوتے)۔ بطور ڈیفالٹ بند ہے۔ اگلی مکمل شروعات پر لاگو ہوتا ہے۔</string>
     <string name="m_multitask">کام کی تبدیلی</string>
     <string name="nav_show">Android بٹن بار دکھائیں</string>
+    <string name="vs_folder_share">فولڈر شیئرنگ</string>
+    <string name="vs_folder_share_sub">/sdcard/AEmulatorPlus &lt;-&gt; /sdcard/AEmulatorPlus</string>
 </resources>

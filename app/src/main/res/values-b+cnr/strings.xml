@@ -549,4 +549,6 @@
     <string name="vs_no_dex2oat_sub">Aplikacije i sistemski kod se nikad ne kompajliraju u gostujućem sistemu: svaki dex2oat odmah propadne. Upozorenje: ovo može prouzrokovati padove, greške i neočekivano ponašanje (aplikacije rade sporije, neki firmware se ne pokreće bez kompajliranja). Podrazumijevano isključeno. Primjenjuje se pri sljedećem potpunom pokretanju.</string>
     <string name="m_multitask">Пребацивање задатака</string>
     <string name="nav_show">Прикажи траку Android дугмади</string>
+    <string name="vs_folder_share">Deljenje foldera</string>
+    <string name="vs_folder_share_sub">/sdcard/AEmulatorPlus &lt;-&gt; /sdcard/AEmulatorPlus</string>
 </resources>

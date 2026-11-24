@@ -550,4 +550,6 @@
     <string name="vs_no_dex2oat_sub">Lietotnes un sistēmas kods viesos nekad netiek kompilēts: katrs dex2oat izpildes mēģinājums uzreiz izgāžas. Brīdinājums: tas var izraisīt avārijas, kļūdas un citu neparedzētu uzvedību (lietotnes darbojas lēnāk, daži firmware bez kompilēšanas nedarbojas). Pēc noklusējuma izslēgts. Stājas spēkā nākamajā pilnajā palaišanas reizē.</string>
     <string name="m_multitask">Uzdevumu pārslēgšana</string>
     <string name="nav_show">Rādīt Android pogu joslu</string>
+    <string name="vs_folder_share">Mapes koplietošana</string>
+    <string name="vs_folder_share_sub">/sdcard/AEmulatorPlus &lt;-&gt; /sdcard/AEmulatorPlus</string>
 </resources>

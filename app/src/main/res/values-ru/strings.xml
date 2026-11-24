@@ -540,4 +540,6 @@
     <string name="vs_no_dex2oat_sub">Приложения и системный код никогда не компилируются в гостевой системе: каждый запуск dex2oat сразу завершается ошибкой. Внимание: возможны сбои, артефакты и другое непредвиденное поведение (приложения работают медленнее, некоторые прошивки не грузятся без компиляции). Выключено по умолчанию. Применяется при следующем полном запуске.</string>
     <string name="m_multitask">Переключение задач</string>
     <string name="nav_show">Показать панель кнопок Android</string>
+    <string name="vs_folder_share">Общий доступ к папке</string>
+    <string name="vs_folder_share_sub">/sdcard/AEmulatorPlus &lt;-&gt; /sdcard/AEmulatorPlus</string>
 </resources>

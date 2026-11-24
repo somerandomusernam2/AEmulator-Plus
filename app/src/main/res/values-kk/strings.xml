@@ -549,4 +549,6 @@
     <string name="vs_no_dex2oat_sub">Қосымшалар мен жүйелік код қонақ жүйеде ешқашан компиляцияланбайды: dex2oat-тың әрбір іске қосуы бірден сәтсіз аяқталады. Ескерту: бұл жүйенің құлауына, ақауларға және басқа болжамсыз жұмысқа әкелуі мүмкін (қосымшалар баяу жұмыс істейді, кейбір прошивкалар компиляциясыз жүктелмейді). Әдепкіде өшірілген. Келесі толық іске қосылғанда қолданылады.</string>
     <string name="m_multitask">Тапсырмаларды ауыстыру</string>
     <string name="nav_show">Android түймелер тақтасын көрсету</string>
+    <string name="vs_folder_share">Қалтаны бөлісу</string>
+    <string name="vs_folder_share_sub">/sdcard/AEmulatorPlus &lt;-&gt; /sdcard/AEmulatorPlus</string>
 </resources>

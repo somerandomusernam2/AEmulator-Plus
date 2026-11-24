@@ -540,4 +540,6 @@
     <string name="vs_no_dex2oat_sub">As aplicações e o código de sistema nunca são compilados no convidado: cada execução de dex2oat falha de imediato. Aviso: pode causar falhas, problemas visuais e outro comportamento não intencional (as aplicações ficam mais lentas, alguns firmware não arrancam sem compilação). Desativado por predefinição. Aplica-se no próximo arranque completo.</string>
     <string name="m_multitask">Alternância de tarefas</string>
     <string name="nav_show">Mostrar a barra de botões do Android</string>
+    <string name="vs_folder_share">Partilha de pasta</string>
+    <string name="vs_folder_share_sub">/sdcard/AEmulatorPlus &lt;-&gt; /sdcard/AEmulatorPlus</string>
 </resources>

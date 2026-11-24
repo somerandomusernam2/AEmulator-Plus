@@ -540,4 +540,6 @@
     <string name="vs_no_dex2oat_sub">Aplikacje i kod systemowy nigdy nie są kompilowane w systemie gościa: każde uruchomienie dex2oat od razu kończy się błędem. Ostrzeżenie: może to powodować awarie, błędy i inne niezamierzone zachowanie (aplikacje działają wolniej, niektóre firmware nie uruchamiają się bez kompilacji). Domyślnie wyłączone. Zastosuje się przy następnym pełnym uruchomieniu.</string>
     <string name="m_multitask">Przełączanie zadań</string>
     <string name="nav_show">Pokaż pasek przycisków Androida</string>
+    <string name="vs_folder_share">Udostępnianie folderu</string>
+    <string name="vs_folder_share_sub">/sdcard/AEmulatorPlus &lt;-&gt; /sdcard/AEmulatorPlus</string>
 </resources>

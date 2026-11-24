@@ -540,4 +540,6 @@
     <string name="vs_no_dex2oat_sub">لا تُترجَم التطبيقات وشفرة النظام داخل النظام الضيف أبدًا: كل تشغيل لـ dex2oat يفشل فورًا. تحذير: قد يسبب هذا انهيارات وأعطالًا وسلوكيات غير مقصودة أخرى (تعمل التطبيقات ببطء، وبعض البرامج الثابتة لا تُقلع بدون الترجمة). متوقف افتراضيًا. يُطبَّق عند التشغيل الكامل القادم.</string>
     <string name="m_multitask">تبديل المهام</string>
     <string name="nav_show">إظهار شريط أزرار أندرويد</string>
+    <string name="vs_folder_share">مشاركة المجلد</string>
+    <string name="vs_folder_share_sub">/sdcard/AEmulatorPlus &lt;-&gt; /sdcard/AEmulatorPlus</string>
 </resources>

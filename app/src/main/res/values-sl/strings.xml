@@ -552,4 +552,6 @@
     <string name="vs_no_dex2oat_sub">Aplikacije in sistemska koda se v gostujočem sistemu nikoli ne kompilirajo: vsak zagon dex2oata takoj spodleti. Opozorilo: to lahko povzroči sesutja, napake in drugo nepredvidljivo vedenje (aplikacije delujejo počasneje, nekatere firmware se brez kompiliranja ne zaženejo). Privzeto onemogočeno. Uveljavi se ob naslednjem popolnem zagonu.</string>
     <string name="m_multitask">Preklapljanje med nalogami</string>
     <string name="nav_show">Pokaži vrstico gumbov Androida</string>
+    <string name="vs_folder_share">Skupna raba mape</string>
+    <string name="vs_folder_share_sub">/sdcard/AEmulatorPlus &lt;-&gt; /sdcard/AEmulatorPlus</string>
 </resources>

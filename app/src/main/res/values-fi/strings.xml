@@ -549,4 +549,6 @@
     <string name="vs_no_dex2oat_sub">Sovelluksia ja järjestelmäkoodia ei koskaan käännetä asiakasjärjestelmässä: jokainen dex2oat-ajo epäonnistuu heti. Varoitus: tämä voi aiheuttaa kaatumisia, toimintahäiriöitä ja muuta odottamatonta käyttäytymistä (sovellukset toimivat hitaammin, jokin firmware ei käynnisty ilman kääntämistä). Pois päältä oletuksena. Tulee voimaan seuraavalla täydellisellä käynnistyksellä.</string>
     <string name="m_multitask">Tehtävien vaihtaminen</string>
     <string name="nav_show">Näytä Androidin painikepalkki</string>
+    <string name="vs_folder_share">Kansion jakaminen</string>
+    <string name="vs_folder_share_sub">/sdcard/AEmulatorPlus &lt;-&gt; /sdcard/AEmulatorPlus</string>
 </resources>

@@ -549,4 +549,6 @@
     <string name="vs_no_dex2oat_sub">Apper og systemkode blir aldri kompilert i gjesten: hver dex2oat-kjøring feiler umiddelbart. Advarsel: dette kan forårsake krasjer, grafikkfeil og annet uønsket adferd (appene går tregere, noe firmware kan ikke starte uten kompilering). Av som standard. Treffer i kraft ved neste fulle oppstart.</string>
     <string name="m_multitask">Oppgavebytte</string>
     <string name="nav_show">Vis Androids knappelinje</string>
+    <string name="vs_folder_share">Mappedeling</string>
+    <string name="vs_folder_share_sub">/sdcard/AEmulatorPlus &lt;-&gt; /sdcard/AEmulatorPlus</string>
 </resources>

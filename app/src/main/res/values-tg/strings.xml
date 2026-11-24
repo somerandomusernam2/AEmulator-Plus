@@ -551,4 +551,6 @@
     <string name="vs_no_dex2oat_sub">Барномаҳо ва коди система дар системаи меҳмон ҳеҷ гоҳ тарҷума намешаванд: ҳар иҷрои dex2oat фавран ноком мешавад. Огоҳӣ: ин метавонад вайроншавӣ, хатоҳо ва рафтори пешбининшуда (барномаҳо суст кор мекунанд, баъзе прошивкаҳо бе тарҷума оғоз намешаванд) ба вуҷуд орад. Бо даромади хомӯш аст. Дар оғози пурраи навбатӣ татбиқ мешавад.</string>
     <string name="m_multitask">Иваз кардани вазифаҳо</string>
     <string name="nav_show">Намоиши панели тугмаҳои Android</string>
+    <string name="vs_folder_share">Мубодилаи ҷузвдон</string>
+    <string name="vs_folder_share_sub">/sdcard/AEmulatorPlus &lt;-&gt; /sdcard/AEmulatorPlus</string>
 </resources>

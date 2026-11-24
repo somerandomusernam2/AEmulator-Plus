@@ -547,4 +547,6 @@
     <string name="vs_no_dex2oat_sub">Tətbiqlər və sistem kodu qonaqda heç vaxt tərcümə olunmur: hər dex2oat işləməsi dərhal uğursuz olur. Xəbərdarlıq: bu, çökmələrə, pozuntulara və digər istənməyən davranışlara səbəb ola bilər (tətbiqlər yavaş işləyir, bəzi proqram təminatı tərcümə olmadan başlamır). Susdurulmuş halda deaktivdir. Növbəti tam başlanışda tətbiq olunur.</string>
     <string name="m_multitask">Tapşırıqların dəyişdirilməsi</string>
     <string name="nav_show">Android düymə panelini göstər</string>
+    <string name="vs_folder_share">Qovluq paylaşımı</string>
+    <string name="vs_folder_share_sub">/sdcard/AEmulatorPlus &lt;-&gt; /sdcard/AEmulatorPlus</string>
 </resources>

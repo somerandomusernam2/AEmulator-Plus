@@ -540,4 +540,6 @@
     <string name="vs_skip_perm_wait_sub">Für x86-Firmware auf einem ARM-Telefon, wo die Berechtigungssteuerung langsamer als 60 s antwortet und system_server deshalb beendet wird („Error granting/upgrading runtime permissions“). Patcht die services.jar der Firmware, sodass der Boot nicht auf die Standard-Laufzeitberechtigungen wartet; vorinstallierte Apps erhalten diese Berechtigungen dann beim Boot nicht. dex2oat wird daran gehindert, die gepatchte jar neu zu kompilieren. Ausschalten stellt die originale jar wieder her. Greift beim nächsten vollständigen Boot.</string>
     <string name="m_multitask">Aufgabenwechsel</string>
     <string name="nav_show">Android-Tastenleiste anzeigen</string>
+    <string name="vs_folder_share">Ordnerfreigabe</string>
+    <string name="vs_folder_share_sub">/sdcard/AEmulatorPlus &lt;-&gt; /sdcard/AEmulatorPlus</string>
 </resources>

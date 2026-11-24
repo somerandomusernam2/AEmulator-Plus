@@ -551,4 +551,6 @@
     <string name="vs_no_dex2oat_sub">Ilovalar va tizim kodi mehmonda hech qachon kompilyatsiya qilinmaydi: dex2oat ning har bir ishga tushirilishi darhol muvaffaqiyatsiz tugaydi. Ogohlantirish: bu qulflashlar, nosozliklar va boshqa kutilmagan xatti-harakatlarga olib kelishi mumkin (ilovalar sekin ishlaydi, ba’zi proshivkalar kompilyatsiyasiz yuklanmaydi). Standart bo’yicha o’chirilgan. Keyingi to’liq ishga tushirishda qo’llanadi.</string>
     <string name="m_multitask">Vazifalarni almashtirish</string>
     <string name="nav_show">Android tugmalar panelini ko‘rsatish</string>
+    <string name="vs_folder_share">Jildni ulashish</string>
+    <string name="vs_folder_share_sub">/sdcard/AEmulatorPlus &lt;-&gt; /sdcard/AEmulatorPlus</string>
 </resources>

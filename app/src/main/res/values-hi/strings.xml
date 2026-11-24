@@ -540,4 +540,6 @@
     <string name="vs_no_dex2oat_sub">ऐप्स और सिस्टम कोड गेस्ट में कभी संकलित नहीं होते: dex2oat का हर रन तुरंत विफल हो जाता है। चेतावनी: इससे क्रैश, गड़बड़ियाँ और अन्य अनपेक्षित व्यवहार हो सकता है (ऐप्स धीमे चलते हैं, कुछ फ़र्मवेयर संकलन के बिना बूट नहीं होते)। डिफ़ॉल्ट रूप से बंद। अगली पूर्ण शुरुआत पर लागू होता है।</string>
     <string name="m_multitask">कार्य बदलना</string>
     <string name="nav_show">Android बटन बार दिखाएँ</string>
+    <string name="vs_folder_share">फ़ोल्डर साझा करना</string>
+    <string name="vs_folder_share_sub">/sdcard/AEmulatorPlus &lt;-&gt; /sdcard/AEmulatorPlus</string>
 </resources>

@@ -551,4 +551,6 @@
     <string name="vs_no_dex2oat_sub">Апликације и системски код се никад не компилирају код госта: сваки dex2oat покушај одмах пропада. Упозорење: то може изазвати крашеве, грешке и друго непредвиђено понашање (апликације раде спорије, неки firmware се не покреће без компилације). Искључено подразумевано. Примењује се при следећем потпуном покретању.</string>
     <string name="m_multitask">Пребацивање задатака</string>
     <string name="nav_show">Прикажи Android траку са дугмадима</string>
+    <string name="vs_folder_share">Дељење фасцикле</string>
+    <string name="vs_folder_share_sub">/sdcard/AEmulatorPlus &lt;-&gt; /sdcard/AEmulatorPlus</string>
 </resources>

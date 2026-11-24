@@ -540,4 +540,6 @@
     <string name="vs_no_dex2oat_sub">Aplikasi dan kod sistem tidak pernah dikompil dalam sistem tetamu: setiap jalanan dex2oat terus gagal. Amaran: ini boleh menyebabkan ranap, kelicauan dan tingkah laku tidak diingini yang lain (aplikasi berjalan lebih perlahan, sesetengah firmware tidak dapat but tanpa kompilasi). Dinyahaktifkan secara lalai. Berkuat kuasa pada pelancaran penuh seterusnya.</string>
     <string name="m_multitask">Penukaran tugas</string>
     <string name="nav_show">Tunjukkan bar butang Android</string>
+    <string name="vs_folder_share">Perkongsian folder</string>
+    <string name="vs_folder_share_sub">/sdcard/AEmulatorPlus &lt;-&gt; /sdcard/AEmulatorPlus</string>
 </resources>

@@ -548,4 +548,6 @@
     <string name="vs_no_dex2oat_sub">Aplikace a systémový kód se v hostujícím systému nikdy nekompilují: každé spuštění dex2oat hned selže. Varování: může to způsobit pády, chyby a jiné neočekávané chování (aplikace běží pomaleji, některý firmware bez kompilace nenaběhne). Ve výchozím nastavení vypnuto. Projeví se při příštím úplném spuštění.</string>
     <string name="m_multitask">Přepínání úloh</string>
     <string name="nav_show">Zobrazit lištu tlačítek Androidu</string>
+    <string name="vs_folder_share">Sdílení složky</string>
+    <string name="vs_folder_share_sub">/sdcard/AEmulatorPlus &lt;-&gt; /sdcard/AEmulatorPlus</string>
 </resources>

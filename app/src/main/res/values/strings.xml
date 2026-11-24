@@ -587,4 +587,6 @@
         <item quantity="one">%1$d ROM</item>
         <item quantity="other">%1$d ROMs</item>
     </plurals>
+    <string name="vs_folder_share">Folder sharing</string>
+    <string name="vs_folder_share_sub">/sdcard/AEmulatorPlus &lt;-&gt; /sdcard/AEmulatorPlus</string>
 </resources>

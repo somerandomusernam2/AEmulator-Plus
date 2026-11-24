@@ -548,4 +548,6 @@
     <string name="vs_skip_perm_wait_sub">ARM ტელეფონზე x86 firmware-ისთვის, სადაც ნებართვების კონტროლერი აპი ძალიან ნელა პასუხობს 60 წმ-ში და system_server-ს კლავს (\"Error granting/upgrading runtime permissions\"). უპაჩავს firmware-ის services.jar-ს ისე, რომ ჩართვა არ ელოდება ნაგულისხმევი runtime ნებართვების გაცემას; წინასწარ დაინსტალირებული აპები მაშინ არ იღებენ ამ ნებართვებს ჩართვისას. dex2oat-ს ეკრძალება გაპაჩილი jar-ის ხელახლა კომპილირება. გამორთვა აღადგენს საწყის jar-ს. მოქმედებს შემდეგ სრულ ჩართვაზე.</string>
     <string name="m_multitask">დავალებების გადართვა</string>
     <string name="nav_show">Android-ის ღილაკების პანელის ჩვენება</string>
+    <string name="vs_folder_share">ფოლდერის გაზიარება</string>
+    <string name="vs_folder_share_sub">/sdcard/AEmulatorPlus &lt;-&gt; /sdcard/AEmulatorPlus</string>
 </resources>

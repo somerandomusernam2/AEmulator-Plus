@@ -548,4 +548,6 @@
     <string name="vs_no_dex2oat_sub">Rakendusi ja süsteemikoodi külalises kunagi ei kompileerita: iga dex2oat-i käivitamine nurjub kohe. Hoiatus: see võib põhjustada krahhe, vigu ja muud tahtmatut käitumist (rakendused töötavad aeglasemalt, mõni firmware ei käivitu kompileerimiseta). Vaikimisi keelatud. Rakendub järgmisel täiel käivitusel.</string>
     <string name="m_multitask">Ülesannete vahetamine</string>
     <string name="nav_show">Kuva Androidi nuppude riba</string>
+    <string name="vs_folder_share">Kausta jagamine</string>
+    <string name="vs_folder_share_sub">/sdcard/AEmulatorPlus &lt;-&gt; /sdcard/AEmulatorPlus</string>
 </resources>

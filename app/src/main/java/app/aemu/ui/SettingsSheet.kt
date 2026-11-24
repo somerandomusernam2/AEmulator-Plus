@@ -7,6 +7,8 @@ package app.aemu.ui
 
 import app.aemu.core.userMessage
 import app.aemu.R
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.ui.res.stringResource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -115,6 +117,7 @@ fun SettingsSheet(img: GuestImage, onDismiss: () -> Unit, onSave: (VmSettings, S
     val fwLteOnCdma = remember(img.id) { CdmaMode.supported(img.api) && CdmaMode.firmwareLteOnCdma(app.aemu.core.VmPaths(ctx, img.id)) }
     val cdmaOn = CdmaMode.supported(img.api) && (s.cdma ?: fwLteOnCdma)
     val scope = rememberCoroutineScope()
+    val storagePermLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { }
     var resetConfirm by remember { mutableStateOf(false) }
     var resetting by remember { mutableStateOf(false) }
     var resetMessage by remember { mutableStateOf<String?>(null) }
@@ -254,6 +257,13 @@ fun SettingsSheet(img: GuestImage, onDismiss: () -> Unit, onSave: (VmSettings, S
             Toggle(stringResource(R.string.vs_netdebug), stringResource(R.string.vs_netdebug_sub), s.netDebug) { s = s.copy(netDebug = it) }
             Toggle(stringResource(R.string.vs_vibration), stringResource(R.string.vs_vibration_sub), s.vibration) { s = s.copy(vibration = it) }
             Toggle(stringResource(R.string.vs_host_battery), stringResource(R.string.vs_host_battery_sub), s.hostBattery) { s = s.copy(hostBattery = it) }
+            Toggle(stringResource(R.string.vs_folder_share), stringResource(R.string.vs_folder_share_sub), s.folderShare) { on ->
+                if (on && !FileAccess.granted(ctx)) {
+                    if (FileAccess.viaSettings) FileAccess.openSettings(ctx)
+                    else storagePermLauncher.launch(FileAccess.runtimePermissions())
+                }
+                s = s.copy(folderShare = on)
+            }
             if (img.api in 9..25) Toggle(stringResource(R.string.vs_no_sensors), stringResource(R.string.vs_no_sensors_sub), img.sensorsOff(s)) { s = s.copy(disableSensors = it) }
             if (img.api in 9..25 && !img.sensorsOff(s)) Toggle(stringResource(R.string.vs_motion), stringResource(R.string.vs_motion_sub), s.motionSensors) { s = s.copy(motionSensors = it) }
             if (img.api in 9..25 && !img.sensorsOff(s) && s.motionSensors) GyroLockPicker(s.gyroLock) { s = s.copy(gyroLock = it) }

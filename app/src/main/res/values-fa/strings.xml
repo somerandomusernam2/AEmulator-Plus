@@ -540,4 +540,6 @@
     <string name="vs_no_dex2oat_sub">برنامه‌ها و کد سیستم هرگز در سیستم مهمان کامپایل نمی‌شوند: هر اجرای dex2oat بلافاصله شکست می‌خورد. هشدار: این می‌تواند خرابی‌ها، خطاهای تصویری و رفتارهای ناخواستهٔ دیگری ایجاد کند (برنامه‌ها کندتر اجرا می‌شوند، برخی میان‌افزارها بدون کامپایل بالا نمی‌آیند). به‌طور پیش‌فرض خاموش است. در راه‌اندازی کامل بعدی اعمال می‌شود.</string>
     <string name="m_multitask">تعویض وظایف</string>
     <string name="nav_show">نمایش نوار دکمه‌های اندروید</string>
+    <string name="vs_folder_share">اشتراک‌گذاری پوشه</string>
+    <string name="vs_folder_share_sub">/sdcard/AEmulatorPlus &lt;-&gt; /sdcard/AEmulatorPlus</string>
 </resources>

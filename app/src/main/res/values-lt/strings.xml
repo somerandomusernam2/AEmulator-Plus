@@ -552,4 +552,6 @@
     <string name="vs_no_dex2oat_sub">Programos ir sistemos kodas svečio sistemoje niekada nekompiliuojami: kiekvienas dex2oat paleidimas iškart nepavyksta. Įspėjimas: tai gali sukelti gedimus, vizualius trikdžius ir kitą nepageidaujamą elgesį (programos veikia lėčiau, kai kurios firmware nepaleidžiamos be kompiliavimo). Pagal numatymą išjungta. Įsigalioja kitą kartą paleidus iš naujo.</string>
     <string name="m_multitask">Užduočių perjungimas</string>
     <string name="nav_show">Rodyti „Android“ mygtukų juostą</string>
+    <string name="vs_folder_share">Aplanko bendrinimas</string>
+    <string name="vs_folder_share_sub">/sdcard/AEmulatorPlus &lt;-&gt; /sdcard/AEmulatorPlus</string>
 </resources>

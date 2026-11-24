@@ -549,4 +549,6 @@
     <string name="vs_no_dex2oat_sub">Az alkalmazások és a rendszerkód soha nem fordul le a vendégben: minden dex2oat-futtatás azonnal meghiúsul. Figyelmeztetés: összeomlásokat, hibákat és egyéb nem kívánt viselkedést okozhat (az alkalmazások lassabban futnak, néhány firmware fordítás nélkül nem indul). Alapértelmezetten kikapcsolva. A következő teljes indításkor lép érvénybe.</string>
     <string name="m_multitask">Feladatváltás</string>
     <string name="nav_show">Android gombsáv megjelenítése</string>
+    <string name="vs_folder_share">Mappamegosztás</string>
+    <string name="vs_folder_share_sub">/sdcard/AEmulatorPlus &lt;-&gt; /sdcard/AEmulatorPlus</string>
 </resources>

@@ -551,4 +551,6 @@
     <string name="vs_no_dex2oat_sub">Колдонмолор жана системалык код конок системасында эч качан компиляцияланбайт: dex2oat-тын ар бир ишке киргизиши дароо эле ишке ашпай калат. Эскертүү: бул кыйроолорду, катачылыктарды жана башка болжолсоон жүрүм-турумду жаратуусу мүмкүн (колдонмолор жай иштейт, айрым прошивкалар компиляциясыз жүктөлбөйт). Демейки боюнча өчүрүлгөн. Кийинки толук ишке киргизүүдө колдонулат.</string>
     <string name="m_multitask">Тапшырмаларды алмаштыруу</string>
     <string name="nav_show">Android баскычтар панелиң көрсөтүү</string>
+    <string name="vs_folder_share">Папканы бөлүшүү</string>
+    <string name="vs_folder_share_sub">/sdcard/AEmulatorPlus &lt;-&gt; /sdcard/AEmulatorPlus</string>
 </resources>
