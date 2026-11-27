@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="vmf_import_host">Import files from device</string>
+    <string name="vmf_importing">Importing files…</string>
+    <string name="vmf_import_destination">Files are copied to the VM at /data/local/tmp. Stop all running VMs first.</string>
+    <string name="vmf_import_done">Imported %1$d files.</string>
+</resources>

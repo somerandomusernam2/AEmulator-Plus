@@ -1,4 +1,4 @@
-/* AEmulator Plus addition, 2026-11-15: "Browse VM files", a variant of the built-in file browser for a VM's own files. GPL-3.0; see NOTICE.md. */
+/* AEmulator Plus addition, 2026-11-27: import host files into a VM. */
 package app.aemu.ui
 
 import android.text.format.Formatter
@@ -104,6 +104,7 @@ internal fun VmFilesSection(img: GuestImage, busy: Boolean) {
     TextButton(enabled = !busy, modifier = Modifier.fillMaxWidth(), onClick = { open = true }) {
         Text(stringResource(R.string.vmf_browse))
     }
+    VmHostFileImportSection(img, busy)
     if (open) VmFileBrowserDialog(img) { open = false }
 }
 
@@ -157,7 +158,6 @@ private fun VmFileBrowserDialog(img: GuestImage, onDismiss: () -> Unit) {
     var asc by remember { mutableStateOf(true) }
     var hidden by remember { mutableStateOf(true) }
     val selected = remember { mutableStateListOf<VmNode>() }
-    // search: filters the names in the open folder (as in the import browser); it is cleared when another folder is opened
     var searching by remember { mutableStateOf(false) }
     var query by remember { mutableStateOf("") }
 
@@ -172,7 +172,6 @@ private fun VmFileBrowserDialog(img: GuestImage, onDismiss: () -> Unit) {
 
     LaunchedEffect(current) { selected.clear(); searching = false; query = "" }
 
-    /** Runs [block] off the main thread behind a progress dialog; its text (if any) is shown afterwards. */
     fun runOp(label: String, block: () -> String?) {
         working = label
         progress = ""
@@ -212,7 +211,6 @@ private fun VmFileBrowserDialog(img: GuestImage, onDismiss: () -> Unit) {
         }
     }
 
-    // Back: first ends a selection, then one folder up, then out
     Dialog(onDismissRequest = {
         if (selected.isNotEmpty()) selected.clear()
         else if (searching) { searching = false; query = "" }
@@ -232,7 +230,7 @@ private fun VmFileBrowserDialog(img: GuestImage, onDismiss: () -> Unit) {
                             overflow = TextOverflow.StartEllipsis, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                     IconButton(onClick = {
-                        if (searching) query = "" // a tap on the icon while searching closes the field
+                        if (searching) query = ""
                         searching = !searching
                     }) { Icon(Icons.Rounded.Search, stringResource(R.string.fb_search)) }
                 }
@@ -259,9 +257,7 @@ private fun VmFileBrowserDialog(img: GuestImage, onDismiss: () -> Unit) {
                         selected = sortKey == k,
                         onClick = { if (sortKey == k) asc = !asc else { sortKey = k; asc = k.defaultAsc } },
                         label = { Text(stringResource(when (k) { SortKey.NAME -> R.string.fb_sort_name; SortKey.DATE -> R.string.fb_sort_date; SortKey.SIZE -> R.string.fb_sort_size })) },
-                        leadingIcon = if (sortKey == k) ({
-                            Icon(if (asc) Icons.Rounded.ArrowUpward else Icons.Rounded.ArrowDownward, null, Modifier.size(18.dp))
-                        }) else null,
+                        leadingIcon = if (sortKey == k) ({ Icon(if (asc) Icons.Rounded.ArrowUpward else Icons.Rounded.ArrowDownward, null, Modifier.size(18.dp)) }) else null,
                     )
                     FilterChip(selected = hidden, onClick = { hidden = !hidden }, label = { Text(stringResource(R.string.fb_hidden)) })
                 }
@@ -330,17 +326,14 @@ private fun VmFileBrowserDialog(img: GuestImage, onDismiss: () -> Unit) {
                         }
                         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                             TextButton(onClick = { copying = selected.toList(); target = null }) {
-                                Icon(Icons.Rounded.ContentCopy, null, Modifier.size(18.dp)); Spacer(Modifier.size(6.dp))
-                                Text(stringResource(R.string.vmf_copy))
+                                Icon(Icons.Rounded.ContentCopy, null, Modifier.size(18.dp)); Spacer(Modifier.size(6.dp)); Text(stringResource(R.string.vmf_copy))
                             }
                             TextButton(enabled = canChange && selected.size == 1, onClick = { renaming = selected.first() }) {
-                                Icon(Icons.Rounded.DriveFileRenameOutline, null, Modifier.size(18.dp)); Spacer(Modifier.size(6.dp))
-                                Text(stringResource(R.string.rename))
+                                Icon(Icons.Rounded.DriveFileRenameOutline, null, Modifier.size(18.dp)); Spacer(Modifier.size(6.dp)); Text(stringResource(R.string.rename))
                             }
                             TextButton(enabled = canChange, onClick = { deleting = selected.toList() }) {
                                 val c = if (canChange) MaterialTheme.colorScheme.error else Color.Unspecified
-                                Icon(Icons.Rounded.Delete, null, Modifier.size(18.dp), tint = c); Spacer(Modifier.size(6.dp))
-                                Text(stringResource(R.string.delete), color = c)
+                                Icon(Icons.Rounded.Delete, null, Modifier.size(18.dp), tint = c); Spacer(Modifier.size(6.dp)); Text(stringResource(R.string.delete), color = c)
                             }
                         }
                     }
@@ -349,7 +342,6 @@ private fun VmFileBrowserDialog(img: GuestImage, onDismiss: () -> Unit) {
         }
     }
 
-    // ---- file preview ----
     preview?.let { n ->
         val access = VmFileOps.access(vm, n.file)
         val canChange = access == VmFileOps.Access.NORMAL || access == VmFileOps.Access.CORE
@@ -359,128 +351,79 @@ private fun VmFileBrowserDialog(img: GuestImage, onDismiss: () -> Unit) {
             onDelete = { preview = null; deleting = listOf(n) })
     }
 
-    // ---- rename ----
     renaming?.let { n ->
         var name by remember(n.path) { mutableStateOf(n.name) }
         AlertDialog(
-            onDismissRequest = { renaming = null },
-            title = { Text(stringResource(R.string.rename)) },
-            text = {
-                OutlinedTextField(value = name, onValueChange = { name = it }, singleLine = true,
-                    label = { Text(stringResource(R.string.vmf_new_name)) }, modifier = Modifier.fillMaxWidth())
-            },
+            onDismissRequest = { renaming = null }, title = { Text(stringResource(R.string.rename)) },
+            text = { OutlinedTextField(value = name, onValueChange = { name = it }, singleLine = true,
+                label = { Text(stringResource(R.string.vmf_new_name)) }, modifier = Modifier.fillMaxWidth()) },
             dismissButton = { TextButton(onClick = { renaming = null }) { Text(stringResource(R.string.cancel)) } },
-            confirmButton = {
-                TextButton(enabled = name.isNotBlank() && name != n.name, onClick = {
-                    renaming = null
-                    runOp(ctx.getString(R.string.vmf_working_rename)) { VmFileOps.rename(ctx, img.id, n.file, name); null }
-                }) { Text(stringResource(R.string.rename)) }
-            },
+            confirmButton = { TextButton(enabled = name.isNotBlank() && name != n.name, onClick = {
+                renaming = null; runOp(ctx.getString(R.string.vmf_working_rename)) { VmFileOps.rename(ctx, img.id, n.file, name); null }
+            }) { Text(stringResource(R.string.rename)) } },
         )
     }
 
-    // ---- delete ----
     deleting?.let { list ->
         val core = list.any { VmFileOps.access(vm, it.file) == VmFileOps.Access.CORE }
         AlertDialog(
-            onDismissRequest = { deleting = null },
-            title = { Text(stringResource(R.string.delete)) },
-            text = {
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text(if (list.size == 1) stringResource(R.string.vmf_delete_one, list[0].name) else stringResource(R.string.vmf_delete_many, list.size))
-                    if (core) Text(stringResource(R.string.vmf_delete_core), color = MaterialTheme.colorScheme.error)
-                }
-            },
+            onDismissRequest = { deleting = null }, title = { Text(stringResource(R.string.delete)) },
+            text = { Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text(if (list.size == 1) stringResource(R.string.vmf_delete_one, list[0].name) else stringResource(R.string.vmf_delete_many, list.size))
+                if (core) Text(stringResource(R.string.vmf_delete_core), color = MaterialTheme.colorScheme.error)
+            } },
             dismissButton = { TextButton(onClick = { deleting = null }) { Text(stringResource(R.string.cancel)) } },
-            confirmButton = {
-                TextButton(onClick = {
-                    deleting = null
-                    val files = list.map { it.file }
-                    runOp(ctx.getString(R.string.vmf_working_delete)) {
-                        ctx.getString(R.string.vmf_result_deleted, VmFileOps.delete(ctx, img.id, files) { progress = it })
-                    }
-                }) { Text(stringResource(R.string.delete), color = MaterialTheme.colorScheme.error) }
-            },
+            confirmButton = { TextButton(onClick = {
+                deleting = null
+                val files = list.map { it.file }
+                runOp(ctx.getString(R.string.vmf_working_delete)) { ctx.getString(R.string.vmf_result_deleted, VmFileOps.delete(ctx, img.id, files) { progress = it }) }
+            }) { Text(stringResource(R.string.delete), color = MaterialTheme.colorScheme.error) } },
         )
     }
 
-    // ---- copy: where to? ----
     copying?.let { sources ->
         if (target == null) AlertDialog(
-            onDismissRequest = { copying = null },
-            title = { Text(stringResource(R.string.vmf_copy_to)) },
-            text = {
-                Column {
-                    TextButton(modifier = Modifier.fillMaxWidth(), onClick = { target = Target.INSIDE }) { Text(stringResource(R.string.vmf_copy_to_vm)) }
-                    TextButton(modifier = Modifier.fillMaxWidth(), onClick = {
-                        if (AppPrefs.builtinBrowser(ctx)) target = Target.OUTSIDE else tree.launch(null)
-                    }) { Text(stringResource(R.string.vmf_copy_to_device)) }
+            onDismissRequest = { copying = null }, title = { Text(stringResource(R.string.vmf_copy_to)) },
+            text = { Column {
+                TextButton(modifier = Modifier.fillMaxWidth(), onClick = { target = Target.INSIDE }) { Text(stringResource(R.string.vmf_copy_to_vm)) }
+                TextButton(modifier = Modifier.fillMaxWidth(), onClick = { if (AppPrefs.builtinBrowser(ctx)) target = Target.OUTSIDE else tree.launch(null) }) {
+                    Text(stringResource(R.string.vmf_copy_to_device))
                 }
-            },
-            confirmButton = {},
-            dismissButton = { TextButton(onClick = { copying = null }) { Text(stringResource(R.string.cancel)) } },
+            } }, confirmButton = {}, dismissButton = { TextButton(onClick = { copying = null }) { Text(stringResource(R.string.cancel)) } },
         )
         if (target == Target.INSIDE) FolderChooserDialog(
             title = stringResource(R.string.vmf_copy_to_vm), confirm = stringResource(R.string.vmf_copy_here),
             root = vm, start = if (VmFileOps.dirInside(vm, current)) current else vm,
-            accept = { VmFileOps.dirInside(vm, it) },
-            makeDir = { parent, name -> VmFileOps.makeDir(ctx, img.id, parent, name) },
-            onDismiss = { target = null },
-            onChoose = { dest ->
+            accept = { VmFileOps.dirInside(vm, it) }, makeDir = { parent, name -> VmFileOps.makeDir(ctx, img.id, parent, name) },
+            onDismiss = { target = null }, onChoose = { dest ->
                 val files = sources.map { it.file }
                 target = null; copying = null
                 runOp(ctx.getString(R.string.vmf_working_copy)) { summary(VmFileOps.copyInside(ctx, img.id, files, dest) { progress = it }) }
-            },
-            onSystemPicker = null,
+            }, onSystemPicker = null,
         )
         if (target == Target.OUTSIDE) FolderChooserDialog(
             title = stringResource(R.string.vmf_copy_to_device), confirm = stringResource(R.string.vmf_copy_here),
-            root = null, start = null,
-            accept = { true },
-            makeDir = { parent, name -> VmFileOps.makeOutsideDir(parent, name) },
-            onDismiss = { target = null },
-            onChoose = { dest ->
+            root = null, start = null, accept = { true }, makeDir = { parent, name -> VmFileOps.makeOutsideDir(parent, name) },
+            onDismiss = { target = null }, onChoose = { dest ->
                 val files = sources.map { it.file }
                 target = null; copying = null
                 runOp(ctx.getString(R.string.vmf_working_copy)) { summary(VmFileOps.copyOutToDir(ctx, files, dest) { progress = it }) }
-            },
-            onSystemPicker = { target = null; tree.launch(null) },
+            }, onSystemPicker = { target = null; tree.launch(null) },
         )
     }
 
-    // ---- progress and results ----
-    working?.let { label ->
-        AlertDialog(
-            onDismissRequest = {},
-            properties = DialogProperties(dismissOnBackPress = false, dismissOnClickOutside = false),
-            title = { Text(label) },
-            text = {
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                    CircularProgressIndicator(Modifier.size(32.dp))
-                    Text(progress, maxLines = 2, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.bodySmall)
-                }
-            },
-            confirmButton = {},
-        )
-    }
-    result?.let { text ->
-        AlertDialog(
-            onDismissRequest = { result = null },
-            text = { Text(text) },
-            confirmButton = { TextButton(onClick = { result = null }) { Text(stringResource(R.string.ok)) } },
-        )
-    }
+    working?.let { label -> AlertDialog(
+        onDismissRequest = {}, properties = DialogProperties(dismissOnBackPress = false, dismissOnClickOutside = false),
+        title = { Text(label) }, text = { Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+            CircularProgressIndicator(Modifier.size(32.dp)); Text(progress, maxLines = 2, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.bodySmall)
+        } }, confirmButton = {},
+    ) }
+    result?.let { text -> AlertDialog(onDismissRequest = { result = null }, text = { Text(text) },
+        confirmButton = { TextButton(onClick = { result = null }) { Text(stringResource(R.string.ok)) } }) }
 }
 
-// ---------------------------------------------------------------------------------------------------------------------
-// Text preview
-// ---------------------------------------------------------------------------------------------------------------------
-
 @Composable
-private fun PreviewDialog(
-    node: VmNode, canChange: Boolean, onDismiss: () -> Unit,
-    onCopy: () -> Unit, onRename: () -> Unit, onDelete: () -> Unit,
-) {
+private fun PreviewDialog(node: VmNode, canChange: Boolean, onDismiss: () -> Unit, onCopy: () -> Unit, onRename: () -> Unit, onDelete: () -> Unit) {
     val ctx = LocalContext.current
     val data by produceState<Result<TextPreview>?>(null, node.path) {
         value = withContext(Dispatchers.IO) { runCatching { VmFileOps.readPreview(node.file) } }
@@ -492,8 +435,7 @@ private fun PreviewDialog(
                     IconButton(onClick = onDismiss) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, stringResource(R.string.back)) }
                     Column(Modifier.weight(1f)) {
                         Text(node.name, style = MaterialTheme.typography.titleMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                        Text(Formatter.formatFileSize(ctx, node.size), style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text(Formatter.formatFileSize(ctx, node.size), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                     IconButton(onClick = onCopy) { Icon(Icons.Rounded.ContentCopy, stringResource(R.string.vmf_copy)) }
                     if (canChange) {
@@ -508,15 +450,13 @@ private fun PreviewDialog(
                     d.isFailure -> Centered { Message(stringResource(R.string.vmf_preview_failed)) }
                     else -> {
                         val p = d.getOrThrow()
-                        if (p.truncated) Text(
-                            stringResource(R.string.vmf_preview_truncated, Formatter.formatFileSize(ctx, VmFileOps.PREVIEW_MAX.toLong()), Formatter.formatFileSize(ctx, p.total)),
+                        if (p.truncated) Text(stringResource(R.string.vmf_preview_truncated,
+                            Formatter.formatFileSize(ctx, VmFileOps.PREVIEW_MAX.toLong()), Formatter.formatFileSize(ctx, p.total)),
                             style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
                             modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp))
                         SelectionContainer(Modifier.weight(1f).fillMaxWidth()) {
                             LazyColumn(Modifier.fillMaxSize(), contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 12.dp, vertical = 8.dp)) {
-                                items(p.lines.size) { i ->
-                                    Text(p.lines[i].ifEmpty { " " }, fontFamily = FontFamily.Monospace, fontSize = 12.sp, lineHeight = 16.sp)
-                                }
+                                items(p.lines.size) { i -> Text(p.lines[i].ifEmpty { " " }, fontFamily = FontFamily.Monospace, fontSize = 12.sp, lineHeight = 16.sp) }
                             }
                         }
                     }
@@ -526,14 +466,7 @@ private fun PreviewDialog(
     }
 }
 
-// ---------------------------------------------------------------------------------------------------------------------
-// Folder chooser (copy destination)
-// ---------------------------------------------------------------------------------------------------------------------
-
-/**
- * Picks a folder. With [root] it stays inside that folder (the VM's directory); without, it browses the device's storages
- * like the import browser does, including the request for file access. [accept] filters which folders are offered.
- */
+/** Folder chooser used for the copy destination. */
 @Composable
 private fun FolderChooserDialog(
     title: String, confirm: String, root: File?, start: File?, accept: (File) -> Boolean,
@@ -545,10 +478,8 @@ private fun FolderChooserDialog(
     val life = LocalLifecycleOwner.current
     if (root == null) DisposableEffect(life) {
         val obs = LifecycleEventObserver { _, e -> if (e == Lifecycle.Event.ON_RESUME) granted = FileAccess.granted(ctx) }
-        life.lifecycle.addObserver(obs)
-        onDispose { life.lifecycle.removeObserver(obs) }
+        life.lifecycle.addObserver(obs); onDispose { life.lifecycle.removeObserver(obs) }
     }
-
     var places by remember { mutableStateOf<List<Place>>(emptyList()) }
     var placesLoaded by remember { mutableStateOf(root != null) }
     var current by remember { mutableStateOf(start) }
@@ -556,14 +487,9 @@ private fun FolderChooserDialog(
     var refresh by remember { mutableStateOf(0) }
     LaunchedEffect(granted) {
         if (root != null || !granted) return@LaunchedEffect
-        places = withContext(Dispatchers.IO) { browserPlaces(ctx) }
-        placesLoaded = true
-        if (!started) {
-            started = true
-            current = AppPrefs.browserDir(ctx)?.let(::File)?.takeIf { it.isDirectory && it.canRead() }
-        }
+        places = withContext(Dispatchers.IO) { browserPlaces(ctx) }; placesLoaded = true
+        if (!started) { started = true; current = AppPrefs.browserDir(ctx)?.let(::File)?.takeIf { it.isDirectory && it.canRead() } }
     }
-
     fun up(dir: File): File? {
         if (root != null) return if (dir == root) null else dir.parentFile
         if (places.any { it.dir == dir && it.kind != PlaceKind.DOWNLOADS && it.kind != PlaceKind.DOCUMENTS && it.kind != PlaceKind.FIRMWARE }) return null
@@ -571,18 +497,10 @@ private fun FolderChooserDialog(
         if (parent.path == "/" || parent.path == "/storage" || parent.path == "/storage/emulated") return null
         return if (parent.canRead()) parent else null
     }
-    fun back() {
-        val d = current
-        when {
-            d == null || (root != null && d == root) -> onDismiss()
-            else -> current = up(d)
-        }
-    }
-
+    fun back() { val d = current; if (d == null || (root != null && d == root)) onDismiss() else current = up(d) }
     var newFolder by remember { mutableStateOf(false) }
     var newName by remember { mutableStateOf("") }
     var error by remember { mutableStateOf<String?>(null) }
-
     Dialog(onDismissRequest = { back() }, properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)) {
         Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.surface) {
             Column(Modifier.fillMaxSize().safeDrawingPadding()) {
@@ -609,20 +527,13 @@ private fun FolderChooserDialog(
                                 VmListing.Loading -> Centered { CircularProgressIndicator() }
                                 VmListing.Unreadable -> Centered { Message(stringResource(R.string.vmf_unreadable)) }
                                 is VmListing.Ok -> {
-                                    val folders = remember(l) {
-                                        l.nodes.filter { it.isDir && accept(it.file) }.sortedWith(nodeComparator(SortKey.NAME, true))
-                                    }
+                                    val folders = remember(l) { l.nodes.filter { it.isDir && accept(it.file) }.sortedWith(nodeComparator(SortKey.NAME, true)) }
                                     if (folders.isEmpty()) Centered { Message(stringResource(R.string.vmf_no_folders)) }
-                                    else LazyColumn(Modifier.fillMaxSize()) {
-                                        items(folders, key = { it.path }) { n ->
-                                            ListItem(
-                                                modifier = Modifier.clickable { current = n.file },
-                                                leadingContent = { Icon(Icons.Rounded.Folder, null) },
-                                                headlineContent = { Text(n.name, maxLines = 2, overflow = TextOverflow.Ellipsis) },
-                                                colors = ListItemDefaults.colors(containerColor = Color.Transparent),
-                                            )
-                                        }
-                                    }
+                                    else LazyColumn(Modifier.fillMaxSize()) { items(folders, key = { it.path }) { n ->
+                                        ListItem(modifier = Modifier.clickable { current = n.file }, leadingContent = { Icon(Icons.Rounded.Folder, null) },
+                                            headlineContent = { Text(n.name, maxLines = 2, overflow = TextOverflow.Ellipsis) },
+                                            colors = ListItemDefaults.colors(containerColor = Color.Transparent))
+                                    } }
                                 }
                             }
                         }
@@ -632,39 +543,27 @@ private fun FolderChooserDialog(
                     HorizontalDivider()
                     Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
                         TextButton(onClick = { newName = ""; newFolder = true }) {
-                            Icon(Icons.Rounded.CreateNewFolder, null, Modifier.size(18.dp)); Spacer(Modifier.size(6.dp))
-                            Text(stringResource(R.string.vmf_new_folder))
+                            Icon(Icons.Rounded.CreateNewFolder, null, Modifier.size(18.dp)); Spacer(Modifier.size(6.dp)); Text(stringResource(R.string.vmf_new_folder))
                         }
-                        Spacer(Modifier.weight(1f))
-                        Button(enabled = accept(dir), onClick = { onChoose(dir) }) { Text(confirm) }
+                        Spacer(Modifier.weight(1f)); Button(enabled = accept(dir), onClick = { onChoose(dir) }) { Text(confirm) }
                     }
                 }
             }
         }
     }
-
     if (newFolder) AlertDialog(
-        onDismissRequest = { newFolder = false },
-        title = { Text(stringResource(R.string.vmf_new_folder)) },
-        text = {
-            OutlinedTextField(value = newName, onValueChange = { newName = it }, singleLine = true,
-                label = { Text(stringResource(R.string.vmf_folder_name)) }, modifier = Modifier.fillMaxWidth())
-        },
+        onDismissRequest = { newFolder = false }, title = { Text(stringResource(R.string.vmf_new_folder)) },
+        text = { OutlinedTextField(value = newName, onValueChange = { newName = it }, singleLine = true,
+            label = { Text(stringResource(R.string.vmf_folder_name)) }, modifier = Modifier.fillMaxWidth()) },
         dismissButton = { TextButton(onClick = { newFolder = false }) { Text(stringResource(R.string.cancel)) } },
-        confirmButton = {
-            TextButton(enabled = newName.isNotBlank(), onClick = {
-                newFolder = false
-                val parent = current ?: return@TextButton
-                val n = newName
-                scope.launch {
-                    val r = withContext(Dispatchers.IO) { runCatching { makeDir(parent, n) } }
-                    r.onSuccess { refresh++ }.onFailure { error = ctx.getString(R.string.vmf_failed, it.userMessage(ctx)) }
-                }
-            }) { Text(stringResource(R.string.vmf_create)) }
-        },
+        confirmButton = { TextButton(enabled = newName.isNotBlank(), onClick = {
+            newFolder = false; val parent = current ?: return@TextButton; val n = newName
+            scope.launch {
+                val r = withContext(Dispatchers.IO) { runCatching { makeDir(parent, n) } }
+                r.onSuccess { refresh++ }.onFailure { error = ctx.getString(R.string.vmf_failed, it.userMessage(ctx)) }
+            }
+        }) { Text(stringResource(R.string.vmf_create)) } },
     )
-    error?.let { text ->
-        AlertDialog(onDismissRequest = { error = null }, text = { Text(text) },
-            confirmButton = { TextButton(onClick = { error = null }) { Text(stringResource(R.string.ok)) } })
-    }
+    error?.let { text -> AlertDialog(onDismissRequest = { error = null }, text = { Text(text) },
+        confirmButton = { TextButton(onClick = { error = null }) { Text(stringResource(R.string.ok)) } }) }
 }
