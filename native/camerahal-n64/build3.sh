@@ -2,12 +2,19 @@
 # Camera HAL 3 of the native arm64 engine (see camera_hal3.c): sh build3.sh <kernel tag> [vendor tag table]
 # builds it into that kernel's guest files as system/lib64/hw and vendor/lib64/hw camera.default.so.
 TAG=${1:?usage: sh build3.sh <kernel tag> [camera_tags_NN.h]}
+VT=${2:+-DCAM_VENDOR_TAGS="\"$2\""}
+if [ "$TAG" = 37 ]; then
+    if [ -n "$2" ]; then
+        echo "build3.sh: kernel 37 builds without a vendor tag table; CameraX on Android 17 GSI frameworks enumerates the HAL vendor keys and then fails their tag lookup (Aperture: Could not find tag for key 'xiaomi.hdr.hdrChecker'), so $2 is ignored; pass a different kernel tag or edit this check to override"
+    fi
+    VT=""
+fi
 NDK=${NDK:-$ANDROID_NDK_HOME}
 BIN="$NDK/toolchains/llvm/prebuilt/windows-x86_64/bin"
 [ -x "$BIN/clang" ] || BIN="$NDK/toolchains/llvm/prebuilt/linux-x86_64/bin"
 D="../../app/src/main/assets/engines/n64-$TAG"
 OUT="$D/system#lib64#hw#camera.default.so"
-"$BIN/clang" --target=aarch64-linux-android26 ${2:+-DCAM_VENDOR_TAGS="\"$2\""} -Os -fPIC -shared \
+"$BIN/clang" --target=aarch64-linux-android26 $VT -Os -fPIC -shared \
   -nostdlib -ffreestanding -fno-builtin -fvisibility=hidden -fno-stack-protector \
   -Wl,-z,norelro -Wl,--build-id=none -Wl,--no-undefined -Wl,-soname,camera.default.so \
   -o "$OUT" camera_hal3.c -ldl -lc || exit 1
