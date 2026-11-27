@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="m_install_app">安装手机上的应用…</string>
+    <string name="m_install_app_title">选择手机上的应用</string>
+    <string name="m_install_app_sub">把手机上已安装应用的 APK 复制到虚拟机并安装。</string>
+    <string name="m_install_app_search">搜索应用</string>
+    <string name="m_install_app_empty">没有找到应用</string>
+    <string name="m_install_app_start">正在安装 %1$s…</string>
+    <string name="m_install_app_done">已安装 %1$s</string>
+    <string name="m_install_app_no_apk">无法读取该应用的 APK</string>
+</resources>

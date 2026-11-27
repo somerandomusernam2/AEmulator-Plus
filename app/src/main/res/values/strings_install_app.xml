@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- AEmulator Plus: install an APK of an app already installed on the phone (InstallAppDialog.kt). -->
+<resources>
+    <string name="m_install_app">Install app from phone…</string>
+    <string name="m_install_app_title">Choose an app from this phone</string>
+    <string name="m_install_app_sub">Copy the APK of an app already installed on this phone into the system and install it.</string>
+    <string name="m_install_app_search">Search apps</string>
+    <string name="m_install_app_empty">No apps found</string>
+    <string name="m_install_app_start">Installing %1$s…</string>
+    <string name="m_install_app_done">%1$s installed</string>
+    <string name="m_install_app_no_apk">The APK of this app cannot be read</string>
+</resources>

@@ -45,6 +45,7 @@ import androidx.compose.material.icons.rounded.BatteryStd
 import androidx.compose.material.icons.rounded.Cast
 import androidx.compose.material.icons.rounded.Videocam
 import androidx.compose.material.icons.rounded.InstallMobile
+import androidx.compose.material.icons.rounded.PhoneAndroid
 import androidx.compose.material.icons.rounded.Thermostat
 import androidx.compose.material.icons.rounded.Tune
 import androidx.compose.material.icons.rounded.ContentPaste
@@ -851,7 +852,7 @@ open class VmActivity : ComponentActivity() {
         }
     }
 
-    private enum class Dlg { NONE, SMS, CALL, WEA, BATTERY, ADB, SHELL, ACTIVITIES, DEVICE, THERMAL, NETDEBUG }
+    private enum class Dlg { NONE, SMS, CALL, WEA, BATTERY, ADB, SHELL, ACTIVITIES, DEVICE, THERMAL, NETDEBUG, INSTALL_APP }
 
     // position of the floating menu button; only lasts until the emulator is started again (see resetMenuOffset)
     private var menuOffset by mutableStateOf(Offset.Zero)
@@ -1164,6 +1165,40 @@ open class VmActivity : ComponentActivity() {
             val out = runCatching { vm.guestShell("pm install -r " + vm.img.sdcardPath.trimEnd('/') + "/aemu-install.apk", 300_000) }.getOrElse { it.toString() }
             runCatching { app.aemu.core.TreeFixer(this@VmActivity, vm.paths, vm.img, vm::log).seedOwners() }
             toast(out.trim().lines().lastOrNull { it.isNotBlank() }?.take(200) ?: getString(R.string.m_failed))
+        }
+    }
+
+    // An app from the phone's own list: its base APK (and config splits, where the guest supports them) is copied into
+    // the shared card, then installed by the guest's package manager — the same hand-over as [pickApk]
+    private fun installHostApp(hostApp: HostApp) {
+        val dir = app.aemu.core.Sdcard.hostDir(vm.paths) ?: run { toast(getString(R.string.m_failed)); return }
+        toast(getString(R.string.m_install_app_start, hostApp.label))
+        thread {
+            val files = hostAppApkFiles(this, hostApp.packageName, withSplits = vm.img.api >= 21)
+            if (files.isEmpty()) { toast(getString(R.string.m_install_app_no_apk)); return@thread }
+            val staged = ArrayList<File>()
+            val copied = runCatching {
+                files.forEachIndexed { i, src ->
+                    val dst = File(dir, if (i == 0) "aemu-install.apk" else "aemu-install-$i.apk")
+                    src.copyTo(dst, overwrite = true)
+                    staged += dst
+                }
+            }.isSuccess
+            if (!copied) { staged.forEach { it.delete() }; toast(getString(R.string.m_install_app_no_apk)); return@thread }
+            val card = vm.img.sdcardPath.trimEnd('/') + "/"
+            fun install(vararg apks: File) = runCatching {
+                val command = (if (apks.size > 1) "pm install-multiple" else "pm install") + " -r " +
+                    apks.joinToString(" ") { q(card + it.name) }
+                vm.guestShell(command, 600_000)
+            }.getOrElse { it.toString() }
+            var out = install(*staged.toTypedArray())
+            // A firmware with no split-APK support rejects the whole session; the base APK alone still installs.
+            if (staged.size > 1 && !out.contains("Success")) out = install(staged[0])
+            staged.drop(1).forEach { it.delete() }
+            runCatching { app.aemu.core.TreeFixer(this@VmActivity, vm.paths, vm.img, vm::log).seedOwners() }
+            val result = if (out.contains("Success")) getString(R.string.m_install_app_done, hostApp.label)
+                else out.trim().lines().lastOrNull { it.isNotBlank() }?.take(200) ?: getString(R.string.m_failed)
+            toast(result)
         }
     }
 
@@ -1639,6 +1674,8 @@ open class VmActivity : ComponentActivity() {
                         enabled = running, onClick = { menu = false; dialog = Dlg.BATTERY })   // all APIs: <17 uses the sysfs nodes + a uevent (2.3+), before 2.3 only at the next start
                     DropdownMenuItem(text = { Text(stringResource(R.string.m_install_apk)) }, leadingIcon = { Icon(Icons.Rounded.InstallMobile, null) },
                         enabled = running, onClick = { menu = false; pickApk.launch(arrayOf("application/vnd.android.package-archive", "application/octet-stream", "*/*")) })
+                    DropdownMenuItem(text = { Text(stringResource(R.string.m_install_app)) }, leadingIcon = { Icon(Icons.Rounded.PhoneAndroid, null) },
+                        enabled = running, onClick = { menu = false; dialog = Dlg.INSTALL_APP })
                     DropdownMenuItem(text = { Text(stringResource(R.string.m_device)) }, leadingIcon = { Icon(Icons.Rounded.Tune, null) },
                         enabled = running && vm.img.api >= 17, onClick = { menu = false; dialog = Dlg.DEVICE })
                     DropdownMenuItem(text = { Text(stringResource(R.string.thermal_menu)) }, leadingIcon = { Icon(Icons.Rounded.Thermostat, null) },
@@ -1699,6 +1736,10 @@ open class VmActivity : ComponentActivity() {
                 Dlg.DEVICE -> DeviceDialog { dialog = Dlg.NONE }
                 Dlg.THERMAL -> ThermalDialog(vm.img) { dialog = Dlg.NONE }
                 Dlg.NETDEBUG -> NetDebugDialog(vm.netDebug, vm.img.id) { dialog = Dlg.NONE }
+                Dlg.INSTALL_APP -> InstalledAppsDialog({ dialog = Dlg.NONE }) { hostApp ->
+                    dialog = Dlg.NONE
+                    installHostApp(hostApp)
+                }
                 Dlg.NONE -> {}
             }
 
