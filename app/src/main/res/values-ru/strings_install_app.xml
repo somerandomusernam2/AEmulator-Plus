@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="m_install_app">Установить приложение с телефона…</string>
+    <string name="m_install_app_title">Выбор приложения</string>
+    <string name="m_install_app_sub">Скопировать в систему APK приложения, уже установленного на телефоне, и установить его.</string>
+    <string name="m_install_app_search">Поиск приложений</string>
+    <string name="m_install_app_empty">Приложения не найдены</string>
+    <string name="m_install_app_start">Установка %1$s…</string>
+    <string name="m_install_app_done">%1$s установлено</string>
+    <string name="m_install_app_no_apk">Не удаётся прочитать APK этого приложения</string>
+</resources>
